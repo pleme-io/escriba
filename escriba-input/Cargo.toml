@@ -1,0 +1,22 @@
+[package]
+name         = "escriba-input"
+description  = "Input event translation for escriba — madori AppEvent → escriba Key + buttons + modifiers."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+escriba-core    = { workspace = true }
+escriba-keymap  = { workspace = true }
+madori          = { workspace = true }
+serde           = { workspace = true }
+schemars        = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

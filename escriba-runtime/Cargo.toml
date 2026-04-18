@@ -1,0 +1,27 @@
+[package]
+name         = "escriba-runtime"
+description  = "Editor state machine — wraps BufferSet + ModalState + Keymap + Layout + CommandRegistry, advances on each input event."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+escriba-core    = { workspace = true }
+escriba-buffer  = { workspace = true }
+escriba-mode    = { workspace = true }
+escriba-keymap  = { workspace = true }
+escriba-command = { workspace = true }
+escriba-input   = { workspace = true }
+escriba-ui      = { workspace = true }
+madori          = { workspace = true }
+serde           = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile          = { workspace = true }
+
+[lints]
+workspace = true

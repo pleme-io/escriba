@@ -1,0 +1,25 @@
+[package]
+name         = "escriba-ts"
+description  = "Tree-sitter multi-grammar host for escriba — per-buffer parser + highlight-query capture + semantic token emission."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+escriba-buffer = { workspace = true }
+tree-sitter           = "0.22"
+tree-sitter-highlight = "0.22"
+tree-sitter-rust      = "0.21"
+serde                 = { workspace = true }
+schemars              = { workspace = true }
+thiserror             = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

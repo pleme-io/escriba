@@ -13,6 +13,11 @@ members = [
     "escriba-render",
     "escriba-plugin",
     "escriba-vm",
+    "escriba-input",
+    "escriba-runtime",
+    "escriba-ts",
+    "escriba-lsp-client",
+    "escriba-mcp",
     "escriba",
 ]
 
@@ -38,6 +43,11 @@ escriba-ui      = { path = "escriba-ui",      version = "0.1.0" }
 escriba-render  = { path = "escriba-render",  version = "0.1.0" }
 escriba-plugin  = { path = "escriba-plugin",  version = "0.1.0" }
 escriba-vm      = { path = "escriba-vm",      version = "0.1.0" }
+escriba-input   = { path = "escriba-input",   version = "0.1.0" }
+escriba-runtime = { path = "escriba-runtime", version = "0.1.0" }
+escriba-ts      = { path = "escriba-ts",      version = "0.1.0" }
+escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.0" }
+escriba-mcp     = { path = "escriba-mcp",     version = "0.1.0" }
 
 # Third-party.
 serde            = { version = "1", features = ["derive"] }

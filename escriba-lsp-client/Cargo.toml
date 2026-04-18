@@ -1,0 +1,24 @@
+[package]
+name         = "escriba-lsp-client"
+description  = "LSP client for escriba — spawns child LSP servers via stdio, forwards didOpen/didChange, collects diagnostics."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+thiserror      = { workspace = true }
+tokio          = { workspace = true }
+tracing        = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile          = { workspace = true }
+
+[lints]
+workspace = true
