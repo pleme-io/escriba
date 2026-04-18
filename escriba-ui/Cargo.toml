@@ -1,0 +1,22 @@
+[package]
+name = "escriba-ui"
+description = "Layout / Window / Viewport / TabBar / StatusLine / MiniBuffer for escriba — pure state, delegating rendering to escriba-render."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+escriba-buffer = { workspace = true }
+escriba-mode   = { workspace = true }
+serde          = { workspace = true }
+schemars       = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "escriba-vm"
+description = "Tatara-lisp terreiro VM host for plugin evaluation. Phase 1 skeleton — arena, sandbox config, evaluator trait; full eval lives in phase 2."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+escriba-plugin = { workspace = true }
+tatara-lisp    = { workspace = true }
+serde          = { workspace = true }
+thiserror      = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

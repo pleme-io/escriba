@@ -1,0 +1,25 @@
+[package]
+name = "escriba-api"
+description = "OpenAPI 3.1 spec generator — walks every TataraDomain + schemars-derived escriba type and emits a portable spec. Every public API by construction."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core    = { workspace = true }
+escriba-config  = { workspace = true }
+escriba-command = { workspace = true }
+escriba-mode    = { workspace = true }
+serde           = { workspace = true }
+serde_json      = { workspace = true }
+serde_yaml      = { workspace = true }
+schemars        = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

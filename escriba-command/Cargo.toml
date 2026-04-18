@@ -1,0 +1,24 @@
+[package]
+name = "escriba-command"
+description = "Command registry + palette for escriba — every user-reachable action is a command with a name, description, handler, and OpenAPI-specable signature."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+escriba-buffer = { workspace = true }
+escriba-mode   = { workspace = true }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+schemars       = { workspace = true }
+thiserror      = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "escriba-render"
+description = "GPU renderer for escriba — garasu-backed text drawing, cursor/selection/highlight painting, Nord-themed."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+escriba-buffer = { workspace = true }
+escriba-ui     = { workspace = true }
+irodori        = { workspace = true }
+serde          = { workspace = true }
+
+[lints]
+workspace = true

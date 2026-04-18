@@ -1,0 +1,35 @@
+[package]
+name = "escriba"
+description = "The escriba editor binary. Composes every escriba-* crate via madori's app loop + garasu's GPU stack."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "escriba"
+path = "src/main.rs"
+
+[dependencies]
+escriba-core    = { workspace = true }
+escriba-buffer  = { workspace = true }
+escriba-config  = { workspace = true }
+escriba-mode    = { workspace = true }
+escriba-keymap  = { workspace = true }
+escriba-command = { workspace = true }
+escriba-ui      = { workspace = true }
+escriba-render  = { workspace = true }
+escriba-plugin  = { workspace = true }
+escriba-vm      = { workspace = true }
+escriba-spec    = { workspace = true }
+madori          = { workspace = true }
+garasu          = { workspace = true }
+clap            = { workspace = true }
+anyhow          = { workspace = true }
+tracing         = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

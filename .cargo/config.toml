@@ -1,0 +1,4 @@
+# Use the system git CLI for fetches — SSH-gated pleme-io mirrors, same
+# policy as caixa.
+[net]
+git-fetch-with-cli = true

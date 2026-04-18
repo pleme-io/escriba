@@ -1,0 +1,22 @@
+[package]
+name = "escriba-core"
+description = "Foundational types for the escriba editor — Position, Range, Cursor, Selection, Mode, Motion, Operator, Edit, Action. No I/O, no rendering, pure types."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde    = { workspace = true }
+thiserror = { workspace = true }
+schemars = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+proptest          = { workspace = true }
+serde_json        = { workspace = true }
+
+[lints]
+workspace = true

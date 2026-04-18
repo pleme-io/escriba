@@ -1,0 +1,24 @@
+[package]
+name = "escriba-config"
+description = "Tatara-lisp editor config — defescriba / defkeymap / defcommand / defplugin / defmajor-mode / defminor-mode as TataraDomain types. Emacs-parity extensibility."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core       = { workspace = true }
+tatara-lisp        = { workspace = true }
+tatara-lisp-derive = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+schemars           = { workspace = true }
+thiserror          = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true
