@@ -18,6 +18,7 @@ members = [
     "escriba-ts",
     "escriba-lsp-client",
     "escriba-mcp",
+    "escriba-tui",
     "escriba",
 ]
 
@@ -48,6 +49,7 @@ escriba-runtime = { path = "escriba-runtime", version = "0.1.0" }
 escriba-ts      = { path = "escriba-ts",      version = "0.1.0" }
 escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.0" }
 escriba-mcp     = { path = "escriba-mcp",     version = "0.1.0" }
+escriba-tui     = { path = "escriba-tui",     version = "0.1.0" }
 
 # Third-party.
 serde            = { version = "1", features = ["derive"] }

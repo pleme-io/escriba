@@ -1,0 +1,28 @@
+[package]
+name         = "escriba-tui"
+description  = "Ratatui terminal renderer for escriba — interactive TUI editor that works over SSH, inside ghostty, anywhere with a TTY. Third backend alongside gpu (garasu) and text (headless)."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+escriba-core    = { workspace = true }
+escriba-buffer  = { workspace = true }
+escriba-mode    = { workspace = true }
+escriba-runtime = { workspace = true }
+escriba-ui      = { workspace = true }
+escriba-keymap  = { workspace = true }
+madori          = { workspace = true }
+ratatui         = "0.29"
+crossterm       = "0.28"
+anyhow          = { workspace = true }
+tracing         = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

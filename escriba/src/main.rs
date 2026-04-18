@@ -21,6 +21,8 @@ use madori::App;
 enum RenderMode {
     /// Open a GPU window via madori + garasu.
     Gpu,
+    /// Interactive TUI via ratatui + crossterm — works over SSH, inside ghostty.
+    Tui,
     /// Render once to stdout as ANSI-colored text and exit.
     Text,
 }
@@ -126,7 +128,13 @@ fn main() -> Result<()> {
     match args.render {
         RenderMode::Text => run_text(buffers, active_id, args.height),
         RenderMode::Gpu => run_gpu(buffers, active_id, &args),
+        RenderMode::Tui => run_tui(buffers, active_id),
     }
+}
+
+fn run_tui(buffers: BufferSet, active_id: escriba_core::BufferId) -> Result<()> {
+    let state = EditorState::new_with_buffer(buffers, active_id);
+    escriba_tui::run(state).context("tui loop exited")
 }
 
 fn run_text(buffers: BufferSet, active_id: escriba_core::BufferId, height: u32) -> Result<()> {
