@@ -1,7 +1,16 @@
-//! `escriba-render` — rendering trait + phase-1 text implementation.
-//! GPU-backed implementation (garasu) shares the [`Renderer`] trait.
+//! `escriba-render` — rendering trait + implementations.
+//!
+//! Two backends, same trait surface:
+//!   - [`TextRenderer`] — ANSI-in-stdout for CI / headless runs.
+//!   - [`gpu::GpuRenderer`] — madori + garasu + glyphon real GPU window.
+//!     Implements [`madori::RenderCallback`]; the escriba binary pairs it
+//!     with an `on_event` handler that shares an `Arc<Mutex<EditorState>>`.
 
 extern crate self as escriba_render;
+
+pub mod gpu;
+
+pub use gpu::{GpuRenderer, SharedState};
 
 use escriba_buffer::BufferSet;
 use escriba_core::Position;

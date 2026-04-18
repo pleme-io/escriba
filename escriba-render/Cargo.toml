@@ -9,11 +9,18 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-escriba-core   = { workspace = true }
-escriba-buffer = { workspace = true }
-escriba-ui     = { workspace = true }
-irodori        = { workspace = true }
-serde          = { workspace = true }
+escriba-core    = { workspace = true }
+escriba-buffer  = { workspace = true }
+escriba-ui      = { workspace = true }
+escriba-mode    = { workspace = true }
+escriba-runtime = { workspace = true }
+irodori         = { workspace = true }
+madori          = { workspace = true }
+garasu          = { workspace = true }
+glyphon         = "0.9"
+wgpu            = "25"
+tracing         = { workspace = true }
+serde           = { workspace = true }
 
 [lints]
 workspace = true

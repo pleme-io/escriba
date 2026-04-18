@@ -595,10 +595,12 @@ dependencies = [
  "escriba-command",
  "escriba-config",
  "escriba-core",
+ "escriba-input",
  "escriba-keymap",
  "escriba-mode",
  "escriba-plugin",
  "escriba-render",
+ "escriba-runtime",
  "escriba-spec",
  "escriba-ui",
  "escriba-vm",
@@ -760,9 +762,16 @@ version = "0.1.0"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
+ "escriba-mode",
+ "escriba-runtime",
  "escriba-ui",
+ "garasu 0.1.0",
+ "glyphon",
  "irodori",
+ "madori",
  "serde",
+ "tracing",
+ "wgpu",
 ]
 
 [[package]]

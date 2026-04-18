@@ -21,6 +21,8 @@ escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-render  = { workspace = true }
+escriba-runtime = { workspace = true }
+escriba-input   = { workspace = true }
 escriba-plugin  = { workspace = true }
 escriba-vm      = { workspace = true }
 escriba-spec    = { workspace = true }
