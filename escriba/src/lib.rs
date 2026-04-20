@@ -284,7 +284,10 @@ fn run_gpu(mut initial: EditorState, args: &Args) -> Result<()> {
 
 fn init_tracing() {
     use tracing_subscriber::{EnvFilter, fmt, prelude::*};
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    // Default to `warn` so plain `escriba` boots silently like nvim.
+    // The plan summary + ts-apply lines are `info`-level; users who
+    // want them set `RUST_LOG=info escriba` or `--list-rc`.
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
     let _ = tracing_subscriber::registry()
         .with(filter)
         .with(fmt::layer().compact().with_writer(std::io::stderr))
