@@ -43,6 +43,7 @@
 //! | `defeffect`   | [`EffectSpec`] — ghostty-style GPU shader effect (cursor glow / bloom / scanlines) |
 //! | `defterm`     | [`TermSpec`] — terminal session spec (wire-compatible with `mado::term_spec::TermSpec`) |
 //! | `defmark`     | [`MarkSpec`] — named marks with jump/anchor/glance kind semantics |
+//! | `deftask`     | [`TaskSpec`] — single shell task with filetype + cwd + env scope (absorbs vscode tasks.json / nvim asynctasks) |
 //!
 //! # Extending
 //!
@@ -73,6 +74,7 @@ mod plugin;
 mod session;
 mod snippet;
 mod statusline;
+mod task;
 mod term;
 mod textobject;
 mod theme;
@@ -109,6 +111,7 @@ pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
 pub use snippet::{Resolution as SnippetResolution, SnippetSpec};
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
+pub use task::TaskSpec;
 pub use term::{
     KNOWN_PLACEMENTS as TERM_PLACEMENTS, TermSpec,
     is_known_placement as is_known_term_placement,
@@ -214,6 +217,10 @@ pub enum LispError {
         "defsnippet :hash `{0}` is not a 32-char lowercase BLAKE3-128 hex token"
     )]
     MalformedSnippetHash(String),
+    #[error("deftask missing `:name` — each task spec needs a non-empty id")]
+    EmptyTaskName,
+    #[error("deftask `{0}` has empty `:command` — shell task needs a binary to exec")]
+    EmptyTaskCommand(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -249,6 +256,7 @@ pub struct ApplyPlan {
     pub effects: Vec<EffectSpec>,
     pub terms: Vec<TermSpec>,
     pub marks: Vec<MarkSpec>,
+    pub tasks: Vec<TaskSpec>,
 }
 
 impl ApplyPlan {
@@ -287,6 +295,7 @@ impl ApplyPlan {
         self.effects.extend(other.effects);
         self.terms.extend(other.terms);
         self.marks.extend(other.marks);
+        self.tasks.extend(other.tasks);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -321,6 +330,7 @@ impl ApplyPlan {
             ("effects", self.effects.len()),
             ("terms", self.terms.len()),
             ("marks", self.marks.len()),
+            ("tasks", self.tasks.len()),
         ]
     }
 
@@ -481,6 +491,16 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let tasks: Vec<TaskSpec> = compile_validated(src, |t: &TaskSpec| {
+        if t.name.is_empty() {
+            return Err(LispError::EmptyTaskName);
+        }
+        if t.command.is_empty() {
+            return Err(LispError::EmptyTaskCommand(t.name.clone()));
+        }
+        Ok(())
+    })?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -507,6 +527,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         effects,
         terms,
         marks,
+        tasks,
     })
 }
 
@@ -575,6 +596,7 @@ pub fn form_glyph(label: &str) -> &'static str {
         "effects"     => "✨",
         "terms"       => "🪟",
         "marks"       => "📌",
+        "tasks"       => "🏃",
         _             => "•",
     }
 }
@@ -868,6 +890,7 @@ mod tests {
             "effects",
             "terms",
             "marks",
+            "tasks",
         ] {
             assert!(
                 names.contains(required),
@@ -909,6 +932,7 @@ mod tests {
             (defeffect   :name "a-fx" :kind "cursor" :enable #t :intensity 0.5)
             (defterm     :name "a-term" :shell "/bin/frost" :placement "tab")
             (defmark     :name "'A" :file "~/README.md" :line 1 :kind "jump")
+            (deftask     :name "a-task" :command "ls")
             "##,
         )
         .unwrap();
@@ -1582,5 +1606,67 @@ mod tests {
         )
         .unwrap();
         assert!(plan.summary().contains("major_modes=3"));
+    }
+
+    #[test]
+    fn parses_tasks_with_filetype_and_env() {
+        let plan = apply_source(
+            r#"
+            (deftask :name "cargo-test"
+                     :description "cargo test --workspace"
+                     :command "cargo"
+                     :args ("test" "--workspace")
+                     :filetype "rust"
+                     :keybind "<leader>rt")
+            (deftask :name "fleet-rebuild"
+                     :command "nix"
+                     :args ("run" ".#rebuild")
+                     :cwd "~/code/github/pleme-io/nix"
+                     :env ("RUST_LOG=warn")
+                     :background #t
+                     :keybind "<leader>rR"
+                     :timeout-ms 300000)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.tasks.len(), 2);
+        assert_eq!(plan.tasks[0].name, "cargo-test");
+        assert_eq!(plan.tasks[0].args, vec!["test", "--workspace"]);
+        assert_eq!(plan.tasks[0].filetype, "rust");
+        assert_eq!(plan.tasks[0].display_command(), "cargo test --workspace");
+        assert!(plan.tasks[1].background);
+        assert_eq!(plan.tasks[1].env_pairs().len(), 1);
+        assert_eq!(plan.tasks[1].timeout_ms, 300_000);
+    }
+
+    #[test]
+    fn task_with_empty_command_rejected() {
+        let err = apply_source(
+            r#"(deftask :name "oops")"#,
+        )
+        .expect_err("empty command should error");
+        assert!(matches!(err, LispError::EmptyTaskCommand(_)));
+    }
+
+    #[test]
+    fn task_with_empty_name_rejected() {
+        // Tatara-lisp enforces `:name` at parse time, so the empty-name
+        // path only triggers when the user writes `:name ""` explicitly.
+        let err = apply_source(
+            r#"(deftask :name "" :command "ls")"#,
+        )
+        .expect_err("empty name should error");
+        assert!(matches!(err, LispError::EmptyTaskName));
+    }
+
+    #[test]
+    fn task_without_name_at_all_is_parse_error() {
+        // `:name` is a required key — tatara-lisp rejects the form
+        // before our validator runs.
+        let err = apply_source(
+            r#"(deftask :command "ls")"#,
+        )
+        .expect_err("missing :name should parse-error");
+        assert!(matches!(err, LispError::Parse(_)));
     }
 }

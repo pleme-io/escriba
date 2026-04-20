@@ -779,3 +779,58 @@
             :hash "af42c0d18e9b3f4aa18b7c3ef1de93a4"
             :description "Team deploy command — content from mado store"
             :filetype "sh")
+
+;; ═════ Tasks — runnable shell command per filetype ════════════════
+;; Absorbs vscode tasks.json, nvim asynctasks, jetbrains run-configs,
+;; emacs projectile-run-command. One shell invocation with filetype /
+;; cwd / env scope. A task with a `:keybind` fires without opening a
+;; picker; `:background #t` runs without blocking the editor and reports
+;; completion via notification (OSC 9 in terminal mode).
+
+(deftask :name "cargo-test"
+         :description "cargo test --workspace for the current project"
+         :command "cargo"
+         :args ("test" "--workspace")
+         :filetype "rust"
+         :env ("CARGO_TERM_COLOR=always" "RUST_LOG=warn")
+         :background #t
+         :keybind "<leader>rt"
+         :timeout-ms 600000)
+
+(deftask :name "cargo-check"
+         :description "cargo check for fast type pass"
+         :command "cargo"
+         :args ("check" "--workspace" "--all-targets")
+         :filetype "rust"
+         :background #t
+         :keybind "<leader>rc"
+         :timeout-ms 180000)
+
+(deftask :name "cargo-run"
+         :description "cargo run (primary binary)"
+         :command "cargo"
+         :args ("run")
+         :filetype "rust"
+         :keybind "<leader>rr")
+
+(deftask :name "fleet-rebuild"
+         :description "nix run .#rebuild — apply the pleme-io fleet"
+         :command "nix"
+         :args ("run" ".#rebuild")
+         :cwd "~/code/github/pleme-io/nix"
+         :env ("RUST_LOG=warn")
+         :background #t
+         :keybind "<leader>rR"
+         :timeout-ms 1800000)
+
+(deftask :name "rg-todos"
+         :description "rg TODO/FIXME across the active cwd"
+         :command "rg"
+         :args ("-n" "--pretty" "TODO|FIXME|XXX|HACK" ".")
+         :keybind "<leader>ft")
+
+(deftask :name "escriba-doctor"
+         :description "dump the parsed ApplyPlan summary"
+         :command "escriba"
+         :args ("--list-rc")
+         :keybind "<leader>ed")
