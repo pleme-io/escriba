@@ -984,3 +984,44 @@
         :description "clear mado's prompt-mark history"
         :server "mado"
         :tool "prompt_marks_clear")
+
+;; ═════ Folds — declarative per-filetype folding rules ══════════════
+;; Absorbs vim foldmethod, nvim-treesitter-fold, vscode
+;; FoldingRangeProvider. Every editor has folding, but the shape
+;; varies: vim ships a scalar option, nvim puts it in a Lua plugin,
+;; vscode registers a programmatic provider. deffold lifts the whole
+;; axis into typed rc.
+;;
+;; Methods: treesitter | indent | marker | heading | syntax
+;; (matches vim's foldmethod vocabulary).
+
+(deffold :filetype "rust"
+         :method "treesitter"
+         :queries ("(function_item) @fold"
+                   "(impl_item) @fold"
+                   "(struct_item) @fold"
+                   "(enum_item) @fold"
+                   "(mod_item) @fold"
+                   "(trait_item) @fold")
+         :default-level 1)
+
+(deffold :filetype "python"
+         :method "indent"
+         :trigger-chars "def class if for while"
+         :default-level 1)
+
+(deffold :filetype "markdown"
+         :method "heading"
+         :default-level 2)
+
+(deffold :filetype "vim"
+         :method "marker"
+         :marker-start "{{{"
+         :marker-end "}}}")
+
+(deffold :filetype "typescript"
+         :method "treesitter"
+         :queries ("(function_declaration) @fold"
+                   "(class_declaration) @fold"
+                   "(interface_declaration) @fold")
+         :default-level 1)

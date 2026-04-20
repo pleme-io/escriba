@@ -49,6 +49,7 @@
 //! | `defattest`   | [`AttestSpec`] — content-addressed rc integrity attestation (BLAKE3-128 of `ApplyPlan::summary()`; invention — pleme-io convergence-computing at the editor layer) |
 //! | `defruler`    | [`RulerSpec`] — declarative column rulers / visual guides (absorbs vim `colorcolumn`, vscode `editor.rulers`, jetbrains hard-wrap margin) |
 //! | `defmcp`      | [`McpToolSpec`] — declarative MCP-tool binding (invention — no editor ships typed cross-process MCP import) |
+//! | `deffold`     | [`FoldSpec`] — declarative folding rules per filetype (absorbs vim `foldmethod`, nvim-treesitter-fold, vscode `FoldingRangeProvider`) |
 //!
 //! # Extending
 //!
@@ -65,6 +66,7 @@ mod cmd;
 mod dap;
 mod effect;
 mod filetype;
+mod fold;
 mod formatter;
 mod gate;
 mod hash;
@@ -110,6 +112,7 @@ pub use effect::{
     is_canonical_effect, is_known_kind as is_known_effect_kind,
 };
 pub use filetype::FiletypeSpec;
+pub use fold::{FoldSpec, KNOWN_METHODS as FOLD_METHODS, is_known_method as is_known_fold_method};
 pub use formatter::FormatterSpec;
 pub use gate::{
     GateMode, GateSpec, KNOWN_ACTIONS as GATE_ACTIONS, KNOWN_SEVERITIES as GATE_SEVERITIES,
@@ -313,6 +316,21 @@ pub enum LispError {
         prefixes = mcp::McpToolSpec::ON_RESULT_PREFIXES.join(", ")
     )]
     MalformedMcpOnResult { name: String, value: String },
+    #[error("deffold missing `:filetype` — folding rules are always filetype-scoped")]
+    EmptyFoldFiletype,
+    #[error(
+        "deffold :filetype `{filetype}` has unknown `:method` `{method}` (valid: {valid})",
+        valid = FOLD_METHODS.join(", ")
+    )]
+    UnknownFoldMethod { filetype: String, method: String },
+    #[error(
+        "deffold :filetype `{0}` has `:method \"treesitter\"` but empty `:queries` — treesitter folds require at least one query"
+    )]
+    EmptyFoldQueries(String),
+    #[error(
+        "deffold :filetype `{0}` has `:method \"marker\"` but is missing `:marker-start` and/or `:marker-end` — marker folds require both"
+    )]
+    IncompleteFoldMarker(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -354,6 +372,7 @@ pub struct ApplyPlan {
     pub attests: Vec<AttestSpec>,
     pub rulers: Vec<RulerSpec>,
     pub mcp_tools: Vec<McpToolSpec>,
+    pub folds: Vec<FoldSpec>,
 }
 
 impl ApplyPlan {
@@ -398,6 +417,7 @@ impl ApplyPlan {
         self.attests.extend(other.attests);
         self.rulers.extend(other.rulers);
         self.mcp_tools.extend(other.mcp_tools);
+        self.folds.extend(other.folds);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -438,6 +458,7 @@ impl ApplyPlan {
             ("attests", self.attests.len()),
             ("rulers", self.rulers.len()),
             ("mcp_tools", self.mcp_tools.len()),
+            ("folds", self.folds.len()),
         ]
     }
 
@@ -699,6 +720,25 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let folds: Vec<FoldSpec> = compile_validated(src, |f: &FoldSpec| {
+        if f.filetype.is_empty() {
+            return Err(LispError::EmptyFoldFiletype);
+        }
+        if !f.method.is_empty() && !fold::is_known_method(&f.method) {
+            return Err(LispError::UnknownFoldMethod {
+                filetype: f.filetype.clone(),
+                method: f.method.clone(),
+            });
+        }
+        if f.effective_method() == "treesitter" && f.queries.is_empty() {
+            return Err(LispError::EmptyFoldQueries(f.filetype.clone()));
+        }
+        if f.effective_method() == "marker" && !f.marker_pair_complete() {
+            return Err(LispError::IncompleteFoldMarker(f.filetype.clone()));
+        }
+        Ok(())
+    })?;
+
     let mcp_tools: Vec<McpToolSpec> = compile_validated(src, |m: &McpToolSpec| {
         if m.server.is_empty() {
             return Err(LispError::EmptyMcpServer(m.name.clone()));
@@ -767,6 +807,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         attests,
         rulers,
         mcp_tools,
+        folds,
     })
 }
 
@@ -840,6 +881,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("attests",     "🔏"),
     ("rulers",      "📏"),
     ("mcp_tools",   "🔌"),
+    ("folds",       "🪗"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1251,6 +1293,7 @@ mod tests {
             (defattest   :id "a-attest" :counts-hash "af42c0d18e9b3f4aa18b7c3ef1de93a4")
             (defruler    :columns (80))
             (defmcp      :name "a-mcp" :server "mado" :tool "status")
+            (deffold     :filetype "a-lang" :method "indent")
             "##,
         )
         .unwrap();
@@ -2583,5 +2626,105 @@ mod tests {
         for spec in &plan.mcp_tools {
             assert!(spec.has_valid_on_result());
         }
+    }
+
+    // ── deffold — declarative folding rules ─────────────────────────────────
+
+    #[test]
+    fn parses_folds_across_every_method() {
+        let plan = apply_source(
+            r#"
+            (deffold :filetype "rust"
+                     :method "treesitter"
+                     :queries ("(function_item) @fold"
+                               "(impl_item) @fold"))
+            (deffold :filetype "python"
+                     :method "indent"
+                     :trigger-chars "def class"
+                     :default-level 1)
+            (deffold :filetype "vim"
+                     :method "marker"
+                     :marker-start "{{{"
+                     :marker-end "}}}")
+            (deffold :filetype "markdown"
+                     :method "heading"
+                     :default-level 2)
+            (deffold :filetype "c"
+                     :method "syntax")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.folds.len(), 5);
+        assert_eq!(plan.folds[0].effective_method(), "treesitter");
+        assert_eq!(plan.folds[0].query_count(), 2);
+        assert_eq!(plan.folds[1].trigger_chars, "def class");
+        assert!(plan.folds[2].marker_pair_complete());
+        assert_eq!(plan.folds[3].default_level, 2);
+    }
+
+    #[test]
+    fn fold_without_filetype_rejected() {
+        let err = apply_source(
+            r#"(deffold :method "indent")"#,
+        )
+        .expect_err("missing filetype should error");
+        assert!(matches!(err, LispError::EmptyFoldFiletype));
+    }
+
+    #[test]
+    fn fold_with_unknown_method_rejected() {
+        let err = apply_source(
+            r#"(deffold :filetype "rust" :method "origami")"#,
+        )
+        .expect_err("unknown method should error");
+        assert!(matches!(err, LispError::UnknownFoldMethod { .. }));
+    }
+
+    #[test]
+    fn fold_treesitter_without_queries_rejected() {
+        let err = apply_source(
+            r#"(deffold :filetype "rust" :method "treesitter")"#,
+        )
+        .expect_err("treesitter without queries should error");
+        assert!(matches!(err, LispError::EmptyFoldQueries(_)));
+
+        // Empty :method defaults to treesitter — same check fires.
+        let err = apply_source(
+            r#"(deffold :filetype "rust")"#,
+        )
+        .expect_err("empty method (defaults to treesitter) without queries should error");
+        assert!(matches!(err, LispError::EmptyFoldQueries(_)));
+    }
+
+    #[test]
+    fn fold_marker_requires_both_marker_fields() {
+        // Only start — reject.
+        let err = apply_source(
+            r#"(deffold :filetype "vim" :method "marker" :marker-start "{{{")"#,
+        )
+        .expect_err("marker without end should error");
+        assert!(matches!(err, LispError::IncompleteFoldMarker(_)));
+
+        // Only end — reject.
+        let err = apply_source(
+            r#"(deffold :filetype "vim" :method "marker" :marker-end "}}}")"#,
+        )
+        .expect_err("marker without start should error");
+        assert!(matches!(err, LispError::IncompleteFoldMarker(_)));
+    }
+
+    #[test]
+    fn fold_indent_method_does_not_require_queries() {
+        // Indent / heading / syntax methods don't need queries or
+        // markers — minimal valid spec is just :filetype + :method.
+        let plan = apply_source(
+            r#"
+            (deffold :filetype "python"  :method "indent")
+            (deffold :filetype "md"      :method "heading")
+            (deffold :filetype "c"       :method "syntax")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.folds.len(), 3);
     }
 }
