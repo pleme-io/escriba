@@ -30,6 +30,9 @@
 //! | `defplugin`   | [`PluginSpec`]                               |
 //! | `defhighlight`| [`HighlightSpec`]                            |
 //! | `defstatusline`| [`StatusLineSpec`]                          |
+//! | `defbufferline`| [`BufferLineSpec`]                          |
+//! | `deflsp`      | [`LspServerSpec`]                            |
+//! | `defformatter`| [`FormatterSpec`]                            |
 //!
 //! # Extending
 //!
@@ -40,11 +43,14 @@
 
 mod abbrev;
 mod apply;
+mod bufferline;
 mod cmd;
 mod filetype;
+mod formatter;
 mod highlight;
 mod hook;
 mod keybind;
+mod lsp;
 mod mode_spec;
 mod option;
 mod plugin;
@@ -54,11 +60,14 @@ mod theme;
 
 pub use abbrev::AbbrevSpec;
 pub use apply::{ApplyReport, apply_plan_to_keymap};
+pub use bufferline::BufferLineSpec;
 pub use cmd::CmdSpec;
 pub use filetype::FiletypeSpec;
+pub use formatter::FormatterSpec;
 pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use keybind::KeybindSpec;
+pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
@@ -107,6 +116,9 @@ pub struct ApplyPlan {
     pub plugins: Vec<PluginSpec>,
     pub highlights: Vec<HighlightSpec>,
     pub status_line: Option<StatusLineSpec>,
+    pub buffer_line: Option<BufferLineSpec>,
+    pub lsp_servers: Vec<LspServerSpec>,
+    pub formatters: Vec<FormatterSpec>,
 }
 
 impl ApplyPlan {
@@ -130,6 +142,11 @@ impl ApplyPlan {
         if other.status_line.is_some() {
             self.status_line = other.status_line;
         }
+        if other.buffer_line.is_some() {
+            self.buffer_line = other.buffer_line;
+        }
+        self.lsp_servers.extend(other.lsp_servers);
+        self.formatters.extend(other.formatters);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -137,7 +154,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -150,6 +167,9 @@ impl ApplyPlan {
             self.plugins.len(),
             self.highlights.len(),
             if self.status_line.is_some() { 1 } else { 0 },
+            if self.buffer_line.is_some() { 1 } else { 0 },
+            self.lsp_servers.len(),
+            self.formatters.len(),
         )
     }
 }
@@ -214,6 +234,16 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     // Last writer wins — matches theme semantics.
     let status_line = status_lines.into_iter().last();
 
+    let buffer_lines: Vec<BufferLineSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+    let buffer_line = buffer_lines.into_iter().last();
+
+    let lsp_servers: Vec<LspServerSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
+    let formatters: Vec<FormatterSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -227,6 +257,9 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         plugins,
         highlights,
         status_line,
+        buffer_line,
+        lsp_servers,
+        formatters,
     })
 }
 
@@ -543,6 +576,77 @@ mod tests {
         // second form replaced the first, not merged into it.
         assert!(sl.left.is_empty());
         assert_eq!(sl.right.len(), 1);
+    }
+
+    #[test]
+    fn parses_lsp_servers() {
+        let plan = apply_source(
+            r#"
+            (deflsp :name "rust-analyzer"
+                    :command "rust-analyzer"
+                    :filetypes ("rust")
+                    :root-markers ("Cargo.toml" "rust-project.json"))
+            (deflsp :name "typescript"
+                    :command "typescript-language-server"
+                    :args ("--stdio")
+                    :filetypes ("typescript" "javascript")
+                    :manual-only #t)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.lsp_servers.len(), 2);
+        assert_eq!(plan.lsp_servers[0].name, "rust-analyzer");
+        assert_eq!(plan.lsp_servers[0].filetypes, vec!["rust"]);
+        assert_eq!(
+            plan.lsp_servers[0].root_markers,
+            vec!["Cargo.toml", "rust-project.json"]
+        );
+        assert_eq!(plan.lsp_servers[1].args, vec!["--stdio"]);
+        // Default polarity: `manual_only` is false → auto-attach on.
+        assert!(!plan.lsp_servers[0].manual_only);
+        assert!(plan.lsp_servers[1].manual_only);
+    }
+
+    #[test]
+    fn parses_formatters_and_honours_defaults() {
+        let plan = apply_source(
+            r#"
+            (defformatter :filetype "rust"    :command "rustfmt")
+            (defformatter :filetype "python"  :command "ruff"
+                          :args ("format" "-"))
+            (defformatter :filetype "lua"     :command "stylua"
+                          :manual-only #t)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.formatters.len(), 3);
+        assert_eq!(plan.formatters[0].filetype, "rust");
+        // Default polarity: `manual_only` false → format-on-save on.
+        assert!(!plan.formatters[0].manual_only);
+        assert_eq!(plan.formatters[1].args, vec!["format", "-"]);
+        assert!(plan.formatters[2].manual_only);
+    }
+
+    #[test]
+    fn parses_buffer_line() {
+        let plan = apply_source(
+            r#"
+            (defbufferline :separator "|"
+                           :modified-indicator "●"
+                           :show-diagnostics #t
+                           :max-name-length 20)
+            "#,
+        )
+        .unwrap();
+        let bl = plan.buffer_line.unwrap();
+        assert_eq!(bl.separator, "|");
+        assert_eq!(bl.modified_indicator, "●");
+        assert!(bl.show_diagnostics);
+        assert_eq!(bl.max_name_length, 20);
+        // Default polarity: no_icons false → icons shown; no_click
+        // false → clicks focus the tab.
+        assert!(!bl.no_icons);
+        assert!(!bl.no_click);
     }
 
     #[test]

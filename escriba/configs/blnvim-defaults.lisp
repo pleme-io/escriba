@@ -381,3 +381,87 @@
           (:segment "filetype" :prefix " ")
           (:segment "position" :prefix " :")
           (:segment "time"     :format "%H:%M" :prefix " ")))
+
+;; ═════ Buffer line — bufferline.nvim parity ═══════════════════════
+(defbufferline
+  :separator "│"
+  :modified-indicator "●"
+  :show-close-icons #t
+  :show-diagnostics #t
+  :max-name-length 20)
+
+;; ═════ LSP servers — mason-lspconfig default set ══════════════════
+;; Every server that's in `mason.nvim`'s curated set + the
+;; language-specific defaults escriba ships with. Commands assume
+;; the server is on $PATH (mason installs them into ~/.local/share/
+;; nvim/mason; the escriba runtime prepends that path analogously).
+(deflsp :name "rust-analyzer"
+        :command "rust-analyzer"
+        :filetypes ("rust")
+        :root-markers ("Cargo.toml" "rust-project.json"))
+
+(deflsp :name "typescript"
+        :command "typescript-language-server"
+        :args ("--stdio")
+        :filetypes ("typescript" "javascript")
+        :root-markers ("tsconfig.json" "package.json" "jsconfig.json"))
+
+(deflsp :name "pyright"
+        :command "pyright-langserver"
+        :args ("--stdio")
+        :filetypes ("python")
+        :root-markers ("pyproject.toml" "setup.py" "requirements.txt"))
+
+(deflsp :name "gopls"
+        :command "gopls"
+        :filetypes ("go")
+        :root-markers ("go.mod" "go.work"))
+
+(deflsp :name "lua-language-server"
+        :command "lua-language-server"
+        :filetypes ("lua")
+        :root-markers (".luarc.json" ".luarc.jsonc" "stylua.toml"))
+
+(deflsp :name "nil"
+        :command "nil"
+        :filetypes ("nix")
+        :root-markers ("flake.nix" "default.nix"))
+
+(deflsp :name "bash-language-server"
+        :command "bash-language-server"
+        :args ("start")
+        :filetypes ("sh"))
+
+(deflsp :name "yaml-language-server"
+        :command "yaml-language-server"
+        :args ("--stdio")
+        :filetypes ("yaml"))
+
+(deflsp :name "terraformls"
+        :command "terraform-ls"
+        :args ("serve")
+        :filetypes ("terraform"))
+
+(deflsp :name "taplo"
+        :command "taplo"
+        :args ("lsp" "stdio")
+        :filetypes ("toml"))
+
+(deflsp :name "marksman"
+        :command "marksman"
+        :args ("server")
+        :filetypes ("markdown"))
+
+;; ═════ Formatters — conform.nvim parity ═══════════════════════════
+;; format-on-save is ON by default per `:manual-only` polarity.
+(defformatter :filetype "rust"       :command "rustfmt"  :args ("--edition" "2024"))
+(defformatter :filetype "python"     :command "ruff"     :args ("format" "-"))
+(defformatter :filetype "typescript" :command "prettier" :args ("--stdin-filepath" "$FILE"))
+(defformatter :filetype "javascript" :command "prettier" :args ("--stdin-filepath" "$FILE"))
+(defformatter :filetype "lua"        :command "stylua"   :args ("-"))
+(defformatter :filetype "nix"        :command "alejandra")
+(defformatter :filetype "go"         :command "gofmt")
+(defformatter :filetype "terraform"  :command "terraform" :args ("fmt" "-"))
+(defformatter :filetype "yaml"       :command "prettier" :args ("--parser" "yaml"))
+(defformatter :filetype "markdown"   :command "prettier" :args ("--parser" "markdown"))
+(defformatter :filetype "sh"         :command "shfmt"    :args ("-i" "2"))
