@@ -834,3 +834,40 @@
          :command "escriba"
          :args ("--list-rc")
          :keybind "<leader>ed")
+
+;; ═════ Schedules — typed declarative triggers (escriba-unique) ════
+;; No editor in the category has this: emacs has `run-at-time`, nvim
+;; has `vim.defer_fn`, vscode has `setInterval` — all untyped calls.
+;; Escriba ships temporal triggers as a first-class def-form bound to
+;; the typed command / workflow registry.
+;;
+;; Shape rules:
+;;   * exactly one of :cron / :interval-seconds / :idle-seconds /
+;;     :at-startup (or none, for manual-only via :keybind)
+;;   * exactly one of :command / :workflow / :action as dispatch
+;;
+;; These samples are deliberately conservative. Uncomment when you
+;; want a schedule to fire automatically.
+
+;; (defschedule :name "autosave-on-idle"
+;;              :description "save every modified buffer after 30s idle"
+;;              :idle-seconds 30
+;;              :command "save-all")
+
+;; (defschedule :name "refresh-diagnostics-5min"
+;;              :description "poll LSP + linters every five minutes"
+;;              :interval-seconds 300
+;;              :workflow "diagnostics-refresh")
+
+;; (defschedule :name "top-of-hour-pull"
+;;              :description "git pull on the hour when idle on main"
+;;              :cron "0 * * * *"
+;;              :command "git.pull")
+
+;; Manual-only — reusing the schedule dispatch machinery for a
+;; keybind that fires the workflow directly, without subscribing
+;; to any automatic trigger.
+(defschedule :name "kick-format-buffer"
+             :description "format the active buffer (bypass save hook)"
+             :command "format-buffer"
+             :keybind "<leader>kf")

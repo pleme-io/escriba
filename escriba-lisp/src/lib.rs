@@ -44,6 +44,7 @@
 //! | `defterm`     | [`TermSpec`] — terminal session spec (wire-compatible with `mado::term_spec::TermSpec`) |
 //! | `defmark`     | [`MarkSpec`] — named marks with jump/anchor/glance kind semantics |
 //! | `deftask`     | [`TaskSpec`] — single shell task with filetype + cwd + env scope (absorbs vscode tasks.json / nvim asynctasks) |
+//! | `defschedule` | [`ScheduleSpec`] — typed declarative triggers (cron / interval / idle / startup) for commands + workflows (invention — no editor ships this typed) |
 //!
 //! # Extending
 //!
@@ -71,6 +72,7 @@ mod mode_spec;
 mod option;
 mod palette;
 mod plugin;
+mod schedule;
 mod session;
 mod snippet;
 mod statusline;
@@ -108,6 +110,7 @@ pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use palette::PaletteSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
+pub use schedule::{Dispatch as ScheduleDispatch, ScheduleSpec, Trigger as ScheduleTrigger};
 pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
 pub use snippet::{Resolution as SnippetResolution, SnippetSpec};
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
@@ -221,6 +224,22 @@ pub enum LispError {
     EmptyTaskName,
     #[error("deftask `{0}` has empty `:command` — shell task needs a binary to exec")]
     EmptyTaskCommand(String),
+    #[error(
+        "defschedule `{0}` has an ill-formed trigger — set exactly one of \
+        `:cron` / `:interval-seconds` / `:idle-seconds` / `:at-startup`, \
+        or none of them (manual-only via `:keybind`)"
+    )]
+    InvalidScheduleTrigger(String),
+    #[error(
+        "defschedule `{0}` has an ill-formed dispatch — set exactly one of \
+        `:command` / `:workflow` / `:action`"
+    )]
+    InvalidScheduleDispatch(String),
+    #[error(
+        "defschedule `{0}` :cron expression is malformed — expected five \
+        whitespace-separated fields (minute hour day month day-of-week)"
+    )]
+    MalformedScheduleCron(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -257,6 +276,7 @@ pub struct ApplyPlan {
     pub terms: Vec<TermSpec>,
     pub marks: Vec<MarkSpec>,
     pub tasks: Vec<TaskSpec>,
+    pub schedules: Vec<ScheduleSpec>,
 }
 
 impl ApplyPlan {
@@ -296,6 +316,7 @@ impl ApplyPlan {
         self.terms.extend(other.terms);
         self.marks.extend(other.marks);
         self.tasks.extend(other.tasks);
+        self.schedules.extend(other.schedules);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -331,6 +352,7 @@ impl ApplyPlan {
             ("terms", self.terms.len()),
             ("marks", self.marks.len()),
             ("tasks", self.tasks.len()),
+            ("schedules", self.schedules.len()),
         ]
     }
 
@@ -501,6 +523,19 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let schedules: Vec<ScheduleSpec> = compile_validated(src, |s: &ScheduleSpec| {
+        if s.trigger() == schedule::Trigger::Invalid {
+            return Err(LispError::InvalidScheduleTrigger(s.name.clone()));
+        }
+        if s.dispatch() == schedule::Dispatch::Invalid {
+            return Err(LispError::InvalidScheduleDispatch(s.name.clone()));
+        }
+        if s.trigger() == schedule::Trigger::Cron && !s.has_well_shaped_cron() {
+            return Err(LispError::MalformedScheduleCron(s.name.clone()));
+        }
+        Ok(())
+    })?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -528,6 +563,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         terms,
         marks,
         tasks,
+        schedules,
     })
 }
 
@@ -596,6 +632,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("terms",       "🪟"),
     ("marks",       "📌"),
     ("tasks",       "🏃"),
+    ("schedules",   "⏰"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1001,6 +1038,7 @@ mod tests {
             (defterm     :name "a-term" :shell "/bin/frost" :placement "tab")
             (defmark     :name "'A" :file "~/README.md" :line 1 :kind "jump")
             (deftask     :name "a-task" :command "ls")
+            (defschedule :name "a-sched" :interval-seconds 60 :command "save")
             "##,
         )
         .unwrap();
@@ -1736,5 +1774,101 @@ mod tests {
         )
         .expect_err("missing :name should parse-error");
         assert!(matches!(err, LispError::Parse(_)));
+    }
+
+    // ── defschedule — typed declarative triggers ────────────────────────────
+
+    #[test]
+    fn parses_schedules_across_every_trigger_kind() {
+        let plan = apply_source(
+            r#"
+            (defschedule :name "hourly-pull"
+                         :description "top-of-hour git pull"
+                         :cron "0 * * * *"
+                         :command "git.pull")
+            (defschedule :name "refresh-diag"
+                         :interval-seconds 300
+                         :workflow "diagnostics-refresh")
+            (defschedule :name "autosave"
+                         :idle-seconds 30
+                         :command "save-all")
+            (defschedule :name "banner"
+                         :at-startup #t
+                         :action "picker.banner")
+            (defschedule :name "kick-refresh"
+                         :workflow "diagnostics-refresh"
+                         :keybind "<leader>dr")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.schedules.len(), 5);
+        assert_eq!(plan.schedules[0].trigger(), ScheduleTrigger::Cron);
+        assert_eq!(plan.schedules[1].trigger(), ScheduleTrigger::Interval);
+        assert_eq!(plan.schedules[2].trigger(), ScheduleTrigger::Idle);
+        assert_eq!(plan.schedules[3].trigger(), ScheduleTrigger::Startup);
+        // Last one is manual — no auto trigger, just a keybind.
+        assert_eq!(plan.schedules[4].trigger(), ScheduleTrigger::Manual);
+        assert!(!plan.schedules[4].is_automatic());
+        assert_eq!(plan.schedules[0].trigger_label(), "cron:0 * * * *");
+        assert_eq!(plan.schedules[1].trigger_label(), "interval:300s");
+        assert_eq!(plan.schedules[3].trigger_label(), "startup");
+    }
+
+    #[test]
+    fn schedule_with_two_triggers_rejected() {
+        let err = apply_source(
+            r#"(defschedule :name "x"
+                            :cron "0 * * * *"
+                            :interval-seconds 60
+                            :command "save")"#,
+        )
+        .expect_err("multiple triggers should error");
+        assert!(matches!(err, LispError::InvalidScheduleTrigger(_)));
+    }
+
+    #[test]
+    fn schedule_with_no_dispatch_rejected() {
+        let err = apply_source(
+            r#"(defschedule :name "x" :interval-seconds 60)"#,
+        )
+        .expect_err("missing dispatch should error");
+        assert!(matches!(err, LispError::InvalidScheduleDispatch(_)));
+    }
+
+    #[test]
+    fn schedule_with_multiple_dispatch_rejected() {
+        let err = apply_source(
+            r#"(defschedule :name "x"
+                            :interval-seconds 60
+                            :command "a"
+                            :workflow "b")"#,
+        )
+        .expect_err("multiple dispatch targets should error");
+        assert!(matches!(err, LispError::InvalidScheduleDispatch(_)));
+    }
+
+    #[test]
+    fn schedule_with_malformed_cron_rejected() {
+        let err = apply_source(
+            r#"(defschedule :name "x" :cron "garbage" :command "save")"#,
+        )
+        .expect_err("malformed cron should error");
+        assert!(matches!(err, LispError::MalformedScheduleCron(_)));
+    }
+
+    #[test]
+    fn manual_only_schedule_requires_no_trigger() {
+        // The manual-only shape (no trigger fields set, just :keybind
+        // plus a dispatch) is explicitly valid — used for wiring a
+        // dispatch target the user kicks on demand.
+        let plan = apply_source(
+            r#"(defschedule :name "kick"
+                            :command "format-buffer"
+                            :keybind "<leader>kf")"#,
+        )
+        .unwrap();
+        assert_eq!(plan.schedules.len(), 1);
+        assert_eq!(plan.schedules[0].trigger(), ScheduleTrigger::Manual);
+        assert_eq!(plan.schedules[0].dispatch(), ScheduleDispatch::Command);
     }
 }
