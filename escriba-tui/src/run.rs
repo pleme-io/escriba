@@ -1,6 +1,6 @@
 //! The interactive TUI event loop — owns the terminal, drives ticks.
 
-use std::io::{Write, stdout};
+use std::io::stdout;
 use std::time::Duration;
 
 use anyhow::{Context, Result};

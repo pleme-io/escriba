@@ -697,6 +697,7 @@ dependencies = [
  "escriba-core",
  "escriba-input",
  "escriba-keymap",
+ "escriba-lisp",
  "escriba-mode",
  "escriba-plugin",
  "escriba-render",
@@ -801,6 +802,21 @@ dependencies = [
  "pretty_assertions",
  "schemars",
  "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "escriba-lisp"
+version = "0.1.0"
+dependencies = [
+ "escriba-command",
+ "escriba-core",
+ "escriba-keymap",
+ "pretty_assertions",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tatara-lisp",
  "thiserror 2.0.18",
 ]
 

@@ -1,0 +1,25 @@
+[package]
+name = "escriba-lisp"
+description = "Tatara-Lisp authoring bridge for escriba — declarative keybindings, options, themes, hooks, commands"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core    = { workspace = true }
+escriba-keymap  = { workspace = true }
+escriba-command = { workspace = true }
+tatara-lisp     = { workspace = true }
+serde           = { workspace = true }
+serde_json      = { workspace = true }
+thiserror       = { workspace = true }
+schemars        = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

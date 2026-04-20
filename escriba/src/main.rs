@@ -47,6 +47,15 @@ struct Args {
     /// Compile config / open buffer / print summary; do not render.
     #[arg(long)]
     dry_run: bool,
+    /// Path to the Tatara-Lisp rc file. Falls back to `$ESCRIBARC`, then
+    /// `$XDG_CONFIG_HOME/escriba/rc.lisp`, then `$HOME/.escribarc.lisp`.
+    /// Missing files are silently skipped; parse errors fail fast.
+    #[arg(long)]
+    rc: Option<PathBuf>,
+    /// Parse the rc file, print the apply-plan summary, and exit.
+    /// Mirrors `frost --doctor` — useful for CI / config validation.
+    #[arg(long)]
+    list_rc: bool,
     /// Render backend — gpu (default, interactive window) or text (headless).
     #[arg(long, value_enum, default_value_t = RenderMode::Gpu)]
     render: RenderMode,
@@ -102,6 +111,10 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.list_rc {
+        return run_list_rc(args.rc.as_deref());
+    }
+
     escriba_config::EscribaConfig::register_all();
 
     let mut buffers = BufferSet::new();
@@ -115,6 +128,12 @@ fn main() -> Result<()> {
         )
     };
 
+    // Optional rc load — tolerant when no file exists, strict on parse errors.
+    let rc_plan = load_rc_optional(args.rc.as_deref())?;
+    if let Some((path, plan)) = &rc_plan {
+        tracing::info!(?path, "rc loaded: {}", plan.summary());
+    }
+
     if args.dry_run {
         let buf = buffers.get(active_id).context("active buffer missing")?;
         println!(
@@ -122,6 +141,9 @@ fn main() -> Result<()> {
             buf.line_count(),
             buf.char_count(),
         );
+        if let Some((path, plan)) = &rc_plan {
+            println!("rc {}: {}", path.display(), plan.summary());
+        }
         return Ok(());
     }
 
@@ -194,4 +216,54 @@ fn init_tracing() {
         .with(filter)
         .with(fmt::layer().compact().with_writer(std::io::stderr))
         .try_init();
+}
+
+/// Resolve the rc path (explicit `--rc` > env > xdg > home default) and
+/// load it if the file exists. Returns `Ok(None)` when no rc file is
+/// present anywhere — that's the default for a fresh install.
+fn load_rc_optional(explicit: Option<&std::path::Path>) -> Result<Option<(PathBuf, escriba_lisp::ApplyPlan)>> {
+    let path: PathBuf = match explicit {
+        Some(p) => p.to_path_buf(),
+        None => escriba_lisp::default_rc_path(),
+    };
+    if !path.exists() {
+        if explicit.is_some() {
+            anyhow::bail!("--rc path does not exist: {}", path.display());
+        }
+        return Ok(None);
+    }
+    let plan = escriba_lisp::load_rc(&path)
+        .with_context(|| format!("parsing rc file {}", path.display()))?;
+    Ok(Some((path, plan)))
+}
+
+/// `--list-rc` handler. Loads the rc and prints a summary, the same
+/// shape as `frost --doctor`. Exit code 1 if rc path explicitly
+/// provided is unreadable; 0 if absent (fresh install) or green.
+fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
+    match load_rc_optional(explicit)? {
+        Some((path, plan)) => {
+            println!("escriba rc: {}", path.display());
+            println!("  {}", plan.summary());
+            for kb in plan.keybinds.iter().take(10) {
+                println!("  keybind  [{}] {:<6} → {}", kb.mode, kb.key, kb.action);
+            }
+            if plan.keybinds.len() > 10 {
+                println!("  (+{} more keybinds)", plan.keybinds.len() - 10);
+            }
+            for h in plan.hooks.iter().take(5) {
+                println!("  hook     {} → {}", h.event, h.command);
+            }
+            if let Some(t) = &plan.theme {
+                println!("  theme    preset={}", t.preset);
+            }
+        }
+        None => {
+            println!("escriba rc: <not found>");
+            println!(
+                "  search order: $ESCRIBARC  →  $XDG_CONFIG_HOME/escriba/rc.lisp  →  $HOME/.escribarc.lisp"
+            );
+        }
+    }
+    Ok(())
 }
