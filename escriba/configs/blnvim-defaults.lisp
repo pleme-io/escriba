@@ -917,3 +917,23 @@
            :description "pin this rc's shape once you're happy with it"
            :kind "pin"
            :severity "warn")
+
+;; ═════ Rulers — vertical column guides ════════════════════════════
+;; Absorbs vim colorcolumn, vscode editor.rulers, jetbrains hard-wrap
+;; margin. Declarative, filetype-scoped, typed.
+
+(defruler :columns (80 120)
+          :style "soft"
+          :color "#4c566a"
+          :description "classic 80 / 120 guides")
+
+(defruler :columns (100)
+          :filetype "rust"
+          :style "soft"
+          :color "#4c566a"
+          :description "rust line cap — clippy default")
+
+(defruler :columns (80)
+          :filetype "markdown"
+          :style "dim"
+          :description "markdown soft wrap at 80")

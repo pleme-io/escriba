@@ -47,6 +47,7 @@
 //! | `defschedule` | [`ScheduleSpec`] — typed declarative triggers (cron / interval / idle / startup) for commands + workflows (invention — no editor ships this typed) |
 //! | `defkmacro`   | [`KmacroSpec`] — declarative keyboard macro (vim `q`-register / emacs `kmacro.el` as rc-authored typed spec) |
 //! | `defattest`   | [`AttestSpec`] — content-addressed rc integrity attestation (BLAKE3-128 of `ApplyPlan::summary()`; invention — pleme-io convergence-computing at the editor layer) |
+//! | `defruler`    | [`RulerSpec`] — declarative column rulers / visual guides (absorbs vim `colorcolumn`, vscode `editor.rulers`, jetbrains hard-wrap margin) |
 //!
 //! # Extending
 //!
@@ -77,6 +78,7 @@ mod mode_spec;
 mod option;
 mod palette;
 mod plugin;
+mod ruler;
 mod schedule;
 mod session;
 mod snippet;
@@ -126,6 +128,7 @@ pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use palette::PaletteSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
+pub use ruler::{KNOWN_STYLES as RULER_STYLES, RulerSpec, is_known_style as is_known_ruler_style};
 pub use schedule::{Dispatch as ScheduleDispatch, ScheduleSpec, Trigger as ScheduleTrigger};
 pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
 pub use snippet::{Resolution as SnippetResolution, SnippetSpec};
@@ -282,6 +285,19 @@ pub enum LispError {
         BLAKE3-128 hex chars, or empty for an unpinned attestation"
     )]
     MalformedAttestHash(String),
+    #[error("defruler has empty `:columns` — specify at least one column position")]
+    EmptyRulerColumns,
+    #[error("defruler has a zero column position — columns are 1-based")]
+    ZeroRulerColumn,
+    #[error(
+        "defruler has unknown `:style` `{0}` (valid: {valid})",
+        valid = RULER_STYLES.join(", ")
+    )]
+    UnknownRulerStyle(String),
+    #[error(
+        "defruler `:color` `{0}` is malformed — expected `#rrggbb` or `#rrggbbaa`"
+    )]
+    MalformedRulerColor(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -321,6 +337,7 @@ pub struct ApplyPlan {
     pub schedules: Vec<ScheduleSpec>,
     pub kmacros: Vec<KmacroSpec>,
     pub attests: Vec<AttestSpec>,
+    pub rulers: Vec<RulerSpec>,
 }
 
 impl ApplyPlan {
@@ -363,6 +380,7 @@ impl ApplyPlan {
         self.schedules.extend(other.schedules);
         self.kmacros.extend(other.kmacros);
         self.attests.extend(other.attests);
+        self.rulers.extend(other.rulers);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -401,6 +419,7 @@ impl ApplyPlan {
             ("schedules", self.schedules.len()),
             ("kmacros", self.kmacros.len()),
             ("attests", self.attests.len()),
+            ("rulers", self.rulers.len()),
         ]
     }
 
@@ -646,6 +665,22 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let rulers: Vec<RulerSpec> = compile_validated(src, |r: &RulerSpec| {
+        if r.columns.is_empty() {
+            return Err(LispError::EmptyRulerColumns);
+        }
+        if !r.all_columns_positive() {
+            return Err(LispError::ZeroRulerColumn);
+        }
+        if !r.style.is_empty() && !ruler::is_known_style(&r.style) {
+            return Err(LispError::UnknownRulerStyle(r.style.clone()));
+        }
+        if !r.has_valid_color_format() {
+            return Err(LispError::MalformedRulerColor(r.color.clone()));
+        }
+        Ok(())
+    })?;
+
     let attests: Vec<AttestSpec> = compile_validated(src, |a: &AttestSpec| {
         if !a.kind.is_empty() && !attest::is_known_kind(&a.kind) {
             return Err(LispError::UnknownAttestKind {
@@ -696,6 +731,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         schedules,
         kmacros,
         attests,
+        rulers,
     })
 }
 
@@ -767,6 +803,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("schedules",   "⏰"),
     ("kmacros",     "🎬"),
     ("attests",     "🔏"),
+    ("rulers",      "📏"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1176,6 +1213,7 @@ mod tests {
             (defschedule :name "a-sched" :interval-seconds 60 :command "save")
             (defkmacro   :name "a-macro" :keys "iHello<Esc>")
             (defattest   :id "a-attest" :counts-hash "af42c0d18e9b3f4aa18b7c3ef1de93a4")
+            (defruler    :columns (80))
             "##,
         )
         .unwrap();
@@ -2296,5 +2334,86 @@ mod tests {
         )
         .unwrap();
         assert_eq!(a.summary_hash(), b.summary_hash());
+    }
+
+    // ── defruler — column rulers / visual guides ────────────────────────────
+
+    #[test]
+    fn parses_rulers_with_multiple_columns_and_styles() {
+        let plan = apply_source(
+            r##"
+            (defruler :columns (80 120)
+                      :style "soft"
+                      :color "#4c566a")
+            (defruler :columns (100)
+                      :filetype "rust"
+                      :style "hard"
+                      :color "#bf616a"
+                      :description "rust-wide line cap")
+            (defruler :columns (4 8 12 16 20)
+                      :filetype "python"
+                      :style "dim")
+            "##,
+        )
+        .unwrap();
+        assert_eq!(plan.rulers.len(), 3);
+        assert_eq!(plan.rulers[0].columns, vec![80, 120]);
+        assert_eq!(plan.rulers[0].effective_style(), "soft");
+        assert_eq!(plan.rulers[1].filetype, "rust");
+        assert_eq!(plan.rulers[1].effective_style(), "hard");
+        assert_eq!(plan.rulers[2].columns.len(), 5);
+    }
+
+    #[test]
+    fn ruler_with_empty_columns_rejected() {
+        let err = apply_source(r#"(defruler :columns ())"#)
+            .expect_err("empty columns should error");
+        assert!(matches!(err, LispError::EmptyRulerColumns));
+    }
+
+    #[test]
+    fn ruler_with_zero_column_rejected() {
+        // Columns are 1-based; 0 is meaningless.
+        let err = apply_source(r#"(defruler :columns (80 0 120))"#)
+            .expect_err("zero column should error");
+        assert!(matches!(err, LispError::ZeroRulerColumn));
+    }
+
+    #[test]
+    fn ruler_with_unknown_style_rejected() {
+        let err = apply_source(
+            r#"(defruler :columns (80) :style "bold")"#,
+        )
+        .expect_err("unknown style should error");
+        assert!(matches!(err, LispError::UnknownRulerStyle(_)));
+    }
+
+    #[test]
+    fn ruler_with_malformed_color_rejected() {
+        // Named colors aren't accepted — users must use hex.
+        let err = apply_source(
+            r#"(defruler :columns (80) :color "blue")"#,
+        )
+        .expect_err("named color should error");
+        assert!(matches!(err, LispError::MalformedRulerColor(_)));
+
+        // Short-hex rejected (we require #rrggbb / #rrggbbaa).
+        let err = apply_source(
+            r##"(defruler :columns (80) :color "#fff")"##,
+        )
+        .expect_err("short hex should error");
+        assert!(matches!(err, LispError::MalformedRulerColor(_)));
+    }
+
+    #[test]
+    fn ruler_with_empty_color_uses_theme_default() {
+        // Empty color means "fall back to theme" — not a malformed
+        // value. Parse should succeed.
+        let plan = apply_source(
+            r#"(defruler :columns (80) :style "soft")"#,
+        )
+        .unwrap();
+        assert_eq!(plan.rulers.len(), 1);
+        assert!(plan.rulers[0].color.is_empty());
     }
 }
