@@ -937,3 +937,50 @@
           :filetype "markdown"
           :style "dim"
           :description "markdown soft wrap at 80")
+
+;; ═════ MCP-tool bindings — escriba → mado / curupira / fleet ══════
+;; Declarative `defmcp` forms turn any pleme-io MCP server's tools
+;; into first-class escriba commands. No editor in the category
+;; ships typed cross-process MCP import — vscode extensions are
+;; JavaScript, zed is Rust-compiled, neovim's LSP client isn't
+;; MCP-native. escriba resolves the typed binding at apply time
+;; and surfaces the tool in the command palette with an optional
+;; keybind + result dispatch.
+
+;; Mado clipboard bridge — the full content-addressed lifecycle.
+(defmcp :name "mado.clipboard.get"
+        :description "fetch a BLAKE3-addressed clipboard payload from mado"
+        :server "mado"
+        :tool "clipboard_get"
+        :keybind "<leader>mcg"
+        :on-result "action:insert-at-cursor")
+
+(defmcp :name "mado.clipboard.put"
+        :description "publish the current selection into mado's store"
+        :server "mado"
+        :tool "clipboard_put"
+        :keybind "<leader>mcp")
+
+(defmcp :name "mado.clipboard.list"
+        :description "list recent clipboard entries from mado"
+        :server "mado"
+        :tool "clipboard_list"
+        :keybind "<leader>mcl")
+
+(defmcp :name "mado.clipboard.clear"
+        :description "scrub mado's clipboard history (sensitive content)"
+        :server "mado"
+        :tool "clipboard_clear"
+        :keybind "<leader>mcC")
+
+;; Mado prompt-jump bridge — new since the OSC 133 history tick.
+(defmcp :name "mado.prompt.list"
+        :description "list OSC 133 prompt marks across mado sessions"
+        :server "mado"
+        :tool "prompt_marks_list"
+        :keybind "<leader>mpp")
+
+(defmcp :name "mado.prompt.clear"
+        :description "clear mado's prompt-mark history"
+        :server "mado"
+        :tool "prompt_marks_clear")

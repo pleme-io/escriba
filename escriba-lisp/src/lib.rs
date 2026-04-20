@@ -48,6 +48,7 @@
 //! | `defkmacro`   | [`KmacroSpec`] — declarative keyboard macro (vim `q`-register / emacs `kmacro.el` as rc-authored typed spec) |
 //! | `defattest`   | [`AttestSpec`] — content-addressed rc integrity attestation (BLAKE3-128 of `ApplyPlan::summary()`; invention — pleme-io convergence-computing at the editor layer) |
 //! | `defruler`    | [`RulerSpec`] — declarative column rulers / visual guides (absorbs vim `colorcolumn`, vscode `editor.rulers`, jetbrains hard-wrap margin) |
+//! | `defmcp`      | [`McpToolSpec`] — declarative MCP-tool binding (invention — no editor ships typed cross-process MCP import) |
 //!
 //! # Extending
 //!
@@ -74,6 +75,7 @@ mod keybind;
 mod kmacro;
 mod lsp;
 mod mark;
+mod mcp;
 mod mode;
 mod mode_spec;
 mod option;
@@ -125,6 +127,7 @@ pub use kmacro::{
 };
 pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
 pub use mark::{KNOWN_KINDS as MARK_KINDS, MarkSpec, is_known_kind as is_known_mark_kind};
+pub use mcp::McpToolSpec;
 pub use mode::{KNOWN_MODES, is_known_mode};
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
@@ -300,6 +303,16 @@ pub enum LispError {
         "defruler `:color` `{0}` is malformed — expected `#rrggbb` or `#rrggbbaa`"
     )]
     MalformedRulerColor(String),
+    #[error("defmcp `{0}` has empty `:server` — required MCP server alias")]
+    EmptyMcpServer(String),
+    #[error("defmcp `{0}` has empty `:tool` — required remote tool name")]
+    EmptyMcpTool(String),
+    #[error(
+        "defmcp `{name}` has malformed `:on-result` `{value}` \
+        — expected empty, or one of {prefixes}",
+        prefixes = mcp::McpToolSpec::ON_RESULT_PREFIXES.join(", ")
+    )]
+    MalformedMcpOnResult { name: String, value: String },
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -340,6 +353,7 @@ pub struct ApplyPlan {
     pub kmacros: Vec<KmacroSpec>,
     pub attests: Vec<AttestSpec>,
     pub rulers: Vec<RulerSpec>,
+    pub mcp_tools: Vec<McpToolSpec>,
 }
 
 impl ApplyPlan {
@@ -383,6 +397,7 @@ impl ApplyPlan {
         self.kmacros.extend(other.kmacros);
         self.attests.extend(other.attests);
         self.rulers.extend(other.rulers);
+        self.mcp_tools.extend(other.mcp_tools);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -422,6 +437,7 @@ impl ApplyPlan {
             ("kmacros", self.kmacros.len()),
             ("attests", self.attests.len()),
             ("rulers", self.rulers.len()),
+            ("mcp_tools", self.mcp_tools.len()),
         ]
     }
 
@@ -683,6 +699,22 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let mcp_tools: Vec<McpToolSpec> = compile_validated(src, |m: &McpToolSpec| {
+        if m.server.is_empty() {
+            return Err(LispError::EmptyMcpServer(m.name.clone()));
+        }
+        if m.tool.is_empty() {
+            return Err(LispError::EmptyMcpTool(m.name.clone()));
+        }
+        if !m.has_valid_on_result() {
+            return Err(LispError::MalformedMcpOnResult {
+                name: m.name.clone(),
+                value: m.on_result.clone(),
+            });
+        }
+        Ok(())
+    })?;
+
     let attests: Vec<AttestSpec> = compile_validated(src, |a: &AttestSpec| {
         if !a.kind.is_empty() && !attest::is_known_kind(&a.kind) {
             return Err(LispError::UnknownAttestKind {
@@ -734,6 +766,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         kmacros,
         attests,
         rulers,
+        mcp_tools,
     })
 }
 
@@ -806,6 +839,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("kmacros",     "🎬"),
     ("attests",     "🔏"),
     ("rulers",      "📏"),
+    ("mcp_tools",   "🔌"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1216,6 +1250,7 @@ mod tests {
             (defkmacro   :name "a-macro" :keys "iHello<Esc>")
             (defattest   :id "a-attest" :counts-hash "af42c0d18e9b3f4aa18b7c3ef1de93a4")
             (defruler    :columns (80))
+            (defmcp      :name "a-mcp" :server "mado" :tool "status")
             "##,
         )
         .unwrap();
@@ -2470,5 +2505,83 @@ mod tests {
         .unwrap();
         assert_eq!(plan.rulers.len(), 1);
         assert!(plan.rulers[0].color.is_empty());
+    }
+
+    // ── defmcp — declarative MCP-tool bindings ──────────────────────────────
+
+    #[test]
+    fn parses_mcp_tools_with_full_field_set() {
+        let plan = apply_source(
+            r#"
+            (defmcp :name "mado.clipboard.get"
+                    :description "fetch a clipboard payload by BLAKE3 hash"
+                    :server "mado"
+                    :tool "clipboard_get"
+                    :keybind "<leader>mcg"
+                    :on-result "action:insert-at-cursor")
+            (defmcp :name "mado.prompt.list"
+                    :server "mado"
+                    :tool "prompt_marks_list"
+                    :keybind "<leader>mpp")
+            (defmcp :name "curupira.react.tree"
+                    :server "curupira"
+                    :tool "react_get_component_tree"
+                    :background #t)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.mcp_tools.len(), 3);
+        assert_eq!(plan.mcp_tools[0].qualified_id(), "mado.clipboard_get");
+        assert_eq!(plan.mcp_tools[1].keybind, "<leader>mpp");
+        assert!(plan.mcp_tools[2].background);
+        // on-result may be empty (discard).
+        assert!(plan.mcp_tools[1].on_result.is_empty());
+    }
+
+    #[test]
+    fn mcp_with_empty_server_rejected() {
+        let err = apply_source(
+            r#"(defmcp :name "x" :tool "clipboard_get")"#,
+        )
+        .expect_err("empty server should error");
+        assert!(matches!(err, LispError::EmptyMcpServer(_)));
+    }
+
+    #[test]
+    fn mcp_with_empty_tool_rejected() {
+        let err = apply_source(
+            r#"(defmcp :name "x" :server "mado")"#,
+        )
+        .expect_err("empty tool should error");
+        assert!(matches!(err, LispError::EmptyMcpTool(_)));
+    }
+
+    #[test]
+    fn mcp_with_malformed_on_result_rejected() {
+        let err = apply_source(
+            r#"(defmcp :name "x"
+                      :server "mado"
+                      :tool "clipboard_get"
+                      :on-result "notify:bell")"#,
+        )
+        .expect_err("unknown on-result prefix should error");
+        assert!(matches!(err, LispError::MalformedMcpOnResult { .. }));
+    }
+
+    #[test]
+    fn mcp_accepts_each_on_result_prefix() {
+        let plan = apply_source(
+            r#"
+            (defmcp :name "a" :server "s" :tool "t" :on-result "action:save")
+            (defmcp :name "b" :server "s" :tool "t" :on-result "command:buffer.write-all")
+            (defmcp :name "c" :server "s" :tool "t" :on-result "workflow:ship-rust")
+            (defmcp :name "d" :server "s" :tool "t")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.mcp_tools.len(), 4);
+        for spec in &plan.mcp_tools {
+            assert!(spec.has_valid_on_result());
+        }
     }
 }
