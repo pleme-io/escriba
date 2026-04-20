@@ -38,6 +38,66 @@ use escriba_keymap::{Key, Keymap};
 
 use crate::{ApplyPlan, KeybindSpec, LispError, LispResult};
 
+/// Report of how many grammar extensions the apply pass registered
+/// and how many were skipped because the grammar wasn't known.
+#[derive(Debug, Clone, Default)]
+pub struct GrammarApplyReport {
+    /// Count of (language, ext) pairs successfully registered.
+    pub extensions_registered: u32,
+    /// Count of pairs skipped because the language wasn't known.
+    pub extensions_skipped_unknown_language: u32,
+    /// Languages whose `defmode` asked for registration but isn't
+    /// yet registered in `escriba-ts`. Informational — the apply
+    /// never fails; unknown grammars degrade to plain-text display.
+    pub unknown_languages: Vec<String>,
+}
+
+/// Wire every `(defmode :name X :tree-sitter Y :extensions (…))`
+/// declaration into a grammar registry. The registry is
+/// `escriba-ts::GrammarRegistry`, but this function stays decoupled
+/// via two callbacks — so `escriba-lisp` doesn't need to depend on
+/// the tree-sitter runtime crate.
+///
+/// - `is_known_grammar(lang)` — does the registry have a `Grammar`
+///   for this name? Typically `|n| registry.get(n).is_some()`.
+/// - `add_extension(lang, ext)` — register the extension. Typically
+///   `|l, e| { registry.add_extension(l, e); }`.
+///
+/// Returns a [`GrammarApplyReport`] so callers can surface the
+/// result in `--list-rc` output.
+pub fn apply_plan_to_grammar_extensions<F, G>(
+    plan: &ApplyPlan,
+    mut is_known_grammar: F,
+    mut add_extension: G,
+) -> GrammarApplyReport
+where
+    F: FnMut(&str) -> bool,
+    G: FnMut(&str, &str),
+{
+    let mut report = GrammarApplyReport::default();
+    for mode in &plan.major_modes {
+        if mode.tree_sitter.is_empty() {
+            continue;
+        }
+        if !is_known_grammar(&mode.tree_sitter) {
+            report.extensions_skipped_unknown_language += mode.extensions.len() as u32;
+            if !report
+                .unknown_languages
+                .iter()
+                .any(|l| l == &mode.tree_sitter)
+            {
+                report.unknown_languages.push(mode.tree_sitter.clone());
+            }
+            continue;
+        }
+        for ext in &mode.extensions {
+            add_extension(&mode.tree_sitter, ext);
+            report.extensions_registered += 1;
+        }
+    }
+    report
+}
+
 /// Summary of what an `apply_plan_to_*` pass did. Shaped like frost
 /// doctor's report — "applied vs. skipped (and why)" — so the
 /// escriba binary can surface it in `--list-rc` output.
@@ -366,6 +426,56 @@ mod tests {
             "warning should mention the unsupported form: {:?}",
             report.warnings[0]
         );
+    }
+
+    #[test]
+    fn grammar_apply_registers_known_and_reports_unknown() {
+        let plan = apply_source(
+            r#"
+            (defmode :name "rust" :tree-sitter "rust" :extensions ("rs" "rs.in"))
+            (defmode :name "nix"  :tree-sitter "nix"  :extensions ("nix"))
+            (defmode :name "plain" :extensions ("txt"))
+            "#,
+        )
+        .unwrap();
+
+        // Stub registry: only "rust" is known.
+        let known_langs = ["rust"];
+        let mut registered: Vec<(String, String)> = Vec::new();
+        let report = apply_plan_to_grammar_extensions(
+            &plan,
+            |name| known_langs.iter().any(|k| *k == name),
+            |lang, ext| registered.push((lang.to_string(), ext.to_string())),
+        );
+
+        // rust: 2 exts registered. nix: 1 ext skipped. plain: no ts lang, skipped silently.
+        assert_eq!(report.extensions_registered, 2);
+        assert_eq!(report.extensions_skipped_unknown_language, 1);
+        assert_eq!(report.unknown_languages, vec!["nix".to_string()]);
+        assert_eq!(
+            registered,
+            vec![
+                ("rust".to_string(), "rs".to_string()),
+                ("rust".to_string(), "rs.in".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn grammar_apply_tolerates_defmode_without_tree_sitter() {
+        // A `defmode` that omits `:tree-sitter` (e.g. plain-text
+        // languages) should be skipped silently — no warning, no error.
+        let plan = apply_source(
+            r#"(defmode :name "plain" :extensions ("txt" "log"))"#,
+        )
+        .unwrap();
+        let report = apply_plan_to_grammar_extensions(
+            &plan,
+            |_| true,
+            |_, _| panic!("should not register anything"),
+        );
+        assert_eq!(report.extensions_registered, 0);
+        assert!(report.unknown_languages.is_empty());
     }
 
     #[test]

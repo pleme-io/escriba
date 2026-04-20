@@ -703,6 +703,7 @@ dependencies = [
  "escriba-render",
  "escriba-runtime",
  "escriba-spec",
+ "escriba-ts",
  "escriba-tui",
  "escriba-ui",
  "escriba-vm",

@@ -167,6 +167,34 @@ fn main() -> Result<()> {
         tracing::warn!("rc: {w}");
     }
 
+    // Tree-sitter grammar extensions — wire every `(defmode …)`
+    // with a `:tree-sitter` name into the registry so
+    // `GrammarRegistry::from_extension` resolves the right grammar
+    // for the user's ftdetect set.
+    let mut grammar_registry = escriba_ts::GrammarRegistry::builtin()
+        .context("building built-in tree-sitter grammar registry")?;
+    let known_langs: Vec<String> = grammar_registry
+        .languages()
+        .map(String::from)
+        .collect();
+    let ts_report = escriba_lisp::apply_plan_to_grammar_extensions(
+        &plan,
+        |name| known_langs.iter().any(|l| l == name),
+        |lang, ext| {
+            grammar_registry.add_extension(lang, ext);
+        },
+    );
+    if ts_report.extensions_registered > 0
+        || ts_report.extensions_skipped_unknown_language > 0
+    {
+        tracing::info!(
+            "ts apply: extensions_registered={} skipped_unknown_language={} unknown={:?}",
+            ts_report.extensions_registered,
+            ts_report.extensions_skipped_unknown_language,
+            ts_report.unknown_languages,
+        );
+    }
+
     if args.dry_run {
         let buf = state.buffers.get(active_id).context("active buffer missing")?;
         println!(

@@ -54,7 +54,10 @@ pub struct Grammar {
     pub name: String,
     pub language: Language,
     pub config: HighlightConfiguration,
-    pub extensions: Vec<&'static str>,
+    /// File extensions (no dot) this grammar claims. Mutable at
+    /// runtime so `defmode :extensions (…)` declarations can
+    /// broaden the mapping without recompilation.
+    pub extensions: Vec<String>,
 }
 
 /// Registry — language-name → Grammar.
@@ -88,7 +91,7 @@ impl GrammarRegistry {
                 name: "rust".to_string(),
                 language: lang,
                 config: cfg,
-                extensions: vec!["rs"],
+                extensions: vec!["rs".to_string()],
             },
         );
 
@@ -106,7 +109,32 @@ impl GrammarRegistry {
     /// Look up a language by file extension (e.g. `"rs"` → `"rust"`).
     #[must_use]
     pub fn from_extension(&self, ext: &str) -> Option<&Grammar> {
-        self.grammars.values().find(|g| g.extensions.contains(&ext))
+        self.grammars
+            .values()
+            .find(|g| g.extensions.iter().any(|e| e == ext))
+    }
+
+    /// Broaden an existing grammar's extension list — used by
+    /// `escriba-lisp::apply_plan_to_grammar_extensions` so a `defmode`
+    /// in the rc can teach the registry that `.rs.in` is rust too.
+    /// Returns `true` iff the grammar was registered; `false` means
+    /// the caller referenced a language the registry doesn't know.
+    pub fn add_extension(&mut self, language: &str, ext: impl Into<String>) -> bool {
+        if let Some(g) = self.grammars.get_mut(language) {
+            let ext = ext.into();
+            if !g.extensions.iter().any(|e| *e == ext) {
+                g.extensions.push(ext);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Iterate every registered language name — used by diagnostics
+    /// in `--list-rc` and the planned `escriba doctor` subcommand.
+    pub fn languages(&self) -> impl Iterator<Item = &str> {
+        self.grammars.keys().map(String::as_str)
     }
 }
 

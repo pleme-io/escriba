@@ -28,6 +28,7 @@ escriba-plugin  = { workspace = true }
 escriba-vm      = { workspace = true }
 escriba-spec    = { workspace = true }
 escriba-lisp    = { workspace = true }
+escriba-ts      = { workspace = true }
 madori          = { workspace = true }
 garasu          = { workspace = true }
 clap            = { workspace = true }

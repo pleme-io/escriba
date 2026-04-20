@@ -63,7 +63,9 @@ mod statusline;
 mod theme;
 
 pub use abbrev::AbbrevSpec;
-pub use apply::{ApplyReport, apply_plan_to_keymap};
+pub use apply::{
+    ApplyReport, GrammarApplyReport, apply_plan_to_grammar_extensions, apply_plan_to_keymap,
+};
 pub use bufferline::BufferLineSpec;
 pub use cmd::CmdSpec;
 pub use filetype::FiletypeSpec;
