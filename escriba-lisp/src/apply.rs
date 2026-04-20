@@ -240,6 +240,8 @@ fn resolve_action(name: &str) -> (Action, bool) {
         "down-list" => (Action::Move(Motion::DownList), false),
         "beginning-of-defun" => (Action::Move(Motion::BeginningOfDefun), false),
         "end-of-defun" => (Action::Move(Motion::EndOfDefun), false),
+        "beginning-of-sexp" => (Action::Move(Motion::BeginningOfSexp), false),
+        "end-of-sexp" => (Action::Move(Motion::EndOfSexp), false),
 
         // ── Editor-wide actions ────────────────────────────────────
         "undo" => (Action::Undo, false),

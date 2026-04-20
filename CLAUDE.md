@@ -204,12 +204,33 @@ to configure meaningfully.
 The absorption roadmap is a DAG, not a line — each group can proceed
 independently. Ordered by impact × effort ratio:
 
-**Wave 1 — Authoring bridge (this PR):**
+**Wave 1 — Authoring bridge (landed):**
 
-1. `escriba-lisp` crate with `defkeybind`, `defcmd`, `defoption`,
-   `deftheme`, `defhook`, `defft`, `defabbrev`.
-2. Binary wires `--rc <path>` + `$ESCRIBARC`, loads at startup.
-3. Test harness mirroring `frost/tests/frostmourne_rc.rs`.
+1. ✅ `escriba-lisp` crate — 8 def-forms (`defkeybind`, `defcmd`,
+   `defoption`, `deftheme`, `defhook`, `defft`, `defabbrev`,
+   `defsnippet`), each a `#[derive(DeriveTataraDomain)]` spec.
+2. ✅ Binary wires `--rc <path>` + `$ESCRIBARC` + `--list-rc`,
+   loads and applies at startup.
+3. ✅ Apply layer: `apply_plan_to_keymap` resolves the key-string
+   grammar (`<Esc>`, `<C-r>`, `<A-f>`, named keys, bare chars),
+   maps 26 well-known action strings to typed `Action` variants,
+   and falls back to `Action::Command { name, args }` for
+   anything else (plugin-registered commands resolve later).
+4. ✅ Integration harness (`escriba/tests/rc_integration.rs`) +
+   sample fixture (`escriba/examples/sample-rc.lisp`) — 115 tests
+   covering parse, apply, and end-to-end binary flow.
+
+**Wave 1.5 — Authoring-bridge polish (queued):**
+
+1. Multi-key sequences (`gh`, `gg`, `dd`) via pending-stroke state
+   in `ModalState`. Currently surfaced as a warning from the apply
+   layer. Requires keymap + runtime changes.
+2. More apply paths:
+   `apply_plan_to_commands` (defcmd → CommandRegistry),
+   `apply_plan_to_options` (defoption → new `EditorOptions` slot),
+   `apply_plan_to_hooks` (defhook → new autocmd dispatcher).
+3. `defsource :path "other.lisp"` — rc composition across files,
+   mirroring frost-lisp's `defsource`.
 
 **Wave 2 — UX essentials:**
 
