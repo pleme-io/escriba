@@ -45,6 +45,7 @@
 //! | `defmark`     | [`MarkSpec`] — named marks with jump/anchor/glance kind semantics |
 //! | `deftask`     | [`TaskSpec`] — single shell task with filetype + cwd + env scope (absorbs vscode tasks.json / nvim asynctasks) |
 //! | `defschedule` | [`ScheduleSpec`] — typed declarative triggers (cron / interval / idle / startup) for commands + workflows (invention — no editor ships this typed) |
+//! | `defkmacro`   | [`KmacroSpec`] — declarative keyboard macro (vim `q`-register / emacs `kmacro.el` as rc-authored typed spec) |
 //!
 //! # Extending
 //!
@@ -66,6 +67,7 @@ mod highlight;
 mod hook;
 mod icon;
 mod keybind;
+mod kmacro;
 mod lsp;
 mod mark;
 mod mode_spec;
@@ -104,6 +106,10 @@ pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use icon::IconSpec;
 pub use keybind::KeybindSpec;
+pub use kmacro::{
+    KNOWN_MODES as KMACRO_MODES, KmacroSpec,
+    is_known_mode as is_known_kmacro_mode,
+};
 pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
 pub use mark::{KNOWN_KINDS as MARK_KINDS, MarkSpec, is_known_kind as is_known_mark_kind};
 pub use mode_spec::MajorModeSpec;
@@ -240,6 +246,17 @@ pub enum LispError {
         whitespace-separated fields (minute hour day month day-of-week)"
     )]
     MalformedScheduleCron(String),
+    #[error("defkmacro `{0}` has empty `:keys` — macro needs a non-empty key sequence")]
+    EmptyKmacroKeys(String),
+    #[error(
+        "defkmacro `{name}` has unknown `:mode` `{mode}` (valid: {valid})",
+        valid = KMACRO_MODES.join(", ")
+    )]
+    UnknownKmacroMode { name: String, mode: String },
+    #[error(
+        "defkmacro `{0}` has malformed `:register` — expected a single a-z / A-Z / 0-9 char"
+    )]
+    MalformedKmacroRegister(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -277,6 +294,7 @@ pub struct ApplyPlan {
     pub marks: Vec<MarkSpec>,
     pub tasks: Vec<TaskSpec>,
     pub schedules: Vec<ScheduleSpec>,
+    pub kmacros: Vec<KmacroSpec>,
 }
 
 impl ApplyPlan {
@@ -317,6 +335,7 @@ impl ApplyPlan {
         self.marks.extend(other.marks);
         self.tasks.extend(other.tasks);
         self.schedules.extend(other.schedules);
+        self.kmacros.extend(other.kmacros);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -353,6 +372,7 @@ impl ApplyPlan {
             ("marks", self.marks.len()),
             ("tasks", self.tasks.len()),
             ("schedules", self.schedules.len()),
+            ("kmacros", self.kmacros.len()),
         ]
     }
 
@@ -536,6 +556,22 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let kmacros: Vec<KmacroSpec> = compile_validated(src, |m: &KmacroSpec| {
+        if m.keys.is_empty() {
+            return Err(LispError::EmptyKmacroKeys(m.name.clone()));
+        }
+        if !m.mode.is_empty() && !kmacro::is_known_mode(&m.mode) {
+            return Err(LispError::UnknownKmacroMode {
+                name: m.name.clone(),
+                mode: m.mode.clone(),
+            });
+        }
+        if !m.has_valid_register() {
+            return Err(LispError::MalformedKmacroRegister(m.name.clone()));
+        }
+        Ok(())
+    })?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -564,6 +600,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         marks,
         tasks,
         schedules,
+        kmacros,
     })
 }
 
@@ -633,6 +670,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("marks",       "📌"),
     ("tasks",       "🏃"),
     ("schedules",   "⏰"),
+    ("kmacros",     "🎬"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1039,6 +1077,7 @@ mod tests {
             (defmark     :name "'A" :file "~/README.md" :line 1 :kind "jump")
             (deftask     :name "a-task" :command "ls")
             (defschedule :name "a-sched" :interval-seconds 60 :command "save")
+            (defkmacro   :name "a-macro" :keys "iHello<Esc>")
             "##,
         )
         .unwrap();
@@ -1870,5 +1909,90 @@ mod tests {
         assert_eq!(plan.schedules.len(), 1);
         assert_eq!(plan.schedules[0].trigger(), ScheduleTrigger::Manual);
         assert_eq!(plan.schedules[0].dispatch(), ScheduleDispatch::Command);
+    }
+
+    // ── defkmacro — declarative keyboard macros ─────────────────────────────
+
+    #[test]
+    fn parses_kmacros_with_full_field_set() {
+        let plan = apply_source(
+            r#"
+            (defkmacro :name "header-comment"
+                       :description "wrap line in C-style block comment"
+                       :keys "I/* <Esc>A */<Esc>"
+                       :mode "normal"
+                       :filetype "c"
+                       :keybind "<leader>mh")
+            (defkmacro :name "insert-date"
+                       :keys ":put =strftime('%Y-%m-%d')<CR>"
+                       :mode "normal")
+            (defkmacro :name "reg-a"
+                       :keys "vip>"
+                       :register "a")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.kmacros.len(), 3);
+        assert_eq!(plan.kmacros[0].name, "header-comment");
+        assert_eq!(plan.kmacros[0].filetype, "c");
+        // "I/* <Esc>A */<Esc>" → two <Esc> named-key tokens.
+        assert_eq!(plan.kmacros[0].named_key_count(), 2);
+        assert_eq!(plan.kmacros[2].register, "a");
+    }
+
+    #[test]
+    fn kmacro_with_empty_keys_rejected() {
+        let err = apply_source(r#"(defkmacro :name "oops" :keys "")"#)
+            .expect_err("empty keys should error");
+        assert!(matches!(err, LispError::EmptyKmacroKeys(_)));
+    }
+
+    #[test]
+    fn kmacro_without_keys_at_all_is_parse_error() {
+        let err = apply_source(r#"(defkmacro :name "no-keys")"#)
+            .expect_err("missing :keys should error");
+        // tatara-lisp handles missing fields; our validator handles
+        // set-but-empty. The missing case falls through as an empty
+        // string (default), so our validator fires.
+        assert!(matches!(err, LispError::EmptyKmacroKeys(_)));
+    }
+
+    #[test]
+    fn kmacro_with_unknown_mode_rejected() {
+        let err = apply_source(
+            r#"(defkmacro :name "m" :keys "x" :mode "superman")"#,
+        )
+        .expect_err("unknown mode should error");
+        assert!(matches!(err, LispError::UnknownKmacroMode { .. }));
+    }
+
+    #[test]
+    fn kmacro_with_multichar_register_rejected() {
+        let err = apply_source(
+            r#"(defkmacro :name "m" :keys "x" :register "aa")"#,
+        )
+        .expect_err("multi-char register should error");
+        assert!(matches!(err, LispError::MalformedKmacroRegister(_)));
+    }
+
+    #[test]
+    fn kmacro_with_symbol_register_rejected() {
+        let err = apply_source(
+            r#"(defkmacro :name "m" :keys "x" :register "!")"#,
+        )
+        .expect_err("symbol register should error");
+        assert!(matches!(err, LispError::MalformedKmacroRegister(_)));
+    }
+
+    #[test]
+    fn kmacro_with_empty_mode_is_valid() {
+        // Empty mode = "replay in whatever mode is current". Nothing
+        // should complain.
+        let plan = apply_source(
+            r#"(defkmacro :name "m" :keys "x")"#,
+        )
+        .unwrap();
+        assert_eq!(plan.kmacros.len(), 1);
+        assert_eq!(plan.kmacros[0].mode, "");
     }
 }

@@ -871,3 +871,28 @@
              :description "format the active buffer (bypass save hook)"
              :command "format-buffer"
              :keybind "<leader>kf")
+
+;; ═════ Kmacros — declarative keyboard macros ══════════════════════
+;; Absorbs vim's q/Q recording + @ replay, emacs kmacro.el, jetbrains
+;; keyboard macros. Escriba lifts the concept out of volatile
+;; registers into typed, reviewable rc entries. Replay via `:keybind`
+;; or classic `@<register>` when `:register` is set.
+
+(defkmacro :name "insert-iso-date"
+           :description "insert today's date on a new line"
+           :keys ":put =strftime('%Y-%m-%d')<CR>"
+           :mode "normal"
+           :keybind "<leader>md")
+
+(defkmacro :name "wrap-in-backticks"
+           :description "wrap visual selection in markdown code span"
+           :keys "c`<C-r>\"`<Esc>"
+           :mode "visual"
+           :filetype "markdown"
+           :keybind "<leader>m`")
+
+(defkmacro :name "escape-insert"
+           :description "classic jk → Esc from insert mode"
+           :keys "<Esc>"
+           :mode "insert"
+           :register "j")
