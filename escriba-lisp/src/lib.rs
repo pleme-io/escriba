@@ -37,6 +37,7 @@
 //! | `deficon`     | [`IconSpec`]                                 |
 //! | `defdap`      | [`DapAdapterSpec`]                           |
 //! | `defgate`     | [`GateSpec`] — convergence pre/post-condition on an editor event |
+//! | `deftextobject`| [`TextObjectSpec`] — tree-sitter text object bound to vim `i`/`a` grammar |
 //!
 //! # Extending
 //!
@@ -64,6 +65,7 @@ mod palette;
 mod plugin;
 mod snippet;
 mod statusline;
+mod textobject;
 mod theme;
 
 pub use abbrev::AbbrevSpec;
@@ -91,6 +93,12 @@ pub use palette::PaletteSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use snippet::SnippetSpec;
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
+pub use textobject::{
+    CANONICAL_NAMES as TEXTOBJECT_CANONICAL_NAMES,
+    KNOWN_SCOPES as TEXTOBJECT_SCOPES, TextObjectSpec,
+    is_canonical_short as is_canonical_textobject_short,
+    is_known_scope as is_known_textobject_scope,
+};
 pub use theme::{KNOWN_PRESETS, ThemeSpec, is_known_preset};
 
 use std::path::{Path, PathBuf};
@@ -123,6 +131,11 @@ pub enum LispError {
         valid = GATE_SEVERITIES.join(", ")
     )]
     UnknownGateSeverity(String),
+    #[error(
+        "unknown text-object scope: {0} (valid: {valid})",
+        valid = TEXTOBJECT_SCOPES.join(", ")
+    )]
+    UnknownTextObjectScope(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -152,6 +165,7 @@ pub struct ApplyPlan {
     pub icons: Vec<IconSpec>,
     pub dap_adapters: Vec<DapAdapterSpec>,
     pub gates: Vec<GateSpec>,
+    pub text_objects: Vec<TextObjectSpec>,
 }
 
 impl ApplyPlan {
@@ -184,6 +198,7 @@ impl ApplyPlan {
         self.icons.extend(other.icons);
         self.dap_adapters.extend(other.dap_adapters);
         self.gates.extend(other.gates);
+        self.text_objects.extend(other.text_objects);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -191,7 +206,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={} dap={} gates={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={} dap={} gates={} textobjects={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -211,6 +226,7 @@ impl ApplyPlan {
             self.icons.len(),
             self.dap_adapters.len(),
             self.gates.len(),
+            self.text_objects.len(),
         )
     }
 }
@@ -311,6 +327,14 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         }
     }
 
+    let text_objects: Vec<TextObjectSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+    for t in &text_objects {
+        if !textobject::is_known_scope(&t.scope) {
+            return Err(LispError::UnknownTextObjectScope(t.scope.clone()));
+        }
+    }
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -331,6 +355,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         icons,
         dap_adapters,
         gates,
+        text_objects,
     })
 }
 
@@ -754,6 +779,42 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_textobjects_with_both_scopes() {
+        let plan = apply_source(
+            r#"
+            (deftextobject :name "f"
+                           :scope "outer"
+                           :filetype "rust"
+                           :query "(function_item) @function.outer")
+            (deftextobject :name "f"
+                           :scope "inner"
+                           :filetype "rust"
+                           :query "(function_item body: (block) @function.inner)")
+            (deftextobject :name "c"
+                           :scope "outer"
+                           :filetype "python"
+                           :query "(class_definition) @class.outer")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.text_objects.len(), 3);
+        assert_eq!(plan.text_objects[0].name, "f");
+        assert_eq!(plan.text_objects[0].scope, "outer");
+        assert_eq!(plan.text_objects[1].scope, "inner");
+        assert_eq!(plan.text_objects[2].filetype, "python");
+        assert!(plan.text_objects[0].query.contains("function_item"));
+    }
+
+    #[test]
+    fn textobject_with_unknown_scope_rejected() {
+        let err = apply_source(
+            r#"(deftextobject :name "f" :scope "around" :query "x")"#,
+        )
+        .expect_err("unknown scope should error");
+        assert!(matches!(err, LispError::UnknownTextObjectScope(_)));
     }
 
     #[test]
