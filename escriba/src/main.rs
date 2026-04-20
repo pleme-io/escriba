@@ -325,6 +325,7 @@ fn form_glyph(kind: &str) -> &'static str {
         "dap"           => "🐛",
         "gates"         => "🛡️ ",
         "textobjects"   => "🎯",
+        "workflows"     => "🧵",
         _               => "•",
     }
 }

@@ -38,6 +38,7 @@
 //! | `defdap`      | [`DapAdapterSpec`]                           |
 //! | `defgate`     | [`GateSpec`] — convergence pre/post-condition on an editor event |
 //! | `deftextobject`| [`TextObjectSpec`] — tree-sitter text object bound to vim `i`/`a` grammar |
+//! | `defworkflow` | [`WorkflowSpec`] — named DAG of gates + actions (editor-layer workflow) |
 //!
 //! # Extending
 //!
@@ -67,6 +68,7 @@ mod snippet;
 mod statusline;
 mod textobject;
 mod theme;
+mod workflow;
 
 pub use abbrev::AbbrevSpec;
 pub use apply::{
@@ -100,6 +102,11 @@ pub use textobject::{
     is_known_scope as is_known_textobject_scope,
 };
 pub use theme::{KNOWN_PRESETS, ThemeSpec, is_known_preset};
+pub use workflow::{
+    KNOWN_FAILURE_MODES as WORKFLOW_FAILURE_MODES, KNOWN_STEP_KINDS as WORKFLOW_STEP_KINDS,
+    WorkflowSpec, is_known_failure_mode as is_workflow_failure_mode,
+    is_known_step_kind as is_workflow_step_kind,
+};
 
 use std::path::{Path, PathBuf};
 
@@ -144,6 +151,11 @@ pub enum LispError {
         valid = TEXTOBJECT_SCOPES.join(", ")
     )]
     UnknownTextObjectScope(String),
+    #[error(
+        "unknown workflow on-failure mode: {0} (valid: {valid})",
+        valid = WORKFLOW_FAILURE_MODES.join(", ")
+    )]
+    UnknownWorkflowFailureMode(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -174,6 +186,7 @@ pub struct ApplyPlan {
     pub dap_adapters: Vec<DapAdapterSpec>,
     pub gates: Vec<GateSpec>,
     pub text_objects: Vec<TextObjectSpec>,
+    pub workflows: Vec<WorkflowSpec>,
 }
 
 impl ApplyPlan {
@@ -207,6 +220,7 @@ impl ApplyPlan {
         self.dap_adapters.extend(other.dap_adapters);
         self.gates.extend(other.gates);
         self.text_objects.extend(other.text_objects);
+        self.workflows.extend(other.workflows);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -236,6 +250,7 @@ impl ApplyPlan {
             ("dap", self.dap_adapters.len()),
             ("gates", self.gates.len()),
             ("textobjects", self.text_objects.len()),
+            ("workflows", self.workflows.len()),
         ]
     }
 
@@ -356,6 +371,13 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         }
     }
 
+    let workflows: Vec<WorkflowSpec> = compile(src)?;
+    for w in &workflows {
+        if !workflow::is_known_failure_mode(&w.on_failure) {
+            return Err(LispError::UnknownWorkflowFailureMode(w.on_failure.clone()));
+        }
+    }
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -377,6 +399,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         dap_adapters,
         gates,
         text_objects,
+        workflows,
     })
 }
 
@@ -614,6 +637,7 @@ mod tests {
             "dap",
             "gates",
             "textobjects",
+            "workflows",
         ] {
             assert!(
                 names.contains(required),
@@ -650,6 +674,7 @@ mod tests {
             (defdap     :name "a-dap" :command "a-dap" :filetypes ("a-lang"))
             (defgate    :name "a-gate" :on-event "BufWritePre" :command "echo" :action "warn")
             (deftextobject :name "f" :scope "outer" :query "(x) @f")
+            (defworkflow :name "a-wf" :steps ("gate:a-gate"))
             "##,
         )
         .unwrap();
@@ -898,6 +923,59 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_workflows_with_step_grammar() {
+        let plan = apply_source(
+            r#"
+            (defworkflow :name "ship-rust"
+                         :description "Format, test, push"
+                         :steps ("gate:rust-format-drift"
+                                 "shell:cargo test"
+                                 "action:git.push")
+                         :on-failure "abort"
+                         :keybind "<leader>ws")
+            (defworkflow :name "chore"
+                         :steps ("cmd:write-all"
+                                 "workflow:ship-rust")
+                         :on-failure "prompt")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.workflows.len(), 2);
+        assert_eq!(plan.workflows[0].name, "ship-rust");
+        assert_eq!(plan.workflows[0].steps.len(), 3);
+        assert_eq!(plan.workflows[0].on_failure, "abort");
+        assert_eq!(plan.workflows[0].keybind, "<leader>ws");
+        assert_eq!(
+            plan.workflows[0].step_kinds(),
+            vec!["gate", "shell", "action"]
+        );
+        assert_eq!(
+            plan.workflows[1].step_kinds(),
+            vec!["cmd", "workflow"]
+        );
+        assert!(plan.workflows[0].all_steps_known());
+    }
+
+    #[test]
+    fn workflow_with_unknown_failure_mode_rejected() {
+        let err = apply_source(
+            r#"(defworkflow :name "x" :steps () :on-failure "explode")"#,
+        )
+        .expect_err("unknown failure mode should error");
+        assert!(matches!(err, LispError::UnknownWorkflowFailureMode(_)));
+    }
+
+    #[test]
+    fn workflow_on_failure_empty_is_default_abort() {
+        let plan = apply_source(
+            r#"(defworkflow :name "x" :steps ("gate:g"))"#,
+        )
+        .unwrap();
+        assert_eq!(plan.workflows.len(), 1);
+        assert_eq!(plan.workflows[0].on_failure, "");
     }
 
     #[test]

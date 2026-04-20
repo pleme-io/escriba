@@ -617,3 +617,34 @@
 (deftextobject :name "s" :scope "outer" :filetype "lisp"
                :query "(list_lit) @sexp.outer"
                :description "sexp outer (paredit parity)")
+
+;; ═════ Workflows — escriba's editor-layer DAG invention ═══════════
+;; Named sequences of gates + actions the editor walks on demand.
+;; Every step is `kind:ref` (`gate:…`, `action:…`, `workflow:…`,
+;; `shell:…`, `cmd:…`). On-failure is `abort` (default) / `continue`
+;; / `prompt`. Chains of convergence checks + side effects that the
+;; runtime attests as it walks them — one tier deeper than defgate.
+
+(defworkflow :name "rust-ship"
+             :description "Format drift check, cargo test, git push"
+             :steps ("gate:rust-format-drift"
+                     "shell:cargo test"
+                     "gate:lsp-clean"
+                     "action:git.push")
+             :on-failure "abort"
+             :keybind "<leader>ws")
+
+(defworkflow :name "rust-commit"
+             :description "Format-drift + no-secrets gate, then commit"
+             :steps ("gate:rust-format-drift"
+                     "gate:no-secrets"
+                     "action:git.commit")
+             :on-failure "prompt"
+             :keybind "<leader>wc")
+
+(defworkflow :name "save-and-test"
+             :description "Write all buffers, run test suite"
+             :steps ("cmd:write-all"
+                     "shell:cargo test")
+             :on-failure "continue"
+             :keybind "<leader>wt")
