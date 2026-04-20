@@ -174,15 +174,25 @@ enum KeybindOutcome {
     DeferredMultiKey,
 }
 
-/// Apply a single keybind. Returns `Ok(true)` if the action resolved
-/// via [`Action::Command`] fallback, `Ok(false)` if it hit a typed
-/// variant, or `Err(warning)` if the spec couldn't be applied at
-/// all.
-fn apply_keybind(spec: &KeybindSpec, keymap: &mut Keymap) -> Result<bool, String> {
+/// Apply a single keybind. Returns an outcome describing how the
+/// binding was handled, or `Err(warning)` when the spec is
+/// malformed.
+fn apply_keybind(spec: &KeybindSpec, keymap: &mut Keymap) -> Result<KeybindOutcome, String> {
     let mode = parse_mode(&spec.mode)
         .map_err(|e| format!("defkeybind :mode {:?} — {e}", spec.mode))?;
-    let key = parse_key(&spec.key)
-        .map_err(|e| format!("defkeybind :key {:?} — {e}", spec.key))?;
+    let key = match parse_key(&spec.key) {
+        Ok(k) => k,
+        Err(e) => {
+            // Multi-key sequences (`gh`, `<leader>ff`, …) aren't
+            // per-binding warnings — they all aggregate into the
+            // `deferred_multi_key` counter. Anything else (typo,
+            // unknown named key) gets a proper error.
+            if looks_like_multi_key(&spec.key) {
+                return Ok(KeybindOutcome::DeferredMultiKey);
+            }
+            return Err(format!("defkeybind :key {:?} — {e}", spec.key));
+        }
+    };
     let (action, deferred) = resolve_action(&spec.action);
     let description = if spec.description.is_empty() {
         spec.action.clone()
@@ -190,7 +200,35 @@ fn apply_keybind(spec: &KeybindSpec, keymap: &mut Keymap) -> Result<bool, String
         spec.description.clone()
     };
     keymap.bind(mode, key, action, description);
-    Ok(deferred)
+    Ok(if deferred {
+        KeybindOutcome::AppliedCommand
+    } else {
+        KeybindOutcome::AppliedTyped
+    })
+}
+
+/// Best-effort classifier: is this key spec a multi-key sequence
+/// (vim-style `gh` / `gg` / `dd`, or a `<leader>`-prefixed
+/// compound)? These aren't errors — they just need pending-stroke
+/// support that lands in a later wave.
+fn looks_like_multi_key(s: &str) -> bool {
+    // `<leader>…` is always a compound even when the remainder is
+    // a single char. Match case-insensitively so `<Leader>` works.
+    if let Some(rest) = s.strip_prefix('<') {
+        if let Some(close) = rest.find('>') {
+            let inner = &rest[..close];
+            if inner.eq_ignore_ascii_case("leader")
+                || inner.eq_ignore_ascii_case("localleader")
+            {
+                // `<leader>X…` or `<leader>` alone both classify
+                // as multi-key pending-stroke territory.
+                return true;
+            }
+        }
+    }
+    // Raw multi-char sequences (`gh`, `jk`) — more than one char
+    // and not wrapped in `<…>`.
+    s.chars().count() > 1 && !s.starts_with('<')
 }
 
 /// Parse a mode name from [`KeybindSpec`].
@@ -436,20 +474,41 @@ mod tests {
     }
 
     #[test]
-    fn apply_warns_on_multi_key_sequence_without_failing() {
+    fn apply_aggregates_multi_key_sequences_into_deferred_count() {
+        // Multi-key bindings (`gh`, `<leader>ff`) pile up into the
+        // `keybinds_deferred_multi_key` counter rather than emitting
+        // per-binding warnings — the startup line stays one-liner
+        // even when the rc has dozens of `<leader>`-prefixed binds.
         let plan = apply_source(
-            r#"(defkeybind :mode "normal" :key "gh" :action "home")"#,
+            r#"
+            (defkeybind :mode "normal" :key "gh" :action "home")
+            (defkeybind :mode "normal" :key "<leader>ff" :action "picker.files")
+            (defkeybind :mode "normal" :key "<leader>fg" :action "picker.grep")
+            (defkeybind :mode "normal" :key "<Leader>fb" :action "picker.buffers")
+            "#,
         )
         .unwrap();
         let mut km = Keymap::new();
         let report = apply_plan_to_keymap(&plan, &mut km);
         assert_eq!(report.keybinds_applied, 0);
-        assert_eq!(report.warnings.len(), 1);
+        assert_eq!(report.keybinds_deferred_multi_key, 4);
         assert!(
-            report.warnings[0].contains("multi-key"),
-            "warning should mention the unsupported form: {:?}",
-            report.warnings[0]
+            report.warnings.is_empty(),
+            "leader / multi-key specs should NOT produce per-binding warnings"
         );
+    }
+
+    #[test]
+    fn apply_still_warns_on_truly_unrecognised_keys() {
+        let plan = apply_source(
+            r#"(defkeybind :mode "normal" :key "<Galactus>" :action "home")"#,
+        )
+        .unwrap();
+        let mut km = Keymap::new();
+        let report = apply_plan_to_keymap(&plan, &mut km);
+        assert_eq!(report.keybinds_applied, 0);
+        assert_eq!(report.keybinds_deferred_multi_key, 0);
+        assert_eq!(report.warnings.len(), 1);
     }
 
     #[test]
