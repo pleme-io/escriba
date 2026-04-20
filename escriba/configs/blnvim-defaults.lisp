@@ -465,3 +465,41 @@
 (defformatter :filetype "yaml"       :command "prettier" :args ("--parser" "yaml"))
 (defformatter :filetype "markdown"   :command "prettier" :args ("--parser" "markdown"))
 (defformatter :filetype "sh"         :command "shfmt"    :args ("-i" "2"))
+
+;; ═════ Palette — nord canonical values ════════════════════════════
+;; Users can reference `:preset "nord"` (above) or name this palette
+;; explicitly via a `defhighlight :fg "nord.base0d"`-style ref once
+;; the runtime's palette resolver is wired.
+(defpalette :name "nord"
+            :base00 "#2e3440" :base01 "#3b4252" :base02 "#434c5e"
+            :base03 "#4c566a" :base04 "#d8dee9" :base05 "#e5e9f0"
+            :base06 "#eceff4" :base07 "#eceff4"
+            :base08 "#bf616a" :base09 "#d08770" :base0a "#ebcb8b"
+            :base0b "#a3be8c" :base0c "#8fbcbb" :base0d "#88c0d0"
+            :base0e "#81a1c1" :base0f "#5e81ac")
+
+;; ═════ Icons — nvim-web-devicons parity (canonical subset) ════════
+(deficon :filetype "rust"       :glyph "" :fg "#dea584")
+(deficon :filetype "python"     :glyph "" :fg "#ffbc03")
+(deficon :filetype "javascript" :glyph "" :fg "#cbcb41")
+(deficon :filetype "typescript" :glyph "" :fg "#519aba")
+(deficon :filetype "go"         :glyph "" :fg "#519aba")
+(deficon :filetype "lua"        :glyph "" :fg "#51a0cf")
+(deficon :filetype "nix"        :glyph "" :fg "#7ebae4")
+(deficon :filetype "lisp"       :glyph "" :fg "#87af5f")
+(deficon :filetype "markdown"   :glyph "" :fg "#519aba")
+(deficon :filetype "yaml"       :glyph "" :fg "#6d8086")
+(deficon :filetype "toml"       :glyph "" :fg "#9c4221")
+(deficon :filetype "json"       :glyph "" :fg "#cbcb41")
+(deficon :filetype "sh"         :glyph "" :fg "#89e051")
+(deficon :filetype "terraform"  :glyph "" :fg "#5f43e9")
+;; Pattern-based icons — `Cargo.*`, `Makefile`, `.envrc` etc.
+(deficon :pattern "Cargo.toml"   :glyph "" :fg "#dea584")
+(deficon :pattern "Cargo.lock"   :glyph "" :fg "#dea584")
+(deficon :pattern "flake.nix"    :glyph "" :fg "#7ebae4")
+(deficon :pattern "flake.lock"   :glyph "" :fg "#7ebae4")
+(deficon :pattern "package.json" :glyph "" :fg "#e8274b")
+(deficon :pattern "Makefile"     :glyph "" :fg "#6d8086")
+(deficon :pattern "Dockerfile"   :glyph "" :fg "#458ee6")
+(deficon :pattern ".envrc"       :glyph "" :fg "#89e051")
+(deficon :pattern ".gitignore"   :glyph "" :fg "#e24329")

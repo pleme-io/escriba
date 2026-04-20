@@ -33,6 +33,8 @@
 //! | `defbufferline`| [`BufferLineSpec`]                          |
 //! | `deflsp`      | [`LspServerSpec`]                            |
 //! | `defformatter`| [`FormatterSpec`]                            |
+//! | `defpalette`  | [`PaletteSpec`]                              |
+//! | `deficon`     | [`IconSpec`]                                 |
 //!
 //! # Extending
 //!
@@ -49,10 +51,12 @@ mod filetype;
 mod formatter;
 mod highlight;
 mod hook;
+mod icon;
 mod keybind;
 mod lsp;
 mod mode_spec;
 mod option;
+mod palette;
 mod plugin;
 mod snippet;
 mod statusline;
@@ -66,10 +70,12 @@ pub use filetype::FiletypeSpec;
 pub use formatter::FormatterSpec;
 pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
+pub use icon::IconSpec;
 pub use keybind::KeybindSpec;
 pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
+pub use palette::PaletteSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use snippet::SnippetSpec;
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
@@ -119,6 +125,8 @@ pub struct ApplyPlan {
     pub buffer_line: Option<BufferLineSpec>,
     pub lsp_servers: Vec<LspServerSpec>,
     pub formatters: Vec<FormatterSpec>,
+    pub palettes: Vec<PaletteSpec>,
+    pub icons: Vec<IconSpec>,
 }
 
 impl ApplyPlan {
@@ -147,6 +155,8 @@ impl ApplyPlan {
         }
         self.lsp_servers.extend(other.lsp_servers);
         self.formatters.extend(other.formatters);
+        self.palettes.extend(other.palettes);
+        self.icons.extend(other.icons);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -154,7 +164,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -170,6 +180,8 @@ impl ApplyPlan {
             if self.buffer_line.is_some() { 1 } else { 0 },
             self.lsp_servers.len(),
             self.formatters.len(),
+            self.palettes.len(),
+            self.icons.len(),
         )
     }
 }
@@ -244,6 +256,12 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let formatters: Vec<FormatterSpec> =
         tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
 
+    let palettes: Vec<PaletteSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
+    let icons: Vec<IconSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -260,6 +278,8 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         buffer_line,
         lsp_servers,
         formatters,
+        palettes,
+        icons,
     })
 }
 
@@ -625,6 +645,64 @@ mod tests {
         assert!(!plan.formatters[0].manual_only);
         assert_eq!(plan.formatters[1].args, vec!["format", "-"]);
         assert!(plan.formatters[2].manual_only);
+    }
+
+    #[test]
+    fn parses_base16_palette() {
+        let plan = apply_source(
+            r##"
+            (defpalette :name "gruvbox-dark-soft"
+                        :base00 "#32302f" :base01 "#3c3836"
+                        :base05 "#d5c4a1"
+                        :base08 "#fb4934" :base0b "#b8bb26"
+                        :base0d "#83a598")
+            "##,
+        )
+        .unwrap();
+        assert_eq!(plan.palettes.len(), 1);
+        let p = &plan.palettes[0];
+        assert_eq!(p.name, "gruvbox-dark-soft");
+        assert_eq!(p.base00, "#32302f");
+        assert_eq!(p.base05, "#d5c4a1");
+        assert_eq!(p.base08, "#fb4934");
+        assert_eq!(p.base0b, "#b8bb26");
+        assert_eq!(p.base0d, "#83a598");
+        // Unspecified fields empty.
+        assert!(p.base07.is_empty());
+    }
+
+    #[test]
+    fn parses_icons_with_both_binding_styles() {
+        let plan = apply_source(
+            r##"
+            (deficon :filetype "rust"   :glyph "" :fg "#dea584")
+            (deficon :filetype "python" :glyph "" :fg "#ffbc03")
+            (deficon :pattern  ".envrc" :glyph "" :fg "#89e051")
+            "##,
+        )
+        .unwrap();
+        assert_eq!(plan.icons.len(), 3);
+        assert_eq!(plan.icons[0].filetype, "rust");
+        assert!(!plan.icons[0].is_pattern());
+        assert!(plan.icons[2].is_pattern());
+        assert_eq!(plan.icons[2].pattern, ".envrc");
+    }
+
+    #[test]
+    fn hook_event_vocabulary_includes_nvim_canon() {
+        // The expanded KNOWN_EVENTS table must now contain the
+        // events blnvim configs reach for most often.
+        assert!(is_known_event("BufReadPost"));
+        assert!(is_known_event("LspAttach"));
+        assert!(is_known_event("InsertLeave"));
+        assert!(is_known_event("TextYankPost"));
+        assert!(is_known_event("CursorHold"));
+        assert!(is_known_event("ColorScheme"));
+        assert!(is_known_event("TermOpen"));
+        assert!(is_known_event("CmdlineEnter"));
+        assert!(is_known_event("FileType"));
+        // Unknown values stay rejected.
+        assert!(!is_known_event("BufGalactus"));
     }
 
     #[test]
