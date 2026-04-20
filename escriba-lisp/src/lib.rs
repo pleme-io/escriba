@@ -283,8 +283,8 @@ impl ApplyPlan {
 
     /// Pairs of `(label, count)` — the single source of truth the
     /// summary + startup banner + planned `escriba doctor` all read
-    /// from. Adding a def-form = one new entry here, instead of
-    /// touching a 20-arg format string.
+    /// from. Adding a def-form = one new entry here + a glyph in
+    /// [`form_glyph`]; nothing else.
     #[must_use]
     pub fn counts(&self) -> Vec<(&'static str, usize)> {
         vec![
@@ -517,6 +517,69 @@ pub fn default_rc_path() -> PathBuf {
     PathBuf::from(".escribarc.lisp")
 }
 
+/// Canonical glyph for a def-form label. Labels come from
+/// [`ApplyPlan::counts`]; the binary walks `counts()` and looks up
+/// glyphs via this function so the `--list-rc` banner stays in sync
+/// with the spec surface. Unknown labels fall back to the bullet
+/// glyph `•`.
+///
+/// Lives in `escriba-lisp` (not the binary) so every consumer — the
+/// binary, the planned `escriba doctor`, any future TUI / GPU surface
+/// — picks up new glyphs automatically when a def-form lands.
+#[must_use]
+pub fn form_glyph(label: &str) -> &'static str {
+    match label {
+        "keybinds"    => "⌨️ ",
+        "cmds"        => "⚡",
+        "options"     => "⚙️ ",
+        "theme"       => "🎨",
+        "hooks"       => "🪝",
+        "filetypes"   => "📄",
+        "abbrev"      => "✏️ ",
+        "snippets"    => "✂️ ",
+        "major_modes" => "🎭",
+        "plugins"     => "🧩",
+        "highlights"  => "🌈",
+        "statusline"  => "📊",
+        "bufferline"  => "📑",
+        "lsp"         => "💡",
+        "formatters"  => "📐",
+        "palettes"    => "🖌️ ",
+        "icons"       => "🏷️ ",
+        "dap"         => "🐛",
+        "gates"       => "🛡️ ",
+        "textobjects" => "🎯",
+        "workflows"   => "🧵",
+        "sessions"    => "🗂️ ",
+        "effects"     => "✨",
+        "terms"       => "🪟",
+        "marks"       => "📌",
+        _             => "•",
+    }
+}
+
+/// Canonical glyph for a plugin category, matching the `:category`
+/// strings in [`PluginSpec`](crate::PluginSpec). Same contract as
+/// [`form_glyph`] — the single source of truth lives here.
+#[must_use]
+pub fn category_glyph(cat: &str) -> &'static str {
+    match cat {
+        "common"      => "📦",
+        "completion"  => "🔤",
+        "formatting"  => "📐",
+        "keybindings" => "⌨️ ",
+        "lsp"         => "💡",
+        "telescope"   => "🔭",
+        "theming"     => "🎨",
+        "tmux"        => "⫽ ",
+        "treesitter"  => "🌳",
+        "files"       => "📁",
+        "git"         => "🌿",
+        "ai"          => "🤖",
+        _             => "✦",
+    }
+}
+
 fn validate_mode(mode: &str) -> LispResult<()> {
     match mode {
         "normal" | "insert" | "visual" | "visual-line" | "command" => Ok(()),
@@ -675,6 +738,36 @@ mod tests {
         assert!(s.contains("cmds=1"));
         assert!(s.contains("theme=1"));
         assert!(s.contains("hooks=1"));
+    }
+
+    #[test]
+    fn form_glyph_defined_for_every_count_label() {
+        // Contract test: every label `counts()` emits must resolve to
+        // a non-bullet glyph. Catches the "added a def-form but
+        // forgot to extend form_glyph" regression at the typed edge.
+        let plan = apply_source("").unwrap();
+        for (label, _) in plan.counts() {
+            let g = form_glyph(label);
+            assert_ne!(
+                g, "•",
+                "form_glyph missing entry for def-form label {label:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn category_glyph_defined_for_canonical_categories() {
+        // KNOWN_CATEGORIES (from plugin.rs) and the category_glyph
+        // table must stay aligned. An unknown category falls back
+        // to `✦`; anything in KNOWN_CATEGORIES should resolve to a
+        // real glyph.
+        for cat in KNOWN_CATEGORIES {
+            let g = category_glyph(cat);
+            assert_ne!(
+                g, "✦",
+                "category_glyph missing entry for canonical category {cat:?}",
+            );
+        }
     }
 
     #[test]

@@ -313,59 +313,11 @@ fn load_rc_optional(explicit: Option<&std::path::Path>) -> Result<Option<(PathBu
     Ok(Some((path, plan)))
 }
 
-/// Glyph table — one cool symbol per def-form and per plugin
-/// category, so `--list-rc` reads at a glance. Terminals without
-/// emoji support fall back to the literal char (no garbage). "Make
-/// up a relevant one" is the design rule when no obvious glyph
-/// exists.
-fn form_glyph(kind: &str) -> &'static str {
-    match kind {
-        "keybinds"      => "⌨️ ",
-        "cmds"          => "⚡",
-        "options"       => "⚙️ ",
-        "theme"         => "🎨",
-        "hooks"         => "🪝",
-        "filetypes"     => "📄",
-        "abbrev"        => "✏️ ",
-        "snippets"      => "✂️ ",
-        "major_modes"   => "🎭",
-        "plugins"       => "🧩",
-        "highlights"    => "🌈",
-        "statusline"    => "📊",
-        "bufferline"    => "📑",
-        "lsp"           => "💡",
-        "formatters"    => "📐",
-        "palettes"      => "🖌️ ",
-        "icons"         => "🏷️ ",
-        "dap"           => "🐛",
-        "gates"         => "🛡️ ",
-        "textobjects"   => "🎯",
-        "workflows"     => "🧵",
-        "sessions"      => "🗂️ ",
-        "effects"       => "✨",
-        "terms"         => "🪟",
-        "marks"         => "📌",
-        _               => "•",
-    }
-}
-
-fn category_glyph(cat: &str) -> &'static str {
-    match cat {
-        "common"      => "📦",
-        "completion"  => "🔤",
-        "formatting"  => "📐",
-        "keybindings" => "⌨️ ",
-        "lsp"         => "💡",
-        "telescope"   => "🔭",
-        "theming"     => "🎨",
-        "tmux"        => "⫽ ",
-        "treesitter"  => "🌳",
-        "files"       => "📁",
-        "git"         => "🌿",
-        "ai"          => "🤖",
-        _             => "✦",
-    }
-}
+// Glyph tables delegate to `escriba_lisp::{form_glyph, category_glyph}`
+// so the source of truth stays next to the specs that declare the
+// labels. The binary's `--list-rc` banner picks up new glyphs the
+// moment a def-form adds one.
+use escriba_lisp::{category_glyph, form_glyph};
 
 /// Render the plan summary with per-form glyphs so the counts read
 /// at a glance instead of as a flat k=v blob. Walks
