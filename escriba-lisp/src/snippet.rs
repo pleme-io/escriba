@@ -108,11 +108,7 @@ impl SnippetSpec {
     /// time.
     #[must_use]
     pub fn has_valid_hash_format(&self) -> bool {
-        self.hash.len() == 32
-            && self
-                .hash
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        crate::hash::is_blake3_128_hex(&self.hash)
     }
 }
 

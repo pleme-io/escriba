@@ -117,19 +117,13 @@ pub fn is_known_severity(severity: &str) -> bool {
 /// should be — any tool that pins an expected hash derives it by
 /// hashing the same `summary()` through this function.
 ///
-/// Returns 32 lowercase hex chars. Same format as
-/// [`SnippetSpec`](crate::SnippetSpec)'s `:hash` + mado's clipboard
-/// store — the hash is the shared API across the stack.
+/// Returns 32 lowercase hex chars. Thin wrapper over
+/// [`crate::hash::compute_blake3_128_hex`] — the hash-token shape
+/// is shared with [`SnippetSpec`](crate::SnippetSpec)'s `:hash` and
+/// mado's clipboard store. One vocabulary across the stack.
 #[must_use]
 pub fn compute_summary_hash(summary: &str) -> String {
-    let full = blake3::hash(summary.as_bytes());
-    let short = &full.as_bytes()[..16];
-    let mut out = String::with_capacity(32);
-    for byte in short {
-        use std::fmt::Write as _;
-        let _ = write!(out, "{byte:02x}");
-    }
-    out
+    crate::hash::compute_blake3_128_hex(summary.as_bytes())
 }
 
 impl AttestSpec {
@@ -150,11 +144,11 @@ impl AttestSpec {
     /// Empty is valid (means "no hash pinned", just a stub attestation
     /// the user hasn't filled in yet) and always returns false here;
     /// callers distinguish "empty" from "malformed" via
-    /// [`Self::is_empty_hash`].
+    /// [`Self::is_empty_hash`]. Delegates to
+    /// [`crate::hash::is_blake3_128_hex`] for the canonical check.
     #[must_use]
     pub fn has_valid_hash_format(&self) -> bool {
-        self.counts_hash.len() == 32
-            && self.counts_hash.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        crate::hash::is_blake3_128_hex(&self.counts_hash)
     }
 
     /// True when `:counts-hash` is empty — the user declared an

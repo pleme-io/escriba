@@ -66,6 +66,7 @@ mod effect;
 mod filetype;
 mod formatter;
 mod gate;
+mod hash;
 mod highlight;
 mod hook;
 mod icon;
@@ -113,6 +114,7 @@ pub use gate::{
     KNOWN_SOURCES as GATE_SOURCES, is_known_action as is_gate_action,
     is_known_severity as is_gate_severity, is_known_source as is_gate_source,
 };
+pub use hash::{compute_blake3_128_hex, is_blake3_128_hex};
 pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use icon::IconSpec;
@@ -2403,6 +2405,59 @@ mod tests {
         )
         .expect_err("short hex should error");
         assert!(matches!(err, LispError::MalformedRulerColor(_)));
+    }
+
+    #[test]
+    fn blake3_hash_vocab_is_one_predicate_across_specs() {
+        // defsnippet :hash and defattest :counts-hash both route
+        // structural validation through `crate::hash::is_blake3_128_hex`
+        // — a uppercase-hex string must fail both the same way, and
+        // a valid lowercase must pass both. Proves the single-
+        // predicate contract end-to-end through apply_source.
+        let valid = "af42c0d18e9b3f4aa18b7c3ef1de93a4";
+        let uppercase = "AF42C0D18E9B3F4AA18B7C3EF1DE93A4";
+
+        // Both specs accept the valid lowercase.
+        apply_source(&format!(
+            r#"(defsnippet :trigger "x" :hash "{valid}")"#
+        ))
+        .expect("valid lowercase hash should parse for defsnippet");
+        apply_source(&format!(
+            r#"(defattest :id "x" :counts-hash "{valid}")"#
+        ))
+        .expect("valid lowercase hash should parse for defattest");
+
+        // Both specs reject the uppercase form.
+        assert!(matches!(
+            apply_source(&format!(
+                r#"(defsnippet :trigger "x" :hash "{uppercase}")"#
+            )),
+            Err(LispError::MalformedSnippetHash(_)),
+        ));
+        assert!(matches!(
+            apply_source(&format!(
+                r#"(defattest :id "x" :counts-hash "{uppercase}")"#
+            )),
+            Err(LispError::MalformedAttestHash(_)),
+        ));
+
+        // The shared predicate agrees with both edges.
+        assert!(is_blake3_128_hex(valid));
+        assert!(!is_blake3_128_hex(uppercase));
+    }
+
+    #[test]
+    fn compute_blake3_128_hex_is_the_shared_compute_function() {
+        // compute_summary_hash is a thin wrapper over
+        // compute_blake3_128_hex — the two must agree byte-for-byte
+        // for every input. Pinning this guarantees mado's clipboard
+        // store + defsnippet + defattest can all derive the same
+        // token from the same bytes.
+        let s = "keybinds=10 cmds=5 theme=1";
+        assert_eq!(
+            compute_blake3_128_hex(s.as_bytes()),
+            compute_summary_hash(s),
+        );
     }
 
     #[test]
