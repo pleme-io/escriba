@@ -712,3 +712,29 @@
            :enable #f
            :intensity 0.5
            :color "#5e81ac")
+
+;; ═════ Terms — typed bridge to mado over MCP ══════════════════════
+;; Wire-compatible with mado's TermSpec. Activating a defterm sends
+;; its payload to mado's `spawn_term` MCP tool — the same typed
+;; contract both repos consume. Placement mirrors mado's enum,
+;; effects reference this rc's defeffect names.
+
+(defterm :name "dev"
+         :description "Default dev shell — frost in a horizontal split"
+         :shell "/etc/profiles/per-user/drzzln/bin/frost"
+         :placement "split-horizontal"
+         :effects ("cursor-glow" "bloom")
+         :keybind "<leader>td")
+
+(defterm :name "watch"
+         :description "cargo watch test — vertical split"
+         :shell "cargo"
+         :args ("watch" "-x" "test")
+         :placement "split-vertical"
+         :env ("CARGO_TERM_COLOR=always")
+         :keybind "<leader>tw")
+
+(defterm :name "side"
+         :description "Throwaway shell in a new window"
+         :placement "window"
+         :keybind "<leader>tn")

@@ -41,6 +41,7 @@
 //! | `defworkflow` | [`WorkflowSpec`] — named DAG of gates + actions (editor-layer workflow) |
 //! | `defsession`  | [`SessionSpec`] — named workspace layout (absorbs vim :mksession / vscode workspaces) |
 //! | `defeffect`   | [`EffectSpec`] — ghostty-style GPU shader effect (cursor glow / bloom / scanlines) |
+//! | `defterm`     | [`TermSpec`] — terminal session spec (wire-compatible with `mado::term_spec::TermSpec`) |
 //!
 //! # Extending
 //!
@@ -70,6 +71,7 @@ mod plugin;
 mod session;
 mod snippet;
 mod statusline;
+mod term;
 mod textobject;
 mod theme;
 mod workflow;
@@ -104,6 +106,10 @@ pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
 pub use snippet::SnippetSpec;
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
+pub use term::{
+    KNOWN_PLACEMENTS as TERM_PLACEMENTS, TermSpec,
+    is_known_placement as is_known_term_placement,
+};
 pub use textobject::{
     CANONICAL_NAMES as TEXTOBJECT_CANONICAL_NAMES,
     KNOWN_SCOPES as TEXTOBJECT_SCOPES, TextObjectSpec,
@@ -187,6 +193,11 @@ pub enum LispError {
     UnknownWorkflowFailureMode(String),
     #[error("defeffect `{0}` has :kind \"custom\" but no :shader path")]
     MalformedCustomEffect(String),
+    #[error(
+        "unknown defterm :placement `{0}` (valid: {valid})",
+        valid = TERM_PLACEMENTS.join(", ")
+    )]
+    UnknownTermPlacement(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -220,6 +231,7 @@ pub struct ApplyPlan {
     pub workflows: Vec<WorkflowSpec>,
     pub sessions: Vec<SessionSpec>,
     pub effects: Vec<EffectSpec>,
+    pub terms: Vec<TermSpec>,
 }
 
 impl ApplyPlan {
@@ -256,6 +268,7 @@ impl ApplyPlan {
         self.workflows.extend(other.workflows);
         self.sessions.extend(other.sessions);
         self.effects.extend(other.effects);
+        self.terms.extend(other.terms);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -288,6 +301,7 @@ impl ApplyPlan {
             ("workflows", self.workflows.len()),
             ("sessions", self.sessions.len()),
             ("effects", self.effects.len()),
+            ("terms", self.terms.len()),
         ]
     }
 
@@ -421,6 +435,13 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let terms: Vec<TermSpec> = compile_validated(src, |t: &TermSpec| {
+        if !term::is_known_placement(&t.placement) {
+            return Err(LispError::UnknownTermPlacement(t.placement.clone()));
+        }
+        Ok(())
+    })?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -445,6 +466,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         workflows,
         sessions,
         effects,
+        terms,
     })
 }
 
@@ -711,6 +733,7 @@ mod tests {
             "workflows",
             "sessions",
             "effects",
+            "terms",
         ] {
             assert!(
                 names.contains(required),
@@ -750,6 +773,7 @@ mod tests {
             (defworkflow :name "a-wf" :steps ("gate:a-gate"))
             (defsession  :name "a-sess" :buffers ("a.rs"))
             (defeffect   :name "a-fx" :kind "cursor" :enable #t :intensity 0.5)
+            (defterm     :name "a-term" :shell "/bin/frost" :placement "tab")
             "##,
         )
         .unwrap();
@@ -998,6 +1022,60 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_terms_with_wire_compatible_fields() {
+        let plan = apply_source(
+            r#"
+            (defterm :name "dev"
+                     :shell "/bin/frost"
+                     :cwd "~/code"
+                     :placement "split-horizontal"
+                     :env ("RUST_LOG=info" "CARGO_TERM_COLOR=always")
+                     :effects ("cursor-glow" "bloom")
+                     :keybind "<leader>td")
+            (defterm :name "attach"
+                     :attach "pane-42"
+                     :keybind "<leader>ta")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.terms.len(), 2);
+        assert_eq!(plan.terms[0].shell, "/bin/frost");
+        assert_eq!(plan.terms[0].placement, "split-horizontal");
+        assert_eq!(plan.terms[0].effects, vec!["cursor-glow", "bloom"]);
+        assert_eq!(plan.terms[0].env_pairs().len(), 2);
+        assert!(plan.terms[1].is_attach());
+    }
+
+    #[test]
+    fn term_with_unknown_placement_rejected() {
+        let err = apply_source(
+            r#"(defterm :name "x" :placement "zigzag")"#,
+        )
+        .expect_err("unknown placement should error");
+        assert!(matches!(err, LispError::UnknownTermPlacement(_)));
+    }
+
+    #[test]
+    fn term_mcp_payload_round_trips_through_json() {
+        // Cross-repo contract test: `TermSpec::to_mcp_value()` must
+        // produce exactly the shape mado's spawn_term tool accepts.
+        // This asserts the field names — if either side renames,
+        // the test fires.
+        let plan = apply_source(
+            r#"(defterm :name "x" :shell "zsh" :placement "window"
+                        :env ("FOO=bar"))"#,
+        )
+        .unwrap();
+        let payload = plan.terms[0].to_mcp_value();
+        for key in ["shell", "args", "cwd", "env", "title", "placement", "attach", "effects"] {
+            assert!(
+                payload.get(key).is_some(),
+                "mado-contract field `{key}` missing from MCP payload",
+            );
+        }
     }
 
     #[test]
