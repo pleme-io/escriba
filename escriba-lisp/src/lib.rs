@@ -129,6 +129,26 @@ fn compile<T: tatara_lisp::TataraDomain>(src: &str) -> LispResult<Vec<T>> {
     tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))
 }
 
+/// Compile `T`-keyword forms and validate each via `validate` before
+/// returning. Short-circuits on first validation failure. Collapses
+/// the `compile + for-loop-check` pattern that repeated across every
+/// validated def-form in `apply_source`.
+///
+/// The validator is an `FnMut` so closures can capture mutable state
+/// (e.g., dedup sets) if a future validator needs them. For now all
+/// callers pass `Fn`-like closures.
+fn compile_validated<T, V>(src: &str, mut validate: V) -> LispResult<Vec<T>>
+where
+    T: tatara_lisp::TataraDomain,
+    V: FnMut(&T) -> LispResult<()>,
+{
+    let specs: Vec<T> = compile(src)?;
+    for spec in &specs {
+        validate(spec)?;
+    }
+    Ok(specs)
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum LispError {
     #[error("io error reading rc file {path}: {source}")]
@@ -303,23 +323,21 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let options: Vec<OptionSpec> =
         compile(src)?;
 
-    let themes: Vec<ThemeSpec> =
-        compile(src)?;
-    for t in &themes {
+    let themes: Vec<ThemeSpec> = compile_validated(src, |t: &ThemeSpec| {
         if !t.preset.is_empty() && !is_known_preset(&t.preset) {
             return Err(LispError::UnknownTheme(t.preset.clone()));
         }
-    }
+        Ok(())
+    })?;
     // Last writer wins.
     let theme = themes.into_iter().last();
 
-    let hooks: Vec<HookSpec> =
-        compile(src)?;
-    for h in &hooks {
+    let hooks: Vec<HookSpec> = compile_validated(src, |h: &HookSpec| {
         if !is_known_event(&h.event) {
             return Err(LispError::UnknownHook(h.event.clone()));
         }
-    }
+        Ok(())
+    })?;
 
     let filetypes: Vec<FiletypeSpec> =
         compile(src)?;
@@ -363,12 +381,10 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let dap_adapters: Vec<DapAdapterSpec> =
         compile(src)?;
 
-    let gates: Vec<GateSpec> =
-        compile(src)?;
     // Strict validation on gates — ill-formed specs (unknown action /
     // neither command nor source / both set) fail fast so users
     // learn about the mistake at apply time, not at dispatch.
-    for g in &gates {
+    let gates: Vec<GateSpec> = compile_validated(src, |g: &GateSpec| {
         if !gate::is_known_action(&g.action) {
             return Err(LispError::UnknownGateAction(g.action.clone()));
         }
@@ -378,32 +394,32 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         if !g.severity.is_empty() && !gate::is_known_severity(&g.severity) {
             return Err(LispError::UnknownGateSeverity(g.severity.clone()));
         }
-    }
+        Ok(())
+    })?;
 
-    let text_objects: Vec<TextObjectSpec> =
-        compile(src)?;
-    for t in &text_objects {
+    let text_objects: Vec<TextObjectSpec> = compile_validated(src, |t: &TextObjectSpec| {
         if !textobject::is_known_scope(&t.scope) {
             return Err(LispError::UnknownTextObjectScope(t.scope.clone()));
         }
-    }
+        Ok(())
+    })?;
 
-    let workflows: Vec<WorkflowSpec> = compile(src)?;
-    for w in &workflows {
+    let workflows: Vec<WorkflowSpec> = compile_validated(src, |w: &WorkflowSpec| {
         if !workflow::is_known_failure_mode(&w.on_failure) {
             return Err(LispError::UnknownWorkflowFailureMode(w.on_failure.clone()));
         }
-    }
+        Ok(())
+    })?;
 
-    let sessions: Vec<SessionSpec> = compile(src)?;
     // Layout is advisory — unknowns pass through, no error.
+    let sessions: Vec<SessionSpec> = compile(src)?;
 
-    let effects: Vec<EffectSpec> = compile(src)?;
-    for e in &effects {
+    let effects: Vec<EffectSpec> = compile_validated(src, |e: &EffectSpec| {
         if e.is_malformed_custom() {
             return Err(LispError::MalformedCustomEffect(e.name.clone()));
         }
-    }
+        Ok(())
+    })?;
 
     Ok(ApplyPlan {
         keybinds,
@@ -618,6 +634,32 @@ mod tests {
         assert!(s.contains("cmds=1"));
         assert!(s.contains("theme=1"));
         assert!(s.contains("hooks=1"));
+    }
+
+    #[test]
+    fn compile_validated_short_circuits_on_first_failure() {
+        // Validator errors should bubble up immediately — the helper
+        // must not keep walking after the first failed spec (side-effect
+        // validators can depend on this).
+        let src = r#"
+            (defkeybind :mode "normal" :key "a" :action "x")
+            (defkeybind :mode "normal" :key "b" :action "x")
+            (defkeybind :mode "normal" :key "c" :action "x")
+        "#;
+        let mut seen = 0usize;
+        let err = compile_validated(src, |_: &KeybindSpec| -> LispResult<()> {
+            seen += 1;
+            if seen >= 2 {
+                Err(LispError::UnknownMode("stop-here".into()))
+            } else {
+                Ok(())
+            }
+        })
+        .expect_err("validator error should propagate");
+        assert!(matches!(err, LispError::UnknownMode(_)));
+        // Walked exactly 2 — the one that succeeded + the one that
+        // errored. Not 3.
+        assert_eq!(seen, 2);
     }
 
     #[test]
