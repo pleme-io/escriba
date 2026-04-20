@@ -12,6 +12,14 @@ authors.workspace = true
 name = "escriba"
 path = "src/main.rs"
 
+# GPU-default sibling binary. Same code, same CLI; only difference
+# is `$ESCRIBA_RENDER=gpu` is pre-set. Users who want the GPU window
+# by default wire `escriba-gpu`; nvim-style terminal users stay on
+# plain `escriba`.
+[[bin]]
+name = "escriba-gpu"
+path = "src/bin/escriba-gpu.rs"
+
 [dependencies]
 escriba-core    = { workspace = true }
 escriba-buffer  = { workspace = true }
