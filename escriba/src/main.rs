@@ -53,10 +53,11 @@ struct Args {
     /// Compile config / open buffer / print summary; do not render.
     #[arg(long)]
     dry_run: bool,
-    /// Path to the Tatara-Lisp rc file. Falls back to `$ESCRIBARC`, then
-    /// `$XDG_CONFIG_HOME/escriba/rc.lisp`, then `$HOME/.escribarc.lisp`.
-    /// Missing files are silently skipped; parse errors fail fast.
-    #[arg(long)]
+    /// Path to the Tatara-Lisp rc file. Falls back to `$ESCRIBARC`,
+    /// then `$XDG_CONFIG_HOME/escriba/rc.lisp`, then
+    /// `$HOME/.escribarc.lisp`. Missing files are silently skipped;
+    /// parse errors fail fast.
+    #[arg(long, env = "ESCRIBARC")]
     rc: Option<PathBuf>,
     /// Parse the rc file, print the apply-plan summary, and exit.
     /// Mirrors `frost --doctor` — useful for CI / config validation.
@@ -65,8 +66,9 @@ struct Args {
     /// Skip the bundled blnvim-parity defaults. By default, escriba
     /// boots with the same plugin/keybinding/theme surface area as
     /// `pleme-io/blackmatter-nvim`; `--no-defaults` yields a bare
-    /// vim-ish editor with only the user rc applied.
-    #[arg(long)]
+    /// vim-ish editor with only the user rc applied. Also honoured
+    /// via `ESCRIBA_NO_DEFAULTS=1` so home-manager can toggle it.
+    #[arg(long, env = "ESCRIBA_NO_DEFAULTS")]
     no_defaults: bool,
     /// Render backend — gpu (default, interactive window) or text (headless).
     #[arg(long, value_enum, default_value_t = RenderMode::Gpu)]
