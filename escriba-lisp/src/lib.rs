@@ -28,6 +28,8 @@
 //! | `defsnippet`  | [`SnippetSpec`]                              |
 //! | `defmode`     | [`MajorModeSpec`]                            |
 //! | `defplugin`   | [`PluginSpec`]                               |
+//! | `defhighlight`| [`HighlightSpec`]                            |
+//! | `defstatusline`| [`StatusLineSpec`]                          |
 //!
 //! # Extending
 //!
@@ -40,24 +42,28 @@ mod abbrev;
 mod apply;
 mod cmd;
 mod filetype;
+mod highlight;
 mod hook;
 mod keybind;
 mod mode_spec;
 mod option;
 mod plugin;
 mod snippet;
+mod statusline;
 mod theme;
 
 pub use abbrev::AbbrevSpec;
 pub use apply::{ApplyReport, apply_plan_to_keymap};
 pub use cmd::CmdSpec;
 pub use filetype::FiletypeSpec;
+pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use keybind::KeybindSpec;
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use snippet::SnippetSpec;
+pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
 pub use theme::{KNOWN_PRESETS, ThemeSpec, is_known_preset};
 
 use std::path::{Path, PathBuf};
@@ -99,6 +105,8 @@ pub struct ApplyPlan {
     pub snippets: Vec<SnippetSpec>,
     pub major_modes: Vec<MajorModeSpec>,
     pub plugins: Vec<PluginSpec>,
+    pub highlights: Vec<HighlightSpec>,
+    pub status_line: Option<StatusLineSpec>,
 }
 
 impl ApplyPlan {
@@ -118,6 +126,10 @@ impl ApplyPlan {
         self.snippets.extend(other.snippets);
         self.major_modes.extend(other.major_modes);
         self.plugins.extend(other.plugins);
+        self.highlights.extend(other.highlights);
+        if other.status_line.is_some() {
+            self.status_line = other.status_line;
+        }
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -125,7 +137,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -136,6 +148,8 @@ impl ApplyPlan {
             self.snippets.len(),
             self.major_modes.len(),
             self.plugins.len(),
+            self.highlights.len(),
+            if self.status_line.is_some() { 1 } else { 0 },
         )
     }
 }
@@ -192,6 +206,14 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let plugins: Vec<PluginSpec> =
         tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
 
+    let highlights: Vec<HighlightSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
+    let status_lines: Vec<StatusLineSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+    // Last writer wins — matches theme semantics.
+    let status_line = status_lines.into_iter().last();
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -203,6 +225,8 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         snippets,
         major_modes,
         plugins,
+        highlights,
+        status_line,
     })
 }
 
@@ -458,6 +482,67 @@ mod tests {
         assert!(plan.plugins[0].lazy);
         assert_eq!(plan.plugins[1].keybinds, vec!["<leader>e"]);
         assert_eq!(plan.plugins[2].priority, 1000);
+    }
+
+    #[test]
+    fn parses_highlights_with_attrs_and_links() {
+        let plan = apply_source(
+            r##"
+            (defhighlight :group "Function" :fg "#88c0d0" :bold #t)
+            (defhighlight :group "Comment"  :fg "#4c566a" :italic #t)
+            (defhighlight :group "@function.call" :link "Function")
+            (defhighlight :group "DiagnosticError" :fg "#bf616a" :bg "#2e3440" :bold #t :undercurl #t)
+            "##,
+        )
+        .unwrap();
+        assert_eq!(plan.highlights.len(), 4);
+        assert_eq!(plan.highlights[0].group, "Function");
+        assert_eq!(plan.highlights[0].fg, "#88c0d0");
+        assert!(plan.highlights[0].bold);
+        assert!(plan.highlights[1].italic);
+        assert!(plan.highlights[2].is_link());
+        assert_eq!(plan.highlights[2].link, "Function");
+        assert!(plan.highlights[3].has_attrs());
+        assert!(plan.highlights[3].undercurl);
+    }
+
+    #[test]
+    fn parses_status_line_with_three_alignment_slots() {
+        let plan = apply_source(
+            r#"
+            (defstatusline
+              :left ((:segment "mode")
+                     (:segment "branch" :prefix "  "))
+              :center ((:segment "file" :highlight "StatusLineFile"))
+              :right ((:segment "diagnostics")
+                      (:segment "time" :format "%H:%M")))
+            "#,
+        )
+        .unwrap();
+        let sl = plan.status_line.expect("defstatusline should produce a spec");
+        assert_eq!(sl.left.len(), 2);
+        assert_eq!(sl.center.len(), 1);
+        assert_eq!(sl.right.len(), 2);
+        assert_eq!(sl.segment_count(), 5);
+        assert_eq!(sl.left[0].segment, "mode");
+        assert_eq!(sl.left[1].prefix, "  ");
+        assert_eq!(sl.right[1].format, "%H:%M");
+    }
+
+    #[test]
+    fn status_line_last_writer_wins() {
+        let plan = apply_source(
+            r#"
+            (defstatusline :left ((:segment "mode")))
+            (defstatusline :right ((:segment "time")))
+            "#,
+        )
+        .unwrap();
+        let sl = plan.status_line.unwrap();
+        // Last writer wins entirely — left is empty because the
+        // second form replaced the first, not merged into it.
+        assert!(sl.left.is_empty());
+        assert_eq!(sl.right.len(), 1);
     }
 
     #[test]

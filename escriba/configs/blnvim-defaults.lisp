@@ -311,3 +311,73 @@
            :on-event "InsertEnter"
            :keybinds ("<leader>ai" "<leader>ac")
            :lazy #t)
+
+;; ═════ Highlights — nord-palette syntax overrides ═════════════════
+;; shaunsingh/nord.nvim parity for the common syntax groups. The
+;; `deftheme :preset "nord"` form above seeds the baseline palette;
+;; these tune individual groups on top. Extend freely.
+(defhighlight :group "Normal"     :fg "#d8dee9" :bg "#2e3440")
+(defhighlight :group "Comment"    :fg "#4c566a" :italic #t)
+(defhighlight :group "String"     :fg "#a3be8c")
+(defhighlight :group "Number"     :fg "#b48ead")
+(defhighlight :group "Boolean"    :fg "#b48ead")
+(defhighlight :group "Function"   :fg "#88c0d0" :bold #t)
+(defhighlight :group "Keyword"    :fg "#81a1c1" :italic #t)
+(defhighlight :group "Statement"  :fg "#81a1c1")
+(defhighlight :group "Operator"   :fg "#81a1c1")
+(defhighlight :group "Type"       :fg "#8fbcbb")
+(defhighlight :group "Identifier" :fg "#eceff4")
+(defhighlight :group "Constant"   :fg "#5e81ac")
+(defhighlight :group "Special"    :fg "#ebcb8b")
+
+;; ── UI ────────────────────────────────────────────────────────────
+(defhighlight :group "CursorLine"   :bg "#3b4252")
+(defhighlight :group "LineNr"       :fg "#4c566a")
+(defhighlight :group "SignColumn"   :bg "#2e3440")
+(defhighlight :group "Visual"       :bg "#434c5e")
+(defhighlight :group "Search"       :fg "#2e3440" :bg "#ebcb8b")
+(defhighlight :group "IncSearch"    :fg "#2e3440" :bg "#d08770" :bold #t)
+(defhighlight :group "MatchParen"   :fg "#d08770" :bold #t)
+(defhighlight :group "StatusLine"   :fg "#d8dee9" :bg "#3b4252")
+(defhighlight :group "StatusLineNC" :fg "#4c566a" :bg "#2e3440")
+(defhighlight :group "Pmenu"        :fg "#d8dee9" :bg "#3b4252")
+(defhighlight :group "PmenuSel"     :fg "#2e3440" :bg "#88c0d0" :bold #t)
+(defhighlight :group "NormalFloat"  :bg "#3b4252")
+(defhighlight :group "FloatBorder"  :fg "#5e81ac" :bg "#3b4252")
+
+;; ── Diagnostics ───────────────────────────────────────────────────
+(defhighlight :group "DiagnosticError" :fg "#bf616a" :bold #t)
+(defhighlight :group "DiagnosticWarn"  :fg "#ebcb8b")
+(defhighlight :group "DiagnosticInfo"  :fg "#88c0d0")
+(defhighlight :group "DiagnosticHint"  :fg "#a3be8c")
+
+;; ── Git (gitsigns.nvim parity) ────────────────────────────────────
+(defhighlight :group "GitSignsAdd"    :fg "#a3be8c")
+(defhighlight :group "GitSignsChange" :fg "#ebcb8b")
+(defhighlight :group "GitSignsDelete" :fg "#bf616a")
+(defhighlight :group "DiffAdd"        :bg "#2d3f38")
+(defhighlight :group "DiffChange"     :bg "#3d3f2b")
+(defhighlight :group "DiffDelete"     :bg "#3f2d2d")
+
+;; ── Tree-sitter semantic overrides ────────────────────────────────
+(defhighlight :group "@function.call" :link "Function")
+(defhighlight :group "@variable"      :link "Identifier")
+(defhighlight :group "@parameter"     :fg "#d8dee9" :italic #t)
+(defhighlight :group "@comment.todo"  :fg "#ebcb8b" :bold #t)
+(defhighlight :group "@comment.note"  :fg "#88c0d0" :bold #t)
+(defhighlight :group "@comment.warning" :fg "#d08770" :bold #t)
+
+;; ═════ Status line — lualine-style composition ════════════════════
+;; Three-slot layout matches lualine's `sections.lualine_*` shape.
+;; Segment providers are resolved against the runtime's segment
+;; table — plugins register more at load time.
+(defstatusline
+  :left ((:segment "mode"   :highlight "StatusLineMode")
+         (:segment "branch" :highlight "GitSignsAdd" :prefix " ")
+         (:segment "file"   :highlight "StatusLine"  :prefix " "))
+  :center ()
+  :right ((:segment "diagnostics")
+          (:segment "lsp")
+          (:segment "filetype" :prefix " ")
+          (:segment "position" :prefix " :")
+          (:segment "time"     :format "%H:%M" :prefix " ")))
