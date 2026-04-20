@@ -763,3 +763,19 @@
          :file "~/code/github/pleme-io/nix/flake.nix"
          :line 1
          :kind "jump")
+
+;; ═════ Hash-referenced snippets (escriba-unique) ══════════════════
+;; Escriba is the only editor that references snippet bodies by
+;; BLAKE3 content hash. The hash format matches `mado::clipboard_store`
+;; so a payload copied in the terminal ends up addressable from the
+;; editor via the same token — no payload traverses the MCP socket.
+;;
+;; The example below references a hash that isn't pre-populated in
+;; any store yet; it's documentation for the wire shape. Drop real
+;; hashes in your own rc once you start using the content-store
+;; (sample flow: copy payload in mado with OSC 52 → mado returns a
+;; hash in its log / MCP → add a defsnippet referencing it).
+(defsnippet :trigger "deploy-cmd"
+            :hash "af42c0d18e9b3f4aa18b7c3ef1de93a4"
+            :description "Team deploy command — content from mado store"
+            :filetype "sh")

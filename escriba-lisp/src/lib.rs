@@ -107,7 +107,7 @@ pub use option::OptionSpec;
 pub use palette::PaletteSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
-pub use snippet::SnippetSpec;
+pub use snippet::{Resolution as SnippetResolution, SnippetSpec};
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
 pub use term::{
     KNOWN_PLACEMENTS as TERM_PLACEMENTS, TermSpec,
@@ -206,6 +206,14 @@ pub enum LispError {
         valid = MARK_KINDS.join(", ")
     )]
     UnknownMarkKind(String),
+    #[error(
+        "defsnippet `{0}` must set exactly one of `:body` / `:hash` — got neither or both"
+    )]
+    InvalidSnippetShape(String),
+    #[error(
+        "defsnippet :hash `{0}` is not a 32-char lowercase BLAKE3-128 hex token"
+    )]
+    MalformedSnippetHash(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -370,8 +378,21 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let abbreviations: Vec<AbbrevSpec> =
         compile(src)?;
 
-    let snippets: Vec<SnippetSpec> =
-        compile(src)?;
+    let snippets: Vec<SnippetSpec> = compile_validated(src, |s: &SnippetSpec| {
+        match s.resolution() {
+            SnippetResolution::Inline | SnippetResolution::Hashed => {}
+            SnippetResolution::Invalid => {
+                return Err(LispError::InvalidSnippetShape(s.trigger.clone()));
+            }
+        }
+        // If `:hash` is set, it must look like a BLAKE3-128 hex
+        // token. Catches typos (`:hash "af42"`) at parse time so
+        // users see the error in `--list-rc` instead of at expand.
+        if s.resolution() == SnippetResolution::Hashed && !s.has_valid_hash_format() {
+            return Err(LispError::MalformedSnippetHash(s.hash.clone()));
+        }
+        Ok(())
+    })?;
 
     let major_modes: Vec<MajorModeSpec> =
         compile(src)?;
@@ -1136,6 +1157,55 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_hash_referenced_snippet() {
+        let plan = apply_source(
+            r#"
+            (defsnippet :trigger "deploy"
+                        :hash "af42c0d18e9b3f4aa18b7c3ef1de93a4"
+                        :description "Team deploy command — pasted from mado")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.snippets.len(), 1);
+        assert_eq!(plan.snippets[0].resolution(), SnippetResolution::Hashed);
+        assert!(plan.snippets[0].has_valid_hash_format());
+        assert!(plan.snippets[0].body.is_empty());
+    }
+
+    #[test]
+    fn snippet_without_body_or_hash_rejected() {
+        let err = apply_source(r#"(defsnippet :trigger "oops")"#)
+            .expect_err("must have body or hash");
+        assert!(matches!(err, LispError::InvalidSnippetShape(_)));
+    }
+
+    #[test]
+    fn snippet_with_both_body_and_hash_rejected() {
+        let err = apply_source(
+            r#"(defsnippet :trigger "both"
+                           :body "x"
+                           :hash "af42c0d18e9b3f4aa18b7c3ef1de93a4")"#,
+        )
+        .expect_err("exactly one of body/hash");
+        assert!(matches!(err, LispError::InvalidSnippetShape(_)));
+    }
+
+    #[test]
+    fn snippet_with_malformed_hash_rejected() {
+        let err = apply_source(
+            r#"(defsnippet :trigger "x" :hash "af42")"#,
+        )
+        .expect_err("hash must be 32-char hex");
+        assert!(matches!(err, LispError::MalformedSnippetHash(_)));
+
+        let err = apply_source(
+            r#"(defsnippet :trigger "x" :hash "AF42C0D18E9B3F4AA18B7C3EF1DE93A4")"#,
+        )
+        .expect_err("hash must be lowercase");
+        assert!(matches!(err, LispError::MalformedSnippetHash(_)));
     }
 
     #[test]
