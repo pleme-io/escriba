@@ -298,18 +298,95 @@ fn load_rc_optional(explicit: Option<&std::path::Path>) -> Result<Option<(PathBu
     Ok(Some((path, plan)))
 }
 
+/// Glyph table — one cool symbol per def-form and per plugin
+/// category, so `--list-rc` reads at a glance. Terminals without
+/// emoji support fall back to the literal char (no garbage). "Make
+/// up a relevant one" is the design rule when no obvious glyph
+/// exists.
+fn form_glyph(kind: &str) -> &'static str {
+    match kind {
+        "keybinds"      => "⌨️ ",
+        "cmds"          => "⚡",
+        "options"       => "⚙️ ",
+        "theme"         => "🎨",
+        "hooks"         => "🪝",
+        "filetypes"     => "📄",
+        "abbrev"        => "✏️ ",
+        "snippets"      => "✂️ ",
+        "major_modes"   => "🎭",
+        "plugins"       => "🧩",
+        "highlights"    => "🌈",
+        "statusline"    => "📊",
+        "bufferline"    => "📑",
+        "lsp"           => "💡",
+        "formatters"    => "📐",
+        "palettes"      => "🖌️ ",
+        "icons"         => "🏷️ ",
+        "dap"           => "🐛",
+        _               => "•",
+    }
+}
+
+fn category_glyph(cat: &str) -> &'static str {
+    match cat {
+        "common"      => "📦",
+        "completion"  => "🔤",
+        "formatting"  => "📐",
+        "keybindings" => "⌨️ ",
+        "lsp"         => "💡",
+        "telescope"   => "🔭",
+        "theming"     => "🎨",
+        "tmux"        => "⫽ ",
+        "treesitter"  => "🌳",
+        "files"       => "📁",
+        "git"         => "🌿",
+        "ai"          => "🤖",
+        _             => "✦",
+    }
+}
+
+/// Render the plan summary with per-form glyphs so the counts read
+/// at a glance instead of as a flat k=v blob.
+fn glyph_summary(plan: &escriba_lisp::ApplyPlan) -> String {
+    let theme = if plan.theme.is_some() { 1 } else { 0 };
+    let sline = if plan.status_line.is_some() { 1 } else { 0 };
+    let bline = if plan.buffer_line.is_some() { 1 } else { 0 };
+    format!(
+        "{} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}\n  {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}",
+        form_glyph("keybinds"), plan.keybinds.len(),
+        form_glyph("cmds"), plan.commands.len(),
+        form_glyph("options"), plan.options.len(),
+        form_glyph("theme"), theme,
+        form_glyph("hooks"), plan.hooks.len(),
+        form_glyph("filetypes"), plan.filetypes.len(),
+        form_glyph("abbrev"), plan.abbreviations.len(),
+        form_glyph("snippets"), plan.snippets.len(),
+        form_glyph("major_modes"), plan.major_modes.len(),
+        form_glyph("plugins"), plan.plugins.len(),
+        form_glyph("highlights"), plan.highlights.len(),
+        form_glyph("statusline"), sline,
+        form_glyph("bufferline"), bline,
+        form_glyph("lsp"), plan.lsp_servers.len(),
+        form_glyph("formatters"), plan.formatters.len(),
+        form_glyph("palettes"), plan.palettes.len(),
+        form_glyph("icons"), plan.icons.len(),
+        form_glyph("dap"), plan.dap_adapters.len(),
+    )
+}
+
 /// `--list-rc` handler. Parses the bundled defaults + optional user
 /// rc, reports the composite apply plan. Mirrors `frost --doctor`.
 fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
     // Defaults plan (always green unless someone broke the bundled file).
     let defaults = escriba_lisp::apply_source(DEFAULT_RC)
         .context("parsing bundled blnvim-defaults")?;
-    println!("escriba defaults (bundled blnvim-parity):");
-    println!("  {}", defaults.summary());
-    println!("  plugins: {}", defaults.plugins.len());
+    println!("✦ escriba defaults (bundled blnvim-parity)");
+    println!("  {}", glyph_summary(&defaults));
+    println!();
+    println!("{} plugins ({})", form_glyph("plugins"), defaults.plugins.len());
     let by_cat = group_plugins_by_category(&defaults);
     for (cat, names) in &by_cat {
-        println!("    [{cat}] {}", names.join(", "));
+        println!("  {} {:<11} {}", category_glyph(cat), cat, names.join(", "));
     }
 
     // User rc layered on top.
@@ -317,23 +394,30 @@ fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
     println!();
     match user {
         Some((path, plan)) => {
-            println!("user rc: {}", path.display());
-            println!("  {}", plan.summary());
+            println!("✎ user rc: {}", path.display());
+            println!("  {}", glyph_summary(&plan));
+            println!();
             for kb in plan.keybinds.iter().take(10) {
-                println!("  keybind  [{}] {:<6} → {}", kb.mode, kb.key, kb.action);
+                println!(
+                    "  {} [{}] {:<10} → {}",
+                    form_glyph("keybinds"),
+                    kb.mode,
+                    kb.key,
+                    kb.action
+                );
             }
             if plan.keybinds.len() > 10 {
-                println!("  (+{} more keybinds)", plan.keybinds.len() - 10);
+                println!("    (+{} more keybinds)", plan.keybinds.len() - 10);
             }
             for h in plan.hooks.iter().take(5) {
-                println!("  hook     {} → {}", h.event, h.command);
+                println!("  {} {} → {}", form_glyph("hooks"), h.event, h.command);
             }
             if let Some(t) = &plan.theme {
-                println!("  theme    preset={}", t.preset);
+                println!("  {} preset={}", form_glyph("theme"), t.preset);
             }
         }
         None => {
-            println!("user rc: <not found>");
+            println!("✎ user rc: ⌀  not found");
             println!(
                 "  search order: $ESCRIBARC  →  $XDG_CONFIG_HOME/escriba/rc.lisp  →  $HOME/.escribarc.lisp"
             );
