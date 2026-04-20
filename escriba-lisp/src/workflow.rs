@@ -106,7 +106,18 @@ pub const KNOWN_FAILURE_MODES: &[&str] = &["abort", "continue", "prompt"];
 /// Canonical step-kind prefixes the runtime guarantees. Unknown
 /// prefixes don't error at apply time — the runtime may ship new
 /// kinds via plugins.
-pub const KNOWN_STEP_KINDS: &[&str] = &["gate", "action", "workflow", "shell", "cmd"];
+///
+/// Step-kind vocabulary:
+/// - `gate:<name>`    — invoke a [`GateSpec`](crate::GateSpec)
+/// - `action:<name>`  — typed editor action
+/// - `workflow:<id>`  — recursively invoke another workflow
+/// - `shell:<cmd>`    — run a shell command (or a `deftask` id)
+/// - `cmd:<name>`     — invoke a registered `defcmd`
+/// - `mcp:<server>.<tool>` — invoke an MCP tool (cross-process).
+///   The apply layer cross-validates that every `mcp:…` step
+///   references a tool defined by a `defmcp` somewhere in the plan.
+pub const KNOWN_STEP_KINDS: &[&str] =
+    &["gate", "action", "workflow", "shell", "cmd", "mcp"];
 
 #[must_use]
 pub fn is_known_failure_mode(name: &str) -> bool {
@@ -138,6 +149,19 @@ impl WorkflowSpec {
     pub fn all_steps_known(&self) -> bool {
         self.step_kinds().iter().all(|k| is_known_step_kind(k))
     }
+
+    /// Extract the `<server>.<tool>` target of every `mcp:…` step in
+    /// insertion order. The apply layer cross-references these
+    /// against the plan's [`McpToolSpec`](crate::McpToolSpec) set
+    /// to fail fast on workflows that call tools no `defmcp` has
+    /// declared. Steps without the `mcp:` prefix are skipped.
+    #[must_use]
+    pub fn mcp_step_targets(&self) -> Vec<&str> {
+        self.steps
+            .iter()
+            .filter_map(|s| s.strip_prefix("mcp:"))
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -154,14 +178,44 @@ mod tests {
                 "shell:cargo test".into(),
                 "cmd:write-all".into(),
                 "workflow:ship".into(),
+                "mcp:mado.attention.set".into(),
             ],
             ..Default::default()
         };
         assert_eq!(
             w.step_kinds(),
-            vec!["gate", "action", "shell", "cmd", "workflow"]
+            vec!["gate", "action", "shell", "cmd", "workflow", "mcp"]
         );
         assert!(w.all_steps_known());
+    }
+
+    #[test]
+    fn mcp_step_targets_extracts_server_dot_tool() {
+        let w = WorkflowSpec {
+            name: "x".into(),
+            steps: vec![
+                "gate:pre-push".into(),
+                "mcp:mado.clipboard.put".into(),
+                "shell:cargo test".into(),
+                "mcp:mado.attention.set".into(),
+                "action:git.push".into(),
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            w.mcp_step_targets(),
+            vec!["mado.clipboard.put", "mado.attention.set"],
+        );
+    }
+
+    #[test]
+    fn mcp_step_targets_empty_when_no_mcp_steps() {
+        let w = WorkflowSpec {
+            name: "x".into(),
+            steps: vec!["gate:g".into(), "action:a".into()],
+            ..Default::default()
+        };
+        assert!(w.mcp_step_targets().is_empty());
     }
 
     #[test]

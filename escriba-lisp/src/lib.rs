@@ -317,6 +317,13 @@ pub enum LispError {
         prefixes = mcp::McpToolSpec::ON_RESULT_PREFIXES.join(", ")
     )]
     MalformedMcpOnResult { name: String, value: String },
+    #[error(
+        "defworkflow `{workflow}` step `mcp:{target}` references a tool \
+        that no `defmcp` in the plan defines — add a matching \
+        `(defmcp :server \"…\" :tool \"…\")` whose `<server>.<tool>` \
+        qualified id is `{target}`"
+    )]
+    WorkflowMcpDependencyMissing { workflow: String, target: String },
     #[error("deffold missing `:filetype` — folding rules are always filetype-scoped")]
     EmptyFoldFiletype,
     #[error(
@@ -755,6 +762,24 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         }
         Ok(())
     })?;
+
+    // Cross-form validation: every `mcp:<server>.<tool>` step in a
+    // workflow must reference a tool declared by a `defmcp` in the
+    // same plan. This catches typos at apply time instead of at
+    // dispatch, and pins the "declarative MCP steps stay in the
+    // typed surface" invariant.
+    let defined_mcp_ids: std::collections::HashSet<String> =
+        mcp_tools.iter().map(|m| m.qualified_id()).collect();
+    for w in &workflows {
+        for target in w.mcp_step_targets() {
+            if !defined_mcp_ids.contains(target) {
+                return Err(LispError::WorkflowMcpDependencyMissing {
+                    workflow: w.name.clone(),
+                    target: target.to_string(),
+                });
+            }
+        }
+    }
 
     let attests: Vec<AttestSpec> = compile_validated(src, |a: &AttestSpec| {
         if !a.kind.is_empty() && !attest::is_known_kind(&a.kind) {
@@ -2769,6 +2794,82 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(m.effective_kind(), "jump");
+    }
+
+    #[test]
+    fn workflow_mcp_step_resolves_against_defmcp() {
+        // Happy path: every mcp:… step has a matching defmcp in the
+        // plan (qualified_id = "<server>.<tool>").
+        let plan = apply_source(
+            r#"
+            (defmcp :name "attn"
+                    :server "mado"
+                    :tool "attention_set")
+            (defmcp :name "put"
+                    :server "mado"
+                    :tool "clipboard_put")
+            (defworkflow :name "ship-and-flash"
+                         :steps ("shell:cargo test"
+                                 "mcp:mado.attention_set"
+                                 "mcp:mado.clipboard_put"
+                                 "action:git.push")
+                         :on-failure "abort")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.workflows.len(), 1);
+        assert_eq!(
+            plan.workflows[0].mcp_step_targets(),
+            vec!["mado.attention_set", "mado.clipboard_put"],
+        );
+        // Every step is recognized under the expanded vocabulary.
+        assert!(plan.workflows[0].all_steps_known());
+    }
+
+    #[test]
+    fn workflow_mcp_step_without_matching_defmcp_rejected() {
+        // The workflow references mado.wakeup but no defmcp defines
+        // it. Cross-form validation catches the dangling reference.
+        let err = apply_source(
+            r#"
+            (defmcp :name "attn" :server "mado" :tool "attention_set")
+            (defworkflow :name "x"
+                         :steps ("mcp:mado.attention_set"
+                                 "mcp:mado.wakeup"))
+            "#,
+        )
+        .expect_err("dangling mcp step should error");
+        match err {
+            LispError::WorkflowMcpDependencyMissing { workflow, target } => {
+                assert_eq!(workflow, "x");
+                assert_eq!(target, "mado.wakeup");
+            }
+            other => panic!("expected WorkflowMcpDependencyMissing, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn workflow_mcp_validation_skipped_for_non_mcp_steps() {
+        // A workflow with no mcp:… steps doesn't need any defmcp
+        // forms at all — the cross-check only fires on references.
+        let plan = apply_source(
+            r#"
+            (defworkflow :name "plain"
+                         :steps ("gate:pre" "shell:cargo test" "action:git.push"))
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.workflows.len(), 1);
+        assert_eq!(plan.mcp_tools.len(), 0);
+    }
+
+    #[test]
+    fn mcp_step_kind_is_in_known_vocabulary() {
+        // The expanded KNOWN_STEP_KINDS must contain "mcp" so
+        // `all_steps_known()` reports true for workflows that use
+        // it — otherwise UI would flag the mcp: prefix as unknown.
+        assert!(WORKFLOW_STEP_KINDS.contains(&"mcp"));
+        assert!(is_workflow_step_kind("mcp"));
     }
 
     #[test]

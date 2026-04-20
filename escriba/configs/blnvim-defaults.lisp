@@ -985,6 +985,24 @@
         :server "mado"
         :tool "prompt_marks_clear")
 
+(defmcp :name "mado.attention.set"
+        :description "flip mado's OSC 1337 RequestAttention flag"
+        :server "mado"
+        :tool "attention_set")
+
+;; ═════ Workflows using mcp:<server>.<tool> step kind ═══════════════
+;; Novel to escriba — no editor ships typed MCP-driven workflow
+;; steps. Every `mcp:…` step is cross-validated at apply time
+;; against the defmcp set so dangling tool references fail fast.
+
+(defworkflow :name "ship-and-flash"
+             :description "test, push, then flash mado's dock on success"
+             :steps ("shell:cargo test"
+                     "action:git.push"
+                     "mcp:mado.attention_set")
+             :on-failure "abort"
+             :keybind "<leader>ws")
+
 ;; ═════ Folds — declarative per-filetype folding rules ══════════════
 ;; Absorbs vim foldmethod, nvim-treesitter-fold, vscode
 ;; FoldingRangeProvider. Every editor has folding, but the shape
