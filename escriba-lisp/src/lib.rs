@@ -105,6 +105,14 @@ use std::path::{Path, PathBuf};
 
 pub type LispResult<T> = Result<T, LispError>;
 
+/// Compile every `T`-keyword form in `src` into a `Vec<T>`. Wraps
+/// `tatara_lisp::compile_typed` to map its parse errors onto
+/// [`LispError::Parse`] — so `apply_source` reads as a series of
+/// calls to this helper rather than 20 copies of the same dance.
+fn compile<T: tatara_lisp::TataraDomain>(src: &str) -> LispResult<Vec<T>> {
+    tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum LispError {
     #[error("io error reading rc file {path}: {source}")]
@@ -201,33 +209,46 @@ impl ApplyPlan {
         self.text_objects.extend(other.text_objects);
     }
 
+    /// Pairs of `(label, count)` — the single source of truth the
+    /// summary + startup banner + planned `escriba doctor` all read
+    /// from. Adding a def-form = one new entry here, instead of
+    /// touching a 20-arg format string.
+    #[must_use]
+    pub fn counts(&self) -> Vec<(&'static str, usize)> {
+        vec![
+            ("keybinds", self.keybinds.len()),
+            ("cmds", self.commands.len()),
+            ("options", self.options.len()),
+            ("theme", usize::from(self.theme.is_some())),
+            ("hooks", self.hooks.len()),
+            ("filetypes", self.filetypes.len()),
+            ("abbrev", self.abbreviations.len()),
+            ("snippets", self.snippets.len()),
+            ("major_modes", self.major_modes.len()),
+            ("plugins", self.plugins.len()),
+            ("highlights", self.highlights.len()),
+            ("statusline", usize::from(self.status_line.is_some())),
+            ("bufferline", usize::from(self.buffer_line.is_some())),
+            ("lsp", self.lsp_servers.len()),
+            ("formatters", self.formatters.len()),
+            ("palettes", self.palettes.len()),
+            ("icons", self.icons.len()),
+            ("dap", self.dap_adapters.len()),
+            ("gates", self.gates.len()),
+            ("textobjects", self.text_objects.len()),
+        ]
+    }
+
     /// Short human-readable summary — useful for startup banners and
-    /// the planned `escriba doctor` subcommand.
+    /// the planned `escriba doctor` subcommand. Derived from
+    /// [`counts()`](ApplyPlan::counts) so the two never drift.
     #[must_use]
     pub fn summary(&self) -> String {
-        format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={} dap={} gates={} textobjects={}",
-            self.keybinds.len(),
-            self.commands.len(),
-            self.options.len(),
-            if self.theme.is_some() { 1 } else { 0 },
-            self.hooks.len(),
-            self.filetypes.len(),
-            self.abbreviations.len(),
-            self.snippets.len(),
-            self.major_modes.len(),
-            self.plugins.len(),
-            self.highlights.len(),
-            if self.status_line.is_some() { 1 } else { 0 },
-            if self.buffer_line.is_some() { 1 } else { 0 },
-            self.lsp_servers.len(),
-            self.formatters.len(),
-            self.palettes.len(),
-            self.icons.len(),
-            self.dap_adapters.len(),
-            self.gates.len(),
-            self.text_objects.len(),
-        )
+        self.counts()
+            .iter()
+            .map(|(name, n)| format!("{name}={n}"))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 
@@ -239,19 +260,19 @@ impl ApplyPlan {
 /// with new commands registered by plugins).
 pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let keybinds: Vec<KeybindSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     for k in &keybinds {
         validate_mode(&k.mode)?;
     }
 
     let commands: Vec<CmdSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let options: Vec<OptionSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let themes: Vec<ThemeSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     for t in &themes {
         if !t.preset.is_empty() && !is_known_preset(&t.preset) {
             return Err(LispError::UnknownTheme(t.preset.clone()));
@@ -261,7 +282,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let theme = themes.into_iter().last();
 
     let hooks: Vec<HookSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     for h in &hooks {
         if !is_known_event(&h.event) {
             return Err(LispError::UnknownHook(h.event.clone()));
@@ -269,49 +290,49 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     }
 
     let filetypes: Vec<FiletypeSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let abbreviations: Vec<AbbrevSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let snippets: Vec<SnippetSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let major_modes: Vec<MajorModeSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let plugins: Vec<PluginSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let highlights: Vec<HighlightSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let status_lines: Vec<StatusLineSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     // Last writer wins — matches theme semantics.
     let status_line = status_lines.into_iter().last();
 
     let buffer_lines: Vec<BufferLineSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     let buffer_line = buffer_lines.into_iter().last();
 
     let lsp_servers: Vec<LspServerSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let formatters: Vec<FormatterSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let palettes: Vec<PaletteSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let icons: Vec<IconSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let dap_adapters: Vec<DapAdapterSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
 
     let gates: Vec<GateSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     // Strict validation on gates — ill-formed specs (unknown action /
     // neither command nor source / both set) fail fast so users
     // learn about the mistake at apply time, not at dispatch.
@@ -328,7 +349,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     }
 
     let text_objects: Vec<TextObjectSpec> =
-        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+        compile(src)?;
     for t in &text_objects {
         if !textobject::is_known_scope(&t.scope) {
             return Err(LispError::UnknownTextObjectScope(t.scope.clone()));
@@ -545,6 +566,104 @@ mod tests {
         assert!(s.contains("cmds=1"));
         assert!(s.contains("theme=1"));
         assert!(s.contains("hooks=1"));
+    }
+
+    #[test]
+    fn counts_is_the_single_source_of_truth() {
+        // counts() and summary() must never drift — summary is
+        // literally counts formatted. Prove it by reconstructing
+        // the string from counts() and comparing.
+        let plan = apply_source(
+            r#"
+            (defkeybind :mode "normal" :key "g" :action "x")
+            (deftheme :preset "nord")
+            (defgate :name "g1" :on-event "BufWritePre" :command "ok" :action "warn")
+            "#,
+        )
+        .unwrap();
+
+        let from_counts: String = plan
+            .counts()
+            .iter()
+            .map(|(n, c)| format!("{n}={c}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(plan.summary(), from_counts);
+
+        // Every known def-form appears in counts() — adding a new
+        // spec without extending counts() would be a regression.
+        let names: Vec<&str> = plan.counts().iter().map(|(n, _)| *n).collect();
+        for required in &[
+            "keybinds",
+            "cmds",
+            "options",
+            "theme",
+            "hooks",
+            "filetypes",
+            "abbrev",
+            "snippets",
+            "major_modes",
+            "plugins",
+            "highlights",
+            "statusline",
+            "bufferline",
+            "lsp",
+            "formatters",
+            "palettes",
+            "icons",
+            "dap",
+            "gates",
+            "textobjects",
+        ] {
+            assert!(
+                names.contains(required),
+                "counts() missing required def-form: {required}",
+            );
+        }
+    }
+
+    #[test]
+    fn merge_is_total_on_every_def_form() {
+        // The merge() implementation must touch every field — an
+        // orphaned field would silently drop on merge. Prove it by
+        // merging two plans with one item per form and checking the
+        // combined plan's counts for each.
+        let mut a = apply_source(
+            r##"
+            (defkeybind :mode "normal" :key "a" :action "x")
+            (defcmd     :name "a-cmd"  :action "x")
+            (defoption  :name "a-opt"  :value "1")
+            (deftheme   :preset "nord")
+            (defhook    :event "BufEnter" :command "a")
+            (defft      :ext "a" :mode "plain")
+            (defabbrev  :trigger "ax" :expansion "ay")
+            (defsnippet :trigger "a"  :body "${1}")
+            (defmode    :name "a-lang" :extensions ("a"))
+            (defplugin  :name "a-plug" :category "common")
+            (defhighlight :group "Normal" :fg "#ff0000")
+            (defstatusline :left ((:segment "mode")))
+            (defbufferline :separator "|")
+            (deflsp     :name "a-ls"  :command "a-ls" :filetypes ("a-lang"))
+            (defformatter :filetype "a-lang" :command "a-fmt")
+            (defpalette :name "a-pal" :base00 "#000000")
+            (deficon    :filetype "a-lang" :glyph "∷")
+            (defdap     :name "a-dap" :command "a-dap" :filetypes ("a-lang"))
+            (defgate    :name "a-gate" :on-event "BufWritePre" :command "echo" :action "warn")
+            (deftextobject :name "f" :scope "outer" :query "(x) @f")
+            "##,
+        )
+        .unwrap();
+        let b = a.clone();
+        a.merge(b);
+        // Each form should have doubled (except last-writer-wins
+        // singletons: theme, statusline, bufferline which stay 1).
+        for (name, count) in a.counts() {
+            let expected = match name {
+                "theme" | "statusline" | "bufferline" => 1,
+                _ => 2,
+            };
+            assert_eq!(count, expected, "{name} did not double on self-merge");
+        }
     }
 
     #[test]

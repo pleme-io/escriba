@@ -348,34 +348,21 @@ fn category_glyph(cat: &str) -> &'static str {
 }
 
 /// Render the plan summary with per-form glyphs so the counts read
-/// at a glance instead of as a flat k=v blob.
+/// at a glance instead of as a flat k=v blob. Walks
+/// `ApplyPlan::counts()` (single source of truth) and wraps a soft
+/// newline every `WRAP` cells so wide plans don't run off the
+/// terminal.
 fn glyph_summary(plan: &escriba_lisp::ApplyPlan) -> String {
-    let theme = if plan.theme.is_some() { 1 } else { 0 };
-    let sline = if plan.status_line.is_some() { 1 } else { 0 };
-    let bline = if plan.buffer_line.is_some() { 1 } else { 0 };
-    format!(
-        "{} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}\n  {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}",
-        form_glyph("keybinds"), plan.keybinds.len(),
-        form_glyph("cmds"), plan.commands.len(),
-        form_glyph("options"), plan.options.len(),
-        form_glyph("theme"), theme,
-        form_glyph("hooks"), plan.hooks.len(),
-        form_glyph("filetypes"), plan.filetypes.len(),
-        form_glyph("abbrev"), plan.abbreviations.len(),
-        form_glyph("snippets"), plan.snippets.len(),
-        form_glyph("major_modes"), plan.major_modes.len(),
-        form_glyph("plugins"), plan.plugins.len(),
-        form_glyph("highlights"), plan.highlights.len(),
-        form_glyph("statusline"), sline,
-        form_glyph("bufferline"), bline,
-        form_glyph("lsp"), plan.lsp_servers.len(),
-        form_glyph("formatters"), plan.formatters.len(),
-        form_glyph("palettes"), plan.palettes.len(),
-        form_glyph("icons"), plan.icons.len(),
-        form_glyph("dap"), plan.dap_adapters.len(),
-        form_glyph("gates"), plan.gates.len(),
-        form_glyph("textobjects"), plan.text_objects.len(),
-    )
+    const WRAP: usize = 10;
+    let mut out = String::new();
+    for (i, (name, n)) in plan.counts().iter().enumerate() {
+        if i > 0 && i % WRAP == 0 {
+            out.push_str("\n  ");
+        }
+        use std::fmt::Write as _;
+        let _ = write!(out, "{} {:<3} ", form_glyph(name), n);
+    }
+    out.trim_end().to_string()
 }
 
 /// `--list-rc` handler. Parses the bundled defaults + optional user
