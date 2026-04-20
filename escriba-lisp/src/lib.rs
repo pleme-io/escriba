@@ -46,6 +46,7 @@
 //! | `deftask`     | [`TaskSpec`] — single shell task with filetype + cwd + env scope (absorbs vscode tasks.json / nvim asynctasks) |
 //! | `defschedule` | [`ScheduleSpec`] — typed declarative triggers (cron / interval / idle / startup) for commands + workflows (invention — no editor ships this typed) |
 //! | `defkmacro`   | [`KmacroSpec`] — declarative keyboard macro (vim `q`-register / emacs `kmacro.el` as rc-authored typed spec) |
+//! | `defattest`   | [`AttestSpec`] — content-addressed rc integrity attestation (BLAKE3-128 of `ApplyPlan::summary()`; invention — pleme-io convergence-computing at the editor layer) |
 //!
 //! # Extending
 //!
@@ -56,6 +57,7 @@
 
 mod abbrev;
 mod apply;
+mod attest;
 mod bufferline;
 mod cmd;
 mod dap;
@@ -88,6 +90,12 @@ mod workflow;
 pub use abbrev::AbbrevSpec;
 pub use apply::{
     ApplyReport, GrammarApplyReport, apply_plan_to_grammar_extensions, apply_plan_to_keymap,
+};
+pub use attest::{
+    AttestResult, AttestSpec, KNOWN_KINDS as ATTEST_KINDS,
+    KNOWN_SEVERITIES as ATTEST_SEVERITIES, compute_summary_hash,
+    is_known_kind as is_known_attest_kind,
+    is_known_severity as is_known_attest_severity,
 };
 pub use bufferline::BufferLineSpec;
 pub use cmd::CmdSpec;
@@ -259,6 +267,21 @@ pub enum LispError {
         "defkmacro `{0}` has malformed `:register` — expected a single a-z / A-Z / 0-9 char"
     )]
     MalformedKmacroRegister(String),
+    #[error(
+        "defattest `{name}` has unknown `:kind` `{kind}` (valid: {valid})",
+        valid = ATTEST_KINDS.join(", ")
+    )]
+    UnknownAttestKind { name: String, kind: String },
+    #[error(
+        "defattest `{name}` has unknown `:severity` `{severity}` (valid: {valid})",
+        valid = ATTEST_SEVERITIES.join(", ")
+    )]
+    UnknownAttestSeverity { name: String, severity: String },
+    #[error(
+        "defattest `{0}` :counts-hash is malformed — expected 32 lowercase \
+        BLAKE3-128 hex chars, or empty for an unpinned attestation"
+    )]
+    MalformedAttestHash(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -297,6 +320,7 @@ pub struct ApplyPlan {
     pub tasks: Vec<TaskSpec>,
     pub schedules: Vec<ScheduleSpec>,
     pub kmacros: Vec<KmacroSpec>,
+    pub attests: Vec<AttestSpec>,
 }
 
 impl ApplyPlan {
@@ -338,6 +362,7 @@ impl ApplyPlan {
         self.tasks.extend(other.tasks);
         self.schedules.extend(other.schedules);
         self.kmacros.extend(other.kmacros);
+        self.attests.extend(other.attests);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -375,6 +400,7 @@ impl ApplyPlan {
             ("tasks", self.tasks.len()),
             ("schedules", self.schedules.len()),
             ("kmacros", self.kmacros.len()),
+            ("attests", self.attests.len()),
         ]
     }
 
@@ -388,6 +414,52 @@ impl ApplyPlan {
             .map(|(name, n)| format!("{name}={n}"))
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    /// BLAKE3-128 hex hash of [`Self::content_summary`] — the
+    /// content-address of the plan's shape, excluding the attest
+    /// count itself so adding a `defattest` doesn't modify the
+    /// value it's attesting (a self-reference problem). `defattest
+    /// :counts-hash "…"` pins an expected value;
+    /// [`Self::evaluate_attests`] compares the live plan against
+    /// each declared attestation.
+    ///
+    /// Same hash shape as [`SnippetSpec::hash`] and mado's clipboard
+    /// store — one token format across the stack.
+    #[must_use]
+    pub fn summary_hash(&self) -> String {
+        compute_summary_hash(&self.content_summary())
+    }
+
+    /// Summary shape with the `attests` count removed. Used as the
+    /// hashable projection for [`Self::summary_hash`]. Keeps the
+    /// attestation layer transparent to its own check: a single
+    /// `defattest` added after a plan-stable hash won't invalidate
+    /// that hash.
+    #[must_use]
+    pub fn content_summary(&self) -> String {
+        self.counts()
+            .iter()
+            .filter(|(name, _)| *name != "attests")
+            .map(|(name, n)| format!("{name}={n}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Run every [`AttestSpec`] this plan declares against the plan's
+    /// own live summary hash. Returns `(&AttestSpec, AttestResult)`
+    /// pairs so callers can render a per-attestation report.
+    ///
+    /// The evaluation is deterministic and side-effect-free — the
+    /// runtime calls this after `apply_source` succeeds and escalates
+    /// based on each spec's [`effective_severity`](AttestSpec::effective_severity).
+    #[must_use]
+    pub fn evaluate_attests(&self) -> Vec<(&AttestSpec, AttestResult)> {
+        let actual = self.summary_hash();
+        self.attests
+            .iter()
+            .map(|spec| (spec, spec.evaluate(&actual)))
+            .collect()
     }
 }
 
@@ -574,6 +646,26 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let attests: Vec<AttestSpec> = compile_validated(src, |a: &AttestSpec| {
+        if !a.kind.is_empty() && !attest::is_known_kind(&a.kind) {
+            return Err(LispError::UnknownAttestKind {
+                name: a.id.clone(),
+                kind: a.kind.clone(),
+            });
+        }
+        if !a.severity.is_empty() && !attest::is_known_severity(&a.severity) {
+            return Err(LispError::UnknownAttestSeverity {
+                name: a.id.clone(),
+                severity: a.severity.clone(),
+            });
+        }
+        // Empty hash is legal (stub attestation); otherwise strict hex.
+        if !a.is_empty_hash() && !a.has_valid_hash_format() {
+            return Err(LispError::MalformedAttestHash(a.id.clone()));
+        }
+        Ok(())
+    })?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -603,6 +695,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         tasks,
         schedules,
         kmacros,
+        attests,
     })
 }
 
@@ -673,6 +766,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("tasks",       "🏃"),
     ("schedules",   "⏰"),
     ("kmacros",     "🎬"),
+    ("attests",     "🔏"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1081,6 +1175,7 @@ mod tests {
             (deftask     :name "a-task" :command "ls")
             (defschedule :name "a-sched" :interval-seconds 60 :command "save")
             (defkmacro   :name "a-macro" :keys "iHello<Esc>")
+            (defattest   :id "a-attest" :counts-hash "af42c0d18e9b3f4aa18b7c3ef1de93a4")
             "##,
         )
         .unwrap();
@@ -2010,5 +2105,196 @@ mod tests {
         .unwrap();
         assert_eq!(plan.kmacros.len(), 1);
         assert_eq!(plan.kmacros[0].mode, "");
+    }
+
+    // ── defattest — content-addressed rc integrity attestations ─────────────
+
+    #[test]
+    fn summary_hash_is_stable_across_equivalent_plans() {
+        // Two plans built from the same Lisp must produce the same
+        // hash — that's the whole content-addressing contract.
+        let a = apply_source(
+            r#"
+            (defkeybind :mode "normal" :key "g" :action "x")
+            (deftheme :preset "nord")
+            "#,
+        )
+        .unwrap();
+        let b = apply_source(
+            r#"
+            (defkeybind :mode "normal" :key "g" :action "x")
+            (deftheme :preset "nord")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(a.summary_hash(), b.summary_hash());
+        assert_eq!(a.summary_hash().len(), 32);
+    }
+
+    #[test]
+    fn summary_hash_diverges_when_plan_shape_changes() {
+        let a = apply_source(r#"(defkeybind :mode "normal" :key "g" :action "x")"#).unwrap();
+        let b = apply_source(r#"(defkeybind :mode "normal" :key "g" :action "x")
+                                 (defkeybind :mode "insert" :key "jk" :action "escape")"#)
+            .unwrap();
+        assert_ne!(a.summary_hash(), b.summary_hash());
+    }
+
+    #[test]
+    fn parses_attests_across_kinds_and_severities() {
+        let plan = apply_source(
+            r#"
+            (defattest :id "v1-baseline"
+                       :description "team baseline"
+                       :counts-hash "af42c0d18e9b3f4aa18b7c3ef1de93a4"
+                       :kind "pin"
+                       :severity "error")
+            (defattest :id "min-core"
+                       :counts-hash "903b11ef41d09e4be9c2b7aea0f65e2f"
+                       :kind "min"
+                       :severity "warn")
+            (defattest :id "stub-todo")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.attests.len(), 3);
+        assert_eq!(plan.attests[0].effective_kind(), "pin");
+        assert_eq!(plan.attests[0].effective_severity(), "error");
+        assert_eq!(plan.attests[1].effective_kind(), "min");
+        assert_eq!(plan.attests[1].effective_severity(), "warn");
+        // Stub (empty hash) defaults: pin + error.
+        assert_eq!(plan.attests[2].effective_kind(), "pin");
+        assert_eq!(plan.attests[2].effective_severity(), "error");
+        assert!(plan.attests[2].is_empty_hash());
+    }
+
+    #[test]
+    fn attest_unknown_kind_rejected() {
+        let err = apply_source(
+            r#"(defattest :id "x" :kind "strict")"#,
+        )
+        .expect_err("unknown kind should error");
+        assert!(matches!(err, LispError::UnknownAttestKind { .. }));
+    }
+
+    #[test]
+    fn attest_unknown_severity_rejected() {
+        let err = apply_source(
+            r#"(defattest :id "x" :severity "critical")"#,
+        )
+        .expect_err("unknown severity should error");
+        assert!(matches!(err, LispError::UnknownAttestSeverity { .. }));
+    }
+
+    #[test]
+    fn attest_malformed_hash_rejected() {
+        // Uppercase rejected — matches the defsnippet :hash rule.
+        let err = apply_source(
+            r#"(defattest :id "x" :counts-hash "AF42C0D18E9B3F4AA18B7C3EF1DE93A4")"#,
+        )
+        .expect_err("uppercase hash should error");
+        assert!(matches!(err, LispError::MalformedAttestHash(_)));
+
+        // Wrong length.
+        let err = apply_source(
+            r#"(defattest :id "x" :counts-hash "af42")"#,
+        )
+        .expect_err("short hash should error");
+        assert!(matches!(err, LispError::MalformedAttestHash(_)));
+    }
+
+    #[test]
+    fn evaluate_attests_reports_ok_for_matching_hash() {
+        // Compute a plan, then re-apply the same plan with a
+        // defattest pinning its summary hash. The evaluation should
+        // resolve to Ok.
+        let base = apply_source(r#"(deftheme :preset "nord")"#).unwrap();
+        let expected_hash = base.summary_hash();
+        let src = format!(
+            r#"(deftheme :preset "nord")
+               (defattest :id "pin-nord" :counts-hash "{expected_hash}")"#,
+        );
+        let plan = apply_source(&src).unwrap();
+        let results = plan.evaluate_attests();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, AttestResult::Ok);
+    }
+
+    #[test]
+    fn evaluate_attests_reports_drift_for_stale_hash() {
+        let src = format!(
+            r#"(deftheme :preset "nord")
+               (defattest :id "stale"
+                          :counts-hash "00000000000000000000000000000000"
+                          :severity "warn")"#
+        );
+        let plan = apply_source(&src).unwrap();
+        let results = plan.evaluate_attests();
+        assert_eq!(results.len(), 1);
+        match &results[0].1 {
+            AttestResult::Drift { expected, actual } => {
+                assert_eq!(expected, "00000000000000000000000000000000");
+                assert_ne!(actual, expected);
+            }
+            other => panic!("expected Drift, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn evaluate_attests_skips_unpinned_stubs() {
+        let plan = apply_source(
+            r#"
+            (deftheme :preset "nord")
+            (defattest :id "todo")
+            "#,
+        )
+        .unwrap();
+        let results = plan.evaluate_attests();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, AttestResult::Skipped);
+    }
+
+    #[test]
+    fn compute_summary_hash_matches_plan_content_summary() {
+        // The free function and the plan method must agree when
+        // hashing the same string. The hashable projection is
+        // `content_summary()`, not `summary()` (the latter includes
+        // `attests=N`, which would self-reference).
+        let plan = apply_source(r#"(deftheme :preset "nord")"#).unwrap();
+        assert_eq!(
+            plan.summary_hash(),
+            compute_summary_hash(&plan.content_summary()),
+        );
+    }
+
+    #[test]
+    fn content_summary_omits_attests_but_summary_keeps_it() {
+        let plan = apply_source(
+            r#"
+            (deftheme :preset "nord")
+            (defattest :id "x")
+            (defattest :id "y")
+            "#,
+        )
+        .unwrap();
+        assert!(plan.summary().contains("attests=2"));
+        assert!(!plan.content_summary().contains("attests"));
+    }
+
+    #[test]
+    fn summary_hash_is_stable_under_added_attestations() {
+        // The whole point of excluding attests from the hash: a
+        // user can add `defattest` entries without invalidating
+        // their own hash pin.
+        let a = apply_source(r#"(deftheme :preset "nord")"#).unwrap();
+        let b = apply_source(
+            r#"
+            (deftheme :preset "nord")
+            (defattest :id "a")
+            (defattest :id "b")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(a.summary_hash(), b.summary_hash());
     }
 }

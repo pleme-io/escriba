@@ -59,6 +59,7 @@ serde_json       = "1"
 serde_yaml       = "0.9"
 thiserror        = "2"
 anyhow           = "1"
+blake3           = "1"
 clap             = { version = "4", features = ["derive", "env"] }
 ropey            = "1"
 schemars         = { version = "0.8", features = ["chrono"] }

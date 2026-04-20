@@ -896,3 +896,24 @@
            :keys "<Esc>"
            :mode "insert"
            :register "j")
+
+;; ═════ Attestations — content-addressed rc integrity (escriba-unique) ══
+;; No editor in the category signs its own config via content hash.
+;; `defattest` pins an expected BLAKE3-128 hex of this rc's
+;; `(ApplyPlan::content_summary)` — the shape of the plan minus the
+;; attestation count itself (so adding an attestation doesn't
+;; invalidate its own pin).
+;;
+;; Populate `:counts-hash` with the value `escriba --list-rc` prints
+;; under the content-hash line once you're happy with the rc shape.
+;; On every subsequent load, `escriba doctor` (planned) compares the
+;; actual vs expected hash and escalates based on `:severity`.
+;;
+;; The stub below is intentionally unpinned — `evaluate_attests`
+;; returns `Skipped` for an empty `:counts-hash`, so this compiles
+;; cleanly without locking users out until they're ready.
+
+(defattest :id "blnvim-defaults-baseline"
+           :description "pin this rc's shape once you're happy with it"
+           :kind "pin"
+           :severity "warn")

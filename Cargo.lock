@@ -810,6 +810,7 @@ dependencies = [
 name = "escriba-lisp"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "escriba-command",
  "escriba-core",
  "escriba-keymap",
