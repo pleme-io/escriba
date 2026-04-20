@@ -107,7 +107,7 @@ impl MarkSpec {
     /// Resolve the effective kind, collapsing empty into the default.
     #[must_use]
     pub fn effective_kind(&self) -> &str {
-        if self.kind.is_empty() { "jump" } else { &self.kind }
+        crate::strutil::default_if_empty(&self.kind, "jump")
     }
 }
 

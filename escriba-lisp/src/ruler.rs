@@ -82,7 +82,7 @@ impl RulerSpec {
     /// Effective style — `soft` by default when `:style` is unset.
     #[must_use]
     pub fn effective_style(&self) -> &str {
-        if self.style.is_empty() { "soft" } else { self.style.as_str() }
+        crate::strutil::default_if_empty(&self.style, "soft")
     }
 
     /// True when every column in `:columns` is strictly positive.

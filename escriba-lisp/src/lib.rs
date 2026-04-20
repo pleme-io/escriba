@@ -88,6 +88,7 @@ mod schedule;
 mod session;
 mod snippet;
 mod statusline;
+mod strutil;
 mod task;
 mod term;
 mod textobject;
@@ -2711,6 +2712,63 @@ mod tests {
         )
         .expect_err("marker without start should error");
         assert!(matches!(err, LispError::IncompleteFoldMarker(_)));
+    }
+
+    #[test]
+    fn effective_field_defaults_agree_across_specs() {
+        // Contract: every `effective_*` method routes through
+        // `strutil::default_if_empty`. Pins the single-helper
+        // invariant by demonstrating that an empty + a non-empty
+        // input on each spec produce the expected fallback /
+        // passthrough. A future edit that reintroduces an inline
+        // `if is_empty() { … } else { … }` would still pass this
+        // test as long as semantics match, so this is behaviour
+        // enforcement, not syntactic.
+        let r = RulerSpec {
+            columns: vec![80],
+            ..Default::default()
+        };
+        assert_eq!(r.effective_style(), "soft");
+        let r = RulerSpec {
+            columns: vec![80],
+            style: "hard".into(),
+            ..Default::default()
+        };
+        assert_eq!(r.effective_style(), "hard");
+
+        let f = FoldSpec {
+            filetype: "rust".into(),
+            queries: vec!["(x)".into()],
+            ..Default::default()
+        };
+        assert_eq!(f.effective_method(), "treesitter");
+        let f = FoldSpec {
+            filetype: "python".into(),
+            method: "indent".into(),
+            ..Default::default()
+        };
+        assert_eq!(f.effective_method(), "indent");
+
+        let a = AttestSpec {
+            id: "x".into(),
+            ..Default::default()
+        };
+        assert_eq!(a.effective_kind(), "pin");
+        assert_eq!(a.effective_severity(), "error");
+        let a = AttestSpec {
+            id: "x".into(),
+            kind: "min".into(),
+            severity: "warn".into(),
+            ..Default::default()
+        };
+        assert_eq!(a.effective_kind(), "min");
+        assert_eq!(a.effective_severity(), "warn");
+
+        let m = MarkSpec {
+            name: "'X".into(),
+            ..Default::default()
+        };
+        assert_eq!(m.effective_kind(), "jump");
     }
 
     #[test]

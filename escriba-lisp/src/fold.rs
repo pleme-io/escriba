@@ -119,7 +119,7 @@ impl FoldSpec {
     /// else just set `:method` explicitly.
     #[must_use]
     pub fn effective_method(&self) -> &str {
-        if self.method.is_empty() { "treesitter" } else { self.method.as_str() }
+        crate::strutil::default_if_empty(&self.method, "treesitter")
     }
 
     /// Structural check — for `:method = "marker"`, both markers

@@ -130,14 +130,14 @@ impl AttestSpec {
     /// Effective kind — `pin` by default when `:kind` is unset.
     #[must_use]
     pub fn effective_kind(&self) -> &str {
-        if self.kind.is_empty() { "pin" } else { self.kind.as_str() }
+        crate::strutil::default_if_empty(&self.kind, "pin")
     }
 
     /// Effective severity — `error` by default when `:severity` is unset.
     /// Matches the "signed-off rc, drift is a production incident" default.
     #[must_use]
     pub fn effective_severity(&self) -> &str {
-        if self.severity.is_empty() { "error" } else { self.severity.as_str() }
+        crate::strutil::default_if_empty(&self.severity, "error")
     }
 
     /// Structural check on `:counts-hash` — 32 lowercase hex chars.
