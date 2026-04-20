@@ -559,6 +559,63 @@ pub fn default_rc_path() -> PathBuf {
     PathBuf::from(".escribarc.lisp")
 }
 
+/// `(label, glyph)` pairs for every def-form in [`ApplyPlan::counts`].
+///
+/// The single source of truth for "every known def-form label" — the
+/// binary's `--list-rc` banner, the planned `escriba doctor`, and any
+/// MCP schema builder derive their label set from this table rather
+/// than from a parallel literal. [`form_glyph`] is a linear search
+/// over this constant; [`form_labels`] walks it as an iterator.
+///
+/// Order matches [`ApplyPlan::counts`] — consumers that render a
+/// fixed-order banner can zip the two without sorting.
+pub const FORM_GLYPHS: &[(&str, &str)] = &[
+    ("keybinds",    "⌨️ "),
+    ("cmds",        "⚡"),
+    ("options",     "⚙️ "),
+    ("theme",       "🎨"),
+    ("hooks",       "🪝"),
+    ("filetypes",   "📄"),
+    ("abbrev",      "✏️ "),
+    ("snippets",    "✂️ "),
+    ("major_modes", "🎭"),
+    ("plugins",     "🧩"),
+    ("highlights",  "🌈"),
+    ("statusline",  "📊"),
+    ("bufferline",  "📑"),
+    ("lsp",         "💡"),
+    ("formatters",  "📐"),
+    ("palettes",    "🖌️ "),
+    ("icons",       "🏷️ "),
+    ("dap",         "🐛"),
+    ("gates",       "🛡️ "),
+    ("textobjects", "🎯"),
+    ("workflows",   "🧵"),
+    ("sessions",    "🗂️ "),
+    ("effects",     "✨"),
+    ("terms",       "🪟"),
+    ("marks",       "📌"),
+    ("tasks",       "🏃"),
+];
+
+/// `(category, glyph)` pairs for plugin `:category` strings — see
+/// [`PluginSpec`](crate::PluginSpec) and [`KNOWN_CATEGORIES`]. Same
+/// contract as [`FORM_GLYPHS`].
+pub const CATEGORY_GLYPHS: &[(&str, &str)] = &[
+    ("common",      "📦"),
+    ("completion",  "🔤"),
+    ("formatting",  "📐"),
+    ("keybindings", "⌨️ "),
+    ("lsp",         "💡"),
+    ("telescope",   "🔭"),
+    ("theming",     "🎨"),
+    ("tmux",        "⫽ "),
+    ("treesitter",  "🌳"),
+    ("files",       "📁"),
+    ("git",         "🌿"),
+    ("ai",          "🤖"),
+];
+
 /// Canonical glyph for a def-form label. Labels come from
 /// [`ApplyPlan::counts`]; the binary walks `counts()` and looks up
 /// glyphs via this function so the `--list-rc` banner stays in sync
@@ -570,57 +627,45 @@ pub fn default_rc_path() -> PathBuf {
 /// — picks up new glyphs automatically when a def-form lands.
 #[must_use]
 pub fn form_glyph(label: &str) -> &'static str {
-    match label {
-        "keybinds"    => "⌨️ ",
-        "cmds"        => "⚡",
-        "options"     => "⚙️ ",
-        "theme"       => "🎨",
-        "hooks"       => "🪝",
-        "filetypes"   => "📄",
-        "abbrev"      => "✏️ ",
-        "snippets"    => "✂️ ",
-        "major_modes" => "🎭",
-        "plugins"     => "🧩",
-        "highlights"  => "🌈",
-        "statusline"  => "📊",
-        "bufferline"  => "📑",
-        "lsp"         => "💡",
-        "formatters"  => "📐",
-        "palettes"    => "🖌️ ",
-        "icons"       => "🏷️ ",
-        "dap"         => "🐛",
-        "gates"       => "🛡️ ",
-        "textobjects" => "🎯",
-        "workflows"   => "🧵",
-        "sessions"    => "🗂️ ",
-        "effects"     => "✨",
-        "terms"       => "🪟",
-        "marks"       => "📌",
-        "tasks"       => "🏃",
-        _             => "•",
-    }
+    lookup_glyph(FORM_GLYPHS, label, "•")
 }
 
 /// Canonical glyph for a plugin category, matching the `:category`
 /// strings in [`PluginSpec`](crate::PluginSpec). Same contract as
-/// [`form_glyph`] — the single source of truth lives here.
+/// [`form_glyph`] — the single source of truth is [`CATEGORY_GLYPHS`].
 #[must_use]
 pub fn category_glyph(cat: &str) -> &'static str {
-    match cat {
-        "common"      => "📦",
-        "completion"  => "🔤",
-        "formatting"  => "📐",
-        "keybindings" => "⌨️ ",
-        "lsp"         => "💡",
-        "telescope"   => "🔭",
-        "theming"     => "🎨",
-        "tmux"        => "⫽ ",
-        "treesitter"  => "🌳",
-        "files"       => "📁",
-        "git"         => "🌿",
-        "ai"          => "🤖",
-        _             => "✦",
-    }
+    lookup_glyph(CATEGORY_GLYPHS, cat, "✦")
+}
+
+/// Labels of every known def-form in [`FORM_GLYPHS`] order.
+///
+/// Lets tests + the binary + MCP schema builders enumerate forms
+/// without duplicating the label list. Adding a new def-form =
+/// one new entry in [`FORM_GLYPHS`]; this iterator picks it up
+/// automatically.
+pub fn form_labels() -> impl Iterator<Item = &'static str> {
+    FORM_GLYPHS.iter().map(|(k, _)| *k)
+}
+
+/// Labels of every canonical plugin category in [`CATEGORY_GLYPHS`] order.
+pub fn category_labels() -> impl Iterator<Item = &'static str> {
+    CATEGORY_GLYPHS.iter().map(|(k, _)| *k)
+}
+
+/// Shared linear-search for the two glyph tables. Consumers should
+/// call [`form_glyph`] / [`category_glyph`] — this helper only
+/// exists to share the match→fallback shape.
+fn lookup_glyph(
+    table: &'static [(&'static str, &'static str)],
+    key: &str,
+    fallback: &'static str,
+) -> &'static str {
+    table
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, v)| *v)
+        .unwrap_or(fallback)
 }
 
 fn validate_mode(mode: &str) -> LispResult<()> {
@@ -861,42 +906,65 @@ mod tests {
             .join(" ");
         assert_eq!(plan.summary(), from_counts);
 
-        // Every known def-form appears in counts() — adding a new
-        // spec without extending counts() would be a regression.
+        // Every label registered in FORM_GLYPHS appears in counts()
+        // — adding a new spec means one entry in each, and nothing
+        // else. No third hardcoded list needs updating.
         let names: Vec<&str> = plan.counts().iter().map(|(n, _)| *n).collect();
-        for required in &[
-            "keybinds",
-            "cmds",
-            "options",
-            "theme",
-            "hooks",
-            "filetypes",
-            "abbrev",
-            "snippets",
-            "major_modes",
-            "plugins",
-            "highlights",
-            "statusline",
-            "bufferline",
-            "lsp",
-            "formatters",
-            "palettes",
-            "icons",
-            "dap",
-            "gates",
-            "textobjects",
-            "workflows",
-            "sessions",
-            "effects",
-            "terms",
-            "marks",
-            "tasks",
-        ] {
+        for required in form_labels() {
             assert!(
-                names.contains(required),
+                names.contains(&required),
                 "counts() missing required def-form: {required}",
             );
         }
+    }
+
+    #[test]
+    fn counts_order_matches_form_glyphs_order() {
+        // Banner-stability contract: consumers that zip counts()
+        // against FORM_GLYPHS (for fixed-order rendering) should
+        // never see the two tables drift.
+        let plan = apply_source("").unwrap();
+        let counts_labels: Vec<&str> = plan.counts().iter().map(|(n, _)| *n).collect();
+        let glyph_labels: Vec<&str> = form_labels().collect();
+        assert_eq!(
+            counts_labels, glyph_labels,
+            "counts() order diverged from FORM_GLYPHS order",
+        );
+    }
+
+    #[test]
+    fn form_glyphs_has_no_duplicate_labels() {
+        // Linear search short-circuits on the first hit, so a dupe
+        // would silently mask later entries. Catch that here.
+        let mut seen = std::collections::HashSet::new();
+        for (label, _) in FORM_GLYPHS {
+            assert!(
+                seen.insert(*label),
+                "duplicate label in FORM_GLYPHS: {label}",
+            );
+        }
+    }
+
+    #[test]
+    fn category_glyphs_has_no_duplicate_labels() {
+        let mut seen = std::collections::HashSet::new();
+        for (cat, _) in CATEGORY_GLYPHS {
+            assert!(
+                seen.insert(*cat),
+                "duplicate category in CATEGORY_GLYPHS: {cat}",
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_labels_fall_back_to_sentinel_glyphs() {
+        // Contract: unknown form label → "•", unknown category → "✦".
+        // Callers (binary banners) key off this to decide whether a
+        // label is recognized.
+        assert_eq!(form_glyph("nonexistent-form"), "•");
+        assert_eq!(form_glyph(""), "•");
+        assert_eq!(category_glyph("nonexistent-category"), "✦");
+        assert_eq!(category_glyph(""), "✦");
     }
 
     #[test]
