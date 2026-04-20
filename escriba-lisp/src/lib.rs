@@ -35,6 +35,7 @@
 //! | `defformatter`| [`FormatterSpec`]                            |
 //! | `defpalette`  | [`PaletteSpec`]                              |
 //! | `deficon`     | [`IconSpec`]                                 |
+//! | `defdap`      | [`DapAdapterSpec`]                           |
 //!
 //! # Extending
 //!
@@ -47,6 +48,7 @@ mod abbrev;
 mod apply;
 mod bufferline;
 mod cmd;
+mod dap;
 mod filetype;
 mod formatter;
 mod highlight;
@@ -68,6 +70,7 @@ pub use apply::{
 };
 pub use bufferline::BufferLineSpec;
 pub use cmd::CmdSpec;
+pub use dap::{DapAdapterSpec, KNOWN_ADAPTERS, is_known_adapter};
 pub use filetype::FiletypeSpec;
 pub use formatter::FormatterSpec;
 pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
@@ -129,6 +132,7 @@ pub struct ApplyPlan {
     pub formatters: Vec<FormatterSpec>,
     pub palettes: Vec<PaletteSpec>,
     pub icons: Vec<IconSpec>,
+    pub dap_adapters: Vec<DapAdapterSpec>,
 }
 
 impl ApplyPlan {
@@ -159,6 +163,7 @@ impl ApplyPlan {
         self.formatters.extend(other.formatters);
         self.palettes.extend(other.palettes);
         self.icons.extend(other.icons);
+        self.dap_adapters.extend(other.dap_adapters);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -166,7 +171,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={} dap={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -184,6 +189,7 @@ impl ApplyPlan {
             self.formatters.len(),
             self.palettes.len(),
             self.icons.len(),
+            self.dap_adapters.len(),
         )
     }
 }
@@ -264,6 +270,9 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let icons: Vec<IconSpec> =
         tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
 
+    let dap_adapters: Vec<DapAdapterSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -282,6 +291,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         formatters,
         palettes,
         icons,
+        dap_adapters,
     })
 }
 
@@ -705,6 +715,29 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_dap_adapters() {
+        let plan = apply_source(
+            r#"
+            (defdap :name "lldb"
+                    :command "lldb-dap"
+                    :filetypes ("rust" "c" "cpp"))
+            (defdap :name "delve"
+                    :command "dlv"
+                    :args ("dap" "-l" "127.0.0.1:38697")
+                    :filetypes ("go")
+                    :port 38697)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.dap_adapters.len(), 2);
+        assert_eq!(plan.dap_adapters[0].name, "lldb");
+        assert_eq!(plan.dap_adapters[0].filetypes, vec!["rust", "c", "cpp"]);
+        assert_eq!(plan.dap_adapters[0].port, 0);
+        assert_eq!(plan.dap_adapters[1].port, 38697);
+        assert_eq!(plan.dap_adapters[1].args, vec!["dap", "-l", "127.0.0.1:38697"]);
     }
 
     #[test]

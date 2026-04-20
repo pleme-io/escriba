@@ -503,3 +503,24 @@
 (deficon :pattern "Dockerfile"   :glyph "" :fg "#458ee6")
 (deficon :pattern ".envrc"       :glyph "" :fg "#89e051")
 (deficon :pattern ".gitignore"   :glyph "" :fg "#e24329")
+
+;; ═════ DAP adapters — nvim-dap parity (common languages) ══════════
+(defdap :name "lldb"
+        :command "lldb-dap"
+        :filetypes ("rust" "c" "cpp"))
+(defdap :name "codelldb"
+        :command "codelldb"
+        :filetypes ("rust" "c" "cpp"))
+(defdap :name "debugpy"
+        :command "python"
+        :args ("-m" "debugpy.adapter")
+        :filetypes ("python"))
+(defdap :name "delve"
+        :command "dlv"
+        :args ("dap" "-l" "127.0.0.1:38697")
+        :filetypes ("go")
+        :port 38697)
+(defdap :name "js-debug"
+        :command "node"
+        :args ("-e" "require('@vscode/js-debug')")
+        :filetypes ("typescript" "javascript"))
