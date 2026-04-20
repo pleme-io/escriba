@@ -70,6 +70,7 @@ mod keybind;
 mod kmacro;
 mod lsp;
 mod mark;
+mod mode;
 mod mode_spec;
 mod option;
 mod palette;
@@ -112,6 +113,7 @@ pub use kmacro::{
 };
 pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
 pub use mark::{KNOWN_KINDS as MARK_KINDS, MarkSpec, is_known_kind as is_known_mark_kind};
+pub use mode::{KNOWN_MODES, is_known_mode};
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use palette::PaletteSpec;
@@ -183,7 +185,7 @@ pub enum LispError {
     UnknownHook(String),
     #[error("unknown theme preset: {0} (valid: {valid})", valid = KNOWN_PRESETS.join(", "))]
     UnknownTheme(String),
-    #[error("unknown mode name: {0} (valid: normal, insert, visual, visual-line, command)")]
+    #[error("unknown mode name: {0} (valid: {valid})", valid = KNOWN_MODES.join(", "))]
     UnknownMode(String),
     #[error("unknown gate action: {0} (valid: {valid})", valid = GATE_ACTIONS.join(", "))]
     UnknownGateAction(String),
@@ -250,7 +252,7 @@ pub enum LispError {
     EmptyKmacroKeys(String),
     #[error(
         "defkmacro `{name}` has unknown `:mode` `{mode}` (valid: {valid})",
-        valid = KMACRO_MODES.join(", ")
+        valid = KNOWN_MODES.join(", ")
     )]
     UnknownKmacroMode { name: String, mode: String },
     #[error(
@@ -744,9 +746,10 @@ fn lookup_glyph(
 }
 
 fn validate_mode(mode: &str) -> LispResult<()> {
-    match mode {
-        "normal" | "insert" | "visual" | "visual-line" | "command" => Ok(()),
-        _ => Err(LispError::UnknownMode(mode.to_string())),
+    if is_known_mode(mode) {
+        Ok(())
+    } else {
+        Err(LispError::UnknownMode(mode.to_string()))
     }
 }
 
@@ -1982,6 +1985,19 @@ mod tests {
         )
         .expect_err("symbol register should error");
         assert!(matches!(err, LispError::MalformedKmacroRegister(_)));
+    }
+
+    #[test]
+    fn kmacro_mode_vocabulary_is_the_keybind_mode_vocabulary() {
+        // After the mode.rs extraction, `kmacro::KNOWN_MODES` and the
+        // canonical `KNOWN_MODES` must be the same `&'static [&str]`
+        // — not just equal in content. Pin identity here so a future
+        // accidental reintroduction of a parallel const gets caught.
+        assert!(std::ptr::eq(
+            KMACRO_MODES.as_ptr(),
+            KNOWN_MODES.as_ptr(),
+        ));
+        assert_eq!(KMACRO_MODES, KNOWN_MODES);
     }
 
     #[test]

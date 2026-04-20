@@ -101,15 +101,14 @@ pub struct KmacroSpec {
     pub register: String,
 }
 
-/// Modes that can appear as `:mode` on a [`KmacroSpec`]. Kept in
-/// sync with the `validate_mode` table the keybind apply layer uses.
-pub const KNOWN_MODES: &[&str] = &["normal", "insert", "visual", "visual-line", "command"];
-
-/// True when `mode` is a recognized kmacro replay mode.
-#[must_use]
-pub fn is_known_mode(mode: &str) -> bool {
-    KNOWN_MODES.contains(&mode)
-}
+/// Modes that can appear as `:mode` on a [`KmacroSpec`]. Thin
+/// re-export of the single-source-of-truth [`crate::mode::KNOWN_MODES`]
+/// so external consumers can still spell the kmacro-scoped vocabulary
+/// as `escriba_lisp::kmacro::KNOWN_MODES` if they want. The
+/// `:mode` field on a kmacro shares the same closed vocabulary as
+/// `defkeybind :mode` — drifting would mean a kmacro could claim a
+/// mode the keymap doesn't know.
+pub use crate::mode::{KNOWN_MODES, is_known_mode};
 
 impl KmacroSpec {
     /// True when `:register` is a single `a-z` / `A-Z` / `0-9` char —
