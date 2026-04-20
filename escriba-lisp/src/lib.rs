@@ -42,6 +42,7 @@
 //! | `defsession`  | [`SessionSpec`] — named workspace layout (absorbs vim :mksession / vscode workspaces) |
 //! | `defeffect`   | [`EffectSpec`] — ghostty-style GPU shader effect (cursor glow / bloom / scanlines) |
 //! | `defterm`     | [`TermSpec`] — terminal session spec (wire-compatible with `mado::term_spec::TermSpec`) |
+//! | `defmark`     | [`MarkSpec`] — named marks with jump/anchor/glance kind semantics |
 //!
 //! # Extending
 //!
@@ -64,6 +65,7 @@ mod hook;
 mod icon;
 mod keybind;
 mod lsp;
+mod mark;
 mod mode_spec;
 mod option;
 mod palette;
@@ -99,6 +101,7 @@ pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use icon::IconSpec;
 pub use keybind::KeybindSpec;
 pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
+pub use mark::{KNOWN_KINDS as MARK_KINDS, MarkSpec, is_known_kind as is_known_mark_kind};
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use palette::PaletteSpec;
@@ -198,6 +201,11 @@ pub enum LispError {
         valid = TERM_PLACEMENTS.join(", ")
     )]
     UnknownTermPlacement(String),
+    #[error(
+        "unknown defmark :kind `{0}` (valid: {valid})",
+        valid = MARK_KINDS.join(", ")
+    )]
+    UnknownMarkKind(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -232,6 +240,7 @@ pub struct ApplyPlan {
     pub sessions: Vec<SessionSpec>,
     pub effects: Vec<EffectSpec>,
     pub terms: Vec<TermSpec>,
+    pub marks: Vec<MarkSpec>,
 }
 
 impl ApplyPlan {
@@ -269,6 +278,7 @@ impl ApplyPlan {
         self.sessions.extend(other.sessions);
         self.effects.extend(other.effects);
         self.terms.extend(other.terms);
+        self.marks.extend(other.marks);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -302,6 +312,7 @@ impl ApplyPlan {
             ("sessions", self.sessions.len()),
             ("effects", self.effects.len()),
             ("terms", self.terms.len()),
+            ("marks", self.marks.len()),
         ]
     }
 
@@ -442,6 +453,13 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    let marks: Vec<MarkSpec> = compile_validated(src, |m: &MarkSpec| {
+        if !mark::is_known_kind(&m.kind) {
+            return Err(LispError::UnknownMarkKind(m.kind.clone()));
+        }
+        Ok(())
+    })?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -467,6 +485,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         sessions,
         effects,
         terms,
+        marks,
     })
 }
 
@@ -734,6 +753,7 @@ mod tests {
             "sessions",
             "effects",
             "terms",
+            "marks",
         ] {
             assert!(
                 names.contains(required),
@@ -774,6 +794,7 @@ mod tests {
             (defsession  :name "a-sess" :buffers ("a.rs"))
             (defeffect   :name "a-fx" :kind "cursor" :enable #t :intensity 0.5)
             (defterm     :name "a-term" :shell "/bin/frost" :placement "tab")
+            (defmark     :name "'A" :file "~/README.md" :line 1 :kind "jump")
             "##,
         )
         .unwrap();
@@ -1022,6 +1043,52 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_marks_with_three_kinds() {
+        let plan = apply_source(
+            r#"
+            (defmark :name "'C"
+                     :file "~/.config/escriba/rc.lisp"
+                     :line 1
+                     :kind "jump")
+            (defmark :name "bug-notes"
+                     :file "~/notes/bugs.md"
+                     :line 42 :column 7
+                     :kind "anchor"
+                     :description "Flaky tests")
+            (defmark :name "'S"
+                     :file "~/README.md"
+                     :kind "glance")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.marks.len(), 3);
+        assert_eq!(plan.marks[0].effective_kind(), "jump");
+        assert_eq!(plan.marks[1].kind, "anchor");
+        assert_eq!(plan.marks[1].column, 7);
+        assert_eq!(plan.marks[2].kind, "glance");
+        assert!(plan.marks[0].is_vim_single_letter());
+        assert!(!plan.marks[1].is_vim_single_letter());
+    }
+
+    #[test]
+    fn mark_with_unknown_kind_rejected() {
+        let err = apply_source(
+            r#"(defmark :name "'X" :kind "teleport")"#,
+        )
+        .expect_err("unknown kind should error");
+        assert!(matches!(err, LispError::UnknownMarkKind(_)));
+    }
+
+    #[test]
+    fn mark_empty_kind_resolves_to_jump() {
+        let plan = apply_source(
+            r#"(defmark :name "'X" :file "~/a.txt")"#,
+        )
+        .unwrap();
+        assert_eq!(plan.marks[0].effective_kind(), "jump");
     }
 
     #[test]

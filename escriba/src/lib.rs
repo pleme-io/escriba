@@ -344,6 +344,7 @@ fn form_glyph(kind: &str) -> &'static str {
         "sessions"      => "🗂️ ",
         "effects"       => "✨",
         "terms"         => "🪟",
+        "marks"         => "📌",
         _               => "•",
     }
 }

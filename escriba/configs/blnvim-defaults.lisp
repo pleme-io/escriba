@@ -738,3 +738,28 @@
          :description "Throwaway shell in a new window"
          :placement "window"
          :keybind "<leader>tn")
+
+;; ═════ Marks — named positions with jump/anchor/glance semantics ══
+;; Absorbs vim global marks (`'A`..`'Z`) + emacs bookmarks. Escriba
+;; extension: `:kind` picks navigation style.
+;;   jump   — vim-style cursor move + jumplist push (default).
+;;   anchor — jump AND pin the file in a side split so it stays visible.
+;;   glance — zed-style peek without moving the primary cursor.
+
+(defmark :name "'C"
+         :description "escriba rc"
+         :file "~/.config/escriba/rc.lisp"
+         :line 1
+         :kind "jump")
+
+(defmark :name "'F"
+         :description "frost rc (frostmourne)"
+         :file "~/code/github/pleme-io/frostmourne/lisp/00-core.lisp"
+         :line 1
+         :kind "jump")
+
+(defmark :name "'N"
+         :description "nix flake.nix"
+         :file "~/code/github/pleme-io/nix/flake.nix"
+         :line 1
+         :kind "jump")
