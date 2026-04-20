@@ -39,6 +39,8 @@
 //! | `defgate`     | [`GateSpec`] — convergence pre/post-condition on an editor event |
 //! | `deftextobject`| [`TextObjectSpec`] — tree-sitter text object bound to vim `i`/`a` grammar |
 //! | `defworkflow` | [`WorkflowSpec`] — named DAG of gates + actions (editor-layer workflow) |
+//! | `defsession`  | [`SessionSpec`] — named workspace layout (absorbs vim :mksession / vscode workspaces) |
+//! | `defeffect`   | [`EffectSpec`] — ghostty-style GPU shader effect (cursor glow / bloom / scanlines) |
 //!
 //! # Extending
 //!
@@ -52,6 +54,7 @@ mod apply;
 mod bufferline;
 mod cmd;
 mod dap;
+mod effect;
 mod filetype;
 mod formatter;
 mod gate;
@@ -64,6 +67,7 @@ mod mode_spec;
 mod option;
 mod palette;
 mod plugin;
+mod session;
 mod snippet;
 mod statusline;
 mod textobject;
@@ -77,6 +81,10 @@ pub use apply::{
 pub use bufferline::BufferLineSpec;
 pub use cmd::CmdSpec;
 pub use dap::{DapAdapterSpec, KNOWN_ADAPTERS, is_known_adapter};
+pub use effect::{
+    CANONICAL_EFFECTS, EffectSpec, KNOWN_KINDS as EFFECT_KINDS,
+    is_canonical_effect, is_known_kind as is_known_effect_kind,
+};
 pub use filetype::FiletypeSpec;
 pub use formatter::FormatterSpec;
 pub use gate::{
@@ -93,6 +101,7 @@ pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use palette::PaletteSpec;
 pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
+pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
 pub use snippet::SnippetSpec;
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
 pub use textobject::{
@@ -156,6 +165,8 @@ pub enum LispError {
         valid = WORKFLOW_FAILURE_MODES.join(", ")
     )]
     UnknownWorkflowFailureMode(String),
+    #[error("defeffect `{0}` has :kind \"custom\" but no :shader path")]
+    MalformedCustomEffect(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -187,6 +198,8 @@ pub struct ApplyPlan {
     pub gates: Vec<GateSpec>,
     pub text_objects: Vec<TextObjectSpec>,
     pub workflows: Vec<WorkflowSpec>,
+    pub sessions: Vec<SessionSpec>,
+    pub effects: Vec<EffectSpec>,
 }
 
 impl ApplyPlan {
@@ -221,6 +234,8 @@ impl ApplyPlan {
         self.gates.extend(other.gates);
         self.text_objects.extend(other.text_objects);
         self.workflows.extend(other.workflows);
+        self.sessions.extend(other.sessions);
+        self.effects.extend(other.effects);
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -251,6 +266,8 @@ impl ApplyPlan {
             ("gates", self.gates.len()),
             ("textobjects", self.text_objects.len()),
             ("workflows", self.workflows.len()),
+            ("sessions", self.sessions.len()),
+            ("effects", self.effects.len()),
         ]
     }
 
@@ -378,6 +395,16 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         }
     }
 
+    let sessions: Vec<SessionSpec> = compile(src)?;
+    // Layout is advisory — unknowns pass through, no error.
+
+    let effects: Vec<EffectSpec> = compile(src)?;
+    for e in &effects {
+        if e.is_malformed_custom() {
+            return Err(LispError::MalformedCustomEffect(e.name.clone()));
+        }
+    }
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -400,6 +427,8 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         gates,
         text_objects,
         workflows,
+        sessions,
+        effects,
     })
 }
 
@@ -638,6 +667,8 @@ mod tests {
             "gates",
             "textobjects",
             "workflows",
+            "sessions",
+            "effects",
         ] {
             assert!(
                 names.contains(required),
@@ -675,6 +706,8 @@ mod tests {
             (defgate    :name "a-gate" :on-event "BufWritePre" :command "echo" :action "warn")
             (deftextobject :name "f" :scope "outer" :query "(x) @f")
             (defworkflow :name "a-wf" :steps ("gate:a-gate"))
+            (defsession  :name "a-sess" :buffers ("a.rs"))
+            (defeffect   :name "a-fx" :kind "cursor" :enable #t :intensity 0.5)
             "##,
         )
         .unwrap();
@@ -923,6 +956,70 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_sessions_with_buffers_and_on_enter() {
+        let plan = apply_source(
+            r#"
+            (defsession :name "escriba-dev"
+                        :description "escriba-lisp day"
+                        :buffers ("escriba-lisp/src/lib.rs"
+                                  "escriba-lisp/src/apply.rs")
+                        :layout "horizontal"
+                        :cwd "~/code/github/pleme-io/escriba"
+                        :on-enter ("workflow:save-and-test"))
+            (defsession :name "blog"
+                        :buffers ("posts/latest.md")
+                        :layout "single")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.sessions.len(), 2);
+        assert_eq!(plan.sessions[0].name, "escriba-dev");
+        assert_eq!(plan.sessions[0].pane_count(), 2);
+        assert!(plan.sessions[0].has_buffers());
+        assert_eq!(plan.sessions[1].layout, "single");
+        assert_eq!(plan.sessions[1].pane_count(), 1);
+    }
+
+    #[test]
+    fn parses_effects_with_canonical_names() {
+        let plan = apply_source(
+            r##"
+            (defeffect :name "cursor-glow"
+                       :kind "cursor"
+                       :enable #t
+                       :intensity 0.6
+                       :radius 1.8
+                       :color "#88c0d0")
+            (defeffect :name "bloom"
+                       :kind "screen"
+                       :enable #t
+                       :intensity 0.25
+                       :threshold 0.75)
+            (defeffect :name "scanlines"
+                       :kind "screen"
+                       :enable #f
+                       :intensity 0.15)
+            "##,
+        )
+        .unwrap();
+        assert_eq!(plan.effects.len(), 3);
+        assert_eq!(plan.effects[0].name, "cursor-glow");
+        assert!(plan.effects[0].enable);
+        assert_eq!(plan.effects[0].intensity, 0.6);
+        assert_eq!(plan.effects[1].threshold, 0.75);
+        assert!(!plan.effects[2].enable);
+    }
+
+    #[test]
+    fn effect_custom_without_shader_rejected() {
+        let err = apply_source(
+            r##"(defeffect :name "mine" :kind "custom" :enable #t)"##,
+        )
+        .expect_err("custom w/o shader should error");
+        assert!(matches!(err, LispError::MalformedCustomEffect(_)));
     }
 
     #[test]

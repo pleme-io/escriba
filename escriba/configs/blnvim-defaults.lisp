@@ -648,3 +648,67 @@
                      "shell:cargo test")
              :on-failure "continue"
              :keybind "<leader>wt")
+
+;; ═════ Sessions — named workspace layouts ════════════════════════
+;; Absorbs vim :mksession, vscode workspaces, emacs desktop-save.
+;; Each session is a named bundle of buffers + layout + cwd + hooks
+;; the picker can activate. Escriba-specific: sessions are *intent*
+;; declared in rc, not a serialized point-in-time snapshot.
+
+(defsession :name "escriba-dev"
+            :description "Working on escriba-lisp authoring bridge"
+            :buffers ("escriba-lisp/src/lib.rs"
+                      "escriba-lisp/src/apply.rs"
+                      "escriba/configs/blnvim-defaults.lisp")
+            :layout "horizontal"
+            :cwd "~/code/github/pleme-io/escriba"
+            :keybind "<leader>Se")
+
+(defsession :name "frost-dev"
+            :description "Working on frost shell"
+            :buffers ("crates/frost/src/main.rs"
+                      "crates/frost-lisp/src/lib.rs")
+            :layout "horizontal"
+            :cwd "~/code/github/pleme-io/frost"
+            :keybind "<leader>Sf")
+
+;; ═════ Effects — ghostty-style GPU shader layer ══════════════════
+;; Applies to --render=gpu only; TUI mode ignores silently. Cursor
+;; glow, bloom, scanlines, film grain — ghostty / mado parity. Users
+;; opt in via :enable #t; defaults here record the preferred shape
+;; without firing until the user flips it on.
+
+(defeffect :name "cursor-glow"
+           :kind "cursor"
+           :enable #t
+           :intensity 0.6
+           :radius 1.8
+           :color "#88c0d0")
+
+(defeffect :name "cursor-trail"
+           :kind "cursor-trail"
+           :enable #f
+           :intensity 0.4
+           :color "#81a1c1")
+
+(defeffect :name "bloom"
+           :kind "screen"
+           :enable #t
+           :intensity 0.25
+           :threshold 0.75)
+
+(defeffect :name "scanlines"
+           :kind "screen"
+           :enable #f
+           :intensity 0.15)
+
+(defeffect :name "film-grain"
+           :kind "screen"
+           :enable #f
+           :intensity 0.08)
+
+(defeffect :name "underglow"
+           :kind "underglow"
+           :enable #f
+           :intensity 0.5
+           :color "#5e81ac")
