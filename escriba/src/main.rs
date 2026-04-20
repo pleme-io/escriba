@@ -323,6 +323,7 @@ fn form_glyph(kind: &str) -> &'static str {
         "palettes"      => "🖌️ ",
         "icons"         => "🏷️ ",
         "dap"           => "🐛",
+        "gates"         => "🛡️ ",
         _               => "•",
     }
 }
@@ -352,7 +353,7 @@ fn glyph_summary(plan: &escriba_lisp::ApplyPlan) -> String {
     let sline = if plan.status_line.is_some() { 1 } else { 0 };
     let bline = if plan.buffer_line.is_some() { 1 } else { 0 };
     format!(
-        "{} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}\n  {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}",
+        "{} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}\n  {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3} {} {:<3}",
         form_glyph("keybinds"), plan.keybinds.len(),
         form_glyph("cmds"), plan.commands.len(),
         form_glyph("options"), plan.options.len(),
@@ -371,6 +372,7 @@ fn glyph_summary(plan: &escriba_lisp::ApplyPlan) -> String {
         form_glyph("palettes"), plan.palettes.len(),
         form_glyph("icons"), plan.icons.len(),
         form_glyph("dap"), plan.dap_adapters.len(),
+        form_glyph("gates"), plan.gates.len(),
     )
 }
 

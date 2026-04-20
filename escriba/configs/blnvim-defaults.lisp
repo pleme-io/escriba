@@ -524,3 +524,44 @@
         :command "node"
         :args ("-e" "require('@vscode/js-debug')")
         :filetypes ("typescript" "javascript"))
+
+;; ═════ Gates — escriba's convergence-layer invention ══════════════
+;; `defgate` is unique to escriba: a typed pre/post-condition on an
+;; editor event, with action = reject / warn / auto-fix. No other
+;; editor has this as a first-class declarative form. Mirrors the
+;; tatara convergence-computing pattern (prepare → execute →
+;; verify → attest) at the editor layer.
+;;
+;; `reject`  — hard-fail the event (write aborted, buffer stays dirty).
+;; `warn`    — log + let the event proceed (diagnostic surface).
+;; `auto-fix` — run `:auto-fix`, retry; falls back to reject on 2nd fail.
+
+;; LSP: warn if writing while the buffer carries an error diagnostic.
+(defgate :name "lsp-clean"
+         :on-event "BufWritePost"
+         :source "lsp.diagnostics"
+         :severity "error"
+         :action "warn"
+         :message "Saved with unresolved LSP errors.")
+
+;; Secrets: reject writes that look like they committed a secret.
+(defgate :name "no-secrets"
+         :on-event "BufWritePre"
+         :source "secrets.scan"
+         :action "reject"
+         :message "Likely secret detected — write blocked.")
+
+;; Rust formatter drift: auto-fix via rustfmt on save.
+(defgate :name "rust-format-drift"
+         :on-event "BufWritePre"
+         :filetype "rust"
+         :source "formatter.drift"
+         :action "auto-fix"
+         :message "Auto-formatted on save.")
+
+;; Tree-sitter parse health: warn if the buffer doesn't parse cleanly.
+(defgate :name "ts-parse-ok"
+         :on-event "BufWritePre"
+         :source "ts.query"
+         :action "warn"
+         :message "Tree-sitter parse errors in buffer.")

@@ -36,6 +36,7 @@
 //! | `defpalette`  | [`PaletteSpec`]                              |
 //! | `deficon`     | [`IconSpec`]                                 |
 //! | `defdap`      | [`DapAdapterSpec`]                           |
+//! | `defgate`     | [`GateSpec`] — convergence pre/post-condition on an editor event |
 //!
 //! # Extending
 //!
@@ -51,6 +52,7 @@ mod cmd;
 mod dap;
 mod filetype;
 mod formatter;
+mod gate;
 mod highlight;
 mod hook;
 mod icon;
@@ -73,6 +75,11 @@ pub use cmd::CmdSpec;
 pub use dap::{DapAdapterSpec, KNOWN_ADAPTERS, is_known_adapter};
 pub use filetype::FiletypeSpec;
 pub use formatter::FormatterSpec;
+pub use gate::{
+    GateMode, GateSpec, KNOWN_ACTIONS as GATE_ACTIONS, KNOWN_SEVERITIES as GATE_SEVERITIES,
+    KNOWN_SOURCES as GATE_SOURCES, is_known_action as is_gate_action,
+    is_known_severity as is_gate_severity, is_known_source as is_gate_source,
+};
 pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use icon::IconSpec;
@@ -105,6 +112,17 @@ pub enum LispError {
     UnknownTheme(String),
     #[error("unknown mode name: {0} (valid: normal, insert, visual, visual-line, command)")]
     UnknownMode(String),
+    #[error("unknown gate action: {0} (valid: {valid})", valid = GATE_ACTIONS.join(", "))]
+    UnknownGateAction(String),
+    #[error(
+        "invalid gate shape on `{0}` — exactly one of `:command` / `:source` must be set"
+    )]
+    InvalidGateShape(String),
+    #[error(
+        "unknown gate severity: {0} (valid: {valid})",
+        valid = GATE_SEVERITIES.join(", ")
+    )]
+    UnknownGateSeverity(String),
 }
 
 /// Everything a Lisp rc file can declare, in one typed bundle.
@@ -133,6 +151,7 @@ pub struct ApplyPlan {
     pub palettes: Vec<PaletteSpec>,
     pub icons: Vec<IconSpec>,
     pub dap_adapters: Vec<DapAdapterSpec>,
+    pub gates: Vec<GateSpec>,
 }
 
 impl ApplyPlan {
@@ -164,6 +183,7 @@ impl ApplyPlan {
         self.palettes.extend(other.palettes);
         self.icons.extend(other.icons);
         self.dap_adapters.extend(other.dap_adapters);
+        self.gates.extend(other.gates);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -171,7 +191,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={} dap={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={} highlights={} statusline={} bufferline={} lsp={} formatters={} palettes={} icons={} dap={} gates={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -190,6 +210,7 @@ impl ApplyPlan {
             self.palettes.len(),
             self.icons.len(),
             self.dap_adapters.len(),
+            self.gates.len(),
         )
     }
 }
@@ -273,6 +294,23 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let dap_adapters: Vec<DapAdapterSpec> =
         tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
 
+    let gates: Vec<GateSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+    // Strict validation on gates — ill-formed specs (unknown action /
+    // neither command nor source / both set) fail fast so users
+    // learn about the mistake at apply time, not at dispatch.
+    for g in &gates {
+        if !gate::is_known_action(&g.action) {
+            return Err(LispError::UnknownGateAction(g.action.clone()));
+        }
+        if g.mode() == gate::GateMode::Invalid {
+            return Err(LispError::InvalidGateShape(g.name.clone()));
+        }
+        if !g.severity.is_empty() && !gate::is_known_severity(&g.severity) {
+            return Err(LispError::UnknownGateSeverity(g.severity.clone()));
+        }
+    }
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -292,6 +330,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         palettes,
         icons,
         dap_adapters,
+        gates,
     })
 }
 
@@ -715,6 +754,71 @@ mod tests {
         assert!(is_known_event("FileType"));
         // Unknown values stay rejected.
         assert!(!is_known_event("BufGalactus"));
+    }
+
+    #[test]
+    fn parses_gates_with_both_modes() {
+        let plan = apply_source(
+            r#"
+            (defgate :name "rust-format"
+                     :on-event "BufWritePre"
+                     :filetype "rust"
+                     :command "rustfmt --check $FILE"
+                     :action "auto-fix"
+                     :auto-fix "rustfmt $FILE")
+            (defgate :name "lsp-clean"
+                     :on-event "BufWritePost"
+                     :source "lsp.diagnostics"
+                     :severity "error"
+                     :action "warn")
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.gates.len(), 2);
+        assert_eq!(plan.gates[0].mode(), GateMode::Command);
+        assert_eq!(plan.gates[1].mode(), GateMode::Source);
+        assert_eq!(plan.gates[0].action, "auto-fix");
+        assert_eq!(plan.gates[0].auto_fix, "rustfmt $FILE");
+        assert_eq!(plan.gates[1].severity, "error");
+    }
+
+    #[test]
+    fn gate_with_unknown_action_rejected() {
+        let err = apply_source(
+            r#"(defgate :name "x" :on-event "BufWritePre" :command "echo" :action "panic")"#,
+        )
+        .expect_err("unknown action should error");
+        assert!(matches!(err, LispError::UnknownGateAction(_)));
+    }
+
+    #[test]
+    fn gate_with_neither_command_nor_source_rejected() {
+        let err = apply_source(
+            r#"(defgate :name "x" :on-event "BufWritePre" :action "reject")"#,
+        )
+        .expect_err("neither command nor source is invalid");
+        assert!(matches!(err, LispError::InvalidGateShape(_)));
+    }
+
+    #[test]
+    fn gate_with_both_command_and_source_rejected() {
+        let err = apply_source(
+            r#"(defgate :name "x" :on-event "BufWritePre"
+                        :command "echo" :source "lsp.diagnostics" :action "warn")"#,
+        )
+        .expect_err("both command and source is invalid");
+        assert!(matches!(err, LispError::InvalidGateShape(_)));
+    }
+
+    #[test]
+    fn gate_with_unknown_severity_rejected() {
+        let err = apply_source(
+            r#"(defgate :name "x" :on-event "BufWritePost"
+                        :source "lsp.diagnostics" :severity "yelling"
+                        :action "warn")"#,
+        )
+        .expect_err("unknown severity should error");
+        assert!(matches!(err, LispError::UnknownGateSeverity(_)));
     }
 
     #[test]
