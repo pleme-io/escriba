@@ -63,7 +63,14 @@
           version = "0.1.0";
           src = composedSrc;
           sourceRoot = "escriba-composed-src/escriba";
-          cargoLock.lockFile = ./Cargo.lock;
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            # Allow Nix to fetch git-sourced deps dynamically — path
+            # deps are preferred, but transitive git sources (egaku,
+            # garasu via madori, shikumi) still appear in the lockfile
+            # and need fetching at build time.
+            allowBuiltinFetchGit = true;
+          };
           cargoBuildFlags = [ "-p" package ];
           cargoTestFlags  = [ "-p" package ];
           doCheck = false;

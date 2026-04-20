@@ -109,8 +109,12 @@ pub struct ApplyReport {
     /// — these fall through to [`Action::Command`] and will resolve
     /// at dispatch time (not an error, but worth surfacing).
     pub keybinds_deferred_to_commands: u32,
+    /// Keybindings deferred because they need pending-stroke machinery
+    /// that isn't wired yet (`gh`, `<leader>ff`, …). Aggregated so the
+    /// binary reports one line instead of N warnings at boot.
+    pub keybinds_deferred_multi_key: u32,
     /// Human-readable warnings for anything we had to skip entirely
-    /// (unknown keys, malformed multi-key sequences). Never a
+    /// (unknown keys, malformed single-key sequences). Never a
     /// fatal error — partial application is preferable to a broken
     /// editor on one typo.
     pub warnings: Vec<String>,
@@ -120,34 +124,54 @@ impl ApplyReport {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} deferred={} warnings={}",
+            "keybinds={} deferred_cmd={} deferred_multi={} warnings={}",
             self.keybinds_applied,
             self.keybinds_deferred_to_commands,
+            self.keybinds_deferred_multi_key,
             self.warnings.len(),
         )
     }
 }
 
 /// Apply every [`KeybindSpec`] in `plan` to `keymap`. Multi-key
-/// sequences like `"gh"` are currently deferred with a warning —
-/// the keymap's pending-stroke machinery is the next step. Everything
-/// else writes directly.
+/// sequences like `"gh"` or `"<leader>ff"` currently aggregate into
+/// `keybinds_deferred_multi_key` (they need pending-stroke machinery
+/// landing in the next wave) rather than emitting per-binding
+/// warnings — the startup banner shows one count, not N noisy lines.
+/// Truly malformed bindings (unknown mode, unknown named key) still
+/// surface as individual warnings.
 pub fn apply_plan_to_keymap(plan: &ApplyPlan, keymap: &mut Keymap) -> ApplyReport {
     let mut report = ApplyReport::default();
     for spec in &plan.keybinds {
         match apply_keybind(spec, keymap) {
-            Ok(deferred) => {
-                report.keybinds_applied += 1;
-                if deferred {
+            Ok(outcome) => match outcome {
+                KeybindOutcome::AppliedTyped => {
+                    report.keybinds_applied += 1;
+                }
+                KeybindOutcome::AppliedCommand => {
+                    report.keybinds_applied += 1;
                     report.keybinds_deferred_to_commands += 1;
                 }
-            }
+                KeybindOutcome::DeferredMultiKey => {
+                    report.keybinds_deferred_multi_key += 1;
+                }
+            },
             Err(warning) => {
                 report.warnings.push(warning);
             }
         }
     }
     report
+}
+
+/// The three happy-path outcomes for a keybind apply. Split from
+/// `Err` so the caller can report them at different severities —
+/// typed wins are silent, command-deferred is info, multi-key
+/// deferred is tallied separately for one aggregate startup line.
+enum KeybindOutcome {
+    AppliedTyped,
+    AppliedCommand,
+    DeferredMultiKey,
 }
 
 /// Apply a single keybind. Returns `Ok(true)` if the action resolved
