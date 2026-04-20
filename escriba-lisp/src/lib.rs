@@ -26,6 +26,7 @@
 //! | `defft`       | [`FiletypeSpec`]                             |
 //! | `defabbrev`   | [`AbbrevSpec`]                               |
 //! | `defsnippet`  | [`SnippetSpec`]                              |
+//! | `defmode`     | [`MajorModeSpec`]                            |
 //!
 //! # Extending
 //!
@@ -40,6 +41,7 @@ mod cmd;
 mod filetype;
 mod hook;
 mod keybind;
+mod mode_spec;
 mod option;
 mod snippet;
 mod theme;
@@ -50,6 +52,7 @@ pub use cmd::CmdSpec;
 pub use filetype::FiletypeSpec;
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use keybind::KeybindSpec;
+pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
 pub use snippet::SnippetSpec;
 pub use theme::{KNOWN_PRESETS, ThemeSpec, is_known_preset};
@@ -91,6 +94,7 @@ pub struct ApplyPlan {
     pub filetypes: Vec<FiletypeSpec>,
     pub abbreviations: Vec<AbbrevSpec>,
     pub snippets: Vec<SnippetSpec>,
+    pub major_modes: Vec<MajorModeSpec>,
 }
 
 impl ApplyPlan {
@@ -108,6 +112,7 @@ impl ApplyPlan {
         self.filetypes.extend(other.filetypes);
         self.abbreviations.extend(other.abbreviations);
         self.snippets.extend(other.snippets);
+        self.major_modes.extend(other.major_modes);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -115,7 +120,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -124,6 +129,7 @@ impl ApplyPlan {
             self.filetypes.len(),
             self.abbreviations.len(),
             self.snippets.len(),
+            self.major_modes.len(),
         )
     }
 }
@@ -174,6 +180,9 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let snippets: Vec<SnippetSpec> =
         tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
 
+    let major_modes: Vec<MajorModeSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -183,6 +192,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         filetypes,
         abbreviations,
         snippets,
+        major_modes,
     })
 }
 
@@ -377,5 +387,51 @@ mod tests {
     #[test]
     fn default_rc_path_is_nonempty() {
         assert!(!default_rc_path().as_os_str().is_empty());
+    }
+
+    #[test]
+    fn parses_major_modes() {
+        let plan = apply_source(
+            r#"
+            (defmode :name "rust"
+                     :extensions ("rs")
+                     :tree-sitter "rust"
+                     :commentstring "// %s"
+                     :indent 4)
+            (defmode :name "lisp"
+                     :extensions ("lisp" "cl" "el")
+                     :tree-sitter "commonlisp"
+                     :commentstring ";; %s"
+                     :indent 2
+                     :structural-lisp #t)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.major_modes.len(), 2);
+        assert_eq!(plan.major_modes[0].name, "rust");
+        assert_eq!(plan.major_modes[0].extensions, vec!["rs"]);
+        assert_eq!(plan.major_modes[0].tree_sitter, "rust");
+        assert_eq!(plan.major_modes[0].indent, 4);
+        assert!(!plan.major_modes[0].structural_lisp);
+
+        assert_eq!(plan.major_modes[1].name, "lisp");
+        assert_eq!(
+            plan.major_modes[1].extensions,
+            vec!["lisp", "cl", "el"]
+        );
+        assert!(plan.major_modes[1].structural_lisp);
+    }
+
+    #[test]
+    fn summary_includes_major_modes_count() {
+        let plan = apply_source(
+            r#"
+            (defmode :name "rust" :extensions ("rs"))
+            (defmode :name "py"   :extensions ("py"))
+            (defmode :name "lisp" :extensions ("lisp"))
+            "#,
+        )
+        .unwrap();
+        assert!(plan.summary().contains("major_modes=3"));
     }
 }

@@ -44,6 +44,22 @@
 (defft :ext "py"   :mode "python")
 (defft :ext "lisp" :mode "lisp")
 
+;; ── Major modes ───────────────────────────────────────────────────
+;; `defmode` is the richer form — extensions + tree-sitter lang +
+;; comment string + indent + optional paredit-grade motions. Matches
+;; emacs `define-derived-mode` and neovim `ftplugin` in one.
+(defmode :name "rust"
+         :extensions ("rs")
+         :tree-sitter "rust"
+         :commentstring "// %s"
+         :indent 4)
+(defmode :name "lisp"
+         :extensions ("lisp" "cl" "el")
+         :tree-sitter "commonlisp"
+         :commentstring ";; %s"
+         :indent 2
+         :structural-lisp #t)
+
 ;; ── Abbreviations + snippets ──────────────────────────────────────
 (defabbrev :trigger "teh" :expansion "the")
 (defsnippet :trigger "fn"
