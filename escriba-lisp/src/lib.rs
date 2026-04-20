@@ -27,6 +27,7 @@
 //! | `defabbrev`   | [`AbbrevSpec`]                               |
 //! | `defsnippet`  | [`SnippetSpec`]                              |
 //! | `defmode`     | [`MajorModeSpec`]                            |
+//! | `defplugin`   | [`PluginSpec`]                               |
 //!
 //! # Extending
 //!
@@ -43,6 +44,7 @@ mod hook;
 mod keybind;
 mod mode_spec;
 mod option;
+mod plugin;
 mod snippet;
 mod theme;
 
@@ -54,6 +56,7 @@ pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use keybind::KeybindSpec;
 pub use mode_spec::MajorModeSpec;
 pub use option::OptionSpec;
+pub use plugin::{KNOWN_CATEGORIES, PluginSpec, is_known_category};
 pub use snippet::SnippetSpec;
 pub use theme::{KNOWN_PRESETS, ThemeSpec, is_known_preset};
 
@@ -95,6 +98,7 @@ pub struct ApplyPlan {
     pub abbreviations: Vec<AbbrevSpec>,
     pub snippets: Vec<SnippetSpec>,
     pub major_modes: Vec<MajorModeSpec>,
+    pub plugins: Vec<PluginSpec>,
 }
 
 impl ApplyPlan {
@@ -113,6 +117,7 @@ impl ApplyPlan {
         self.abbreviations.extend(other.abbreviations);
         self.snippets.extend(other.snippets);
         self.major_modes.extend(other.major_modes);
+        self.plugins.extend(other.plugins);
     }
 
     /// Short human-readable summary — useful for startup banners and
@@ -120,7 +125,7 @@ impl ApplyPlan {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={}",
+            "keybinds={} cmds={} options={} theme={} hooks={} filetypes={} abbrev={} snippets={} major_modes={} plugins={}",
             self.keybinds.len(),
             self.commands.len(),
             self.options.len(),
@@ -130,6 +135,7 @@ impl ApplyPlan {
             self.abbreviations.len(),
             self.snippets.len(),
             self.major_modes.len(),
+            self.plugins.len(),
         )
     }
 }
@@ -183,6 +189,9 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
     let major_modes: Vec<MajorModeSpec> =
         tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
 
+    let plugins: Vec<PluginSpec> =
+        tatara_lisp::compile_typed(src).map_err(|e| LispError::Parse(e.to_string()))?;
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -193,6 +202,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         abbreviations,
         snippets,
         major_modes,
+        plugins,
     })
 }
 
@@ -420,6 +430,34 @@ mod tests {
             vec!["lisp", "cl", "el"]
         );
         assert!(plan.major_modes[1].structural_lisp);
+    }
+
+    #[test]
+    fn parses_plugins_with_lazy_triggers() {
+        let plan = apply_source(
+            r#"
+            (defplugin :name "trouble"
+                       :description "Diagnostic list UI"
+                       :category "lsp"
+                       :on-event "LspAttach"
+                       :lazy #t)
+            (defplugin :name "oil"
+                       :category "files"
+                       :on-command "Oil"
+                       :keybinds ("<leader>e")
+                       :lazy #t)
+            (defplugin :name "nord"
+                       :category "theming"
+                       :priority 1000)
+            "#,
+        )
+        .unwrap();
+        assert_eq!(plan.plugins.len(), 3);
+        assert_eq!(plan.plugins[0].name, "trouble");
+        assert_eq!(plan.plugins[0].on_event, "LspAttach");
+        assert!(plan.plugins[0].lazy);
+        assert_eq!(plan.plugins[1].keybinds, vec!["<leader>e"]);
+        assert_eq!(plan.plugins[2].priority, 1000);
     }
 
     #[test]

@@ -17,6 +17,12 @@ use escriba_render::{GpuRenderer, Renderer, TextRenderer};
 use escriba_runtime::EditorState;
 use madori::App;
 
+/// The "blnvim-parity" default rc, baked into the binary. Users get
+/// this unless they pass `--no-defaults`. A user rc (via `--rc` or
+/// `$ESCRIBARC`) merges on top — user declarations win per plan-merge
+/// semantics.
+const DEFAULT_RC: &str = include_str!("../configs/blnvim-defaults.lisp");
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum RenderMode {
     /// Open a GPU window via madori + garasu.
@@ -56,6 +62,12 @@ struct Args {
     /// Mirrors `frost --doctor` — useful for CI / config validation.
     #[arg(long)]
     list_rc: bool,
+    /// Skip the bundled blnvim-parity defaults. By default, escriba
+    /// boots with the same plugin/keybinding/theme surface area as
+    /// `pleme-io/blackmatter-nvim`; `--no-defaults` yields a bare
+    /// vim-ish editor with only the user rc applied.
+    #[arg(long)]
+    no_defaults: bool,
     /// Render backend — gpu (default, interactive window) or text (headless).
     #[arg(long, value_enum, default_value_t = RenderMode::Gpu)]
     render: RenderMode,
@@ -128,24 +140,31 @@ fn main() -> Result<()> {
         )
     };
 
-    // Optional rc load — tolerant when no file exists, strict on parse errors.
-    let rc_plan = load_rc_optional(args.rc.as_deref())?;
+    // Build the composite plan: bundled blnvim defaults (unless
+    // `--no-defaults`) + user rc on top. User declarations override
+    // defaults thanks to the plan's merge semantics.
+    let mut plan = if args.no_defaults {
+        escriba_lisp::ApplyPlan::default()
+    } else {
+        escriba_lisp::apply_source(DEFAULT_RC).context("parsing bundled blnvim-defaults")?
+    };
+    let user_rc = load_rc_optional(args.rc.as_deref())?;
+    if let Some((_, user_plan)) = &user_rc {
+        plan.merge(user_plan.clone());
+    }
 
-    // Build the initial state, then apply the rc plan to its keymap so
+    // Build the initial state, then apply the plan to its keymap so
     // `defkeybind` forms have the chance to override vim defaults
     // before the first frame renders.
     let mut state = EditorState::new_with_buffer(buffers, active_id);
-    if let Some((path, plan)) = &rc_plan {
-        let report = escriba_lisp::apply_plan_to_keymap(plan, &mut state.keymap);
-        tracing::info!(
-            ?path,
-            "rc applied: plan={}; apply={}",
-            plan.summary(),
-            report.summary(),
-        );
-        for w in &report.warnings {
-            tracing::warn!("rc: {w}");
-        }
+    let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    tracing::info!(
+        "plan applied: {}; apply={}",
+        plan.summary(),
+        report.summary(),
+    );
+    for w in &report.warnings {
+        tracing::warn!("rc: {w}");
     }
 
     if args.dry_run {
@@ -155,8 +174,9 @@ fn main() -> Result<()> {
             buf.line_count(),
             buf.char_count(),
         );
-        if let Some((path, plan)) = &rc_plan {
-            println!("rc {}: {}", path.display(), plan.summary());
+        println!("plan: {}", plan.summary());
+        if let Some((path, user_plan)) = &user_rc {
+            println!("user rc {}: {}", path.display(), user_plan.summary());
         }
         return Ok(());
     }
@@ -248,13 +268,26 @@ fn load_rc_optional(explicit: Option<&std::path::Path>) -> Result<Option<(PathBu
     Ok(Some((path, plan)))
 }
 
-/// `--list-rc` handler. Loads the rc and prints a summary, the same
-/// shape as `frost --doctor`. Exit code 1 if rc path explicitly
-/// provided is unreadable; 0 if absent (fresh install) or green.
+/// `--list-rc` handler. Parses the bundled defaults + optional user
+/// rc, reports the composite apply plan. Mirrors `frost --doctor`.
 fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
-    match load_rc_optional(explicit)? {
+    // Defaults plan (always green unless someone broke the bundled file).
+    let defaults = escriba_lisp::apply_source(DEFAULT_RC)
+        .context("parsing bundled blnvim-defaults")?;
+    println!("escriba defaults (bundled blnvim-parity):");
+    println!("  {}", defaults.summary());
+    println!("  plugins: {}", defaults.plugins.len());
+    let by_cat = group_plugins_by_category(&defaults);
+    for (cat, names) in &by_cat {
+        println!("    [{cat}] {}", names.join(", "));
+    }
+
+    // User rc layered on top.
+    let user = load_rc_optional(explicit)?;
+    println!();
+    match user {
         Some((path, plan)) => {
-            println!("escriba rc: {}", path.display());
+            println!("user rc: {}", path.display());
             println!("  {}", plan.summary());
             for kb in plan.keybinds.iter().take(10) {
                 println!("  keybind  [{}] {:<6} → {}", kb.mode, kb.key, kb.action);
@@ -270,11 +303,29 @@ fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
             }
         }
         None => {
-            println!("escriba rc: <not found>");
+            println!("user rc: <not found>");
             println!(
                 "  search order: $ESCRIBARC  →  $XDG_CONFIG_HOME/escriba/rc.lisp  →  $HOME/.escribarc.lisp"
             );
         }
     }
     Ok(())
+}
+
+/// Group the plan's plugins by category for the list-rc output so
+/// users see which blnvim groups are represented at a glance.
+fn group_plugins_by_category(
+    plan: &escriba_lisp::ApplyPlan,
+) -> Vec<(String, Vec<String>)> {
+    use std::collections::BTreeMap;
+    let mut by: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for p in &plan.plugins {
+        let cat = if p.category.is_empty() {
+            "uncategorized".to_string()
+        } else {
+            p.category.clone()
+        };
+        by.entry(cat).or_default().push(p.name.clone());
+    }
+    by.into_iter().collect()
 }
