@@ -35,6 +35,7 @@
 //! `tatara_lisp::compile_typed`.
 
 mod abbrev;
+mod apply;
 mod cmd;
 mod filetype;
 mod hook;
@@ -44,6 +45,7 @@ mod snippet;
 mod theme;
 
 pub use abbrev::AbbrevSpec;
+pub use apply::{ApplyReport, apply_plan_to_keymap};
 pub use cmd::CmdSpec;
 pub use filetype::FiletypeSpec;
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};

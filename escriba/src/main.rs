@@ -130,12 +130,26 @@ fn main() -> Result<()> {
 
     // Optional rc load — tolerant when no file exists, strict on parse errors.
     let rc_plan = load_rc_optional(args.rc.as_deref())?;
+
+    // Build the initial state, then apply the rc plan to its keymap so
+    // `defkeybind` forms have the chance to override vim defaults
+    // before the first frame renders.
+    let mut state = EditorState::new_with_buffer(buffers, active_id);
     if let Some((path, plan)) = &rc_plan {
-        tracing::info!(?path, "rc loaded: {}", plan.summary());
+        let report = escriba_lisp::apply_plan_to_keymap(plan, &mut state.keymap);
+        tracing::info!(
+            ?path,
+            "rc applied: plan={}; apply={}",
+            plan.summary(),
+            report.summary(),
+        );
+        for w in &report.warnings {
+            tracing::warn!("rc: {w}");
+        }
     }
 
     if args.dry_run {
-        let buf = buffers.get(active_id).context("active buffer missing")?;
+        let buf = state.buffers.get(active_id).context("active buffer missing")?;
         println!(
             "buffer {active_id}: {} line(s), {} chars",
             buf.line_count(),
@@ -148,19 +162,17 @@ fn main() -> Result<()> {
     }
 
     match args.render {
-        RenderMode::Text => run_text(buffers, active_id, args.height),
-        RenderMode::Gpu => run_gpu(buffers, active_id, &args),
-        RenderMode::Tui => run_tui(buffers, active_id),
+        RenderMode::Text => run_text(state, args.height),
+        RenderMode::Gpu => run_gpu(state, &args),
+        RenderMode::Tui => run_tui(state),
     }
 }
 
-fn run_tui(buffers: BufferSet, active_id: escriba_core::BufferId) -> Result<()> {
-    let state = EditorState::new_with_buffer(buffers, active_id);
+fn run_tui(state: EditorState) -> Result<()> {
     escriba_tui::run(state).context("tui loop exited")
 }
 
-fn run_text(buffers: BufferSet, active_id: escriba_core::BufferId, height: u32) -> Result<()> {
-    let state = EditorState::new_with_buffer(buffers, active_id);
+fn run_text(state: EditorState, height: u32) -> Result<()> {
     // Override viewport height from CLI.
     let mut layout = state.layout.clone();
     if let Some(w) = layout.windows.iter_mut().find(|w| w.id == layout.active) {
@@ -172,8 +184,7 @@ fn run_text(buffers: BufferSet, active_id: escriba_core::BufferId, height: u32) 
     Ok(())
 }
 
-fn run_gpu(buffers: BufferSet, active_id: escriba_core::BufferId, args: &Args) -> Result<()> {
-    let mut initial = EditorState::new_with_buffer(buffers, active_id);
+fn run_gpu(mut initial: EditorState, args: &Args) -> Result<()> {
     // Tighten the initial viewport to something reasonable for a GPU window.
     if let Some(w) = initial
         .layout
