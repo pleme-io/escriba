@@ -69,16 +69,18 @@ tokio            = { version = "1", features = ["macros", "rt-multi-thread", "io
 tower-lsp        = "0.20"
 async-trait      = "0.1"
 
-# pleme-io sibling path deps — match sui-eval / caixa convention.
-tatara-lisp        = { path = "../tatara/tatara-lisp" }
-tatara-lisp-derive = { path = "../tatara/tatara-lisp-derive" }
-garasu             = { path = "../garasu" }
-madori             = { path = "../madori" }
-awase              = { path = "../awase" }
-hayai              = { path = "../hayai" }
-irodori            = { path = "../irodori" }
-mojiban            = { path = "../mojiban" }
-shikumi            = { path = "../shikumi" }
+# pleme-io sibling deps — crates.io for published libs, git for tatara-lisp.
+# Matches the canonical pattern used by kura/mado/namimado/etc. so crate2nix
+# can resolve every dep in the nix sandbox without a composedSrc dance.
+tatara-lisp        = { git = "https://github.com/pleme-io/tatara", branch = "main" }
+tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara", branch = "main" }
+garasu             = "0.1"
+madori             = "0.1"
+awase              = "0.1"
+hayai              = "0.1"
+irodori            = "0.1"
+mojiban            = "0.1"
+shikumi            = "0.1"
 
 # Testing.
 pretty_assertions = "1"
