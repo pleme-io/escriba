@@ -1,5 +1,15 @@
 # escriba
 
+> **★★★ CSE / Knowable Construction.** This repo operates under
+> **Constructive Substrate Engineering** — canonical specification at
+> [`pleme-io/theory/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md`](https://github.com/pleme-io/theory/blob/main/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md).
+> The Compounding Directive (operational rules: solve once, load-bearing
+> fixes only, idiom-first, models stay current, direction beats velocity)
+> is in the org-level pleme-io/CLAUDE.md ★★★ section. Read both before
+> non-trivial changes. Rust + tatara-lisp modal editor; the canonical
+> `Rust owns invariants, Lisp owns authoring` application — 19 typed
+> crates renderable to GPU/TUI/text targets from the same domain types.
+
 Modal text editor written in Rust and authored in tatara-lisp.
 pleme-io's canonical `Rust + Lisp` application of the editor category —
 the same architectural decision Emacs makes with C+Elisp, Neovim makes

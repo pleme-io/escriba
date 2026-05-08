@@ -1,6 +1,8 @@
 {
   description = "Rust + tatara-lisp editor, built on the pleme-io GPU stack";
 
+  nixConfig.allow-import-from-derivation = true;
+
   inputs = {
     nixpkgs = {
       url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -108,4 +110,5 @@
         overlays.default = final: _prev: { escriba = self.packages.${final.system}.escriba; };
         homeManagerModules.default = import ./module { self = self; };
       };
+    };
 }
