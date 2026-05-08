@@ -654,7 +654,8 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 [[package]]
 name = "egaku"
 version = "0.1.0"
-source = "git+https://github.com/pleme-io/egaku#b42c7ff76f2d13f0277dc7a16fb20adaf4c09a02"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f562ccebd440a454623eb9be04237e991f89063a53dda830806e47aaf64a18a"
 dependencies = [
  "serde",
  "thiserror 2.0.18",
@@ -1143,7 +1144,8 @@ dependencies = [
 [[package]]
 name = "garasu"
 version = "0.1.0"
-source = "git+https://github.com/pleme-io/garasu#d129ed21e19d59a5e824c5f81a93d7256333258d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31a29dea2656ac565f05ab9a83a451ded14886b06ad303f745a831f741884ee2"
 dependencies = [
  "glyphon",
  "pollster",
@@ -1644,7 +1646,7 @@ name = "madori"
 version = "0.1.0"
 dependencies = [
  "egaku",
- "garasu 0.1.0 (git+https://github.com/pleme-io/garasu)",
+ "garasu 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pollster",
  "serde",
  "shikumi",
@@ -2759,7 +2761,8 @@ dependencies = [
 [[package]]
 name = "shikumi"
 version = "0.1.0"
-source = "git+https://github.com/pleme-io/shikumi#15c4e5484d80717ff2256f098378baaeab18b971"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a069b173b743266d8b24633f4c2178579223fe5483e79a871e4b98c487789a9"
 dependencies = [
  "arc-swap",
  "figment",
