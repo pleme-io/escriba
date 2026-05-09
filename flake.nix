@@ -110,5 +110,4 @@
         overlays.default = final: _prev: { escriba = self.packages.${final.system}.escriba; };
         homeManagerModules.default = import ./module { self = self; };
       };
-    };
 }
