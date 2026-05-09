@@ -239,7 +239,10 @@
           version = "0.1.0";
           src = composedSrc;
           sourceRoot = "escriba-composed-src/escriba";
-          cargoLock.lockFile = ./Cargo.lock;
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            allowBuiltinFetchGit = true;
+          };
           cargoBuildFlags = [ "-p" "escriba" ];
           cargoTestFlags  = [ "-p" "escriba" ];
           doCheck = false;
