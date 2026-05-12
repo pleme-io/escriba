@@ -708,7 +708,7 @@ dependencies = [
  "escriba-tui",
  "escriba-ui",
  "escriba-vm",
- "garasu",
+ "garasu 0.1.0",
  "madori",
  "tracing",
  "tracing-subscriber",
@@ -885,7 +885,7 @@ dependencies = [
  "escriba-mode",
  "escriba-runtime",
  "escriba-ui",
- "garasu",
+ "garasu 0.1.0",
  "glyphon",
  "irodori",
  "madori",
@@ -1125,6 +1125,20 @@ dependencies = [
  "futures-task",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "garasu"
+version = "0.1.0"
+dependencies = [
+ "glyphon",
+ "pollster",
+ "raw-window-handle",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -1396,10 +1410,9 @@ dependencies = [
 [[package]]
 name = "irodori"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0dc14b88cf12196c0f37995676c3cd75c34511436be9c41f7877edb8b1cfcb1e"
 dependencies = [
  "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1631,11 +1644,9 @@ dependencies = [
 [[package]]
 name = "madori"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59e33538ef033c130262b4ef08789c577d0c25b0d56da2d9487c5144a6ad1673"
 dependencies = [
  "egaku",
- "garasu",
+ "garasu 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pollster",
  "serde",
  "shikumi",
@@ -2974,7 +2985,6 @@ dependencies = [
 [[package]]
 name = "tatara-lisp"
 version = "0.2.0"
-source = "git+https://github.com/pleme-io/tatara?branch=main#f8fe0e0d8b785a324d4c545b126f3242f82abf37"
 dependencies = [
  "blake3",
  "serde",
@@ -2986,7 +2996,6 @@ dependencies = [
 [[package]]
 name = "tatara-lisp-derive"
 version = "0.2.0"
-source = "git+https://github.com/pleme-io/tatara?branch=main#f8fe0e0d8b785a324d4c545b126f3242f82abf37"
 dependencies = [
  "proc-macro2",
  "quote",

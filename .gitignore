@@ -1,7 +1,6 @@
 /target
 /result
 /result-*
-**/*.rs.bk
 .direnv/
 .envrc.local
-/tmp
+Cargo.lock.bak
