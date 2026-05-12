@@ -74,6 +74,7 @@ tatara-lisp        = { path = "../tatara/tatara-lisp" }
 tatara-lisp-derive = { path = "../tatara/tatara-lisp-derive" }
 garasu             = { path = "../garasu" }
 madori             = { path = "../madori" }
+ishou-tokens       = { path = "../ishou/crates/ishou-tokens", features = ["wgpu"] }
 awase              = { path = "../awase" }
 hayai              = { path = "../hayai" }
 irodori            = { path = "../irodori" }
