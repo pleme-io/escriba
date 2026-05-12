@@ -260,7 +260,7 @@
           ];
         };
       }) // {
-        overlays.default = final: _prev: { escriba = self.packages.${final.system}.escriba; };
+        overlays.default = final: _prev: { escriba = self.packages.${final.stdenv.hostPlatform.system}.escriba; };
         homeManagerModules.default = trio.homeManagerModule;
         nixosModules.default = trio.nixosModule;
         darwinModules.default = trio.darwinModule;
