@@ -1,5 +1,14 @@
 # escriba
 
+skip-fleet-convergence-guard: EscribaConfig (escriba-config/src/lib.rs)
+is intentionally all-Option — no curated visual default values that
+participate in `ishou_tokens::FleetDefaults::prescribed()` exist at
+the config layer (font/theme/cursor live in escriba-render's GPU
+target, not in EscribaConfig). The ishou_tokens convergence Guard
+has nothing to assert against. Reconsider if a future EscribaConfig
+revision introduces typed visual defaults (font_family / font_size /
+theme / cursor).
+
 > **★★★ CSE / Knowable Construction.** This repo operates under
 > **Constructive Substrate Engineering** — canonical specification at
 > [`pleme-io/theory/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md`](https://github.com/pleme-io/theory/blob/main/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md).
