@@ -2393,6 +2393,11 @@ rec {
             packageId = "path+file:///Users/drzzln/code/github/pleme-io/garasu#0.1.0";
           }
           {
+            name = "shikumi";
+            packageId = "path+file:///Users/drzzln/code/github/pleme-io/shikumi#0.1.0";
+            features = [ "cli" ];
+          }
+          {
             name = "tracing";
             packageId = "tracing";
           }
@@ -7842,6 +7847,12 @@ rec {
             packageId = "async-trait";
           }
           {
+            name = "clap";
+            packageId = "clap";
+            optional = true;
+            features = [ "derive" ];
+          }
+          {
             name = "figment";
             packageId = "figment";
             features = [ "env" "yaml" "toml" ];
@@ -7885,12 +7896,13 @@ rec {
         features = {
           "akeyless-native" = [ "dep:akeyless-api" "dep:tokio" ];
           "aws-native" = [ "dep:aws-sdk-secretsmanager" "dep:aws-config" "dep:tokio" ];
+          "cli" = [ "dep:clap" ];
           "gcp-native" = [ "dep:reqwest" "dep:tokio" ];
           "lisp" = [ "dep:tatara-lisp" ];
           "op-native" = [ "dep:reqwest" "dep:tokio" ];
           "vault-native" = [ "dep:reqwest" "dep:tokio" ];
         };
-        resolvedDefaultFeatures = [ "default" ];
+        resolvedDefaultFeatures = [ "cli" "default" ];
       };
       "pear" = rec {
         crateName = "pear";

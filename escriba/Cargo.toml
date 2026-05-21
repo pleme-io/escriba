@@ -22,6 +22,10 @@ path = "src/bin/escriba-gpu.rs"
 
 [dependencies]
 escriba-core    = { workspace = true }
+# Shikumi — the `cli` feature ships ConfigShowCommand, the canonical
+# clap factory every TieredConfig consumer wires in (Pillar 12: one
+# Subcommand variant replaces every hand-rolled config-show surface).
+shikumi         = { workspace = true, features = ["cli"] }
 escriba-buffer  = { workspace = true }
 escriba-config  = { workspace = true }
 escriba-mode    = { workspace = true }
