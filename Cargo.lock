@@ -173,6 +173,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.89"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atomic"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -796,6 +807,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "shikumi 0.1.0",
  "tatara-lisp",
  "tatara-lisp-derive",
  "thiserror 2.0.18",
@@ -1694,7 +1706,7 @@ dependencies = [
  "garasu 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pollster",
  "serde",
- "shikumi",
+ "shikumi 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.18",
  "tracing",
  "wgpu",
@@ -2818,6 +2830,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "shikumi"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "figment",
+ "notify",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

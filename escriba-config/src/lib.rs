@@ -124,6 +124,86 @@ impl EscribaConfig {
     }
 }
 
+// ── shikumi::TieredConfig — fleet-wide tier model (M-166 backfill) ──
+//
+// Operators reach via:
+//   ESCRIBA_TIER=bare escriba ...
+//   ESCRIBA_TIER=default escriba ...
+//
+// Prior migrations: tatara, zoekt-mcp, kindling, ayatsuri, kenshi,
+// taimen. See `shikumi/src/tiered.rs` for the trait contract.
+//
+// EscribaConfig is currently all-Option: today bare() and
+// prescribed_default() are byte-identical (no curated defaults are
+// shipped yet — the operator's lisp file IS the prescription). The
+// impl pins the structural contract; once defaults arrive (eg.
+// largura_tab: Some(4)) the diff fans out from one place.
+
+impl shikumi::TieredConfig for EscribaConfig {
+    /// Tier 0 — bare: zero-opinion floor. Every field None.
+    fn bare() -> Self {
+        Self {
+            tema: None,
+            numeros_linha: None,
+            numeros_relativos: None,
+            largura_tab: None,
+            quebra_suave: None,
+            mostrar_statusline: None,
+            mostrar_tabbar: None,
+        }
+    }
+
+    /// Tier 2 — prescribed: the curated defaults that ship today
+    /// (today: identical to bare; no opinionated defaults yet).
+    fn prescribed_default() -> Self {
+        Self::default()
+    }
+}
+
+#[cfg(test)]
+mod tiered_tests {
+    use super::*;
+    use shikumi::{ConfigTier, TieredConfig};
+
+    #[test]
+    fn escriba_config_bare_is_zero_opinion() {
+        let b = <EscribaConfig as TieredConfig>::bare();
+        assert!(b.tema.is_none());
+        assert!(b.numeros_linha.is_none());
+        assert!(b.numeros_relativos.is_none());
+        assert!(b.largura_tab.is_none());
+        assert!(b.quebra_suave.is_none());
+        assert!(b.mostrar_statusline.is_none());
+        assert!(b.mostrar_tabbar.is_none());
+    }
+
+    #[test]
+    fn escriba_config_prescribed_matches_default() {
+        let p = <EscribaConfig as TieredConfig>::prescribed_default();
+        let d = EscribaConfig::default();
+        assert_eq!(p, d);
+    }
+
+    #[test]
+    fn escriba_config_resolve_tier_dispatches() {
+        // No curated defaults today — Bare and Default agree, but
+        // dispatch must still route through the trait methods.
+        let bare = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Bare);
+        let default = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Default);
+        assert_eq!(bare, <EscribaConfig as TieredConfig>::bare());
+        assert_eq!(default, <EscribaConfig as TieredConfig>::prescribed_default());
+    }
+
+    #[test]
+    fn escriba_config_diff_against_self_is_empty() {
+        // While bare == default today (no curated defaults), the
+        // diff machinery itself must work: a value diffed against
+        // itself produces an empty diff.
+        let p = <EscribaConfig as TieredConfig>::prescribed_default();
+        assert!(p.diff_against(&p).is_empty_diff());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

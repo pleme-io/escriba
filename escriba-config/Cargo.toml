@@ -16,6 +16,10 @@ serde              = { workspace = true }
 serde_json         = { workspace = true }
 schemars           = { workspace = true }
 thiserror          = { workspace = true }
+# M-166 backfill — fleet-wide TieredConfig prime directive
+# (shikumi@27d1a12). EscribaConfig is the only typed config in
+# this crate; the impl + contract tests live in src/lib.rs.
+shikumi            = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
