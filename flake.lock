@@ -13328,11 +13328,11 @@
         "substrate": "substrate_7"
       },
       "locked": {
-        "lastModified": 1779314559,
-        "narHash": "sha256-slf3uaVWc/K0tMgY2IbCmkQ6YWGF13t48Teu2reEAQc=",
+        "lastModified": 1779321445,
+        "narHash": "sha256-qqWaT8a+HJKQuQmK37xyfpFABHwBsmYayfRJJfQ+jog=",
         "ref": "refs/heads/main",
-        "rev": "633f358531f9cb052b1318ba66f89b189a351aa5",
-        "revCount": 113,
+        "rev": "27d1a121590632e696e0c8ff63e32af9831062d1",
+        "revCount": 116,
         "type": "git",
         "url": "ssh://git@github.com/pleme-io/shikumi"
       },
