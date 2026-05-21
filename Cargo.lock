@@ -751,6 +751,7 @@ dependencies = [
  "escriba-vm",
  "garasu 0.1.0",
  "madori",
+ "shikumi 0.1.0",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2838,6 +2839,7 @@ version = "0.1.0"
 dependencies = [
  "arc-swap",
  "async-trait",
+ "clap",
  "figment",
  "notify",
  "serde",

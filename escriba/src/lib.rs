@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use escriba_buffer::BufferSet;
 use escriba_command::CommandRegistry;
 use escriba_core::Position;
@@ -94,6 +94,22 @@ struct Args {
     /// Initial window height (pixels).
     #[arg(long, default_value_t = 800)]
     win_height: u32,
+    /// Operator subcommand. When set, dispatches to the subcommand
+    /// instead of opening the editor. Today the only subcommand is
+    /// `config-show`, the shikumi-canonical tier-model inspection
+    /// surface every TieredConfig consumer ships.
+    #[command(subcommand)]
+    command: Option<EscribaCommand>,
+}
+
+/// Operator-facing subcommands. Optional — when omitted, escriba boots
+/// the editor as before. Pillar 12: the `ConfigShow` variant is the
+/// reusable shikumi factory; new operator surfaces land here, not
+/// scattered across one-off `--flag` knobs.
+#[derive(Subcommand)]
+enum EscribaCommand {
+    /// Show the materialized config at a tier (bare/default/discovered/custom/env).
+    ConfigShow(shikumi::cli::ConfigShowCommand),
 }
 
 /// Public entry point — both `escriba` and `escriba-gpu` binaries
@@ -102,6 +118,21 @@ struct Args {
 pub fn run() -> Result<()> {
     init_tracing();
     let args = Args::parse();
+
+    // ── Subcommand dispatch (shikumi-canonical operator surface) ──
+    // When a subcommand is present, dispatch and exit. Editor flags
+    // (--spec / --commands / --keymap / --list-rc / file) are ignored
+    // for the subcommand path — operators reach the typed config tier
+    // model via `escriba config-show ...` without booting the editor.
+    if let Some(command) = args.command {
+        match command {
+            EscribaCommand::ConfigShow(cmd) => {
+                return cmd
+                    .run::<escriba_config::EscribaConfig>("ESCRIBA_TIER")
+                    .map_err(|e| anyhow::anyhow!("config-show failed: {e}"));
+            }
+        }
+    }
 
     if args.spec {
         let spec = escriba_spec::build_spec();
