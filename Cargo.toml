@@ -69,17 +69,19 @@ tokio            = { version = "1", features = ["macros", "rt-multi-thread", "io
 tower-lsp        = "0.20"
 async-trait      = "0.1"
 
-# pleme-io sibling path deps — match sui-eval / caixa convention.
-tatara-lisp        = { path = "../tatara/tatara-lisp" }
-tatara-lisp-derive = { path = "../tatara/tatara-lisp-derive" }
-garasu             = { path = "../garasu" }
-madori             = { path = "../madori" }
-ishou-tokens       = { path = "../ishou/crates/ishou-tokens", features = ["wgpu"] }
-awase              = { path = "../awase" }
-hayai              = { path = "../hayai" }
-irodori            = { path = "../irodori" }
-mojiban            = { path = "../mojiban" }
-shikumi            = { path = "../shikumi" }
+# pleme-io sibling deps — git so CI works without checking out
+# every sibling. Local development overrides via
+# .cargo/config.toml [patch.<git-url>] sections.
+tatara-lisp        = { git = "https://github.com/pleme-io/tatara", branch = "main" }
+tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara", branch = "main" }
+garasu             = { git = "https://github.com/pleme-io/garasu", branch = "main" }
+madori             = { git = "https://github.com/pleme-io/madori", branch = "main" }
+ishou-tokens       = { git = "https://github.com/pleme-io/ishou", branch = "main", features = ["wgpu"] }
+awase              = { git = "https://github.com/pleme-io/awase", branch = "main" }
+hayai              = { git = "https://github.com/pleme-io/hayai", branch = "main" }
+irodori            = { git = "https://github.com/pleme-io/irodori", branch = "main" }
+mojiban            = { git = "https://github.com/pleme-io/mojiban", branch = "main" }
+shikumi            = { git = "https://github.com/pleme-io/shikumi", branch = "main" }
 
 # Testing.
 pretty_assertions = "1"

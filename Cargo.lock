@@ -749,9 +749,9 @@ dependencies = [
  "escriba-tui",
  "escriba-ui",
  "escriba-vm",
- "garasu 0.1.0",
+ "garasu 0.1.0 (git+https://github.com/pleme-io/garasu?branch=main)",
  "madori",
- "shikumi 0.1.0",
+ "shikumi 0.1.0 (git+https://github.com/pleme-io/shikumi?branch=main)",
  "tracing",
  "tracing-subscriber",
 ]
@@ -808,7 +808,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "shikumi 0.1.0",
+ "shikumi 0.1.0 (git+https://github.com/pleme-io/shikumi?branch=main)",
  "tatara-lisp",
  "tatara-lisp-derive",
  "thiserror 2.0.18",
@@ -928,7 +928,7 @@ dependencies = [
  "escriba-mode",
  "escriba-runtime",
  "escriba-ui",
- "garasu 0.1.0",
+ "garasu 0.1.0 (git+https://github.com/pleme-io/garasu?branch=main)",
  "glyphon",
  "irodori",
  "madori",
@@ -1173,11 +1173,9 @@ dependencies = [
 [[package]]
 name = "garasu"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31a29dea2656ac565f05ab9a83a451ded14886b06ad303f745a831f741884ee2"
 dependencies = [
- "bincode",
- "blake3",
- "dirs",
- "fontdb",
  "glyphon",
  "pollster",
  "raw-window-handle",
@@ -1191,9 +1189,12 @@ dependencies = [
 [[package]]
 name = "garasu"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31a29dea2656ac565f05ab9a83a451ded14886b06ad303f745a831f741884ee2"
+source = "git+https://github.com/pleme-io/garasu?branch=main#4a35c3ef6e0342a29b0fa614b4db2dcc29181adb"
 dependencies = [
+ "bincode",
+ "blake3",
+ "dirs",
+ "fontdb",
  "glyphon",
  "pollster",
  "raw-window-handle",
@@ -1468,6 +1469,7 @@ dependencies = [
 [[package]]
 name = "irodori"
 version = "0.1.0"
+source = "git+https://github.com/pleme-io/irodori?branch=main#502395b02499dd352c5788a8e3bc47feab092af1"
 dependencies = [
  "serde",
  "thiserror 2.0.18",
@@ -1702,6 +1704,7 @@ dependencies = [
 [[package]]
 name = "madori"
 version = "0.1.0"
+source = "git+https://github.com/pleme-io/madori?branch=main#c6e710292dc1f111c708717c004a829eaab2727b"
 dependencies = [
  "egaku",
  "garasu 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2836,6 +2839,21 @@ dependencies = [
 [[package]]
 name = "shikumi"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a069b173b743266d8b24633f4c2178579223fe5483e79a871e4b98c487789a9"
+dependencies = [
+ "arc-swap",
+ "figment",
+ "notify",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
+name = "shikumi"
+version = "0.1.0"
+source = "git+https://github.com/pleme-io/shikumi?branch=main#ff0dbab8060acb97bb1daa11181664c69c069aa6"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -2845,20 +2863,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror 2.0.18",
- "tracing",
-]
-
-[[package]]
-name = "shikumi"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a069b173b743266d8b24633f4c2178579223fe5483e79a871e4b98c487789a9"
-dependencies = [
- "arc-swap",
- "figment",
- "notify",
- "serde",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -3076,6 +3080,7 @@ dependencies = [
 [[package]]
 name = "tatara-lisp"
 version = "0.2.0"
+source = "git+https://github.com/pleme-io/tatara?branch=main#c3b68290c476d8b40de9cab710b43205fb2b25e7"
 dependencies = [
  "blake3",
  "serde",
@@ -3087,6 +3092,7 @@ dependencies = [
 [[package]]
 name = "tatara-lisp-derive"
 version = "0.2.0"
+source = "git+https://github.com/pleme-io/tatara?branch=main#c3b68290c476d8b40de9cab710b43205fb2b25e7"
 dependencies = [
  "proc-macro2",
  "quote",
