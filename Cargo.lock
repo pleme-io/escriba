@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "escriba"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -758,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-command",
  "escriba-config",
@@ -773,7 +773,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-buffer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "pretty_assertions",
@@ -787,7 +787,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-command"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -801,7 +801,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "pretty_assertions",
@@ -816,7 +816,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pretty_assertions",
  "proptest",
@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-input"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "escriba-keymap",
@@ -840,7 +840,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-keymap"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "escriba-mode",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-lisp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "escriba-command",
@@ -868,7 +868,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-lsp-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "pretty_assertions",
@@ -882,7 +882,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "escriba-command",
@@ -897,7 +897,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-mode"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "pretty_assertions",
@@ -907,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-config",
  "escriba-core",
@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-render"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-runtime"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-buffer",
  "escriba-command",
@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-spec"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-api",
  "pretty_assertions",
@@ -965,7 +965,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-ts"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -980,7 +980,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-tui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -998,7 +998,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-ui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-vm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "escriba-core",
  "escriba-plugin",
