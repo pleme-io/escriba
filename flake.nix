@@ -15,35 +15,35 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     tatara = {
-      url = "git+ssh://git@github.com/pleme-io/tatara";
+      url = "github:pleme-io/tatara";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     shikumi = {
-      url = "git+ssh://git@github.com/pleme-io/shikumi";
+      url = "github:pleme-io/shikumi";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     garasu = {
-      url = "git+ssh://git@github.com/pleme-io/garasu";
+      url = "github:pleme-io/garasu";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     madori = {
-      url = "git+ssh://git@github.com/pleme-io/madori";
+      url = "github:pleme-io/madori";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     awase = {
-      url = "git+ssh://git@github.com/pleme-io/awase";
+      url = "github:pleme-io/awase";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hayai = {
-      url = "git+ssh://git@github.com/pleme-io/hayai";
+      url = "github:pleme-io/hayai";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     irodori = {
-      url = "git+ssh://git@github.com/pleme-io/irodori";
+      url = "github:pleme-io/irodori";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     mojiban = {
-      url = "git+ssh://git@github.com/pleme-io/mojiban";
+      url = "github:pleme-io/mojiban";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
