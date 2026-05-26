@@ -2292,7 +2292,7 @@ rec {
       };
       "escriba" = rec {
         crateName = "escriba";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         crateBin = [
           {
@@ -2411,7 +2411,7 @@ rec {
       };
       "escriba-api" = rec {
         crateName = "escriba-api";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-api; };
         libName = "escriba_api";
@@ -2464,7 +2464,7 @@ rec {
       };
       "escriba-buffer" = rec {
         crateName = "escriba-buffer";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-buffer; };
         libName = "escriba_buffer";
@@ -2513,7 +2513,7 @@ rec {
       };
       "escriba-command" = rec {
         crateName = "escriba-command";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-command; };
         libName = "escriba_command";
@@ -2562,7 +2562,7 @@ rec {
       };
       "escriba-config" = rec {
         crateName = "escriba-config";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-config; };
         libName = "escriba_config";
@@ -2615,7 +2615,7 @@ rec {
       };
       "escriba-core" = rec {
         crateName = "escriba-core";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-core; };
         libName = "escriba_core";
@@ -2656,7 +2656,7 @@ rec {
       };
       "escriba-input" = rec {
         crateName = "escriba-input";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-input; };
         libName = "escriba_input";
@@ -2697,7 +2697,7 @@ rec {
       };
       "escriba-keymap" = rec {
         crateName = "escriba-keymap";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-keymap; };
         libName = "escriba_keymap";
@@ -2738,7 +2738,7 @@ rec {
       };
       "escriba-lisp" = rec {
         crateName = "escriba-lisp";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-lisp; };
         libName = "escriba_lisp";
@@ -2795,7 +2795,7 @@ rec {
       };
       "escriba-lsp-client" = rec {
         crateName = "escriba-lsp-client";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-lsp-client; };
         libName = "escriba_lsp_client";
@@ -2844,7 +2844,7 @@ rec {
       };
       "escriba-mcp" = rec {
         crateName = "escriba-mcp";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         crateBin = [
           {
@@ -2903,7 +2903,7 @@ rec {
       };
       "escriba-mode" = rec {
         crateName = "escriba-mode";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-mode; };
         libName = "escriba_mode";
@@ -2936,7 +2936,7 @@ rec {
       };
       "escriba-plugin" = rec {
         crateName = "escriba-plugin";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-plugin; };
         libName = "escriba_plugin";
@@ -2985,7 +2985,7 @@ rec {
       };
       "escriba-render" = rec {
         crateName = "escriba-render";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-render; };
         libName = "escriba_render";
@@ -3047,7 +3047,7 @@ rec {
       };
       "escriba-runtime" = rec {
         crateName = "escriba-runtime";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-runtime; };
         libName = "escriba_runtime";
@@ -3107,7 +3107,7 @@ rec {
       };
       "escriba-spec" = rec {
         crateName = "escriba-spec";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         crateBin = [
           {
@@ -3141,7 +3141,7 @@ rec {
       };
       "escriba-ts" = rec {
         crateName = "escriba-ts";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-ts; };
         libName = "escriba_ts";
@@ -3194,7 +3194,7 @@ rec {
       };
       "escriba-tui" = rec {
         crateName = "escriba-tui";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-tui; };
         libName = "escriba_tui";
@@ -3257,7 +3257,7 @@ rec {
       };
       "escriba-ui" = rec {
         crateName = "escriba-ui";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-ui; };
         libName = "escriba_ui";
@@ -3298,7 +3298,7 @@ rec {
       };
       "escriba-vm" = rec {
         crateName = "escriba-vm";
-        version = "0.1.0";
+        version = "0.1.1";
         edition = "2024";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./escriba-vm; };
         libName = "escriba_vm";
