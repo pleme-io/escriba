@@ -1,1 +1,8 @@
-{}
+{
+  "git+https://github.com/pleme-io/garasu?branch=main#0.1.0": "16l9bjmjzvxwh2vilddch7hsd528mi8vvlsds4jryjyqcvzz8z7d",
+  "git+https://github.com/pleme-io/irodori?branch=main#0.1.0": "0lpxxxxxfk2cy841vw9ac6w3nh88svppmjzlp4fkq1bj7yff3qhv",
+  "git+https://github.com/pleme-io/madori?branch=main#0.1.0": "0fjbqwfl96kv01965acqdv6wxkqfz4xmbl485p304pzhsdfcgxh7",
+  "git+https://github.com/pleme-io/shikumi?branch=main#0.1.0": "179mzrqw8811ajjdpvl08fykwwa3yd6jc5lvw3zd335fccbdlk88",
+  "git+https://github.com/pleme-io/tatara?branch=main#tatara-lisp-derive@0.2.0": "1njanj2svl475wcw0iwdwybbqvhcznaw98jw0zrzz3dk13dw08kw",
+  "git+https://github.com/pleme-io/tatara?branch=main#tatara-lisp@0.2.0": "1njanj2svl475wcw0iwdwybbqvhcznaw98jw0zrzz3dk13dw08kw"
+}

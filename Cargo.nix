@@ -780,9 +780,9 @@ rec {
       };
       "autocfg" = rec {
         crateName = "autocfg";
-        version = "1.5.0";
+        version = "1.5.1";
         edition = "2015";
-        sha256 = "1s77f98id9l4af4alklmzq46f21c980v13z2r1pcxx6bqgw0d1n0";
+        sha256 = "0lqasy5i30flcgih1b50kvsk6z32g09r1q4ql7q81pj6228jy0zj";
         authors = [
           "Josh Stone <cuviper@gmail.com>"
         ];
@@ -985,9 +985,9 @@ rec {
       };
       "bumpalo" = rec {
         crateName = "bumpalo";
-        version = "3.20.2";
+        version = "3.20.3";
         edition = "2021";
-        sha256 = "1jrgxlff76k9glam0akhwpil2fr1w32gbjdf5hpipc7ld2c7h82x";
+        sha256 = "0jc6va3nwcqikm7chnpdv1s87my3gs2j7g1sc7g3k91brg3arxbj";
         authors = [
           "Nick Fitzgerald <fitzgen@gmail.com>"
         ];
@@ -2385,17 +2385,17 @@ rec {
             packageId = "escriba-vm";
           }
           {
-            name = "madori";
-            packageId = "madori";
-          }
-          {
             name = "garasu";
-            packageId = "path+file:///Users/drzzln/code/github/pleme-io/garasu#0.1.0";
+            packageId = "git+https://github.com/pleme-io/garasu?branch=main#0.1.0";
           }
           {
             name = "shikumi";
-            packageId = "path+file:///Users/drzzln/code/github/pleme-io/shikumi#0.1.0";
+            packageId = "git+https://github.com/pleme-io/shikumi?branch=main#0.1.0";
             features = [ "cli" ];
+          }
+          {
+            name = "madori";
+            packageId = "madori";
           }
           {
             name = "tracing";
@@ -2576,7 +2576,7 @@ rec {
           }
           {
             name = "shikumi";
-            packageId = "path+file:///Users/drzzln/code/github/pleme-io/shikumi#0.1.0";
+            packageId = "git+https://github.com/pleme-io/shikumi?branch=main#0.1.0";
           }
           {
             name = "schemars";
@@ -3014,6 +3014,10 @@ rec {
             packageId = "escriba-ui";
           }
           {
+            name = "garasu";
+            packageId = "git+https://github.com/pleme-io/garasu?branch=main#0.1.0";
+          }
+          {
             name = "glyphon";
             packageId = "glyphon";
           }
@@ -3024,10 +3028,6 @@ rec {
           {
             name = "madori";
             packageId = "madori";
-          }
-          {
-            name = "garasu";
-            packageId = "path+file:///Users/drzzln/code/github/pleme-io/garasu#0.1.0";
           }
           {
             name = "serde";
@@ -3977,6 +3977,148 @@ rec {
           "wasm_js" = [ "dep:wasm-bindgen" "dep:js-sys" ];
         };
       };
+      "git+https://github.com/pleme-io/garasu?branch=main#0.1.0" = rec {
+        crateName = "garasu";
+        version = "0.1.0";
+        edition = "2024";
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/pleme-io/garasu";
+          rev = "4a35c3ef6e0342a29b0fa614b4db2dcc29181adb";
+          sha256 = "16l9bjmjzvxwh2vilddch7hsd528mi8vvlsds4jryjyqcvzz8z7d";
+        };
+        dependencies = [
+          {
+            name = "bincode";
+            packageId = "bincode";
+          }
+          {
+            name = "blake3";
+            packageId = "blake3";
+          }
+          {
+            name = "dirs";
+            packageId = "dirs";
+          }
+          {
+            name = "fontdb";
+            packageId = "fontdb";
+          }
+          {
+            name = "glyphon";
+            packageId = "glyphon";
+          }
+          {
+            name = "pollster";
+            packageId = "pollster";
+          }
+          {
+            name = "raw-window-handle";
+            packageId = "raw-window-handle";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror 2.0.18";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+          {
+            name = "wgpu";
+            packageId = "wgpu";
+          }
+          {
+            name = "winit";
+            packageId = "winit";
+          }
+        ];
+        features = {
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
+      "git+https://github.com/pleme-io/shikumi?branch=main#0.1.0" = rec {
+        crateName = "shikumi";
+        version = "0.1.0";
+        edition = "2024";
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/pleme-io/shikumi";
+          rev = "ff0dbab8060acb97bb1daa11181664c69c069aa6";
+          sha256 = "179mzrqw8811ajjdpvl08fykwwa3yd6jc5lvw3zd335fccbdlk88";
+        };
+        dependencies = [
+          {
+            name = "arc-swap";
+            packageId = "arc-swap";
+          }
+          {
+            name = "async-trait";
+            packageId = "async-trait";
+          }
+          {
+            name = "clap";
+            packageId = "clap";
+            optional = true;
+            features = [ "derive" ];
+          }
+          {
+            name = "figment";
+            packageId = "figment";
+            features = [ "env" "yaml" "toml" ];
+          }
+          {
+            name = "notify";
+            packageId = "notify";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            features = [ "derive" ];
+          }
+          {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
+            name = "serde_yaml";
+            packageId = "serde_yaml";
+          }
+          {
+            name = "thiserror";
+            packageId = "thiserror 2.0.18";
+          }
+          {
+            name = "tracing";
+            packageId = "tracing";
+          }
+        ];
+        devDependencies = [
+          {
+            name = "serde_json";
+            packageId = "serde_json";
+          }
+          {
+            name = "serde_yaml";
+            packageId = "serde_yaml";
+          }
+        ];
+        features = {
+          "akeyless-native" = [ "dep:akeyless-api" "dep:tokio" ];
+          "aws-native" = [ "dep:aws-sdk-secretsmanager" "dep:aws-config" "dep:tokio" ];
+          "cli" = [ "dep:clap" ];
+          "gcp-native" = [ "dep:reqwest" "dep:tokio" ];
+          "lisp" = [ "dep:tatara-lisp" ];
+          "op-native" = [ "dep:reqwest" "dep:tokio" ];
+          "vault-native" = [ "dep:reqwest" "dep:tokio" ];
+        };
+        resolvedDefaultFeatures = [ "cli" "default" ];
+      };
       "gl_generator" = rec {
         crateName = "gl_generator";
         version = "0.14.0";
@@ -4583,7 +4725,12 @@ rec {
         crateName = "irodori";
         version = "0.1.0";
         edition = "2024";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../irodori; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/pleme-io/irodori";
+          rev = "502395b02499dd352c5788a8e3bc47feab092af1";
+          sha256 = "0lpxxxxxfk2cy841vw9ac6w3nh88svppmjzlp4fkq1bj7yff3qhv";
+        };
         dependencies = [
           {
             name = "serde";
@@ -4813,9 +4960,9 @@ rec {
       };
       "js-sys" = rec {
         crateName = "js-sys";
-        version = "0.3.98";
+        version = "0.3.99";
         edition = "2021";
-        sha256 = "024zjwpxp6fri4j79bh1686q1x4nw4a06fh1a28zv2rzc4973pv7";
+        sha256 = "04azrzsz91gr5s3z0ij36lz0kj9ry4lw3jz0mmbiwb251rsc8aql";
         libName = "js_sys";
         authors = [
           "The wasm-bindgen Developers"
@@ -5192,7 +5339,12 @@ rec {
         crateName = "madori";
         version = "0.1.0";
         edition = "2024";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../madori; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/pleme-io/madori";
+          rev = "c6e710292dc1f111c708717c004a829eaab2727b";
+          sha256 = "0fjbqwfl96kv01965acqdv6wxkqfz4xmbl485p304pzhsdfcgxh7";
+        };
         dependencies = [
           {
             name = "egaku";
@@ -7603,9 +7755,9 @@ rec {
       };
       "orbclient" = rec {
         crateName = "orbclient";
-        version = "0.3.54";
+        version = "0.3.55";
         edition = "2018";
-        sha256 = "0agkiynbz28x1020il9v66dbr6gcfg4afacj2fraqa8xljygcw55";
+        sha256 = "0iqps9qnyyhzbmb321r90dr8ql7jqbpm13bnf7in16pa4vskkwsx";
         authors = [
           "Jeremy Soller <jackpot51@gmail.com>"
         ];
@@ -7771,138 +7923,6 @@ rec {
           "David Tolnay <dtolnay@gmail.com>"
         ];
 
-      };
-      "path+file:///Users/drzzln/code/github/pleme-io/garasu#0.1.0" = rec {
-        crateName = "garasu";
-        version = "0.1.0";
-        edition = "2024";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../garasu; };
-        dependencies = [
-          {
-            name = "bincode";
-            packageId = "bincode";
-          }
-          {
-            name = "blake3";
-            packageId = "blake3";
-          }
-          {
-            name = "dirs";
-            packageId = "dirs";
-          }
-          {
-            name = "fontdb";
-            packageId = "fontdb";
-          }
-          {
-            name = "glyphon";
-            packageId = "glyphon";
-          }
-          {
-            name = "pollster";
-            packageId = "pollster";
-          }
-          {
-            name = "raw-window-handle";
-            packageId = "raw-window-handle";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            features = [ "derive" ];
-          }
-          {
-            name = "thiserror";
-            packageId = "thiserror 2.0.18";
-          }
-          {
-            name = "tracing";
-            packageId = "tracing";
-          }
-          {
-            name = "wgpu";
-            packageId = "wgpu";
-          }
-          {
-            name = "winit";
-            packageId = "winit";
-          }
-        ];
-        features = {
-        };
-        resolvedDefaultFeatures = [ "default" ];
-      };
-      "path+file:///Users/drzzln/code/github/pleme-io/shikumi#0.1.0" = rec {
-        crateName = "shikumi";
-        version = "0.1.0";
-        edition = "2024";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../shikumi; };
-        dependencies = [
-          {
-            name = "arc-swap";
-            packageId = "arc-swap";
-          }
-          {
-            name = "async-trait";
-            packageId = "async-trait";
-          }
-          {
-            name = "clap";
-            packageId = "clap";
-            optional = true;
-            features = [ "derive" ];
-          }
-          {
-            name = "figment";
-            packageId = "figment";
-            features = [ "env" "yaml" "toml" ];
-          }
-          {
-            name = "notify";
-            packageId = "notify";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-            features = [ "derive" ];
-          }
-          {
-            name = "serde_json";
-            packageId = "serde_json";
-          }
-          {
-            name = "serde_yaml";
-            packageId = "serde_yaml";
-          }
-          {
-            name = "thiserror";
-            packageId = "thiserror 2.0.18";
-          }
-          {
-            name = "tracing";
-            packageId = "tracing";
-          }
-        ];
-        devDependencies = [
-          {
-            name = "serde_json";
-            packageId = "serde_json";
-          }
-          {
-            name = "serde_yaml";
-            packageId = "serde_yaml";
-          }
-        ];
-        features = {
-          "akeyless-native" = [ "dep:akeyless-api" "dep:tokio" ];
-          "aws-native" = [ "dep:aws-sdk-secretsmanager" "dep:aws-config" "dep:tokio" ];
-          "cli" = [ "dep:clap" ];
-          "gcp-native" = [ "dep:reqwest" "dep:tokio" ];
-          "lisp" = [ "dep:tatara-lisp" ];
-          "op-native" = [ "dep:reqwest" "dep:tokio" ];
-          "vault-native" = [ "dep:reqwest" "dep:tokio" ];
-        };
-        resolvedDefaultFeatures = [ "cli" "default" ];
       };
       "pear" = rec {
         crateName = "pear";
@@ -9828,9 +9848,9 @@ rec {
       };
       "serde_json" = rec {
         crateName = "serde_json";
-        version = "1.0.149";
+        version = "1.0.150";
         edition = "2021";
-        sha256 = "11jdx4vilzrjjd1dpgy67x5lgzr0laplz30dhv75lnf5ffa07z43";
+        sha256 = "1ffgfhy9kndjnrz8lmy95pr758p2zk8dxv6yi99x0vkkni24w0g8";
         authors = [
           "Erick Tryzelaar <erick.tryzelaar@gmail.com>"
           "David Tolnay <dtolnay@gmail.com>"
@@ -10554,7 +10574,12 @@ rec {
         crateName = "tatara-lisp";
         version = "0.2.0";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../tatara/tatara-lisp; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/pleme-io/tatara";
+          rev = "c3b68290c476d8b40de9cab710b43205fb2b25e7";
+          sha256 = "1njanj2svl475wcw0iwdwybbqvhcznaw98jw0zrzz3dk13dw08kw";
+        };
         libName = "tatara_lisp";
         authors = [
           "Pleme.io <engineering@pleme.io>"
@@ -10591,7 +10616,12 @@ rec {
         crateName = "tatara-lisp-derive";
         version = "0.2.0";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../tatara/tatara-lisp-derive; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/pleme-io/tatara";
+          rev = "c3b68290c476d8b40de9cab710b43205fb2b25e7";
+          sha256 = "1njanj2svl475wcw0iwdwybbqvhcznaw98jw0zrzz3dk13dw08kw";
+        };
         procMacro = true;
         libName = "tatara_lisp_derive";
         authors = [
@@ -11921,9 +11951,9 @@ rec {
       };
       "wasm-bindgen" = rec {
         crateName = "wasm-bindgen";
-        version = "0.2.121";
+        version = "0.2.122";
         edition = "2021";
-        sha256 = "14375vc40l67lk9rxp59my4r6s64h2an3vjfh9j0hnqngk8f3b29";
+        sha256 = "02flix96brsb2r1i3grnikii302iqpdm337kl3xv5lklz5v4bl1y";
         libName = "wasm_bindgen";
         authors = [
           "The wasm-bindgen Developers"
@@ -11972,9 +12002,9 @@ rec {
       };
       "wasm-bindgen-futures" = rec {
         crateName = "wasm-bindgen-futures";
-        version = "0.4.71";
+        version = "0.4.72";
         edition = "2021";
-        sha256 = "1f3k8r13nqshrlxwq0naxpbh250b4l6p526wlw2m78pv7w6jsjcn";
+        sha256 = "03qb24gfr072rk8hb69glfdc8yhqqqq2rhy3j5i0ps8sk79dnwwl";
         libName = "wasm_bindgen_futures";
         authors = [
           "The wasm-bindgen Developers"
@@ -12000,9 +12030,9 @@ rec {
       };
       "wasm-bindgen-macro" = rec {
         crateName = "wasm-bindgen-macro";
-        version = "0.2.121";
+        version = "0.2.122";
         edition = "2021";
-        sha256 = "0y45ghbkvs5rmxvdyhqrx8nzyy45rdx6619c01iaarykmzsfcs4f";
+        sha256 = "1inyl55bvdifx7l60q9wl0ivmw7236jg7jqmcqpxhsx3knq52qci";
         procMacro = true;
         libName = "wasm_bindgen_macro";
         authors = [
@@ -12024,9 +12054,9 @@ rec {
       };
       "wasm-bindgen-macro-support" = rec {
         crateName = "wasm-bindgen-macro-support";
-        version = "0.2.121";
+        version = "0.2.122";
         edition = "2021";
-        sha256 = "1wjr69qa8rwmk4v7243dr100k393qi0avznk6p5sgck4bk1rwnnr";
+        sha256 = "0pjw5kc2mbfz59agk5l21kh4hxzp94rygdvsnr4f3z6b5hv4g419";
         libName = "wasm_bindgen_macro_support";
         authors = [
           "The wasm-bindgen Developers"
@@ -12060,10 +12090,10 @@ rec {
       };
       "wasm-bindgen-shared" = rec {
         crateName = "wasm-bindgen-shared";
-        version = "0.2.121";
+        version = "0.2.122";
         edition = "2021";
         links = "wasm_bindgen";
-        sha256 = "0h9la4176j5bvgbr64cqkmirif8z59vrcax9i4qx1w79045i1q64";
+        sha256 = "0ds4mmfqvxwc5fp33hn0jblf0f6b4lghrd9mpkls66zic4n9p4ls";
         libName = "wasm_bindgen_shared";
         authors = [
           "The wasm-bindgen Developers"
@@ -12521,9 +12551,9 @@ rec {
       };
       "web-sys" = rec {
         crateName = "web-sys";
-        version = "0.3.98";
+        version = "0.3.99";
         edition = "2021";
-        sha256 = "1aijiwx7wsfzj37p1gnqn6wv4j2ppf4rqwhrzb8blf6gigzjsmsb";
+        sha256 = "0dilfvl9jnyhi4skl6cry9wc300r693j0w82jjbq8yy3rx0i8qkd";
         libName = "web_sys";
         authors = [
           "The wasm-bindgen Developers"
