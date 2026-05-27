@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "workspace": {
     "root": "/Users/drzzln/code/github/pleme-io/escriba",
     "members": [
@@ -7942,7 +7942,7 @@
       "edition": "2024",
       "source": {
         "kind": "git",
-        "url": "https://github.com/pleme-io/garasu?branch=main",
+        "url": "https://github.com/pleme-io/garasu",
         "rev": "4a35c3ef6e0342a29b0fa614b4db2dcc29181adb",
         "sha256": "16l9bjmjzvxwh2vilddch7hsd528mi8vvlsds4jryjyqcvzz8z7d"
       },
@@ -9225,7 +9225,7 @@
       "edition": "2024",
       "source": {
         "kind": "git",
-        "url": "https://github.com/pleme-io/irodori?branch=main",
+        "url": "https://github.com/pleme-io/irodori",
         "rev": "502395b02499dd352c5788a8e3bc47feab092af1",
         "sha256": "0lpxxxxxfk2cy841vw9ac6w3nh88svppmjzlp4fkq1bj7yff3qhv"
       },
@@ -9738,7 +9738,7 @@
       "edition": "2024",
       "source": {
         "kind": "git",
-        "url": "https://github.com/pleme-io/madori?branch=main",
+        "url": "https://github.com/pleme-io/madori",
         "rev": "c6e710292dc1f111c708717c004a829eaab2727b",
         "sha256": "0fjbqwfl96kv01965acqdv6wxkqfz4xmbl485p304pzhsdfcgxh7"
       },
@@ -15493,7 +15493,7 @@
       "edition": "2024",
       "source": {
         "kind": "git",
-        "url": "https://github.com/pleme-io/shikumi?branch=main",
+        "url": "https://github.com/pleme-io/shikumi",
         "rev": "ff0dbab8060acb97bb1daa11181664c69c069aa6",
         "sha256": "179mzrqw8811ajjdpvl08fykwwa3yd6jc5lvw3zd335fccbdlk88"
       },
@@ -16619,7 +16619,7 @@
       "edition": "2021",
       "source": {
         "kind": "git",
-        "url": "https://github.com/pleme-io/tatara?branch=main",
+        "url": "https://github.com/pleme-io/tatara",
         "rev": "c3b68290c476d8b40de9cab710b43205fb2b25e7",
         "sha256": "1njanj2svl475wcw0iwdwybbqvhcznaw98jw0zrzz3dk13dw08kw"
       },
@@ -16743,7 +16743,7 @@
       "edition": "2021",
       "source": {
         "kind": "git",
-        "url": "https://github.com/pleme-io/tatara?branch=main",
+        "url": "https://github.com/pleme-io/tatara",
         "rev": "c3b68290c476d8b40de9cab710b43205fb2b25e7",
         "sha256": "1njanj2svl475wcw0iwdwybbqvhcznaw98jw0zrzz3dk13dw08kw"
       },
@@ -21322,5 +21322,87 @@
     "escriba-tui-0.1.1",
     "escriba-lisp-0.1.1",
     "escriba-0.1.1"
-  ]
+  ],
+  "flake_metadata": {
+    "escriba-core": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-buffer": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-config": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-mode": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-keymap": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-command": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-api": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-spec": {
+      "default_bin": "escriba-spec-dump",
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-ui": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-render": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-runtime": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-input": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-plugin": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-vm": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-ts": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-lsp-client": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-mcp": {
+      "default_bin": "escriba-mcp",
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-tui": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba-lisp": {
+      "default_bin": null,
+      "repo": "pleme-io/escriba"
+    },
+    "escriba": {
+      "default_bin": "escriba",
+      "repo": "pleme-io/escriba"
+    }
+  }
 }
