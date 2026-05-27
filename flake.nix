@@ -212,43 +212,22 @@
                  || builtins.match ".*/\\.direnv(/.*)?$" rel != null);
         };
 
-        composedSrc = pkgs.runCommand "escriba-composed-src" {} ''
-          mkdir -p $out/escriba
-          cp -r ${cleanSelf}/. $out/escriba/
-          chmod -R +w $out/escriba
-          cp -r ${tatara} $out/tatara
-          chmod -R +w $out/tatara
-          cp -r ${shikumi} $out/shikumi
-          chmod -R +w $out/shikumi
-          cp -r ${garasu} $out/garasu
-          chmod -R +w $out/garasu
-          cp -r ${madori} $out/madori
-          chmod -R +w $out/madori
-          cp -r ${awase} $out/awase
-          chmod -R +w $out/awase
-          cp -r ${hayai} $out/hayai
-          chmod -R +w $out/hayai
-          cp -r ${irodori} $out/irodori
-          chmod -R +w $out/irodori
-          cp -r ${mojiban} $out/mojiban
-          chmod -R +w $out/mojiban
-        '';
-
-        escriba = pkgs.rustPlatform.buildRustPackage {
-          pname = "escriba";
-          version = "0.1.0";
-          src = composedSrc;
-          sourceRoot = "escriba-composed-src/escriba";
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-            allowBuiltinFetchGit = true;
+        # Built via substrate's lockfile-builder. Sibling pleme-io
+        # crates flow through their declared git sources in Cargo.lock
+        # (gen-cargo prefetches sha256 for each git source at spec
+        # time; no composedSrc needed). Regenerate Cargo.build-spec.json
+        # via `gen build .` whenever Cargo.lock changes.
+        lockfileBuilder = import "${substrate}/lib/build/rust/lockfile-builder.nix" { inherit pkgs; };
+        project = lockfileBuilder.mkProject {
+          src = cleanSelf;
+          defaultCrateOverrides = pkgs.defaultCrateOverrides // {
+            escriba = old: {
+              nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.pkg-config ];
+              buildInputs = (old.buildInputs or []) ++ [ pkgs.openssl ];
+            };
           };
-          cargoBuildFlags = [ "-p" "escriba" ];
-          cargoTestFlags  = [ "-p" "escriba" ];
-          doCheck = false;
-          nativeBuildInputs = with pkgs; [ pkg-config ];
-          buildInputs = with pkgs; [ openssl ];
         };
+        escriba = project.workspaceMembers.escriba.build;
       in {
         packages = { inherit escriba; default = escriba; };
         apps.default = { type = "app"; program = "${escriba}/bin/escriba"; };
