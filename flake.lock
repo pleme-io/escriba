@@ -21146,11 +21146,61 @@
     "cachix_404": {
       "inputs": {
         "devenv": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix"
         ],
         "flake-compat": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix"
         ],
         "git-hooks": "git-hooks_404",
@@ -21174,21 +21224,125 @@
     "cachix_405": {
       "inputs": {
         "devenv": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv"
         ],
         "flake-compat": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "flake-compat"
         ],
         "git-hooks": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "git-hooks"
         ],
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "nixpkgs"
         ]
@@ -21211,16 +21365,68 @@
     "cachix_406": {
       "inputs": {
         "devenv": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix"
         ],
         "flake-compat": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix"
         ],
-        "git-hooks": "git-hooks_406",
+        "git-hooks": "git-hooks_405",
         "nixpkgs": "nixpkgs_709"
       },
       "locked": {
@@ -21241,35 +21447,78 @@
     "cachix_407": {
       "inputs": {
         "devenv": [
-          "tatara",
-          "forge",
-          "devenv"
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable"
         ],
         "flake-compat": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
-          "flake-compat"
+          "crate2nix",
+          "crate2nix_stable"
         ],
-        "git-hooks": [
-          "tatara",
-          "forge",
-          "devenv",
-          "git-hooks"
-        ],
-        "nixpkgs": [
-          "tatara",
-          "forge",
-          "devenv",
-          "nixpkgs"
-        ]
+        "git-hooks": "git-hooks_406",
+        "nixpkgs": "nixpkgs_710"
       },
       "locked": {
-        "lastModified": 1777487137,
-        "narHash": "sha256-TuvKVBX60mqyMT6OB5JqVEh1YIWtFMR/igLCaCdC9tw=",
+        "lastModified": 1767714506,
+        "narHash": "sha256-WaTs0t1CxhgxbIuvQ97OFhDTVUGd1HA+KzLZUZBhe0s=",
         "owner": "cachix",
         "repo": "cachix",
-        "rev": "a66a440c321d35f7193472c317f42a55ccd1cb93",
+        "rev": "894c649f0daaa38bbcfb21de64be47dfa7cd0ec9",
         "type": "github"
       },
       "original": {
@@ -21283,38 +21532,21 @@
       "inputs": {
         "devenv": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv"
+          "crate2nix"
         ],
         "flake-compat": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
-          "flake-compat"
+          "crate2nix"
         ],
-        "git-hooks": [
-          "tatara",
-          "forge",
-          "substrate",
-          "devenv",
-          "git-hooks"
-        ],
-        "nixpkgs": [
-          "tatara",
-          "forge",
-          "substrate",
-          "devenv",
-          "nixpkgs"
-        ]
+        "git-hooks": "git-hooks_408",
+        "nixpkgs": "nixpkgs_714"
       },
       "locked": {
-        "lastModified": 1777487137,
-        "narHash": "sha256-TuvKVBX60mqyMT6OB5JqVEh1YIWtFMR/igLCaCdC9tw=",
+        "lastModified": 1767714506,
+        "narHash": "sha256-WaTs0t1CxhgxbIuvQ97OFhDTVUGd1HA+KzLZUZBhe0s=",
         "owner": "cachix",
         "repo": "cachix",
-        "rev": "a66a440c321d35f7193472c317f42a55ccd1cb93",
+        "rev": "894c649f0daaa38bbcfb21de64be47dfa7cd0ec9",
         "type": "github"
       },
       "original": {
@@ -21328,27 +21560,30 @@
       "inputs": {
         "devenv": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
-          "crate2nix"
+          "devenv"
         ],
         "flake-compat": [
           "tatara",
-          "forge",
-          "substrate",
           "devenv",
-          "crate2nix"
+          "flake-compat"
         ],
-        "git-hooks": "git-hooks_408",
-        "nixpkgs": "nixpkgs_710"
+        "git-hooks": [
+          "tatara",
+          "devenv",
+          "git-hooks"
+        ],
+        "nixpkgs": [
+          "tatara",
+          "devenv",
+          "nixpkgs"
+        ]
       },
       "locked": {
-        "lastModified": 1767714506,
-        "narHash": "sha256-WaTs0t1CxhgxbIuvQ97OFhDTVUGd1HA+KzLZUZBhe0s=",
+        "lastModified": 1777487137,
+        "narHash": "sha256-TuvKVBX60mqyMT6OB5JqVEh1YIWtFMR/igLCaCdC9tw=",
         "owner": "cachix",
         "repo": "cachix",
-        "rev": "894c649f0daaa38bbcfb21de64be47dfa7cd0ec9",
+        "rev": "a66a440c321d35f7193472c317f42a55ccd1cb93",
         "type": "github"
       },
       "original": {
@@ -21431,21 +21666,15 @@
         "devenv": [
           "tatara",
           "forge",
-          "substrate",
-          "devenv",
-          "crate2nix",
-          "crate2nix_stable"
+          "crate2nix"
         ],
         "flake-compat": [
           "tatara",
           "forge",
-          "substrate",
-          "devenv",
-          "crate2nix",
-          "crate2nix_stable"
+          "crate2nix"
         ],
-        "git-hooks": "git-hooks_409",
-        "nixpkgs": "nixpkgs_711"
+        "git-hooks": "git-hooks_410",
+        "nixpkgs": "nixpkgs_716"
       },
       "locked": {
         "lastModified": 1767714506,
@@ -21463,6 +21692,162 @@
       }
     },
     "cachix_411": {
+      "inputs": {
+        "devenv": [
+          "tatara",
+          "forge",
+          "devenv"
+        ],
+        "flake-compat": [
+          "tatara",
+          "forge",
+          "devenv",
+          "flake-compat"
+        ],
+        "git-hooks": [
+          "tatara",
+          "forge",
+          "devenv",
+          "git-hooks"
+        ],
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1777487137,
+        "narHash": "sha256-TuvKVBX60mqyMT6OB5JqVEh1YIWtFMR/igLCaCdC9tw=",
+        "owner": "cachix",
+        "repo": "cachix",
+        "rev": "a66a440c321d35f7193472c317f42a55ccd1cb93",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "ref": "latest",
+        "repo": "cachix",
+        "type": "github"
+      }
+    },
+    "cachix_412": {
+      "inputs": {
+        "devenv": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv"
+        ],
+        "flake-compat": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "flake-compat"
+        ],
+        "git-hooks": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "git-hooks"
+        ],
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1777487137,
+        "narHash": "sha256-TuvKVBX60mqyMT6OB5JqVEh1YIWtFMR/igLCaCdC9tw=",
+        "owner": "cachix",
+        "repo": "cachix",
+        "rev": "a66a440c321d35f7193472c317f42a55ccd1cb93",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "ref": "latest",
+        "repo": "cachix",
+        "type": "github"
+      }
+    },
+    "cachix_413": {
+      "inputs": {
+        "devenv": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix"
+        ],
+        "flake-compat": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix"
+        ],
+        "git-hooks": "git-hooks_412",
+        "nixpkgs": "nixpkgs_717"
+      },
+      "locked": {
+        "lastModified": 1767714506,
+        "narHash": "sha256-WaTs0t1CxhgxbIuvQ97OFhDTVUGd1HA+KzLZUZBhe0s=",
+        "owner": "cachix",
+        "repo": "cachix",
+        "rev": "894c649f0daaa38bbcfb21de64be47dfa7cd0ec9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "ref": "latest",
+        "repo": "cachix",
+        "type": "github"
+      }
+    },
+    "cachix_414": {
+      "inputs": {
+        "devenv": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable"
+        ],
+        "flake-compat": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable"
+        ],
+        "git-hooks": "git-hooks_413",
+        "nixpkgs": "nixpkgs_718"
+      },
+      "locked": {
+        "lastModified": 1767714506,
+        "narHash": "sha256-WaTs0t1CxhgxbIuvQ97OFhDTVUGd1HA+KzLZUZBhe0s=",
+        "owner": "cachix",
+        "repo": "cachix",
+        "rev": "894c649f0daaa38bbcfb21de64be47dfa7cd0ec9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "ref": "latest",
+        "repo": "cachix",
+        "type": "github"
+      }
+    },
+    "cachix_415": {
       "inputs": {
         "devenv": [
           "tatara",
@@ -21503,7 +21888,7 @@
         "type": "github"
       }
     },
-    "cachix_412": {
+    "cachix_416": {
       "inputs": {
         "devenv": [
           "tatara",
@@ -21517,8 +21902,8 @@
           "devenv",
           "crate2nix"
         ],
-        "git-hooks": "git-hooks_411",
-        "nixpkgs": "nixpkgs_715"
+        "git-hooks": "git-hooks_415",
+        "nixpkgs": "nixpkgs_722"
       },
       "locked": {
         "lastModified": 1767714506,
@@ -21535,7 +21920,7 @@
         "type": "github"
       }
     },
-    "cachix_413": {
+    "cachix_417": {
       "inputs": {
         "devenv": [
           "tatara",
@@ -21551,8 +21936,8 @@
           "crate2nix",
           "crate2nix_stable"
         ],
-        "git-hooks": "git-hooks_412",
-        "nixpkgs": "nixpkgs_716"
+        "git-hooks": "git-hooks_416",
+        "nixpkgs": "nixpkgs_723"
       },
       "locked": {
         "lastModified": 1767714506,
@@ -31911,50 +32296,60 @@
     "crate2nix_304": {
       "flake": false,
       "locked": {
-        "lastModified": 1772186516,
-        "narHash": "sha256-8s28pzmQ6TOIUzznwFibtW1CMieMUl1rYJIxoQYor58=",
-        "owner": "rossng",
+        "lastModified": 1779717186,
+        "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
+        "owner": "nix-community",
         "repo": "crate2nix",
-        "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
+        "rev": "c994c83963b42b26f127e9cc50a8c86852db67d0",
         "type": "github"
       },
       "original": {
-        "owner": "rossng",
+        "owner": "nix-community",
         "repo": "crate2nix",
-        "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
         "type": "github"
       }
     },
     "crate2nix_305": {
       "inputs": {
         "cachix": "cachix_406",
-        "devshell": "devshell_304",
+        "crate2nix_stable": "crate2nix_stable_102",
+        "devshell": "devshell_305",
         "flake-compat": "flake-compat_507",
         "flake-parts": "flake-parts_507",
-        "nix-test-runner": "nix-test-runner_304",
+        "nix-test-runner": "nix-test-runner_305",
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "nixpkgs"
         ],
-        "pre-commit-hooks": "pre-commit-hooks_304"
+        "pre-commit-hooks": "pre-commit-hooks_305"
       },
-      "locked": {
-        "lastModified": 1779717186,
-        "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
-        "owner": "nix-community",
-        "repo": "crate2nix",
-        "rev": "c994c83963b42b26f127e9cc50a8c86852db67d0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-community",
-        "repo": "crate2nix",
-        "type": "github"
-      }
-    },
-    "crate2nix_306": {
-      "flake": false,
       "locked": {
         "lastModified": 1772186516,
         "narHash": "sha256-8s28pzmQ6TOIUzznwFibtW1CMieMUl1rYJIxoQYor58=",
@@ -31967,43 +32362,36 @@
         "owner": "rossng",
         "repo": "crate2nix",
         "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
+        "type": "github"
+      }
+    },
+    "crate2nix_306": {
+      "inputs": {
+        "cachix": "cachix_408",
+        "devshell": "devshell_306",
+        "flake-compat": "flake-compat_510",
+        "flake-parts": "flake-parts_510",
+        "nix-test-runner": "nix-test-runner_306",
+        "nixpkgs": "nixpkgs_715",
+        "pre-commit-hooks": "pre-commit-hooks_306"
+      },
+      "locked": {
+        "lastModified": 1779717186,
+        "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "rev": "c994c83963b42b26f127e9cc50a8c86852db67d0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "crate2nix",
         "type": "github"
       }
     },
     "crate2nix_307": {
       "flake": false,
       "locked": {
-        "lastModified": 1779717186,
-        "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
-        "owner": "nix-community",
-        "repo": "crate2nix",
-        "rev": "c994c83963b42b26f127e9cc50a8c86852db67d0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-community",
-        "repo": "crate2nix",
-        "type": "github"
-      }
-    },
-    "crate2nix_308": {
-      "inputs": {
-        "cachix": "cachix_409",
-        "crate2nix_stable": "crate2nix_stable_102",
-        "devshell": "devshell_306",
-        "flake-compat": "flake-compat_510",
-        "flake-parts": "flake-parts_511",
-        "nix-test-runner": "nix-test-runner_306",
-        "nixpkgs": [
-          "tatara",
-          "forge",
-          "substrate",
-          "devenv",
-          "nixpkgs"
-        ],
-        "pre-commit-hooks": "pre-commit-hooks_306"
-      },
-      "locked": {
         "lastModified": 1772186516,
         "narHash": "sha256-8s28pzmQ6TOIUzznwFibtW1CMieMUl1rYJIxoQYor58=",
         "owner": "rossng",
@@ -32018,8 +32406,20 @@
         "type": "github"
       }
     },
-    "crate2nix_309": {
-      "flake": false,
+    "crate2nix_308": {
+      "inputs": {
+        "cachix": "cachix_410",
+        "devshell": "devshell_307",
+        "flake-compat": "flake-compat_512",
+        "flake-parts": "flake-parts_512",
+        "nix-test-runner": "nix-test-runner_307",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "nixpkgs"
+        ],
+        "pre-commit-hooks": "pre-commit-hooks_307"
+      },
       "locked": {
         "lastModified": 1779717186,
         "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
@@ -32031,6 +32431,23 @@
       "original": {
         "owner": "nix-community",
         "repo": "crate2nix",
+        "type": "github"
+      }
+    },
+    "crate2nix_309": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772186516,
+        "narHash": "sha256-8s28pzmQ6TOIUzznwFibtW1CMieMUl1rYJIxoQYor58=",
+        "owner": "rossng",
+        "repo": "crate2nix",
+        "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rossng",
+        "repo": "crate2nix",
+        "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
         "type": "github"
       }
     },
@@ -32059,20 +32476,84 @@
       }
     },
     "crate2nix_310": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779717186,
+        "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "rev": "c994c83963b42b26f127e9cc50a8c86852db67d0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "type": "github"
+      }
+    },
+    "crate2nix_311": {
       "inputs": {
-        "cachix": "cachix_412",
+        "cachix": "cachix_413",
         "crate2nix_stable": "crate2nix_stable_103",
-        "devshell": "devshell_308",
-        "flake-compat": "flake-compat_514",
-        "flake-parts": "flake-parts_515",
-        "nix-test-runner": "nix-test-runner_308",
+        "devshell": "devshell_309",
+        "flake-compat": "flake-compat_515",
+        "flake-parts": "flake-parts_516",
+        "nix-test-runner": "nix-test-runner_309",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "nixpkgs"
+        ],
+        "pre-commit-hooks": "pre-commit-hooks_309"
+      },
+      "locked": {
+        "lastModified": 1772186516,
+        "narHash": "sha256-8s28pzmQ6TOIUzznwFibtW1CMieMUl1rYJIxoQYor58=",
+        "owner": "rossng",
+        "repo": "crate2nix",
+        "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rossng",
+        "repo": "crate2nix",
+        "rev": "ba5dd398e31ee422fbe021767eb83b0650303a6e",
+        "type": "github"
+      }
+    },
+    "crate2nix_312": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779717186,
+        "narHash": "sha256-WAmzV4ohaVEqZ4Zs2G0Gb/t9iY3KuQ7bg3rLNcjIhM4=",
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "rev": "c994c83963b42b26f127e9cc50a8c86852db67d0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "type": "github"
+      }
+    },
+    "crate2nix_313": {
+      "inputs": {
+        "cachix": "cachix_416",
+        "crate2nix_stable": "crate2nix_stable_104",
+        "devshell": "devshell_311",
+        "flake-compat": "flake-compat_519",
+        "flake-parts": "flake-parts_520",
+        "nix-test-runner": "nix-test-runner_311",
         "nixpkgs": [
           "tatara",
           "substrate",
           "devenv",
           "nixpkgs"
         ],
-        "pre-commit-hooks": "pre-commit-hooks_308"
+        "pre-commit-hooks": "pre-commit-hooks_311"
       },
       "locked": {
         "lastModified": 1772186516,
@@ -34302,21 +34783,45 @@
     },
     "crate2nix_stable_102": {
       "inputs": {
-        "cachix": "cachix_410",
+        "cachix": "cachix_407",
         "crate2nix_stable": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "substrate",
           "devenv",
           "crate2nix",
           "crate2nix_stable"
         ],
-        "devshell": "devshell_305",
-        "flake-compat": "flake-compat_509",
-        "flake-parts": "flake-parts_510",
-        "nix-test-runner": "nix-test-runner_305",
-        "nixpkgs": "nixpkgs_712",
-        "pre-commit-hooks": "pre-commit-hooks_305"
+        "devshell": "devshell_304",
+        "flake-compat": "flake-compat_506",
+        "flake-parts": "flake-parts_506",
+        "nix-test-runner": "nix-test-runner_304",
+        "nixpkgs": "nixpkgs_711",
+        "pre-commit-hooks": "pre-commit-hooks_304"
       },
       "locked": {
         "lastModified": 1769627083,
@@ -34335,7 +34840,40 @@
     },
     "crate2nix_stable_103": {
       "inputs": {
-        "cachix": "cachix_413",
+        "cachix": "cachix_414",
+        "crate2nix_stable": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable"
+        ],
+        "devshell": "devshell_308",
+        "flake-compat": "flake-compat_514",
+        "flake-parts": "flake-parts_515",
+        "nix-test-runner": "nix-test-runner_308",
+        "nixpkgs": "nixpkgs_719",
+        "pre-commit-hooks": "pre-commit-hooks_308"
+      },
+      "locked": {
+        "lastModified": 1769627083,
+        "narHash": "sha256-SUuruvw1/moNzCZosHaa60QMTL+L9huWdsCBN6XZIic=",
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "rev": "7c33e664668faecf7655fa53861d7a80c9e464a2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "ref": "0.15.0",
+        "repo": "crate2nix",
+        "type": "github"
+      }
+    },
+    "crate2nix_stable_104": {
+      "inputs": {
+        "cachix": "cachix_417",
         "crate2nix_stable": [
           "tatara",
           "substrate",
@@ -34343,12 +34881,12 @@
           "crate2nix",
           "crate2nix_stable"
         ],
-        "devshell": "devshell_307",
-        "flake-compat": "flake-compat_513",
-        "flake-parts": "flake-parts_514",
-        "nix-test-runner": "nix-test-runner_307",
-        "nixpkgs": "nixpkgs_717",
-        "pre-commit-hooks": "pre-commit-hooks_307"
+        "devshell": "devshell_310",
+        "flake-compat": "flake-compat_518",
+        "flake-parts": "flake-parts_519",
+        "nix-test-runner": "nix-test-runner_310",
+        "nixpkgs": "nixpkgs_724",
+        "pre-commit-hooks": "pre-commit-hooks_310"
       },
       "locked": {
         "lastModified": 1769627083,
@@ -38763,46 +39301,72 @@
     "devenv_102": {
       "inputs": {
         "cachix": "cachix_405",
-        "crate2nix": "crate2nix_304",
-        "flake-compat": "flake-compat_506",
-        "flake-parts": "flake-parts_506",
+        "crate2nix": "crate2nix_305",
+        "flake-compat": "flake-compat_508",
+        "flake-parts": "flake-parts_508",
         "ghostty": "ghostty_102",
-        "git-hooks": "git-hooks_405",
+        "git-hooks": "git-hooks_407",
         "nix": "nix_102",
         "nixd": "nixd_102",
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "nixpkgs"
         ],
         "rust-overlay": "rust-overlay_102"
       },
       "locked": {
-        "lastModified": 1779749056,
-        "narHash": "sha256-AtocdrunzuxTvSDn+82RntEhrs6TicM6Z4/zNQS9KKg=",
+        "lastModified": 1778071019,
+        "narHash": "sha256-vb4UzOKKdLext4faiI1KbI0yrTKNdI8wyxHvOMycWd8=",
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "099ac65fcef79e88127bdc06adbd1ea94255274a",
+        "rev": "a3ebee0b80ce56ae4acba2c971c09ee6eca75338",
         "type": "github"
       },
       "original": {
         "owner": "cachix",
         "repo": "devenv",
+        "rev": "a3ebee0b80ce56ae4acba2c971c09ee6eca75338",
         "type": "github"
       }
     },
     "devenv_103": {
       "inputs": {
-        "cachix": "cachix_407",
-        "crate2nix": "crate2nix_306",
-        "flake-compat": "flake-compat_508",
-        "flake-parts": "flake-parts_508",
+        "cachix": "cachix_409",
+        "crate2nix": "crate2nix_307",
+        "flake-compat": "flake-compat_511",
+        "flake-parts": "flake-parts_511",
         "ghostty": "ghostty_103",
-        "git-hooks": "git-hooks_407",
+        "git-hooks": "git-hooks_409",
         "nix": "nix_103",
         "nixd": "nixd_103",
         "nixpkgs": [
           "tatara",
-          "forge",
           "nixpkgs"
         ],
         "rust-overlay": "rust-overlay_103"
@@ -38823,21 +39387,52 @@
     },
     "devenv_104": {
       "inputs": {
-        "cachix": "cachix_408",
-        "crate2nix": "crate2nix_308",
-        "flake-compat": "flake-compat_511",
-        "flake-parts": "flake-parts_512",
+        "cachix": "cachix_411",
+        "crate2nix": "crate2nix_309",
+        "flake-compat": "flake-compat_513",
+        "flake-parts": "flake-parts_513",
         "ghostty": "ghostty_104",
-        "git-hooks": "git-hooks_410",
+        "git-hooks": "git-hooks_411",
         "nix": "nix_104",
         "nixd": "nixd_104",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay_104"
+      },
+      "locked": {
+        "lastModified": 1779749056,
+        "narHash": "sha256-AtocdrunzuxTvSDn+82RntEhrs6TicM6Z4/zNQS9KKg=",
+        "owner": "cachix",
+        "repo": "devenv",
+        "rev": "099ac65fcef79e88127bdc06adbd1ea94255274a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "devenv",
+        "type": "github"
+      }
+    },
+    "devenv_105": {
+      "inputs": {
+        "cachix": "cachix_412",
+        "crate2nix": "crate2nix_311",
+        "flake-compat": "flake-compat_516",
+        "flake-parts": "flake-parts_517",
+        "ghostty": "ghostty_105",
+        "git-hooks": "git-hooks_414",
+        "nix": "nix_105",
+        "nixd": "nixd_105",
         "nixpkgs": [
           "tatara",
           "forge",
           "substrate",
           "nixpkgs"
         ],
-        "rust-overlay": "rust-overlay_104"
+        "rust-overlay": "rust-overlay_105"
       },
       "locked": {
         "lastModified": 1778071019,
@@ -38854,22 +39449,22 @@
         "type": "github"
       }
     },
-    "devenv_105": {
+    "devenv_106": {
       "inputs": {
-        "cachix": "cachix_411",
-        "crate2nix": "crate2nix_310",
-        "flake-compat": "flake-compat_515",
-        "flake-parts": "flake-parts_516",
-        "ghostty": "ghostty_105",
-        "git-hooks": "git-hooks_413",
-        "nix": "nix_105",
-        "nixd": "nixd_105",
+        "cachix": "cachix_415",
+        "crate2nix": "crate2nix_313",
+        "flake-compat": "flake-compat_520",
+        "flake-parts": "flake-parts_521",
+        "ghostty": "ghostty_106",
+        "git-hooks": "git-hooks_417",
+        "nix": "nix_106",
+        "nixd": "nixd_106",
         "nixpkgs": [
           "tatara",
           "substrate",
           "nixpkgs"
         ],
-        "rust-overlay": "rust-overlay_105"
+        "rust-overlay": "rust-overlay_106"
       },
       "locked": {
         "lastModified": 1778071019,
@@ -51148,7 +51743,32 @@
     "devshell_303": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "nixpkgs"
         ]
@@ -51170,31 +51790,32 @@
     "devshell_304": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
-          "forge",
-          "crate2nix",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1768818222,
-        "narHash": "sha256-460jc0+CZfyaO8+w8JNtlClB2n4ui1RbHfPTLkpwhU8=",
-        "owner": "numtide",
-        "repo": "devshell",
-        "rev": "255a2b1725a20d060f566e4755dbf571bbbb5f76",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "devshell",
-        "type": "github"
-      }
-    },
-    "devshell_305": {
-      "inputs": {
-        "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "substrate",
           "devenv",
           "crate2nix",
@@ -51216,13 +51837,59 @@
         "type": "github"
       }
     },
+    "devshell_305": {
+      "inputs": {
+        "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768818222,
+        "narHash": "sha256-460jc0+CZfyaO8+w8JNtlClB2n4ui1RbHfPTLkpwhU8=",
+        "owner": "numtide",
+        "repo": "devshell",
+        "rev": "255a2b1725a20d060f566e4755dbf571bbbb5f76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "devshell",
+        "type": "github"
+      }
+    },
     "devshell_306": {
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
           "nixpkgs"
         ]
@@ -51245,10 +51912,8 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "substrate",
-          "devenv",
+          "forge",
           "crate2nix",
-          "crate2nix_stable",
           "nixpkgs"
         ]
       },
@@ -51270,6 +51935,33 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768818222,
+        "narHash": "sha256-460jc0+CZfyaO8+w8JNtlClB2n4ui1RbHfPTLkpwhU8=",
+        "owner": "numtide",
+        "repo": "devshell",
+        "rev": "255a2b1725a20d060f566e4755dbf571bbbb5f76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "devshell",
+        "type": "github"
+      }
+    },
+    "devshell_309": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
@@ -51314,6 +52006,55 @@
           "gen",
           "substrate",
           "gen",
+          "crate2nix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768818222,
+        "narHash": "sha256-460jc0+CZfyaO8+w8JNtlClB2n4ui1RbHfPTLkpwhU8=",
+        "owner": "numtide",
+        "repo": "devshell",
+        "rev": "255a2b1725a20d060f566e4755dbf571bbbb5f76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "devshell",
+        "type": "github"
+      }
+    },
+    "devshell_310": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768818222,
+        "narHash": "sha256-460jc0+CZfyaO8+w8JNtlClB2n4ui1RbHfPTLkpwhU8=",
+        "owner": "numtide",
+        "repo": "devshell",
+        "rev": "255a2b1725a20d060f566e4755dbf571bbbb5f76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "devshell",
+        "type": "github"
+      }
+    },
+    "devshell_311": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
           "crate2nix",
           "nixpkgs"
         ]
@@ -54012,11 +54753,11 @@
         "rust-analyzer-src": "rust-analyzer-src_101"
       },
       "locked": {
-        "lastModified": 1779790483,
-        "narHash": "sha256-2wCMtmVmkCcyHaH6hkrbx7XdUgLYP5E1wl/jc1YxxTY=",
+        "lastModified": 1779876442,
+        "narHash": "sha256-O25HomVNmdROO13PEQ3Ran8Hq5EsyLmVn8Gb8JvJtJE=",
         "owner": "nix-community",
         "repo": "fenix",
-        "rev": "6012e5463531342033571efe294ec880bf13dd95",
+        "rev": "2eff81fc84390a35e1565395ae945d9394856824",
         "type": "github"
       },
       "original": {
@@ -54074,11 +54815,59 @@
     "fenix_103": {
       "inputs": {
         "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "nixpkgs"
+        ],
+        "rust-analyzer-src": "rust-analyzer-src_103"
+      },
+      "locked": {
+        "lastModified": 1779790483,
+        "narHash": "sha256-2wCMtmVmkCcyHaH6hkrbx7XdUgLYP5E1wl/jc1YxxTY=",
+        "owner": "nix-community",
+        "repo": "fenix",
+        "rev": "6012e5463531342033571efe294ec880bf13dd95",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "fenix",
+        "type": "github"
+      }
+    },
+    "fenix_104": {
+      "inputs": {
+        "nixpkgs": [
           "tatara",
           "forge",
           "nixpkgs"
         ],
-        "rust-analyzer-src": "rust-analyzer-src_103"
+        "rust-analyzer-src": "rust-analyzer-src_104"
       },
       "locked": {
         "lastModified": 1779704612,
@@ -54094,14 +54883,14 @@
         "type": "github"
       }
     },
-    "fenix_104": {
+    "fenix_105": {
       "inputs": {
         "nixpkgs": [
           "tatara",
           "substrate",
           "nixpkgs"
         ],
-        "rust-analyzer-src": "rust-analyzer-src_104"
+        "rust-analyzer-src": "rust-analyzer-src_105"
       },
       "locked": {
         "lastModified": 1779790483,
@@ -64122,19 +64911,17 @@
       }
     },
     "flake-compat_506": {
-      "flake": false,
       "locked": {
-        "lastModified": 1767039857,
-        "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns=",
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
-        "type": "github"
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "revCount": 69,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
       },
       "original": {
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "type": "github"
+        "type": "tarball",
+        "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
       }
     },
     "flake-compat_507": {
@@ -64168,17 +64955,19 @@
       }
     },
     "flake-compat_509": {
+      "flake": false,
       "locked": {
-        "lastModified": 1733328505,
-        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
-        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
-        "revCount": 69,
-        "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
+        "lastModified": 1761588595,
+        "narHash": "sha256-XKUZz9zewJNUj46b4AJdiRZJAvSZ0Dqj2BNfXvFlJC4=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "f387cd2afec9419c8ee37694406ca490c3f34ee5",
+        "type": "github"
       },
       "original": {
-        "type": "tarball",
-        "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
       }
     },
     "flake-compat_51": {
@@ -64226,22 +65015,6 @@
       }
     },
     "flake-compat_512": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1761588595,
-        "narHash": "sha256-XKUZz9zewJNUj46b4AJdiRZJAvSZ0Dqj2BNfXvFlJC4=",
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "rev": "f387cd2afec9419c8ee37694406ca490c3f34ee5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "type": "github"
-      }
-    },
-    "flake-compat_513": {
       "locked": {
         "lastModified": 1733328505,
         "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
@@ -64253,6 +65026,22 @@
       "original": {
         "type": "tarball",
         "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+      }
+    },
+    "flake-compat_513": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1767039857,
+        "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
       }
     },
     "flake-compat_514": {
@@ -64270,6 +65059,20 @@
       }
     },
     "flake-compat_515": {
+      "locked": {
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "revCount": 69,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+      }
+    },
+    "flake-compat_516": {
       "flake": false,
       "locked": {
         "lastModified": 1767039857,
@@ -64285,7 +65088,7 @@
         "type": "github"
       }
     },
-    "flake-compat_516": {
+    "flake-compat_517": {
       "flake": false,
       "locked": {
         "lastModified": 1761588595,
@@ -64301,6 +65104,34 @@
         "type": "github"
       }
     },
+    "flake-compat_518": {
+      "locked": {
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "revCount": 69,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+      }
+    },
+    "flake-compat_519": {
+      "locked": {
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "revCount": 69,
+        "type": "tarball",
+        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+      }
+    },
     "flake-compat_52": {
       "locked": {
         "lastModified": 1733328505,
@@ -64313,6 +65144,38 @@
       "original": {
         "type": "tarball",
         "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz"
+      }
+    },
+    "flake-compat_520": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1767039857,
+        "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
+      }
+    },
+    "flake-compat_521": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1761588595,
+        "narHash": "sha256-XKUZz9zewJNUj46b4AJdiRZJAvSZ0Dqj2BNfXvFlJC4=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "f387cd2afec9419c8ee37694406ca490c3f34ee5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
       }
     },
     "flake-compat_53": {
@@ -80814,7 +81677,32 @@
     "flake-parts_505": {
       "inputs": {
         "nixpkgs-lib": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "nixpkgs"
         ]
@@ -80836,17 +81724,45 @@
     "flake-parts_506": {
       "inputs": {
         "nixpkgs-lib": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
+          "crate2nix",
+          "crate2nix_stable",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1778716662,
-        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
+        "lastModified": 1768135262,
+        "narHash": "sha256-PVvu7OqHBGWN16zSi6tEmPwwHQ4rLPU9Plvs8/1TUBY=",
         "owner": "hercules-ci",
         "repo": "flake-parts",
-        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
+        "rev": "80daad04eddbbf5a4d883996a73f3f542fa437ac",
         "type": "github"
       },
       "original": {
@@ -80858,8 +81774,34 @@
     "flake-parts_507": {
       "inputs": {
         "nixpkgs-lib": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
           "nixpkgs"
         ]
@@ -80881,18 +81823,43 @@
     "flake-parts_508": {
       "inputs": {
         "nixpkgs-lib": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1778716662,
-        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
+        "lastModified": 1777678872,
+        "narHash": "sha256-EPIFsulyon7Z1vLQq5Fk64GR8L7cQsT+IPhcsukVbgk=",
         "owner": "hercules-ci",
         "repo": "flake-parts",
-        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
+        "rev": "5250617bffd85403b14dbf43c3870e7f255d2c16",
         "type": "github"
       },
       "original": {
@@ -80904,8 +81871,33 @@
     "flake-parts_509": {
       "inputs": {
         "nixpkgs-lib": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "nixpkgs"
         ]
       },
@@ -80969,11 +81961,7 @@
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
-          "crate2nix_stable",
           "nixpkgs"
         ]
       },
@@ -80995,9 +81983,29 @@
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
-          "forge",
-          "substrate",
           "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1778716662,
+        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_512": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "tatara",
+          "forge",
           "crate2nix",
           "nixpkgs"
         ]
@@ -81016,36 +82024,12 @@
         "type": "github"
       }
     },
-    "flake-parts_512": {
-      "inputs": {
-        "nixpkgs-lib": [
-          "tatara",
-          "forge",
-          "substrate",
-          "devenv",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1777678872,
-        "narHash": "sha256-EPIFsulyon7Z1vLQq5Fk64GR8L7cQsT+IPhcsukVbgk=",
-        "owner": "hercules-ci",
-        "repo": "flake-parts",
-        "rev": "5250617bffd85403b14dbf43c3870e7f255d2c16",
-        "type": "github"
-      },
-      "original": {
-        "owner": "hercules-ci",
-        "repo": "flake-parts",
-        "type": "github"
-      }
-    },
     "flake-parts_513": {
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
           "forge",
-          "substrate",
+          "devenv",
           "nixpkgs"
         ]
       },
@@ -81067,6 +82051,29 @@
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
+          "forge",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1778716662,
+        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_515": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
@@ -81088,10 +82095,11 @@
         "type": "github"
       }
     },
-    "flake-parts_515": {
+    "flake-parts_516": {
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
@@ -81112,10 +82120,11 @@
         "type": "github"
       }
     },
-    "flake-parts_516": {
+    "flake-parts_517": {
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
+          "forge",
           "substrate",
           "devenv",
           "nixpkgs"
@@ -81135,10 +82144,11 @@
         "type": "github"
       }
     },
-    "flake-parts_517": {
+    "flake-parts_518": {
       "inputs": {
         "nixpkgs-lib": [
           "tatara",
+          "forge",
           "substrate",
           "nixpkgs"
         ]
@@ -81149,6 +82159,31 @@
         "owner": "hercules-ci",
         "repo": "flake-parts",
         "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_519": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768135262,
+        "narHash": "sha256-PVvu7OqHBGWN16zSi6tEmPwwHQ4rLPU9Plvs8/1TUBY=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "80daad04eddbbf5a4d883996a73f3f542fa437ac",
         "type": "github"
       },
       "original": {
@@ -81194,6 +82229,75 @@
         "owner": "hercules-ci",
         "repo": "flake-parts",
         "rev": "80daad04eddbbf5a4d883996a73f3f542fa437ac",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_520": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768135262,
+        "narHash": "sha256-PVvu7OqHBGWN16zSi6tEmPwwHQ4rLPU9Plvs8/1TUBY=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "80daad04eddbbf5a4d883996a73f3f542fa437ac",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_521": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1777678872,
+        "narHash": "sha256-EPIFsulyon7Z1vLQq5Fk64GR8L7cQsT+IPhcsukVbgk=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "5250617bffd85403b14dbf43c3870e7f255d2c16",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-parts_522": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "tatara",
+          "substrate",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1778716662,
+        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
         "type": "github"
       },
       "original": {
@@ -84665,9 +85769,45 @@
         "type": "github"
       }
     },
+    "flake-utils_189": {
+      "inputs": {
+        "systems": "systems_290"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "flake-utils_19": {
       "inputs": {
         "systems": "systems_29"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "flake-utils_190": {
+      "inputs": {
+        "systems": "systems_292"
       },
       "locked": {
         "lastModified": 1731533236,
@@ -86269,15 +87409,15 @@
     },
     "forge": {
       "inputs": {
-        "crate2nix": "crate2nix_305",
-        "devenv": "devenv_103",
-        "fenix": "fenix_103",
-        "flake-parts": "flake-parts_509",
+        "crate2nix": "crate2nix_308",
+        "devenv": "devenv_104",
+        "fenix": "fenix_104",
+        "flake-parts": "flake-parts_514",
         "nixpkgs": [
           "tatara",
           "nixpkgs"
         ],
-        "substrate": "substrate_102"
+        "substrate": "substrate_103"
       },
       "locked": {
         "lastModified": 1779784612,
@@ -89168,11 +90308,11 @@
         "substrate": "substrate_90"
       },
       "locked": {
-        "lastModified": 1779943040,
-        "narHash": "sha256-VsAtZyO3eaNPtFtouDEWAdmjVSqZNWRuxc+nck17PgU=",
+        "lastModified": 1779949459,
+        "narHash": "sha256-BTyzWOI+nwMF+033RwzPsFV8c7YtW1QdAAxHZt8OdDM=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "85d89b78c50a80a565f1e82df855f9ddfd98d7a8",
+        "rev": "3371789ae334b8fea9533f2c3ac0e86d849437c6",
         "type": "github"
       },
       "original": {
@@ -89194,11 +90334,11 @@
         "substrate": "substrate_91"
       },
       "locked": {
-        "lastModified": 1779939848,
-        "narHash": "sha256-8xkJT1KASkEFQZNLo/MxaYxq60g3L0y7w6vD+PBGq3w=",
+        "lastModified": 1779943040,
+        "narHash": "sha256-VsAtZyO3eaNPtFtouDEWAdmjVSqZNWRuxc+nck17PgU=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "a9a917a0284d738d1907d05dc9f999e00f52a459",
+        "rev": "85d89b78c50a80a565f1e82df855f9ddfd98d7a8",
         "type": "github"
       },
       "original": {
@@ -89222,11 +90362,11 @@
         "substrate": "substrate_92"
       },
       "locked": {
-        "lastModified": 1779928265,
-        "narHash": "sha256-pBL2OlhQE8KFPta3b0S8TeRtoXlW6zyObuiMablPMuE=",
+        "lastModified": 1779939848,
+        "narHash": "sha256-8xkJT1KASkEFQZNLo/MxaYxq60g3L0y7w6vD+PBGq3w=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "7c120efe6e6e0014cff932a2bf9a2938c9342acf",
+        "rev": "a9a917a0284d738d1907d05dc9f999e00f52a459",
         "type": "github"
       },
       "original": {
@@ -89252,11 +90392,11 @@
         "substrate": "substrate_93"
       },
       "locked": {
-        "lastModified": 1779924952,
-        "narHash": "sha256-z6NPKD2Nv0tx7blrqFMyj4Z9c1FFNTmxhRq5Mt3ccWw=",
+        "lastModified": 1779928265,
+        "narHash": "sha256-pBL2OlhQE8KFPta3b0S8TeRtoXlW6zyObuiMablPMuE=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "70774a2f14b3886d164a023b5b46a3ce6cfed2bf",
+        "rev": "7c120efe6e6e0014cff932a2bf9a2938c9342acf",
         "type": "github"
       },
       "original": {
@@ -89284,11 +90424,11 @@
         "substrate": "substrate_94"
       },
       "locked": {
-        "lastModified": 1779918110,
-        "narHash": "sha256-J88fysMLmtQlKkFRe+bxJvyrSneQ/P0VDYxkyGPkS5g=",
+        "lastModified": 1779924952,
+        "narHash": "sha256-z6NPKD2Nv0tx7blrqFMyj4Z9c1FFNTmxhRq5Mt3ccWw=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "36f17525f0d1411d4f4a8cf9318923e754b9547f",
+        "rev": "70774a2f14b3886d164a023b5b46a3ce6cfed2bf",
         "type": "github"
       },
       "original": {
@@ -89318,11 +90458,11 @@
         "substrate": "substrate_95"
       },
       "locked": {
-        "lastModified": 1779911156,
-        "narHash": "sha256-7KHAuFPGyIeBDlBqqucgq5H2c88yfpiwXbUpCI1y+fc=",
+        "lastModified": 1779918110,
+        "narHash": "sha256-J88fysMLmtQlKkFRe+bxJvyrSneQ/P0VDYxkyGPkS5g=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "bda21f3fe6428dfbd199ba34c780f22ccd1fe23b",
+        "rev": "36f17525f0d1411d4f4a8cf9318923e754b9547f",
         "type": "github"
       },
       "original": {
@@ -89354,11 +90494,11 @@
         "substrate": "substrate_96"
       },
       "locked": {
-        "lastModified": 1779906329,
-        "narHash": "sha256-djc6sNsKnmcOmmbWeG4koQpsNzAuQDLh5nMsHY1Tl+I=",
+        "lastModified": 1779911156,
+        "narHash": "sha256-7KHAuFPGyIeBDlBqqucgq5H2c88yfpiwXbUpCI1y+fc=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "6eca261a6d9b7997b197c51d7da6e71c5dceea97",
+        "rev": "bda21f3fe6428dfbd199ba34c780f22ccd1fe23b",
         "type": "github"
       },
       "original": {
@@ -89392,11 +90532,11 @@
         "substrate": "substrate_97"
       },
       "locked": {
-        "lastModified": 1779901486,
-        "narHash": "sha256-BCk6sMM7/jLr2vWv7UBB2MHBCghZG8lrJU7EbDR2hOk=",
+        "lastModified": 1779906329,
+        "narHash": "sha256-djc6sNsKnmcOmmbWeG4koQpsNzAuQDLh5nMsHY1Tl+I=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "81e09802a1813b787f537da8f87827f3fcc37460",
+        "rev": "6eca261a6d9b7997b197c51d7da6e71c5dceea97",
         "type": "github"
       },
       "original": {
@@ -89473,11 +90613,11 @@
         "substrate": "substrate_98"
       },
       "locked": {
-        "lastModified": 1779896817,
-        "narHash": "sha256-5CLOmsdinLHQO+0mOZzjwVpLUdBUU7vsGkzlX0GdGh0=",
+        "lastModified": 1779901486,
+        "narHash": "sha256-BCk6sMM7/jLr2vWv7UBB2MHBCghZG8lrJU7EbDR2hOk=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "8f6f19fe3fa93b46aae78d1ceaee045620bc99ca",
+        "rev": "81e09802a1813b787f537da8f87827f3fcc37460",
         "type": "github"
       },
       "original": {
@@ -89515,11 +90655,11 @@
         "substrate": "substrate_99"
       },
       "locked": {
-        "lastModified": 1779891571,
-        "narHash": "sha256-9My/bNV4/gIW8UoeMPp37c80s9LxLmAm8SgJe8dEpRo=",
+        "lastModified": 1779896817,
+        "narHash": "sha256-5CLOmsdinLHQO+0mOZzjwVpLUdBUU7vsGkzlX0GdGh0=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "532d033914c5659951e1e73bf412694e5fc53003",
+        "rev": "8f6f19fe3fa93b46aae78d1ceaee045620bc99ca",
         "type": "github"
       },
       "original": {
@@ -89559,11 +90699,11 @@
         "substrate": "substrate_100"
       },
       "locked": {
-        "lastModified": 1779887675,
-        "narHash": "sha256-ZxsmVX0QboNIgx0OqoWj9sFjqHBMsRIQB+1BWCv/vZA=",
+        "lastModified": 1779891571,
+        "narHash": "sha256-9My/bNV4/gIW8UoeMPp37c80s9LxLmAm8SgJe8dEpRo=",
         "owner": "pleme-io",
         "repo": "gen",
-        "rev": "236e14951803762be1d25a6b8bd918c680fc2119",
+        "rev": "532d033914c5659951e1e73bf412694e5fc53003",
         "type": "github"
       },
       "original": {
@@ -89603,6 +90743,54 @@
           "nixpkgs"
         ],
         "substrate": "substrate_101"
+      },
+      "locked": {
+        "lastModified": 1779887675,
+        "narHash": "sha256-ZxsmVX0QboNIgx0OqoWj9sFjqHBMsRIQB+1BWCv/vZA=",
+        "owner": "pleme-io",
+        "repo": "gen",
+        "rev": "236e14951803762be1d25a6b8bd918c680fc2119",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pleme-io",
+        "repo": "gen",
+        "type": "github"
+      }
+    },
+    "gen_94": {
+      "inputs": {
+        "crate2nix": "crate2nix_303",
+        "flake-utils": "flake-utils_189",
+        "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "nixpkgs"
+        ],
+        "substrate": "substrate_102"
       },
       "locked": {
         "lastModified": 1779867138,
@@ -89711,13 +90899,20 @@
       }
     },
     "ghostty_102": {
-      "flake": false,
+      "inputs": {
+        "flake-compat": "flake-compat_509",
+        "home-manager": "home-manager_102",
+        "nixpkgs": "nixpkgs_712",
+        "systems": "systems_291",
+        "zig": "zig_203",
+        "zon2nix": "zon2nix_102"
+      },
       "locked": {
-        "lastModified": 1779069789,
-        "narHash": "sha256-ojo+gso45/6CVSuqfSVnlWpQ4d0QeLgwok+v/g3yu0E=",
+        "lastModified": 1777773742,
+        "narHash": "sha256-dZFc+8az7BUIs8+v45XqNnY5G6oXEwVfVVHZQuATSGQ=",
         "owner": "ghostty-org",
         "repo": "ghostty",
-        "rev": "4b7bf0b20e3baf9c1ba10c63f2ad1fd853faea8f",
+        "rev": "1547dd667ab6d1f4ebcdc7282adc54c95752ee67",
         "type": "github"
       },
       "original": {
@@ -89743,13 +90938,29 @@
       }
     },
     "ghostty_104": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779069789,
+        "narHash": "sha256-ojo+gso45/6CVSuqfSVnlWpQ4d0QeLgwok+v/g3yu0E=",
+        "owner": "ghostty-org",
+        "repo": "ghostty",
+        "rev": "4b7bf0b20e3baf9c1ba10c63f2ad1fd853faea8f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ghostty-org",
+        "repo": "ghostty",
+        "type": "github"
+      }
+    },
+    "ghostty_105": {
       "inputs": {
-        "flake-compat": "flake-compat_512",
-        "home-manager": "home-manager_102",
-        "nixpkgs": "nixpkgs_713",
-        "systems": "systems_290",
-        "zig": "zig_203",
-        "zon2nix": "zon2nix_102"
+        "flake-compat": "flake-compat_517",
+        "home-manager": "home-manager_103",
+        "nixpkgs": "nixpkgs_720",
+        "systems": "systems_293",
+        "zig": "zig_205",
+        "zon2nix": "zon2nix_103"
       },
       "locked": {
         "lastModified": 1777773742,
@@ -89765,14 +90976,14 @@
         "type": "github"
       }
     },
-    "ghostty_105": {
+    "ghostty_106": {
       "inputs": {
-        "flake-compat": "flake-compat_516",
-        "home-manager": "home-manager_103",
-        "nixpkgs": "nixpkgs_718",
-        "systems": "systems_291",
-        "zig": "zig_205",
-        "zon2nix": "zon2nix_103"
+        "flake-compat": "flake-compat_521",
+        "home-manager": "home-manager_104",
+        "nixpkgs": "nixpkgs_725",
+        "systems": "systems_294",
+        "zig": "zig_207",
+        "zon2nix": "zon2nix_104"
       },
       "locked": {
         "lastModified": 1777773742,
@@ -110784,14 +111995,64 @@
     "git-hooks_404": {
       "inputs": {
         "flake-compat": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "cachix",
           "flake-compat"
         ],
         "gitignore": "gitignore_706",
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "cachix",
           "nixpkgs"
@@ -110814,23 +112075,79 @@
     "git-hooks_405": {
       "inputs": {
         "flake-compat": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
+          "crate2nix",
+          "cachix",
           "flake-compat"
         ],
         "gitignore": "gitignore_708",
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
+          "crate2nix",
+          "cachix",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1778507602,
-        "narHash": "sha256-kTwur1wV+01SdqskVMSo6JMEpg71ps3HpbFY2GsflKs=",
+        "lastModified": 1765404074,
+        "narHash": "sha256-+ZDU2d+vzWkEJiqprvV5PR26DVFN2vgddwG5SnPZcUM=",
         "owner": "cachix",
         "repo": "git-hooks.nix",
-        "rev": "61ab0e80d9c7ab14c256b5b453d8b3fb0189ba0a",
+        "rev": "2d6f58930fbcd82f6f9fd59fb6d13e37684ca529",
         "type": "github"
       },
       "original": {
@@ -110842,17 +112159,71 @@
     "git-hooks_406": {
       "inputs": {
         "flake-compat": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
+          "crate2nix_stable",
           "cachix",
           "flake-compat"
         ],
         "gitignore": "gitignore_709",
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
+          "crate2nix_stable",
           "cachix",
           "nixpkgs"
         ]
@@ -110874,25 +112245,75 @@
     "git-hooks_407": {
       "inputs": {
         "flake-compat": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "flake-compat"
         ],
-        "gitignore": "gitignore_711",
+        "gitignore": "gitignore_712",
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1778507602,
-        "narHash": "sha256-kTwur1wV+01SdqskVMSo6JMEpg71ps3HpbFY2GsflKs=",
+        "lastModified": 1776796298,
+        "narHash": "sha256-PcRvlWayisPSjd0UcRQbhG8Oqw78AcPE6x872cPRHN8=",
         "owner": "cachix",
         "repo": "git-hooks.nix",
-        "rev": "61ab0e80d9c7ab14c256b5b453d8b3fb0189ba0a",
+        "rev": "3cfd774b0a530725a077e17354fbdb87ea1c4aad",
         "type": "github"
       },
       "original": {
@@ -110905,19 +112326,13 @@
       "inputs": {
         "flake-compat": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
           "cachix",
           "flake-compat"
         ],
-        "gitignore": "gitignore_712",
+        "gitignore": "gitignore_713",
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
           "cachix",
           "nixpkgs"
@@ -110941,32 +112356,22 @@
       "inputs": {
         "flake-compat": [
           "tatara",
-          "forge",
-          "substrate",
           "devenv",
-          "crate2nix",
-          "crate2nix_stable",
-          "cachix",
           "flake-compat"
         ],
-        "gitignore": "gitignore_713",
+        "gitignore": "gitignore_715",
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
           "devenv",
-          "crate2nix",
-          "crate2nix_stable",
-          "cachix",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1765404074,
-        "narHash": "sha256-+ZDU2d+vzWkEJiqprvV5PR26DVFN2vgddwG5SnPZcUM=",
+        "lastModified": 1778507602,
+        "narHash": "sha256-kTwur1wV+01SdqskVMSo6JMEpg71ps3HpbFY2GsflKs=",
         "owner": "cachix",
         "repo": "git-hooks.nix",
-        "rev": "2d6f58930fbcd82f6f9fd59fb6d13e37684ca529",
+        "rev": "61ab0e80d9c7ab14c256b5b453d8b3fb0189ba0a",
         "type": "github"
       },
       "original": {
@@ -111050,48 +112455,14 @@
         "flake-compat": [
           "tatara",
           "forge",
-          "substrate",
-          "devenv",
+          "crate2nix",
+          "cachix",
           "flake-compat"
         ],
         "gitignore": "gitignore_716",
         "nixpkgs": [
           "tatara",
           "forge",
-          "substrate",
-          "devenv",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1776796298,
-        "narHash": "sha256-PcRvlWayisPSjd0UcRQbhG8Oqw78AcPE6x872cPRHN8=",
-        "owner": "cachix",
-        "repo": "git-hooks.nix",
-        "rev": "3cfd774b0a530725a077e17354fbdb87ea1c4aad",
-        "type": "github"
-      },
-      "original": {
-        "owner": "cachix",
-        "repo": "git-hooks.nix",
-        "type": "github"
-      }
-    },
-    "git-hooks_411": {
-      "inputs": {
-        "flake-compat": [
-          "tatara",
-          "substrate",
-          "devenv",
-          "crate2nix",
-          "cachix",
-          "flake-compat"
-        ],
-        "gitignore": "gitignore_717",
-        "nixpkgs": [
-          "tatara",
-          "substrate",
-          "devenv",
           "crate2nix",
           "cachix",
           "nixpkgs"
@@ -111111,24 +112482,54 @@
         "type": "github"
       }
     },
-    "git-hooks_412": {
+    "git-hooks_411": {
       "inputs": {
         "flake-compat": [
           "tatara",
-          "substrate",
+          "forge",
           "devenv",
-          "crate2nix",
-          "crate2nix_stable",
-          "cachix",
           "flake-compat"
         ],
         "gitignore": "gitignore_718",
         "nixpkgs": [
           "tatara",
+          "forge",
+          "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1778507602,
+        "narHash": "sha256-kTwur1wV+01SdqskVMSo6JMEpg71ps3HpbFY2GsflKs=",
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "rev": "61ab0e80d9c7ab14c256b5b453d8b3fb0189ba0a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "type": "github"
+      }
+    },
+    "git-hooks_412": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
-          "crate2nix_stable",
+          "cachix",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_719",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
           "cachix",
           "nixpkgs"
         ]
@@ -111151,11 +112552,151 @@
       "inputs": {
         "flake-compat": [
           "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "cachix",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_720",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "cachix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1765404074,
+        "narHash": "sha256-+ZDU2d+vzWkEJiqprvV5PR26DVFN2vgddwG5SnPZcUM=",
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "rev": "2d6f58930fbcd82f6f9fd59fb6d13e37684ca529",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "type": "github"
+      }
+    },
+    "git-hooks_414": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "flake-compat"
         ],
-        "gitignore": "gitignore_721",
+        "gitignore": "gitignore_723",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1776796298,
+        "narHash": "sha256-PcRvlWayisPSjd0UcRQbhG8Oqw78AcPE6x872cPRHN8=",
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "rev": "3cfd774b0a530725a077e17354fbdb87ea1c4aad",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "type": "github"
+      }
+    },
+    "git-hooks_415": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "cachix",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_724",
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "cachix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1765404074,
+        "narHash": "sha256-+ZDU2d+vzWkEJiqprvV5PR26DVFN2vgddwG5SnPZcUM=",
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "rev": "2d6f58930fbcd82f6f9fd59fb6d13e37684ca529",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "type": "github"
+      }
+    },
+    "git-hooks_416": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "cachix",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_725",
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "cachix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1765404074,
+        "narHash": "sha256-+ZDU2d+vzWkEJiqprvV5PR26DVFN2vgddwG5SnPZcUM=",
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "rev": "2d6f58930fbcd82f6f9fd59fb6d13e37684ca529",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "type": "github"
+      }
+    },
+    "git-hooks_417": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_728",
         "nixpkgs": [
           "tatara",
           "substrate",
@@ -139286,7 +140827,32 @@
     "gitignore_706": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "cachix",
           "git-hooks",
@@ -139310,7 +140876,32 @@
     "gitignore_707": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "pre-commit-hooks",
           "nixpkgs"
@@ -139333,8 +140924,36 @@
     "gitignore_708": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
+          "crate2nix",
+          "cachix",
           "git-hooks",
           "nixpkgs"
         ]
@@ -139356,9 +140975,36 @@
     "gitignore_709": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
+          "crate2nix_stable",
           "cachix",
           "git-hooks",
           "nixpkgs"
@@ -139425,9 +141071,36 @@
     "gitignore_710": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
+          "crate2nix_stable",
           "pre-commit-hooks",
           "nixpkgs"
         ]
@@ -139449,10 +141122,36 @@
     "gitignore_711": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
-          "git-hooks",
+          "crate2nix",
+          "pre-commit-hooks",
           "nixpkgs"
         ]
       },
@@ -139473,12 +141172,34 @@
     "gitignore_712": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "substrate",
           "devenv",
-          "crate2nix",
-          "cachix",
           "git-hooks",
           "nixpkgs"
         ]
@@ -139501,11 +141222,7 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
-          "crate2nix_stable",
           "cachix",
           "git-hooks",
           "nixpkgs"
@@ -139529,11 +141246,7 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
-          "crate2nix_stable",
           "pre-commit-hooks",
           "nixpkgs"
         ]
@@ -139556,11 +141269,8 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
           "devenv",
-          "crate2nix",
-          "pre-commit-hooks",
+          "git-hooks",
           "nixpkgs"
         ]
       },
@@ -139583,8 +141293,8 @@
         "nixpkgs": [
           "tatara",
           "forge",
-          "substrate",
-          "devenv",
+          "crate2nix",
+          "cachix",
           "git-hooks",
           "nixpkgs"
         ]
@@ -139607,11 +141317,9 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "substrate",
-          "devenv",
+          "forge",
           "crate2nix",
-          "cachix",
-          "git-hooks",
+          "pre-commit-hooks",
           "nixpkgs"
         ]
       },
@@ -139633,11 +141341,8 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "substrate",
+          "forge",
           "devenv",
-          "crate2nix",
-          "crate2nix_stable",
-          "cachix",
           "git-hooks",
           "nixpkgs"
         ]
@@ -139660,11 +141365,12 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
-          "crate2nix_stable",
-          "pre-commit-hooks",
+          "cachix",
+          "git-hooks",
           "nixpkgs"
         ]
       },
@@ -139729,6 +141435,62 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "cachix",
+          "git-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_721": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "pre-commit-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_722": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
@@ -139750,7 +141512,136 @@
         "type": "github"
       }
     },
-    "gitignore_721": {
+    "gitignore_723": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "git-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_724": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "cachix",
+          "git-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_725": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "cachix",
+          "git-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_726": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "pre-commit-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_727": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "pre-commit-hooks",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1709087332,
+        "narHash": "sha256-HG2cCnktfHsKV0s4XW83gU3F57gaTljL9KNSuG6bnQs=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "637db329424fd7e46cf4185293b9cc8c88c95394",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
+    "gitignore_728": {
       "inputs": {
         "nixpkgs": [
           "tatara",
@@ -141109,6 +143000,55 @@
     "home-manager_102": {
       "inputs": {
         "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "ghostty",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770586272,
+        "narHash": "sha256-Ucci8mu8QfxwzyfER2DQDbvW9t1BnTUJhBmY7ybralo=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "b1f916ba052341edc1f80d4b2399f1092a4873ca",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "type": "github"
+      }
+    },
+    "home-manager_103": {
+      "inputs": {
+        "nixpkgs": [
           "tatara",
           "forge",
           "substrate",
@@ -141131,7 +143071,7 @@
         "type": "github"
       }
     },
-    "home-manager_103": {
+    "home-manager_104": {
       "inputs": {
         "nixpkgs": [
           "tatara",
@@ -148430,7 +150370,55 @@
         "type": "github"
       }
     },
+    "nix-test-runner_309": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1588761593,
+        "narHash": "sha256-FKJykltAN/g3eIceJl4SfDnnyuH2jHImhMrXS2KvGIs=",
+        "owner": "stoeffel",
+        "repo": "nix-test-runner",
+        "rev": "c45d45b11ecef3eb9d834c3b6304c05c49b06ca2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stoeffel",
+        "repo": "nix-test-runner",
+        "type": "github"
+      }
+    },
     "nix-test-runner_31": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1588761593,
+        "narHash": "sha256-FKJykltAN/g3eIceJl4SfDnnyuH2jHImhMrXS2KvGIs=",
+        "owner": "stoeffel",
+        "repo": "nix-test-runner",
+        "rev": "c45d45b11ecef3eb9d834c3b6304c05c49b06ca2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stoeffel",
+        "repo": "nix-test-runner",
+        "type": "github"
+      }
+    },
+    "nix-test-runner_310": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1588761593,
+        "narHash": "sha256-FKJykltAN/g3eIceJl4SfDnnyuH2jHImhMrXS2KvGIs=",
+        "owner": "stoeffel",
+        "repo": "nix-test-runner",
+        "rev": "c45d45b11ecef3eb9d834c3b6304c05c49b06ca2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stoeffel",
+        "repo": "nix-test-runner",
+        "type": "github"
+      }
+    },
+    "nix-test-runner_311": {
       "flake": false,
       "locked": {
         "lastModified": 1588761593,
@@ -150161,6 +152149,208 @@
     "nix_102": {
       "inputs": {
         "flake-compat": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "flake-compat"
+        ],
+        "flake-parts": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "flake-parts"
+        ],
+        "git-hooks-nix": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "git-hooks"
+        ],
+        "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "nixpkgs"
+        ],
+        "nixpkgs-23-11": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv"
+        ],
+        "nixpkgs-regression": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv"
+        ]
+      },
+      "locked": {
+        "lastModified": 1776511668,
+        "narHash": "sha256-g2KEBuHpc3a56c+jPcg0+w6LSuIj6f+zzdztLCOyIhc=",
+        "owner": "cachix",
+        "repo": "nix",
+        "rev": "42d4b7de21c15f28c568410f4383fa06a8458a40",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "ref": "devenv-2.34",
+        "repo": "nix",
+        "type": "github"
+      }
+    },
+    "nix_103": {
+      "inputs": {
+        "flake-compat": [
           "tatara",
           "devenv",
           "flake-compat"
@@ -150204,7 +152394,7 @@
         "type": "github"
       }
     },
-    "nix_103": {
+    "nix_104": {
       "inputs": {
         "flake-compat": [
           "tatara",
@@ -150256,7 +152446,7 @@
         "type": "github"
       }
     },
-    "nix_104": {
+    "nix_105": {
       "inputs": {
         "flake-compat": [
           "tatara",
@@ -150314,7 +152504,7 @@
         "type": "github"
       }
     },
-    "nix_105": {
+    "nix_106": {
       "inputs": {
         "flake-compat": [
           "tatara",
@@ -162181,23 +164371,45 @@
     "nixd_102": {
       "inputs": {
         "flake-parts": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "flake-parts"
         ],
-        "nixpkgs": [
-          "tatara",
-          "devenv",
-          "nixpkgs"
-        ],
+        "nixpkgs": "nixpkgs_713",
         "treefmt-nix": "treefmt-nix_102"
       },
       "locked": {
-        "lastModified": 1778381404,
-        "narHash": "sha256-FqhdOTA8vyoIpkHhbs2cCT7h6EWM7nsLeOYJc1ifQLE=",
+        "lastModified": 1777345723,
+        "narHash": "sha256-BhY3D5DhpDnnUcaY+AL/cpyYX+OIjQgnAkbPLZ08C38=",
         "owner": "nix-community",
         "repo": "nixd",
-        "rev": "e3e45eb76663f522e196b7f0cf34cab201db7779",
+        "rev": "6bf30951a3dc407a798d30db427e3f96ac9b39f5",
         "type": "github"
       },
       "original": {
@@ -162210,13 +164422,11 @@
       "inputs": {
         "flake-parts": [
           "tatara",
-          "forge",
           "devenv",
           "flake-parts"
         ],
         "nixpkgs": [
           "tatara",
-          "forge",
           "devenv",
           "nixpkgs"
         ],
@@ -162241,12 +164451,42 @@
         "flake-parts": [
           "tatara",
           "forge",
+          "devenv",
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "devenv",
+          "nixpkgs"
+        ],
+        "treefmt-nix": "treefmt-nix_104"
+      },
+      "locked": {
+        "lastModified": 1778381404,
+        "narHash": "sha256-FqhdOTA8vyoIpkHhbs2cCT7h6EWM7nsLeOYJc1ifQLE=",
+        "owner": "nix-community",
+        "repo": "nixd",
+        "rev": "e3e45eb76663f522e196b7f0cf34cab201db7779",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "nixd",
+        "type": "github"
+      }
+    },
+    "nixd_105": {
+      "inputs": {
+        "flake-parts": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "flake-parts"
         ],
-        "nixpkgs": "nixpkgs_714",
-        "treefmt-nix": "treefmt-nix_104"
+        "nixpkgs": "nixpkgs_721",
+        "treefmt-nix": "treefmt-nix_105"
       },
       "locked": {
         "lastModified": 1777345723,
@@ -162262,7 +164502,7 @@
         "type": "github"
       }
     },
-    "nixd_105": {
+    "nixd_106": {
       "inputs": {
         "flake-parts": [
           "tatara",
@@ -162270,8 +164510,8 @@
           "devenv",
           "flake-parts"
         ],
-        "nixpkgs": "nixpkgs_719",
-        "treefmt-nix": "treefmt-nix_105"
+        "nixpkgs": "nixpkgs_726",
+        "treefmt-nix": "treefmt-nix_106"
       },
       "locked": {
         "lastModified": 1777345723,
@@ -176113,22 +178353,6 @@
     },
     "nixpkgs_711": {
       "locked": {
-        "lastModified": 1765186076,
-        "narHash": "sha256-hM20uyap1a0M9d344I692r+ik4gTMyj60cQWO+hAYP8=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "addf7cf5f383a3101ecfba091b98d0a1263dc9b8",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_712": {
-      "locked": {
         "lastModified": 1769433173,
         "narHash": "sha256-Gf1dFYgD344WZ3q0LPlRoWaNdNQq8kSBDLEWulRQSEs=",
         "owner": "NixOS",
@@ -176143,7 +178367,7 @@
         "type": "github"
       }
     },
-    "nixpkgs_713": {
+    "nixpkgs_712": {
       "locked": {
         "lastModified": 1770537093,
         "narHash": "sha256-XV30uo8tXuxdzuV8l3sojmlPRLd/8tpMsOp4lNzLGUo=",
@@ -176156,7 +178380,7 @@
         "url": "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz"
       }
     },
-    "nixpkgs_714": {
+    "nixpkgs_713": {
       "locked": {
         "lastModified": 1776877367,
         "narHash": "sha256-wMN1gM00sUQ2KC9CNr/XEOGdfOrl67PabIRv9AYayTo=",
@@ -176169,7 +178393,7 @@
         "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
       }
     },
-    "nixpkgs_715": {
+    "nixpkgs_714": {
       "locked": {
         "lastModified": 1765186076,
         "narHash": "sha256-hM20uyap1a0M9d344I692r+ik4gTMyj60cQWO+hAYP8=",
@@ -176181,6 +178405,22 @@
       "original": {
         "owner": "NixOS",
         "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_715": {
+      "locked": {
+        "lastModified": 1769433173,
+        "narHash": "sha256-Gf1dFYgD344WZ3q0LPlRoWaNdNQq8kSBDLEWulRQSEs=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "13b0f9e6ac78abbbb736c635d87845c4f4bee51b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -176203,6 +178443,38 @@
     },
     "nixpkgs_717": {
       "locked": {
+        "lastModified": 1765186076,
+        "narHash": "sha256-hM20uyap1a0M9d344I692r+ik4gTMyj60cQWO+hAYP8=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "addf7cf5f383a3101ecfba091b98d0a1263dc9b8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_718": {
+      "locked": {
+        "lastModified": 1765186076,
+        "narHash": "sha256-hM20uyap1a0M9d344I692r+ik4gTMyj60cQWO+hAYP8=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "addf7cf5f383a3101ecfba091b98d0a1263dc9b8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_719": {
+      "locked": {
         "lastModified": 1769433173,
         "narHash": "sha256-Gf1dFYgD344WZ3q0LPlRoWaNdNQq8kSBDLEWulRQSEs=",
         "owner": "NixOS",
@@ -176215,32 +178487,6 @@
         "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
-      }
-    },
-    "nixpkgs_718": {
-      "locked": {
-        "lastModified": 1770537093,
-        "narHash": "sha256-XV30uo8tXuxdzuV8l3sojmlPRLd/8tpMsOp4lNzLGUo=",
-        "rev": "fef9403a3e4d31b0a23f0bacebbec52c248fbb51",
-        "type": "tarball",
-        "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre942631.fef9403a3e4d/nixexprs.tar.xz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz"
-      }
-    },
-    "nixpkgs_719": {
-      "locked": {
-        "lastModified": 1776877367,
-        "narHash": "sha256-wMN1gM00sUQ2KC9CNr/XEOGdfOrl67PabIRv9AYayTo=",
-        "rev": "0726a0ecb6d4e08f6adced58726b95db924cef57",
-        "type": "tarball",
-        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.05pre985613.0726a0ecb6d4/nixexprs.tar.xz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
       }
     },
     "nixpkgs_72": {
@@ -176257,6 +178503,106 @@
         "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
+      }
+    },
+    "nixpkgs_720": {
+      "locked": {
+        "lastModified": 1770537093,
+        "narHash": "sha256-XV30uo8tXuxdzuV8l3sojmlPRLd/8tpMsOp4lNzLGUo=",
+        "rev": "fef9403a3e4d31b0a23f0bacebbec52c248fbb51",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre942631.fef9403a3e4d/nixexprs.tar.xz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz"
+      }
+    },
+    "nixpkgs_721": {
+      "locked": {
+        "lastModified": 1776877367,
+        "narHash": "sha256-wMN1gM00sUQ2KC9CNr/XEOGdfOrl67PabIRv9AYayTo=",
+        "rev": "0726a0ecb6d4e08f6adced58726b95db924cef57",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.05pre985613.0726a0ecb6d4/nixexprs.tar.xz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
+      }
+    },
+    "nixpkgs_722": {
+      "locked": {
+        "lastModified": 1765186076,
+        "narHash": "sha256-hM20uyap1a0M9d344I692r+ik4gTMyj60cQWO+hAYP8=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "addf7cf5f383a3101ecfba091b98d0a1263dc9b8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_723": {
+      "locked": {
+        "lastModified": 1765186076,
+        "narHash": "sha256-hM20uyap1a0M9d344I692r+ik4gTMyj60cQWO+hAYP8=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "addf7cf5f383a3101ecfba091b98d0a1263dc9b8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_724": {
+      "locked": {
+        "lastModified": 1769433173,
+        "narHash": "sha256-Gf1dFYgD344WZ3q0LPlRoWaNdNQq8kSBDLEWulRQSEs=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "13b0f9e6ac78abbbb736c635d87845c4f4bee51b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_725": {
+      "locked": {
+        "lastModified": 1770537093,
+        "narHash": "sha256-XV30uo8tXuxdzuV8l3sojmlPRLd/8tpMsOp4lNzLGUo=",
+        "rev": "fef9403a3e4d31b0a23f0bacebbec52c248fbb51",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre942631.fef9403a3e4d/nixexprs.tar.xz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz"
+      }
+    },
+    "nixpkgs_726": {
+      "locked": {
+        "lastModified": 1776877367,
+        "narHash": "sha256-wMN1gM00sUQ2KC9CNr/XEOGdfOrl67PabIRv9AYayTo=",
+        "rev": "0726a0ecb6d4e08f6adced58726b95db924cef57",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.05pre985613.0726a0ecb6d4/nixexprs.tar.xz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
       }
     },
     "nixpkgs_73": {
@@ -189178,13 +191524,63 @@
     "pre-commit-hooks_303": {
       "inputs": {
         "flake-compat": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "flake-compat"
         ],
         "gitignore": "gitignore_707",
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "crate2nix",
           "nixpkgs"
         ]
@@ -189206,16 +191602,70 @@
     "pre-commit-hooks_304": {
       "inputs": {
         "flake-compat": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
+          "crate2nix_stable",
           "flake-compat"
         ],
         "gitignore": "gitignore_710",
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
           "crate2nix",
+          "crate2nix_stable",
           "nixpkgs"
         ]
       },
@@ -189236,22 +191686,68 @@
     "pre-commit-hooks_305": {
       "inputs": {
         "flake-compat": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "substrate",
           "devenv",
           "crate2nix",
-          "crate2nix_stable",
           "flake-compat"
         ],
-        "gitignore": "gitignore_714",
+        "gitignore": "gitignore_711",
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "substrate",
           "devenv",
           "crate2nix",
-          "crate2nix_stable",
           "nixpkgs"
         ]
       },
@@ -189273,18 +191769,12 @@
       "inputs": {
         "flake-compat": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
           "flake-compat"
         ],
-        "gitignore": "gitignore_715",
+        "gitignore": "gitignore_714",
         "nixpkgs": [
           "tatara",
-          "forge",
-          "substrate",
-          "devenv",
           "crate2nix",
           "nixpkgs"
         ]
@@ -189307,19 +191797,15 @@
       "inputs": {
         "flake-compat": [
           "tatara",
-          "substrate",
-          "devenv",
+          "forge",
           "crate2nix",
-          "crate2nix_stable",
           "flake-compat"
         ],
-        "gitignore": "gitignore_719",
+        "gitignore": "gitignore_717",
         "nixpkgs": [
           "tatara",
-          "substrate",
-          "devenv",
+          "forge",
           "crate2nix",
-          "crate2nix_stable",
           "nixpkgs"
         ]
       },
@@ -189341,14 +191827,52 @@
       "inputs": {
         "flake-compat": [
           "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_721",
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1769069492,
+        "narHash": "sha256-Efs3VUPelRduf3PpfPP2ovEB4CXT7vHf8W+xc49RL/U=",
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "rev": "a1ef738813b15cf8ec759bdff5761b027e3e1d23",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "type": "github"
+      }
+    },
+    "pre-commit-hooks_309": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
           "flake-compat"
         ],
-        "gitignore": "gitignore_720",
+        "gitignore": "gitignore_722",
         "nixpkgs": [
           "tatara",
+          "forge",
           "substrate",
           "devenv",
           "crate2nix",
@@ -189419,6 +191943,72 @@
           "gen",
           "substrate",
           "gen",
+          "crate2nix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1769069492,
+        "narHash": "sha256-Efs3VUPelRduf3PpfPP2ovEB4CXT7vHf8W+xc49RL/U=",
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "rev": "a1ef738813b15cf8ec759bdff5761b027e3e1d23",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "type": "github"
+      }
+    },
+    "pre-commit-hooks_310": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_726",
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "crate2nix_stable",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1769069492,
+        "narHash": "sha256-Efs3VUPelRduf3PpfPP2ovEB4CXT7vHf8W+xc49RL/U=",
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "rev": "a1ef738813b15cf8ec759bdff5761b027e3e1d23",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "type": "github"
+      }
+    },
+    "pre-commit-hooks_311": {
+      "inputs": {
+        "flake-compat": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "crate2nix",
+          "flake-compat"
+        ],
+        "gitignore": "gitignore_727",
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
           "crate2nix",
           "nixpkgs"
         ]
@@ -193408,11 +195998,11 @@
     "rust-analyzer-src_101": {
       "flake": false,
       "locked": {
-        "lastModified": 1779742949,
-        "narHash": "sha256-Dk0hnFTXbmNmigsJyQkCz2NEEgtpe+MN500dPnki9Ic=",
+        "lastModified": 1779827300,
+        "narHash": "sha256-J6pHxKoZzWCrAvOVInwBcYYWix/NWwM10Ad+i29Qc5s=",
         "owner": "rust-lang",
         "repo": "rust-analyzer",
-        "rev": "462d95ca60fa7360b44258be94105bc20e203684",
+        "rev": "c3af07ad84d68adc5e652e86f0c20009caa29014",
         "type": "github"
       },
       "original": {
@@ -193442,6 +196032,23 @@
     "rust-analyzer-src_103": {
       "flake": false,
       "locked": {
+        "lastModified": 1779742949,
+        "narHash": "sha256-Dk0hnFTXbmNmigsJyQkCz2NEEgtpe+MN500dPnki9Ic=",
+        "owner": "rust-lang",
+        "repo": "rust-analyzer",
+        "rev": "462d95ca60fa7360b44258be94105bc20e203684",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rust-lang",
+        "ref": "nightly",
+        "repo": "rust-analyzer",
+        "type": "github"
+      }
+    },
+    "rust-analyzer-src_104": {
+      "flake": false,
+      "locked": {
         "lastModified": 1779616926,
         "narHash": "sha256-0XU9z2w0guTsnYiudijlc5tLoHESldL/X1yPCpTZByY=",
         "owner": "rust-lang",
@@ -193456,7 +196063,7 @@
         "type": "github"
       }
     },
-    "rust-analyzer-src_104": {
+    "rust-analyzer-src_105": {
       "flake": false,
       "locked": {
         "lastModified": 1779742949,
@@ -195279,17 +197886,43 @@
     "rust-overlay_102": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1779074409,
-        "narHash": "sha256-6aXy8Ga41iLVM8ibddFU1O5+wYWcBGNEfZzZuL91eIc=",
+        "lastModified": 1777778183,
+        "narHash": "sha256-Lqv9MZO0XAGcMbXJU+ULBSMD41Pf391uJehylUQKe7Y=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "2a77b5b1dc952f214e8102acdef1622b68515560",
+        "rev": "dbba5f888c82ef3ce594c451c33ac2474eb80847",
         "type": "github"
       },
       "original": {
@@ -195302,7 +197935,6 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "forge",
           "devenv",
           "nixpkgs"
         ]
@@ -195326,6 +197958,29 @@
         "nixpkgs": [
           "tatara",
           "forge",
+          "devenv",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1779074409,
+        "narHash": "sha256-6aXy8Ga41iLVM8ibddFU1O5+wYWcBGNEfZzZuL91eIc=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "2a77b5b1dc952f214e8102acdef1622b68515560",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "rust-overlay_105": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "forge",
           "substrate",
           "devenv",
           "nixpkgs"
@@ -195345,7 +198000,7 @@
         "type": "github"
       }
     },
-    "rust-overlay_105": {
+    "rust-overlay_106": {
       "inputs": {
         "nixpkgs": [
           "tatara",
@@ -198830,11 +201485,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779883611,
-        "narHash": "sha256-sjAy6TUyc/gIN9uk1bLyVK2A+WIap2Qt2feAXVTJGmo=",
+        "lastModified": 1779890377,
+        "narHash": "sha256-xFqRLR7vcm5ZsLNmlSC5jQ/wfM/a7cLcCIu0CTJbhd8=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "f2a05590584fb8d2ddb09a7b1afab06f2e28277b",
+        "rev": "248d736d6776a82bef23f6c11037e1dde257a413",
         "type": "github"
       },
       "original": {
@@ -198849,7 +201504,59 @@
         "devenv": "devenv_101",
         "fenix": "fenix_102",
         "flake-parts": "flake-parts_504",
+        "flake-utils": "flake-utils_188",
+        "gen": "gen_94",
         "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1779883611,
+        "narHash": "sha256-sjAy6TUyc/gIN9uk1bLyVK2A+WIap2Qt2feAXVTJGmo=",
+        "owner": "pleme-io",
+        "repo": "substrate",
+        "rev": "f2a05590584fb8d2ddb09a7b1afab06f2e28277b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pleme-io",
+        "repo": "substrate",
+        "type": "github"
+      }
+    },
+    "substrate_102": {
+      "inputs": {
+        "crate2nix": "crate2nix_304",
+        "devenv": "devenv_102",
+        "fenix": "fenix_103",
+        "flake-parts": "flake-parts_509",
+        "nixpkgs": [
+          "substrate",
+          "gen",
           "substrate",
           "gen",
           "substrate",
@@ -198891,16 +201598,16 @@
         "type": "github"
       }
     },
-    "substrate_102": {
+    "substrate_103": {
       "inputs": {
-        "crate2nix": "crate2nix_307",
-        "devenv": "devenv_104",
+        "crate2nix": "crate2nix_310",
+        "devenv": "devenv_105",
         "fenix": [
           "tatara",
           "forge",
           "fenix"
         ],
-        "flake-parts": "flake-parts_513",
+        "flake-parts": "flake-parts_518",
         "nixpkgs": [
           "tatara",
           "forge",
@@ -198921,12 +201628,12 @@
         "type": "github"
       }
     },
-    "substrate_103": {
+    "substrate_104": {
       "inputs": {
-        "crate2nix": "crate2nix_309",
-        "devenv": "devenv_105",
-        "fenix": "fenix_104",
-        "flake-parts": "flake-parts_517",
+        "crate2nix": "crate2nix_312",
+        "devenv": "devenv_106",
+        "fenix": "fenix_105",
+        "flake-parts": "flake-parts_522",
         "nixpkgs": [
           "tatara",
           "nixpkgs"
@@ -202226,11 +204933,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779947657,
-        "narHash": "sha256-oGefdVmczFT/UIys7YCtsEEknlXVie/uaZPiiUa6vWE=",
+        "lastModified": 1779949706,
+        "narHash": "sha256-2gBCp7D9p6jpwIfWezYGJbf9vKbyg3Z6OMbN66drYgI=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "1599c133e54067b4d6d4e8d5b080415c387dc71e",
+        "rev": "990f91f805c15bedf5dc404caed716f4931f60e6",
         "type": "github"
       },
       "original": {
@@ -202297,11 +205004,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779942460,
-        "narHash": "sha256-RMB8I4PUk19Mzvs+ZCj1kGzKAfWwRZlu++8+vWGvQxw=",
+        "lastModified": 1779947657,
+        "narHash": "sha256-oGefdVmczFT/UIys7YCtsEEknlXVie/uaZPiiUa6vWE=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "ac20afb9091f59cded4c5cea75c656bfc43246fa",
+        "rev": "1599c133e54067b4d6d4e8d5b080415c387dc71e",
         "type": "github"
       },
       "original": {
@@ -202327,11 +205034,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779938106,
-        "narHash": "sha256-0HFa2EtJyVjvdButKoFT9oteJCZdah29F2Y6EKeDK04=",
+        "lastModified": 1779942460,
+        "narHash": "sha256-RMB8I4PUk19Mzvs+ZCj1kGzKAfWwRZlu++8+vWGvQxw=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "5a0df56544d59a90f69ad99756846313bb27c301",
+        "rev": "ac20afb9091f59cded4c5cea75c656bfc43246fa",
         "type": "github"
       },
       "original": {
@@ -202359,11 +205066,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779927345,
-        "narHash": "sha256-uZpE/zb/Y45OUkGOw4ryDnbZ3MsG4eM2s6YRzvHQGY4=",
+        "lastModified": 1779938106,
+        "narHash": "sha256-0HFa2EtJyVjvdButKoFT9oteJCZdah29F2Y6EKeDK04=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "20799560984052d2f7b097c6f3b5a4cb9dbfeb51",
+        "rev": "5a0df56544d59a90f69ad99756846313bb27c301",
         "type": "github"
       },
       "original": {
@@ -202393,11 +205100,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779920814,
-        "narHash": "sha256-yAZOSmmOo6zFNqlfU3WmQs0NK2gGs5VC+pkI83AgkmU=",
+        "lastModified": 1779927345,
+        "narHash": "sha256-uZpE/zb/Y45OUkGOw4ryDnbZ3MsG4eM2s6YRzvHQGY4=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "2c15a8ec74cb51fee90774ff3cb93a9c46f56bf9",
+        "rev": "20799560984052d2f7b097c6f3b5a4cb9dbfeb51",
         "type": "github"
       },
       "original": {
@@ -202429,11 +205136,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779914028,
-        "narHash": "sha256-uEj6sysxb8xPUvExd95MQ+k8iH+fclKEy8yiQOoAJS8=",
+        "lastModified": 1779920814,
+        "narHash": "sha256-yAZOSmmOo6zFNqlfU3WmQs0NK2gGs5VC+pkI83AgkmU=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "cb560f8fd39d4fe6ca99b4a744e48ec6b798c79f",
+        "rev": "2c15a8ec74cb51fee90774ff3cb93a9c46f56bf9",
         "type": "github"
       },
       "original": {
@@ -202467,11 +205174,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779908436,
-        "narHash": "sha256-g4I+yCz4latryVknFEbv+a+JtMX0QALY/4FH/wYJM5U=",
+        "lastModified": 1779914028,
+        "narHash": "sha256-uEj6sysxb8xPUvExd95MQ+k8iH+fclKEy8yiQOoAJS8=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "73938a3ed3186580c2bbf8e6a883086b2c2a2465",
+        "rev": "cb560f8fd39d4fe6ca99b4a744e48ec6b798c79f",
         "type": "github"
       },
       "original": {
@@ -202507,11 +205214,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779903144,
-        "narHash": "sha256-E7ijT13FHIFnK2z8PQV3tanO6wOSfvp9CKHyyrLDUzI=",
+        "lastModified": 1779908436,
+        "narHash": "sha256-g4I+yCz4latryVknFEbv+a+JtMX0QALY/4FH/wYJM5U=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "fdfc13d6add94a0fa55db44dc51d240eca1b6c95",
+        "rev": "73938a3ed3186580c2bbf8e6a883086b2c2a2465",
         "type": "github"
       },
       "original": {
@@ -202549,11 +205256,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779898564,
-        "narHash": "sha256-4HtQBvXeE/DgupUvdC9VllQFPQMk0+IEcz2vSf1Vfw4=",
+        "lastModified": 1779903144,
+        "narHash": "sha256-E7ijT13FHIFnK2z8PQV3tanO6wOSfvp9CKHyyrLDUzI=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "fed5598da54acf38d1762c7b2102df94e0f7ef14",
+        "rev": "fdfc13d6add94a0fa55db44dc51d240eca1b6c95",
         "type": "github"
       },
       "original": {
@@ -202593,11 +205300,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779893791,
-        "narHash": "sha256-cMdcvyb/RBiTzqKP/+XpwMrz6Bub3l1XJ1geIx19PzI=",
+        "lastModified": 1779898564,
+        "narHash": "sha256-4HtQBvXeE/DgupUvdC9VllQFPQMk0+IEcz2vSf1Vfw4=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "1841f763a5ba49c5a1e59ce98ccb1686619b4ad1",
+        "rev": "fed5598da54acf38d1762c7b2102df94e0f7ef14",
         "type": "github"
       },
       "original": {
@@ -202639,11 +205346,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779890377,
-        "narHash": "sha256-xFqRLR7vcm5ZsLNmlSC5jQ/wfM/a7cLcCIu0CTJbhd8=",
+        "lastModified": 1779893791,
+        "narHash": "sha256-cMdcvyb/RBiTzqKP/+XpwMrz6Bub3l1XJ1geIx19PzI=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "248d736d6776a82bef23f6c11037e1dde257a413",
+        "rev": "1841f763a5ba49c5a1e59ce98ccb1686619b4ad1",
         "type": "github"
       },
       "original": {
@@ -205908,7 +208615,6 @@
       }
     },
     "systems_290": {
-      "flake": false,
       "locked": {
         "lastModified": 1681028828,
         "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
@@ -205924,6 +208630,53 @@
       }
     },
     "systems_291": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "systems_292": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "systems_293": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "systems_294": {
       "flake": false,
       "locked": {
         "lastModified": 1681028828,
@@ -207122,14 +209875,14 @@
     },
     "tatara": {
       "inputs": {
-        "crate2nix": "crate2nix_303",
-        "devenv": "devenv_102",
-        "flake-utils": "flake-utils_188",
+        "crate2nix": "crate2nix_306",
+        "devenv": "devenv_103",
+        "flake-utils": "flake-utils_190",
         "forge": "forge",
         "nixpkgs": [
           "nixpkgs"
         ],
-        "substrate": "substrate_103"
+        "substrate": "substrate_104"
       },
       "locked": {
         "lastModified": 1779945856,
@@ -207306,7 +210059,33 @@
     "treefmt-nix_102": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
           "devenv",
           "nixd",
           "nixpkgs"
@@ -207330,7 +210109,6 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
-          "forge",
           "devenv",
           "nixd",
           "nixpkgs"
@@ -207355,7 +210133,6 @@
         "nixpkgs": [
           "tatara",
           "forge",
-          "substrate",
           "devenv",
           "nixd",
           "nixpkgs"
@@ -207376,6 +210153,31 @@
       }
     },
     "treefmt-nix_105": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "forge",
+          "substrate",
+          "devenv",
+          "nixd",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1775636079,
+        "narHash": "sha256-pc20NRoMdiar8oPQceQT47UUZMBTiMdUuWrYu2obUP0=",
+        "owner": "numtide",
+        "repo": "treefmt-nix",
+        "rev": "790751ff7fd3801feeaf96d7dc416a8d581265ba",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "treefmt-nix_106": {
       "inputs": {
         "nixpkgs": [
           "tatara",
@@ -217120,6 +219922,169 @@
     "zig_203": {
       "inputs": {
         "flake-compat": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "ghostty",
+          "flake-compat"
+        ],
+        "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "ghostty",
+          "nixpkgs"
+        ],
+        "systems": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "ghostty",
+          "systems"
+        ]
+      },
+      "locked": {
+        "lastModified": 1776789209,
+        "narHash": "sha256-G6B7Q4TXn7MZ1mB+f9rymjsYF5PLWoSvmbxijb/99bw=",
+        "owner": "mitchellh",
+        "repo": "zig-overlay",
+        "rev": "14fe971844e841297ddd2ce9783d6892b467af39",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mitchellh",
+        "repo": "zig-overlay",
+        "type": "github"
+      }
+    },
+    "zig_204": {
+      "inputs": {
+        "nixpkgs": [
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "devenv",
+          "ghostty",
+          "zon2nix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1777234348,
+        "narHash": "sha256-fKw44a4qbUuI5eTG8k0gPbqMV5TOrjYF35PBzsYgd2U=",
+        "ref": "refs/heads/main",
+        "rev": "2c781c0609ecda600ab98f98cca417bbd981bd53",
+        "revCount": 1677,
+        "type": "git",
+        "url": "https://codeberg.org/jcollie/zig-overlay.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://codeberg.org/jcollie/zig-overlay.git"
+      }
+    },
+    "zig_205": {
+      "inputs": {
+        "flake-compat": [
           "tatara",
           "forge",
           "substrate",
@@ -217158,7 +220123,7 @@
         "type": "github"
       }
     },
-    "zig_204": {
+    "zig_206": {
       "inputs": {
         "nixpkgs": [
           "tatara",
@@ -217184,7 +220149,7 @@
         "url": "https://codeberg.org/jcollie/zig-overlay.git"
       }
     },
-    "zig_205": {
+    "zig_207": {
       "inputs": {
         "flake-compat": [
           "tatara",
@@ -217222,7 +220187,7 @@
         "type": "github"
       }
     },
-    "zig_206": {
+    "zig_208": {
       "inputs": {
         "nixpkgs": [
           "tatara",
@@ -222142,8 +225107,32 @@
     "zon2nix_102": {
       "inputs": {
         "nixpkgs": [
-          "tatara",
-          "forge",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
+          "substrate",
+          "gen",
           "substrate",
           "devenv",
           "ghostty",
@@ -222170,12 +225159,39 @@
       "inputs": {
         "nixpkgs": [
           "tatara",
+          "forge",
           "substrate",
           "devenv",
           "ghostty",
           "nixpkgs"
         ],
         "zig": "zig_206"
+      },
+      "locked": {
+        "lastModified": 1777314365,
+        "narHash": "sha256-eLxQaD0wc96Neqkln8wHS0rNq/chPODifFkhwrwilEU=",
+        "owner": "jcollie",
+        "repo": "zon2nix",
+        "rev": "a5a1d412ad1ab6305511997bbc92b3a9dd6cb784",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jcollie",
+        "ref": "main",
+        "repo": "zon2nix",
+        "type": "github"
+      }
+    },
+    "zon2nix_104": {
+      "inputs": {
+        "nixpkgs": [
+          "tatara",
+          "substrate",
+          "devenv",
+          "ghostty",
+          "nixpkgs"
+        ],
+        "zig": "zig_208"
       },
       "locked": {
         "lastModified": 1777314365,
