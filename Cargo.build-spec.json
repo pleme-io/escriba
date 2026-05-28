@@ -10098,6 +10098,12 @@
             "version": "0.20.0",
             "rename": "ttf_parser"
           }
+        ],
+        "fontconfig-parser": [
+          {
+            "version": "0.5.8",
+            "rename": "fontconfig_parser"
+          }
         ]
       },
       "build_rust_crate_args": {
@@ -10118,6 +10124,12 @@
             {
               "version": "0.20.0",
               "rename": "ttf_parser"
+            }
+          ],
+          "fontconfig-parser": [
+            {
+              "version": "0.5.8",
+              "rename": "fontconfig_parser"
             }
           ]
         },
@@ -19270,6 +19282,12 @@
             "version": "0.3.14",
             "rename": "libc_errno"
           }
+        ],
+        "linux-raw-sys": [
+          {
+            "version": "0.4.15",
+            "rename": "linux_raw_sys"
+          }
         ]
       },
       "build_rust_crate_args": {
@@ -19305,6 +19323,12 @@
             {
               "version": "0.3.14",
               "rename": "libc_errno"
+            }
+          ],
+          "linux-raw-sys": [
+            {
+              "version": "0.4.15",
+              "rename": "linux_raw_sys"
             }
           ]
         },
@@ -19480,6 +19504,12 @@
             "version": "0.3.14",
             "rename": "libc_errno"
           }
+        ],
+        "linux-raw-sys": [
+          {
+            "version": "0.12.1",
+            "rename": "linux_raw_sys"
+          }
         ]
       },
       "build_rust_crate_args": {
@@ -19512,6 +19542,12 @@
             {
               "version": "0.3.14",
               "rename": "libc_errno"
+            }
+          ],
+          "linux-raw-sys": [
+            {
+              "version": "0.12.1",
+              "rename": "linux_raw_sys"
             }
           ]
         },
@@ -27118,6 +27154,12 @@
             "version": "25.0.0",
             "rename": "wgpu_types"
           }
+        ],
+        "wgpu-core-deps-windows-linux-android": [
+          {
+            "version": "25.0.0",
+            "rename": "wgpu_core_deps_windows_linux_android"
+          }
         ]
       },
       "build_rust_crate_args": {
@@ -27186,6 +27228,12 @@
             {
               "version": "25.0.0",
               "rename": "wgpu_types"
+            }
+          ],
+          "wgpu-core-deps-windows-linux-android": [
+            {
+              "version": "25.0.0",
+              "rename": "wgpu_core_deps_windows_linux_android"
             }
           ]
         },
@@ -28542,6 +28590,60 @@
             "version": "0.6.2",
             "rename": "rwh_06"
           }
+        ],
+        "percent-encoding": [
+          {
+            "version": "2.3.2",
+            "rename": "percent_encoding"
+          }
+        ],
+        "sctk-adwaita": [
+          {
+            "version": "0.10.1",
+            "rename": "sctk_adwaita"
+          }
+        ],
+        "smithay-client-toolkit": [
+          {
+            "version": "0.19.2",
+            "rename": "sctk"
+          }
+        ],
+        "wayland-backend": [
+          {
+            "version": "0.3.15",
+            "rename": "wayland_backend"
+          }
+        ],
+        "wayland-client": [
+          {
+            "version": "0.31.14",
+            "rename": "wayland_client"
+          }
+        ],
+        "wayland-protocols": [
+          {
+            "version": "0.32.12",
+            "rename": "wayland_protocols"
+          }
+        ],
+        "wayland-protocols-plasma": [
+          {
+            "version": "0.3.12",
+            "rename": "wayland_protocols_plasma"
+          }
+        ],
+        "x11-dl": [
+          {
+            "version": "2.21.0",
+            "rename": "x11_dl"
+          }
+        ],
+        "xkbcommon-dl": [
+          {
+            "version": "0.4.2",
+            "rename": "xkbcommon_dl"
+          }
         ]
       },
       "build_rust_crate_args": {
@@ -28607,6 +28709,60 @@
             {
               "version": "0.6.2",
               "rename": "rwh_06"
+            }
+          ],
+          "percent-encoding": [
+            {
+              "version": "2.3.2",
+              "rename": "percent_encoding"
+            }
+          ],
+          "sctk-adwaita": [
+            {
+              "version": "0.10.1",
+              "rename": "sctk_adwaita"
+            }
+          ],
+          "smithay-client-toolkit": [
+            {
+              "version": "0.19.2",
+              "rename": "sctk"
+            }
+          ],
+          "wayland-backend": [
+            {
+              "version": "0.3.15",
+              "rename": "wayland_backend"
+            }
+          ],
+          "wayland-client": [
+            {
+              "version": "0.31.14",
+              "rename": "wayland_client"
+            }
+          ],
+          "wayland-protocols": [
+            {
+              "version": "0.32.12",
+              "rename": "wayland_protocols"
+            }
+          ],
+          "wayland-protocols-plasma": [
+            {
+              "version": "0.3.12",
+              "rename": "wayland_protocols_plasma"
+            }
+          ],
+          "x11-dl": [
+            {
+              "version": "2.21.0",
+              "rename": "x11_dl"
+            }
+          ],
+          "xkbcommon-dl": [
+            {
+              "version": "0.4.2",
+              "rename": "xkbcommon_dl"
             }
           ]
         },
