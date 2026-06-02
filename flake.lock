@@ -13741,11 +13741,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1780401413,
-        "narHash": "sha256-WQat3wwq0UZGo3Fy5Gb/Lqrfak5uSopbcrwqQIr+SrY=",
+        "lastModified": 1780418859,
+        "narHash": "sha256-EerzMU+c+HYifgAYZvaw9fuKn8e/yJjJi2kKb/sb/i0=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "964fed5cf914f51ad74bed115f32e8826dd6a0e6",
+        "rev": "4cca4be20b744e8a3e6b519f697ef13de470bfa6",
         "type": "github"
       },
       "original": {
