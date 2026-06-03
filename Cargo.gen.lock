@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "24ae2cf8010e42fbcee8522198b911baa9165ac2e5515d70e666a0c03d8af38a",
+  "cargo_lock_sha256": "839b4b17bd820a0fbf52e819b82a90d6a2bb60025e7f77e25b90819e20eb518b",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -633,7 +633,7 @@
           },
           {
             "name": "unicode_width",
-            "package_key": "unicode-width-0.2.0",
+            "package_key": "unicode-width-0.1.14",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1496,7 +1496,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.0",
+            "package_key": "madori-0.1.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1828,7 +1828,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.0",
+            "package_key": "tatara-lisp-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1838,7 +1838,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.2.0",
+            "package_key": "tatara-lisp-derive-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1924,7 +1924,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.0",
+            "package_key": "madori-0.1.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2098,7 +2098,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.0",
+            "package_key": "tatara-lisp-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2388,7 +2388,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.0",
+            "package_key": "tatara-lisp-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2398,7 +2398,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.2.0",
+            "package_key": "tatara-lisp-derive-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2494,7 +2494,7 @@
           },
           {
             "name": "irodori",
-            "package_key": "irodori-0.1.0",
+            "package_key": "irodori-0.1.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2504,7 +2504,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.0",
+            "package_key": "madori-0.1.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2622,7 +2622,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.0",
+            "package_key": "madori-0.1.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2836,7 +2836,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.0",
+            "package_key": "madori-0.1.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2964,7 +2964,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.0",
+            "package_key": "tatara-lisp-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3867,7 +3867,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "irodori-0.1.0": {
+      "irodori-0.1.1": {
         "runtime_dependencies": [
           {
             "name": "serde",
@@ -4081,7 +4081,7 @@
           "hashbrown"
         ]
       },
-      "madori-0.1.0": {
+      "madori-0.1.2": {
         "runtime_dependencies": [
           {
             "name": "egaku",
@@ -6521,7 +6521,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-lisp-0.2.0": {
+      "tatara-lisp-0.2.3": {
         "runtime_dependencies": [
           {
             "name": "blake3",
@@ -6557,7 +6557,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.2.0",
+            "package_key": "tatara-lisp-derive-0.2.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -6581,7 +6581,7 @@
           "default"
         ]
       },
-      "tatara-lisp-derive-0.2.0": {
+      "tatara-lisp-derive-0.2.3": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -23655,7 +23655,7 @@
       "proc_macro": true,
       "build_script": "build.rs"
     },
-    "irodori-0.1.0": {
+    "irodori-0.1.1": {
       "edition": "2024"
     },
     "is_terminal_polyfill-1.70.2": {
@@ -23706,7 +23706,7 @@
     "lru-0.12.5": {
       "edition": "2015"
     },
-    "madori-0.1.0": {
+    "madori-0.1.2": {
       "edition": "2024"
     },
     "malloc_buf-0.0.6": {
@@ -24020,10 +24020,10 @@
     "sys-locale-0.3.2": {
       "edition": "2018"
     },
-    "tatara-lisp-0.2.0": {
+    "tatara-lisp-0.2.3": {
       "edition": "2021"
     },
-    "tatara-lisp-derive-0.2.0": {
+    "tatara-lisp-derive-0.2.3": {
       "edition": "2021",
       "proc_macro": true
     },
@@ -24410,11 +24410,11 @@
   },
   "git_nar_sha256": {
     "garasu-0.1.0": "sha256-7Xz0/2bYS58l0U3TvVGsSJSm4YGsNRq3gLzvL6tciZo=",
-    "irodori-0.1.0": "sha256-G+LhnD9yBTwdufTLeu/WCEE7uGEq8R0I8kxM13vv/VI=",
-    "madori-0.1.0": "sha256-B/bHXNPwXwLGLYjQVTv5Ds/OzW6YqWJSAHuaRB3HSzo=",
+    "irodori-0.1.1": "sha256-p58w6c1lPDftGm1+30u/t5jGTWDFRB8A9edz915YGY0=",
+    "madori-0.1.2": "sha256-63iTmh/CD4A8k1XRooEj9XnhChY2CwQHE2nMRUJ5imU=",
     "shikumi-0.1.0": "sha256-pWSHhsRS1Ol+A3mZnflVsNWscNJgSjg5w/iuVBFFLR4=",
-    "tatara-lisp-0.2.0": "sha256-fCLA2wizjf/zB1yixJX9DG68lueNR8AZL4fQrYW0Sto=",
-    "tatara-lisp-derive-0.2.0": "sha256-fCLA2wizjf/zB1yixJX9DG68lueNR8AZL4fQrYW0Sto="
+    "tatara-lisp-0.2.3": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y=",
+    "tatara-lisp-derive-0.2.3": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y="
   },
   "flake_metadata": {}
 }
