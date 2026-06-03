@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "839b4b17bd820a0fbf52e819b82a90d6a2bb60025e7f77e25b90819e20eb518b",
+  "cargo_lock_sha256": "0222091a791979a89f5bac401f9bf75ddc4309067377cb38e0995c8718a85745",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -448,6 +448,16 @@
       "chrono-0.4.44": {
         "runtime_dependencies": [
           {
+            "name": "iana_time_zone",
+            "package_key": "iana-time-zone-0.1.65",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": "cfg(unix)",
+            "tree": "target"
+          },
+          {
             "name": "num_traits",
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
@@ -456,10 +466,34 @@
             "optional": false,
             "target": null,
             "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
           }
         ],
         "build_dependencies": [],
-        "features": []
+        "features": [
+          "alloc",
+          "clock",
+          "default",
+          "iana-time-zone",
+          "js-sys",
+          "now",
+          "oldtime",
+          "serde",
+          "std",
+          "wasm-bindgen",
+          "wasmbind",
+          "winapi",
+          "windows-link"
+        ]
       },
       "clap-4.6.1": {
         "runtime_dependencies": [
@@ -1506,7 +1540,7 @@
           },
           {
             "name": "shikumi",
-            "package_key": "shikumi-0.1.0",
+            "package_key": "shikumi-0.1.1",
             "kind": "normal",
             "features": [
               "cli"
@@ -1818,7 +1852,7 @@
           },
           {
             "name": "shikumi",
-            "package_key": "shikumi-0.1.0",
+            "package_key": "shikumi-0.1.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3284,6 +3318,195 @@
           "default"
         ]
       },
+      "gen-macros-0.1.8": {
+        "runtime_dependencies": [
+          {
+            "name": "proc_macro2",
+            "package_key": "proc-macro2-1.0.106",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "quote",
+            "package_key": "quote-1.0.45",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "syn",
+            "package_key": "syn-2.0.117",
+            "kind": "normal",
+            "features": [
+              "full",
+              "extra-traits"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "gen-platform-0.1.8": {
+        "runtime_dependencies": [
+          {
+            "name": "gen_macros",
+            "package_key": "gen-macros-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          },
+          {
+            "name": "gen_types",
+            "package_key": "gen-types-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "inventory",
+            "package_key": "inventory-0.3.24",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.150",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.18",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "gen-types-0.1.8": {
+        "runtime_dependencies": [
+          {
+            "name": "blake3",
+            "package_key": "blake3-1.8.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "chrono",
+            "package_key": "chrono-0.4.44",
+            "kind": "normal",
+            "features": [
+              "serde"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "indexmap",
+            "package_key": "indexmap-2.14.0",
+            "kind": "normal",
+            "features": [
+              "serde"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "inventory",
+            "package_key": "inventory-0.3.24",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.150",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.18",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "getrandom-0.3.4": {
         "runtime_dependencies": [
           {
@@ -3864,6 +4087,11 @@
             "tree": "target"
           }
         ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "inventory-0.3.24": {
+        "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
       },
@@ -6027,6 +6255,78 @@
             "tree": "target"
           },
           {
+            "name": "figment",
+            "package_key": "figment-0.10.19",
+            "kind": "normal",
+            "features": [
+              "env",
+              "yaml",
+              "toml"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "notify",
+            "package_key": "notify-8.2.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.18",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tracing",
+            "package_key": "tracing-0.1.44",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "shikumi-0.1.1": {
+        "runtime_dependencies": [
+          {
+            "name": "arc_swap",
+            "package_key": "arc-swap-1.9.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "async_trait",
             "package_key": "async-trait-0.1.89",
             "kind": "normal",
@@ -6063,15 +6363,43 @@
             "tree": "target"
           },
           {
+            "name": "gen_platform",
+            "package_key": "gen-platform-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "gen_types",
+            "package_key": "gen-types-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "notify",
             "package_key": "notify-8.2.0",
             "kind": "normal",
-            "features": [
-              "macos_kqueue"
-            ],
+            "features": [],
             "uses_default_features": false,
             "optional": false,
             "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "notify",
+            "package_key": "notify-8.2.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(target_os = \"macos\")",
             "tree": "target"
           },
           {
@@ -8148,6 +8476,7 @@
             "runtime_dependencies": [],
             "build_dependencies": [],
             "features": [
+              "default",
               "link"
             ]
           },
@@ -8409,6 +8738,24 @@
             ],
             "build_dependencies": [],
             "features": []
+          },
+          "iana-time-zone-0.1.65": {
+            "runtime_dependencies": [
+              {
+                "name": "core_foundation_sys",
+                "package_key": "core-foundation-sys-0.8.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_vendor = \"apple\")",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": [
+              "fallback"
+            ]
           },
           "kqueue-1.1.1": {
             "runtime_dependencies": [
@@ -10213,6 +10560,7 @@
             "runtime_dependencies": [],
             "build_dependencies": [],
             "features": [
+              "default",
               "link"
             ]
           },
@@ -10479,6 +10827,24 @@
             ],
             "build_dependencies": [],
             "features": []
+          },
+          "iana-time-zone-0.1.65": {
+            "runtime_dependencies": [
+              {
+                "name": "core_foundation_sys",
+                "package_key": "core-foundation-sys-0.8.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_vendor = \"apple\")",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": [
+              "fallback"
+            ]
           },
           "kqueue-1.1.1": {
             "runtime_dependencies": [
@@ -12589,6 +12955,13 @@
             ],
             "build_dependencies": [],
             "features": []
+          },
+          "iana-time-zone-0.1.65": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": [
+              "fallback"
+            ]
           },
           "inotify-0.11.1": {
             "runtime_dependencies": [
@@ -15358,6 +15731,13 @@
             "build_dependencies": [],
             "features": []
           },
+          "iana-time-zone-0.1.65": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": [
+              "fallback"
+            ]
+          },
           "inotify-0.11.1": {
             "runtime_dependencies": [
               {
@@ -18110,6 +18490,13 @@
             ],
             "build_dependencies": [],
             "features": []
+          },
+          "iana-time-zone-0.1.65": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": [
+              "fallback"
+            ]
           },
           "inotify-0.11.1": {
             "runtime_dependencies": [
@@ -20864,6 +21251,13 @@
             "build_dependencies": [],
             "features": []
           },
+          "iana-time-zone-0.1.65": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": [
+              "fallback"
+            ]
+          },
           "inotify-0.11.1": {
             "runtime_dependencies": [
               {
@@ -23191,6 +23585,16 @@
     }
   },
   "per_crate": {
+    "ab_glyph-0.2.32": {
+      "edition": "2021"
+    },
+    "ab_glyph_rasterizer-0.1.10": {
+      "edition": "2021"
+    },
+    "ahash-0.8.12": {
+      "edition": "2018",
+      "build_script": "build.rs"
+    },
     "aho-corasick-1.1.4": {
       "edition": "2021"
     },
@@ -23222,6 +23626,9 @@
     "arrayvec-0.7.6": {
       "edition": "2018"
     },
+    "as-raw-xcb-connection-1.0.1": {
+      "edition": "2021"
+    },
     "ash-0.38.0+1.3.281": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -23242,21 +23649,12 @@
     "bit-vec-0.8.0": {
       "edition": "2015"
     },
-    "bitflags-1.3.2": {
-      "edition": "2018"
-    },
     "bitflags-2.11.1": {
       "edition": "2021"
     },
     "blake3-1.8.5": {
       "edition": "2024",
       "build_script": "build.rs"
-    },
-    "block-0.1.6": {
-      "edition": "2015"
-    },
-    "block2-0.5.1": {
-      "edition": "2021"
     },
     "bytemuck-1.25.0": {
       "edition": "2018"
@@ -23266,6 +23664,12 @@
       "proc_macro": true
     },
     "bytes-1.11.1": {
+      "edition": "2021"
+    },
+    "calloop-0.13.0": {
+      "edition": "2018"
+    },
+    "calloop-wayland-source-0.3.0": {
       "edition": "2021"
     },
     "cassowary-0.3.0": {
@@ -23317,20 +23721,11 @@
     "constant_time_eq-0.4.2": {
       "edition": "2024"
     },
-    "core-foundation-0.9.4": {
-      "edition": "2018"
-    },
-    "core-foundation-sys-0.8.7": {
-      "edition": "2018"
-    },
-    "core-graphics-0.23.2": {
-      "edition": "2018"
-    },
-    "core-graphics-types-0.1.3": {
-      "edition": "2018"
-    },
     "cosmic-text-0.14.2": {
       "edition": "2021"
+    },
+    "cpufeatures-0.3.0": {
+      "edition": "2024"
     },
     "crossterm-0.28.1": {
       "edition": "2021"
@@ -23357,8 +23752,8 @@
     "dirs-sys-0.5.0": {
       "edition": "2015"
     },
-    "dispatch-0.2.0": {
-      "edition": "2018"
+    "dlib-0.5.3": {
+      "edition": "2021"
     },
     "document-features-0.2.12": {
       "edition": "2018",
@@ -23367,6 +23762,9 @@
         "name": "document_features",
         "path": "lib.rs"
       }
+    },
+    "downcast-rs-1.2.1": {
+      "edition": "2015"
     },
     "dpi-0.1.2": {
       "edition": "2021"
@@ -23577,24 +23975,27 @@
     "font-types-0.11.3": {
       "edition": "2021"
     },
+    "fontconfig-parser-0.5.8": {
+      "edition": "2018"
+    },
     "fontdb-0.16.2": {
-      "edition": "2018"
-    },
-    "foreign-types-0.5.0": {
-      "edition": "2018"
-    },
-    "foreign-types-macros-0.2.3": {
-      "edition": "2018",
-      "proc_macro": true
-    },
-    "foreign-types-shared-0.3.1": {
-      "edition": "2018"
-    },
-    "fsevent-sys-4.1.0": {
       "edition": "2018"
     },
     "garasu-0.1.0": {
       "edition": "2024"
+    },
+    "gen-macros-0.1.8": {
+      "edition": "2024",
+      "proc_macro": true
+    },
+    "gen-platform-0.1.8": {
+      "edition": "2024"
+    },
+    "gen-types-0.1.8": {
+      "edition": "2024"
+    },
+    "gethostname-1.1.0": {
+      "edition": "2021"
     },
     "getrandom-0.3.4": {
       "edition": "2021",
@@ -23637,6 +24038,9 @@
     "hexf-parse-0.2.1": {
       "edition": "2018"
     },
+    "iana-time-zone-0.1.65": {
+      "edition": "2021"
+    },
     "ident_case-1.0.1": {
       "edition": "2015"
     },
@@ -23650,10 +24054,19 @@
     "inlinable_string-0.1.15": {
       "edition": "2018"
     },
+    "inotify-0.11.1": {
+      "edition": "2018"
+    },
+    "inotify-sys-0.1.5": {
+      "edition": "2015"
+    },
     "instability-0.3.12": {
       "edition": "2021",
       "proc_macro": true,
       "build_script": "build.rs"
+    },
+    "inventory-0.3.24": {
+      "edition": "2021"
     },
     "irodori-0.1.1": {
       "edition": "2024"
@@ -23674,12 +24087,6 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "kqueue-1.1.1": {
-      "edition": "2021"
-    },
-    "kqueue-sys-1.1.2": {
-      "edition": "2021"
-    },
     "lazy_static-1.5.0": {
       "edition": "2015"
     },
@@ -23693,6 +24100,12 @@
     "libm-0.2.16": {
       "edition": "2021",
       "build_script": "build.rs"
+    },
+    "linux-raw-sys-0.4.15": {
+      "edition": "2021"
+    },
+    "linux-raw-sys-0.12.1": {
+      "edition": "2021"
     },
     "litrs-1.0.0": {
       "edition": "2021"
@@ -23709,9 +24122,6 @@
     "madori-0.1.2": {
       "edition": "2024"
     },
-    "malloc_buf-0.0.6": {
-      "edition": "2015"
-    },
     "matchers-0.2.0": {
       "edition": "2018"
     },
@@ -23719,9 +24129,6 @@
       "edition": "2021"
     },
     "memmap2-0.9.10": {
-      "edition": "2021"
-    },
-    "metal-0.31.0": {
       "edition": "2021"
     },
     "mio-1.2.0": {
@@ -23744,38 +24151,6 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "objc-0.2.7": {
-      "edition": "2015"
-    },
-    "objc-sys-0.3.5": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "links": "objc_0_3"
-    },
-    "objc2-0.5.2": {
-      "edition": "2021"
-    },
-    "objc2-app-kit-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-core-data-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-core-image-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-encode-4.1.0": {
-      "edition": "2021"
-    },
-    "objc2-foundation-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-metal-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-quartz-core-0.2.2": {
-      "edition": "2021"
-    },
     "once_cell-1.21.4": {
       "edition": "2021"
     },
@@ -23783,6 +24158,9 @@
       "edition": "2015"
     },
     "ordered-float-4.6.0": {
+      "edition": "2021"
+    },
+    "owned_ttf_parser-0.25.1": {
       "edition": "2021"
     },
     "parking_lot-0.12.5": {
@@ -23804,11 +24182,17 @@
       "edition": "2018",
       "proc_macro": true
     },
+    "percent-encoding-2.3.2": {
+      "edition": "2018"
+    },
     "pin-project-lite-0.2.17": {
       "edition": "2018"
     },
     "pkg-config-0.3.33": {
       "edition": "2018"
+    },
+    "polling-3.11.0": {
+      "edition": "2021"
     },
     "pollster-0.4.0": {
       "edition": "2018"
@@ -23835,6 +24219,9 @@
     },
     "quick-error-1.2.3": {
       "edition": "2015"
+    },
+    "quick-xml-0.39.4": {
+      "edition": "2021"
     },
     "quote-1.0.45": {
       "edition": "2021",
@@ -23879,6 +24266,9 @@
     "ropey-1.6.1": {
       "edition": "2015"
     },
+    "roxmltree-0.20.0": {
+      "edition": "2021"
+    },
     "rustc-hash-1.1.0": {
       "edition": "2015"
     },
@@ -23918,8 +24308,14 @@
       "edition": "2021",
       "proc_macro": true
     },
+    "scoped-tls-1.0.1": {
+      "edition": "2015"
+    },
     "scopeguard-1.2.0": {
       "edition": "2015"
+    },
+    "sctk-adwaita-0.10.1": {
+      "edition": "2021"
     },
     "self_cell-1.2.2": {
       "edition": "2018"
@@ -23959,6 +24355,9 @@
     "shikumi-0.1.0": {
       "edition": "2024"
     },
+    "shikumi-0.1.1": {
+      "edition": "2024"
+    },
     "shlex-1.3.0": {
       "edition": "2015"
     },
@@ -23975,12 +24374,19 @@
     "skrifa-0.40.0": {
       "edition": "2021"
     },
+    "slab-0.4.12": {
+      "edition": "2018"
+    },
     "slotmap-1.1.1": {
       "edition": "2018",
       "build_script": "build.rs"
     },
     "smallvec-1.15.1": {
       "edition": "2018"
+    },
+    "smithay-client-toolkit-0.19.2": {
+      "edition": "2021",
+      "build_script": "build.rs"
     },
     "smol_str-0.2.2": {
       "edition": "2018"
@@ -23997,6 +24403,9 @@
     },
     "str_indices-0.4.4": {
       "edition": "2021"
+    },
+    "strict-num-0.1.1": {
+      "edition": "2018"
     },
     "strsim-0.11.1": {
       "edition": "2015"
@@ -24051,6 +24460,12 @@
     },
     "thread_local-1.1.9": {
       "edition": "2021"
+    },
+    "tiny-skia-0.11.4": {
+      "edition": "2018"
+    },
+    "tiny-skia-path-0.11.4": {
+      "edition": "2018"
     },
     "tinyvec-1.11.0": {
       "edition": "2018"
@@ -24117,6 +24532,9 @@
       "edition": "2018"
     },
     "ttf-parser-0.21.1": {
+      "edition": "2018"
+    },
+    "ttf-parser-0.25.1": {
       "edition": "2018"
     },
     "unarray-0.1.4": {
@@ -24198,162 +24616,6 @@
     "walkdir-2.5.0": {
       "edition": "2018"
     },
-    "wgpu-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-core-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-core-deps-apple-25.0.0": {
-      "edition": "2021"
-    },
-    "wgpu-hal-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-types-25.0.0": {
-      "edition": "2021",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "winit-0.30.13": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "winnow-0.7.15": {
-      "edition": "2021"
-    },
-    "yansi-1.0.1": {
-      "edition": "2021"
-    },
-    "yazi-0.2.1": {
-      "edition": "2021"
-    },
-    "zeno-0.3.3": {
-      "edition": "2021"
-    },
-    "zerocopy-0.8.48": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "zerocopy-derive-0.8.48": {
-      "edition": "2021",
-      "proc_macro": true
-    },
-    "zmij-1.0.21": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "cpufeatures-0.3.0": {
-      "edition": "2024"
-    },
-    "ab_glyph-0.2.32": {
-      "edition": "2021"
-    },
-    "ab_glyph_rasterizer-0.1.10": {
-      "edition": "2021"
-    },
-    "ahash-0.8.12": {
-      "edition": "2018",
-      "build_script": "build.rs"
-    },
-    "as-raw-xcb-connection-1.0.1": {
-      "edition": "2021"
-    },
-    "calloop-0.13.0": {
-      "edition": "2018"
-    },
-    "calloop-wayland-source-0.3.0": {
-      "edition": "2021"
-    },
-    "dlib-0.5.3": {
-      "edition": "2021"
-    },
-    "downcast-rs-1.2.1": {
-      "edition": "2015"
-    },
-    "fontconfig-parser-0.5.8": {
-      "edition": "2018"
-    },
-    "gethostname-1.1.0": {
-      "edition": "2021"
-    },
-    "inotify-0.11.1": {
-      "edition": "2018"
-    },
-    "inotify-sys-0.1.5": {
-      "edition": "2015"
-    },
-    "linux-raw-sys-0.4.15": {
-      "edition": "2021"
-    },
-    "linux-raw-sys-0.12.1": {
-      "edition": "2021"
-    },
-    "owned_ttf_parser-0.25.1": {
-      "edition": "2021"
-    },
-    "percent-encoding-2.3.2": {
-      "edition": "2018"
-    },
-    "polling-3.11.0": {
-      "edition": "2021"
-    },
-    "quick-xml-0.39.4": {
-      "edition": "2021"
-    },
-    "roxmltree-0.20.0": {
-      "edition": "2021"
-    },
-    "scoped-tls-1.0.1": {
-      "edition": "2015"
-    },
-    "sctk-adwaita-0.10.1": {
-      "edition": "2021"
-    },
-    "slab-0.4.12": {
-      "edition": "2018"
-    },
-    "smithay-client-toolkit-0.19.2": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "strict-num-0.1.1": {
-      "edition": "2018"
-    },
-    "tiny-skia-0.11.4": {
-      "edition": "2018"
-    },
-    "tiny-skia-path-0.11.4": {
-      "edition": "2018"
-    },
-    "ttf-parser-0.25.1": {
-      "edition": "2018"
-    },
     "wayland-backend-0.3.15": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -24385,7 +24647,53 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "wgpu-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-core-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
     "wgpu-core-deps-windows-linux-android-25.0.0": {
+      "edition": "2021"
+    },
+    "wgpu-hal-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-types-25.0.0": {
+      "edition": "2021",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "winit-0.30.13": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "winnow-0.7.15": {
       "edition": "2021"
     },
     "x11-dl-2.21.0": {
@@ -24406,13 +24714,121 @@
     },
     "xkeysym-0.2.1": {
       "edition": "2018"
+    },
+    "yansi-1.0.1": {
+      "edition": "2021"
+    },
+    "yazi-0.2.1": {
+      "edition": "2021"
+    },
+    "zeno-0.3.3": {
+      "edition": "2021"
+    },
+    "zerocopy-0.8.48": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "zerocopy-derive-0.8.48": {
+      "edition": "2021",
+      "proc_macro": true
+    },
+    "zmij-1.0.21": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "bitflags-1.3.2": {
+      "edition": "2018"
+    },
+    "block-0.1.6": {
+      "edition": "2015"
+    },
+    "block2-0.5.1": {
+      "edition": "2021"
+    },
+    "core-foundation-0.9.4": {
+      "edition": "2018"
+    },
+    "core-foundation-sys-0.8.7": {
+      "edition": "2018"
+    },
+    "core-graphics-0.23.2": {
+      "edition": "2018"
+    },
+    "core-graphics-types-0.1.3": {
+      "edition": "2018"
+    },
+    "dispatch-0.2.0": {
+      "edition": "2018"
+    },
+    "foreign-types-0.5.0": {
+      "edition": "2018"
+    },
+    "foreign-types-macros-0.2.3": {
+      "edition": "2018",
+      "proc_macro": true
+    },
+    "foreign-types-shared-0.3.1": {
+      "edition": "2018"
+    },
+    "fsevent-sys-4.1.0": {
+      "edition": "2018"
+    },
+    "kqueue-1.1.1": {
+      "edition": "2021"
+    },
+    "kqueue-sys-1.1.2": {
+      "edition": "2021"
+    },
+    "malloc_buf-0.0.6": {
+      "edition": "2015"
+    },
+    "metal-0.31.0": {
+      "edition": "2021"
+    },
+    "objc-0.2.7": {
+      "edition": "2015"
+    },
+    "objc-sys-0.3.5": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "links": "objc_0_3"
+    },
+    "objc2-0.5.2": {
+      "edition": "2021"
+    },
+    "objc2-app-kit-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-core-data-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-core-image-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-encode-4.1.0": {
+      "edition": "2021"
+    },
+    "objc2-foundation-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-metal-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-quartz-core-0.2.2": {
+      "edition": "2021"
+    },
+    "wgpu-core-deps-apple-25.0.0": {
+      "edition": "2021"
     }
   },
   "git_nar_sha256": {
     "garasu-0.1.0": "sha256-7Xz0/2bYS58l0U3TvVGsSJSm4YGsNRq3gLzvL6tciZo=",
+    "gen-macros-0.1.8": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
+    "gen-platform-0.1.8": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
+    "gen-types-0.1.8": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
     "irodori-0.1.1": "sha256-p58w6c1lPDftGm1+30u/t5jGTWDFRB8A9edz915YGY0=",
     "madori-0.1.2": "sha256-63iTmh/CD4A8k1XRooEj9XnhChY2CwQHE2nMRUJ5imU=",
-    "shikumi-0.1.0": "sha256-pWSHhsRS1Ol+A3mZnflVsNWscNJgSjg5w/iuVBFFLR4=",
+    "shikumi-0.1.1": "sha256-2oJ+xLL/OZN16C1oStly/8ttJ41yJl9daxYJ1WVuKf4=",
     "tatara-lisp-0.2.3": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y=",
     "tatara-lisp-derive-0.2.3": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y="
   },
