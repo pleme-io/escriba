@@ -14137,11 +14137,11 @@
         "substrate": "substrate_10"
       },
       "locked": {
-        "lastModified": 1780573656,
-        "narHash": "sha256-kRH67U3HDRvsf5BmXB2QcTporwDIgKhFWDqJIu59tzY=",
+        "lastModified": 1780588687,
+        "narHash": "sha256-EgJlmt395/NRhBJhTmfevVaIfZ+wI1TKiCk+8qDYMEs=",
         "owner": "pleme-io",
         "repo": "tatara",
-        "rev": "e14b1f61e1703d521fd426d4f3dfe116f961e99d",
+        "rev": "08fb8b88cbee49418a27f38b57e9ae9c10cfef83",
         "type": "github"
       },
       "original": {
