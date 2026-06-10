@@ -87,6 +87,10 @@ shikumi            = { git = "https://github.com/pleme-io/shikumi", branch = "ma
 pretty_assertions = "1"
 tempfile          = "3"
 proptest          = "1"
+# PTY persona harness (escriba/tests/persona_pty.rs) — same pin set as
+# the frost L0 harness so the espelho conformance rows stay one shape.
+nix               = { version = "0.29", features = ["signal", "process", "fs", "term"] }
+libc              = "0.2"
 
 [workspace.lints.clippy]
 pedantic              = { level = "warn", priority = -1 }
