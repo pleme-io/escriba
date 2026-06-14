@@ -153,7 +153,7 @@ pub use textobject::{
     is_canonical_short as is_canonical_textobject_short,
     is_known_scope as is_known_textobject_scope,
 };
-pub use theme::{KNOWN_PRESETS, ThemeSpec, is_known_preset};
+pub use theme::{DEFAULT_PRESET, KNOWN_PRESETS, ThemeSpec, is_known_preset};
 pub use workflow::{
     KNOWN_FAILURE_MODES as WORKFLOW_FAILURE_MODES, KNOWN_STEP_KINDS as WORKFLOW_STEP_KINDS,
     WorkflowSpec, is_known_failure_mode as is_workflow_failure_mode,

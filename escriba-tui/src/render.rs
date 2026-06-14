@@ -1,11 +1,23 @@
 //! Ratatui rendering — draws buffer pane + status line each frame.
+//!
+//! Chrome colors are the **Vellum** fleet theme (warm aged-paper
+//! Nord-matte) — every value is a BORN `ishou_tokens::VellumPalette`
+//! token, so the TUI chrome matches the rest of the fleet (mado, tear,
+//! frostmourne, …) and the GPU backend.
 
 use escriba_runtime::EditorState;
+use ishou_tokens::VellumPalette;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout as RLayout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
+
+/// ishou `Rgb` → ratatui `Color::Rgb`. The single conversion point so
+/// every chrome color flows from the BORN Vellum tokens.
+fn vellum(rgb: ishou_tokens::Rgb) -> Color {
+    Color::Rgb(rgb.r, rgb.g, rgb.b)
+}
 
 /// Draw one frame. Call from within `terminal.draw(|f| draw_frame(f, state))`.
 pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
@@ -113,65 +125,67 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     f.render_widget(Paragraph::new(line).style(status_style()), area);
 }
 
-// ─── Styles — Nord-inspired ─────────────────────────────────────────────
+// ─── Styles — Vellum (warm aged-paper Nord-matte) ───────────────────────
+//
+// Every chrome color is a BORN `ishou_tokens::VellumPalette` token.
+// `VellumPalette::vellum()` is cheap (plain struct construction); the
+// per-call cost is negligible at the once-per-frame cadence these
+// helpers run at.
 
 fn buffer_style() -> Style {
+    let p = VellumPalette::vellum();
     Style::default()
-        .fg(Color::Rgb(0xD8, 0xDE, 0xE9)) // Nord4
-        .bg(Color::Rgb(0x2E, 0x34, 0x40)) // Nord0
+        .fg(vellum(p.snow1)) // #E2DBC8 — fg
+        .bg(vellum(p.night0)) // #16140E — bg
 }
 
 fn muted_style() -> Style {
-    Style::default().fg(Color::Rgb(0x4C, 0x56, 0x6A)) // Nord3
+    let p = VellumPalette::vellum();
+    Style::default().fg(vellum(p.shadow1)) // #90897B — comment/gutter
 }
 
 fn cursor_style() -> Style {
+    let p = VellumPalette::vellum();
     Style::default()
-        .fg(Color::Rgb(0x2E, 0x34, 0x40)) // Nord0 on
-        .bg(Color::Rgb(0x88, 0xC0, 0xD0)) // Nord8
+        .fg(vellum(p.night0)) // #16140E — dark text on cursor
+        .bg(vellum(p.green_bright)) // #ADD7A3 — cursor (= ishou surfaces.cursor)
         .add_modifier(Modifier::BOLD)
 }
 
 fn status_style() -> Style {
+    let p = VellumPalette::vellum();
     Style::default()
-        .fg(Color::Rgb(0xE5, 0xE9, 0xF0)) // Nord5
-        .bg(Color::Rgb(0x3B, 0x42, 0x52)) // Nord1
+        .fg(Color::Rgb(0xCD, 0xC7, 0xB6)) // statusline_fg (Vellum extra)
+        .bg(vellum(p.night1)) // #1F1C15 — statusline_bg
 }
 
 fn cmd_style() -> Style {
+    let p = VellumPalette::vellum();
     Style::default()
-        .fg(Color::Rgb(0xEB, 0xCB, 0x8B)) // Nord13 (yellow — hint)
-        .bg(Color::Rgb(0x3B, 0x42, 0x52))
+        .fg(vellum(p.first_light)) // #D7C489 — yellow hint
+        .bg(vellum(p.night1)) // #1F1C15
         .add_modifier(Modifier::BOLD)
 }
 
 fn error_style() -> Style {
+    let p = VellumPalette::vellum();
     Style::default()
-        .fg(Color::Rgb(0xBF, 0x61, 0x6A)) // Nord11
-        .bg(Color::Rgb(0x2E, 0x34, 0x40))
+        .fg(vellum(p.aurora_red)) // #C9837B — red
+        .bg(vellum(p.night0)) // #16140E
 }
 
 fn mode_style_for(mode: escriba_core::Mode) -> Style {
-    let (fg, bg) = match mode {
-        escriba_core::Mode::Normal => (
-            (0x2E, 0x34, 0x40), // Nord0 on
-            (0x88, 0xC0, 0xD0), // Nord8 (frost accent)
-        ),
-        escriba_core::Mode::Insert => (
-            (0x2E, 0x34, 0x40),
-            (0xA3, 0xBE, 0x8C), // Nord14 (green)
-        ),
-        escriba_core::Mode::Visual | escriba_core::Mode::VisualLine => (
-            (0x2E, 0x34, 0x40),
-            (0xB4, 0x8E, 0xAD), // Nord15 (purple)
-        ),
-        escriba_core::Mode::Command => (
-            (0x2E, 0x34, 0x40),
-            (0xEB, 0xCB, 0x8B), // Nord13 (yellow)
-        ),
+    let p = VellumPalette::vellum();
+    // Mode pills — all with dark (#16140E night0) text per the Vellum
+    // spec: Normal cyan, Insert green, Visual purple, Command yellow.
+    let bg = match mode {
+        escriba_core::Mode::Normal => p.ice_cyan, // #94BBB8
+        escriba_core::Mode::Insert => p.aurora_green, // #A9BB8C
+        escriba_core::Mode::Visual | escriba_core::Mode::VisualLine => p.solar_magenta, // #B8A1B9
+        escriba_core::Mode::Command => p.first_light, // #D7C489
     };
     Style::default()
-        .fg(Color::Rgb(fg.0, fg.1, fg.2))
-        .bg(Color::Rgb(bg.0, bg.1, bg.2))
+        .fg(vellum(p.night0)) // #16140E — dark text on every pill
+        .bg(vellum(bg))
         .add_modifier(Modifier::BOLD)
 }

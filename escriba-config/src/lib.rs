@@ -153,10 +153,16 @@ impl shikumi::TieredConfig for EscribaConfig {
         }
     }
 
-    /// Tier 2 — prescribed: the curated defaults that ship today
-    /// (today: identical to bare; no opinionated defaults yet).
+    /// Tier 2 — prescribed: the curated defaults that ship today.
+    /// The fleet theme `vellum` (warm aged-paper Nord-matte) is the
+    /// prescribed `:tema`, matching `ishou_tokens::FleetTheme::Vellum`
+    /// — so an operator who sets no theme lands on the fleet look. The
+    /// remaining fields stay `None` (the operator's lisp prescribes them).
     fn prescribed_default() -> Self {
-        Self::default()
+        Self {
+            tema: Some("vellum".into()),
+            ..Self::default()
+        }
     }
 }
 
@@ -178,27 +184,32 @@ mod tiered_tests {
     }
 
     #[test]
-    fn escriba_config_prescribed_matches_default() {
+    fn escriba_config_prescribed_pins_vellum_theme() {
+        // The prescribed default carries the fleet theme; every other
+        // field stays None (the operator's lisp prescribes them).
         let p = <EscribaConfig as TieredConfig>::prescribed_default();
-        let d = EscribaConfig::default();
-        assert_eq!(p, d);
+        assert_eq!(p.tema.as_deref(), Some("vellum"));
+        assert!(p.numeros_linha.is_none());
+        assert!(p.largura_tab.is_none());
+        // Prescribed differs from the all-None bare floor only by the theme.
+        let bare = <EscribaConfig as TieredConfig>::bare();
+        assert_ne!(p, bare);
     }
 
     #[test]
     fn escriba_config_resolve_tier_dispatches() {
-        // No curated defaults today — Bare and Default agree, but
-        // dispatch must still route through the trait methods.
+        // Bare is zero-opinion; Default pins the vellum theme.
         let bare = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Bare);
         let default = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Default);
         assert_eq!(bare, <EscribaConfig as TieredConfig>::bare());
         assert_eq!(default, <EscribaConfig as TieredConfig>::prescribed_default());
+        assert_eq!(default.tema.as_deref(), Some("vellum"));
     }
 
     #[test]
     fn escriba_config_diff_against_self_is_empty() {
-        // While bare == default today (no curated defaults), the
-        // diff machinery itself must work: a value diffed against
-        // itself produces an empty diff.
+        // The diff machinery: a value diffed against itself produces
+        // an empty diff.
         let p = <EscribaConfig as TieredConfig>::prescribed_default();
         assert!(p.diff_against(&p).is_empty_diff());
     }

@@ -437,3 +437,32 @@ fn group_plugins_by_category(
     }
     by.into_iter().collect()
 }
+
+#[cfg(test)]
+mod theme_tests {
+    /// The standalone Vellum theme module, bundled alongside the
+    /// blnvim defaults.
+    const VELLUM_RC: &str = include_str!("../configs/vellum.lisp");
+
+    #[test]
+    fn bundled_default_rc_applies_and_selects_vellum() {
+        let plan = escriba_lisp::apply_source(super::DEFAULT_RC)
+            .expect("bundled blnvim-defaults.lisp must apply cleanly");
+        // The fleet theme is the active preset.
+        assert_eq!(
+            plan.theme.as_ref().map(|t| t.preset.as_str()),
+            Some("vellum"),
+            "default rc must select the Vellum fleet theme",
+        );
+    }
+
+    #[test]
+    fn bundled_vellum_rc_applies_and_selects_vellum() {
+        let plan = escriba_lisp::apply_source(VELLUM_RC)
+            .expect("bundled vellum.lisp must apply cleanly");
+        assert_eq!(
+            plan.theme.as_ref().map(|t| t.preset.as_str()),
+            Some("vellum"),
+        );
+    }
+}
