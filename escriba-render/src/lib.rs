@@ -15,7 +15,7 @@ pub use gpu::{GpuRenderer, SharedState};
 use escriba_buffer::BufferSet;
 use escriba_core::Position;
 use escriba_ui::Layout;
-use irodori::NORD;
+use ishou_tokens::VellumPalette;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,10 +61,10 @@ impl Renderer for TextRenderer {
                 out.push_str(&format!("{:4} │ {line}\n", ln + 1));
             }
         }
-        let n = NORD.frost[1]; // Nord8
+        let accent = VellumPalette::vellum().ice_cyan; // Vellum matte accent
         out.push_str(&format!(
             "\x1b[7m escriba · {} · {}:{} \x1b[0m\n",
-            n.to_hex(),
+            accent.hex(),
             cursor.line + 1,
             cursor.column + 1,
         ));

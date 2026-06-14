@@ -7,16 +7,19 @@
 //!      will diff + reuse).
 //!   4. Prepares + renders through `madori::RenderContext::text`.
 //!
-//! Nord colors come from `irodori`. Text is rendered in Nord6 (snow storm
-//! bright foreground) over a Nord0 (polar night) background. The status line
-//! is rendered inverted in Nord8 (frost accent).
+//! Colors are the **Vellum** fleet theme (warm aged-paper Nord-matte),
+//! sourced from `ishou_tokens::VellumPalette` so the GPU chrome matches
+//! the rest of the fleet (mado, tear, frostmourne, …) and escriba's TUI
+//! backend. Text is rendered in `snow1` (#E2DBC8, warm cream foreground)
+//! over a `night0` (#16140E, parchment ground) background. The status
+//! line is rendered in `ice_cyan` (#94BBB8, the matte accent).
 
 use std::sync::{Arc, Mutex};
 
 use escriba_core::Mode;
 use escriba_runtime::EditorState;
 use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
-use irodori::NORD;
+use ishou_tokens::{Rgb, Srgb, VellumPalette};
 use madori::{RenderCallback, RenderContext};
 
 /// Shared handle to the editor state — both the GPU renderer (reads) and
@@ -89,7 +92,8 @@ impl RenderCallback for GpuRenderer {
         };
 
         // ── 2. Layout glyphon buffer. ─────────────────────────────────
-        let fg = nord_color(NORD.snow_storm[2]); // Nord6 — brightest foreground
+        let palette = VellumPalette::vellum();
+        let fg = vellum_glyph(palette.snow1); // #E2DBC8 — warm cream fg
         let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
@@ -124,7 +128,7 @@ impl RenderCallback for GpuRenderer {
         );
         status_buf.shape_until_scroll(&mut ctx.text.font_system, false);
 
-        let status_color = nord_color(NORD.frost[1]); // Nord8
+        let status_color = vellum_glyph(palette.ice_cyan); // #94BBB8 — matte accent
 
         let text_areas = [
             TextArea {
@@ -237,31 +241,31 @@ fn clear_frame(ctx: &mut RenderContext<'_>) {
     ctx.gpu.queue.submit(std::iter::once(encoder.finish()));
 }
 
-/// Nord polar-night background (Nord0) as `wgpu::Color`. Values are linear
-/// RGB in 0..=1.
+/// Vellum parchment-ground background (`night0` #16140E) as
+/// `wgpu::Color`. Gamma-correct: the sRGB token is promoted through
+/// `ishou_tokens`' typed sRGB→linear path so it composites correctly on
+/// the linear-storage surface.
 fn nord_bg() -> wgpu::Color {
-    let c = NORD.polar_night[0];
-    wgpu::Color {
-        r: f64::from(c.r) / 255.0,
-        g: f64::from(c.g) / 255.0,
-        b: f64::from(c.b) / 255.0,
-        a: 1.0,
-    }
+    let c = VellumPalette::vellum().night0;
+    Srgb::from(c).to_linear().with_alpha(1.0).into()
 }
 
-/// Nord color → glyphon `Color` (premultiplied sRGB u8 RGBA).
-fn nord_color(c: irodori::Color) -> GlyphColor {
+/// ishou Vellum `Rgb` → glyphon `Color` (sRGB u8 RGBA, opaque).
+fn vellum_glyph(c: Rgb) -> GlyphColor {
     GlyphColor::rgba(c.r, c.g, c.b, 0xFF)
 }
 
-/// Mode indicator color — used by higher-layer rendering paths that want a
-/// glance-readable color. Insert = Frost, Normal = Snow Storm, Visual = Aurora.
+/// Mode indicator color — used by higher-layer rendering paths that want
+/// a glance-readable color. Vellum mode pills: Normal cyan, Insert green,
+/// Visual purple, Command yellow.
 #[must_use]
-pub fn mode_color(mode: Mode) -> irodori::Color {
+pub fn mode_color(mode: Mode) -> Rgb {
+    let p = VellumPalette::vellum();
     match mode {
-        Mode::Insert | Mode::Command => NORD.frost[1],
-        Mode::Visual | Mode::VisualLine => NORD.aurora[4],
-        Mode::Normal => NORD.snow_storm[2],
+        Mode::Insert => p.aurora_green,    // #A9BB8C
+        Mode::Command => p.first_light,    // #D7C489
+        Mode::Visual | Mode::VisualLine => p.solar_magenta, // #B8A1B9
+        Mode::Normal => p.ice_cyan,        // #94BBB8
     }
 }
 
@@ -271,13 +275,28 @@ mod tests {
     use escriba_buffer::BufferSet;
 
     #[test]
-    fn nord_bg_is_polar_night() {
+    fn nord_bg_is_vellum_parchment() {
         let bg = nord_bg();
-        // Nord0 = #2E3440 — approximately (0.18, 0.20, 0.25, 1.0).
-        assert!((bg.r - 0.180).abs() < 0.02);
-        assert!((bg.g - 0.204).abs() < 0.02);
-        assert!((bg.b - 0.251).abs() < 0.02);
+        // Vellum night0 = #16140E promoted to gamma-correct linear: the
+        // parchment ground is a very dark warm tone, so all channels sit
+        // near zero (r ≳ g ≳ b) after the sRGB→linear transform.
+        assert!((0.0..0.03).contains(&bg.r), "r = {}", bg.r);
+        assert!((0.0..0.03).contains(&bg.g), "g = {}", bg.g);
+        assert!((0.0..0.03).contains(&bg.b), "b = {}", bg.b);
+        // Warm: red channel >= green >= blue (a > e > 0E in hex).
+        assert!(bg.r >= bg.g && bg.g >= bg.b);
         assert_eq!(bg.a, 1.0);
+    }
+
+    #[test]
+    fn nord_bg_matches_ishou_night0() {
+        // The clear color must equal the BORN Vellum background token
+        // run through ishou's typed sRGB→linear path — no drift.
+        let want: wgpu::Color = Srgb::from(VellumPalette::vellum().night0)
+            .to_linear()
+            .with_alpha(1.0)
+            .into();
+        assert_eq!(nord_bg(), want);
     }
 
     #[test]
@@ -295,5 +314,14 @@ mod tests {
         let v = mode_color(Mode::Visual);
         assert_ne!((n.r, n.g, n.b), (i.r, i.g, i.b));
         assert_ne!((n.r, n.g, n.b), (v.r, v.g, v.b));
+    }
+
+    #[test]
+    fn mode_colors_are_vellum_pills() {
+        // Normal cyan, Insert green, Visual purple, Command yellow.
+        assert_eq!(mode_color(Mode::Normal).hex(), "#94BBB8");
+        assert_eq!(mode_color(Mode::Insert).hex(), "#A9BB8C");
+        assert_eq!(mode_color(Mode::Visual).hex(), "#B8A1B9");
+        assert_eq!(mode_color(Mode::Command).hex(), "#D7C489");
     }
 }

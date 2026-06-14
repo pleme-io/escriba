@@ -938,7 +938,7 @@ dependencies = [
  "escriba-ui",
  "garasu 0.1.0 (git+https://github.com/pleme-io/garasu?branch=main)",
  "glyphon",
- "irodori",
+ "ishou-tokens",
  "madori",
  "serde",
  "tracing",
@@ -998,6 +998,7 @@ dependencies = [
  "escriba-mode",
  "escriba-runtime",
  "escriba-ui",
+ "ishou-tokens",
  "madori",
  "pretty_assertions",
  "ratatui",
@@ -1547,7 +1548,8 @@ dependencies = [
 [[package]]
 name = "irodori"
 version = "0.1.1"
-source = "git+https://github.com/pleme-io/irodori?branch=main#df0efcb8f75e41b515aec42c4c3957a6c38d3e93"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c1e6ec2a36084626fdbd4dcfb8beb53d0b5f6125b4cd54a4d45abddf6ffbbb9"
 dependencies = [
  "serde",
  "thiserror 2.0.18",
@@ -1558,6 +1560,17 @@ name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
+
+[[package]]
+name = "ishou-tokens"
+version = "0.1.3"
+source = "git+https://github.com/pleme-io/ishou?branch=main#5dac393ee6ca92e2970378599cb8a71828cee258"
+dependencies = [
+ "irodori",
+ "serde",
+ "serde_json",
+ "wgpu-types",
+]
 
 [[package]]
 name = "itertools"

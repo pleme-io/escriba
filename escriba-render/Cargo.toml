@@ -1,6 +1,6 @@
 [package]
 name = "escriba-render"
-description = "GPU renderer for escriba — garasu-backed text drawing, cursor/selection/highlight painting, Nord-themed."
+description = "GPU renderer for escriba — garasu-backed text drawing, cursor/selection/highlight painting, Vellum (ishou) fleet-themed."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,7 +14,10 @@ escriba-buffer  = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-mode    = { workspace = true }
 escriba-runtime = { workspace = true }
-irodori         = { workspace = true }
+# Vellum fleet theme — GPU + text chrome read BORN ishou tokens; the
+# `wgpu` feature gives `From<LinearRgba> for wgpu_types::Color` for the
+# clear color (workspace dep already enables it).
+ishou-tokens    = { workspace = true }
 madori          = { workspace = true }
 garasu          = { workspace = true }
 glyphon         = "0.9"

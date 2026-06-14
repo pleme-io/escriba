@@ -20,8 +20,12 @@
 ;; wins" for (deftheme), and topological priority for (defplugin).
 
 ;; ═════ Theme ══════════════════════════════════════════════════════
-;; blnvim's default is shaunsingh/nord.nvim. Match that.
-(deftheme :preset "nord")
+;; The pleme-io fleet theme is "Vellum" — warm aged-paper Nord-matte
+;; (mirrors `ishou_tokens::FleetTheme::Vellum`). It supersedes classic
+;; Nord as the default so escriba's chrome + syntax match the fleet
+;; (mado, tear, frostmourne, …). The Nord palette is still declared
+;; below for `(deftheme :preset "nord")` users.
+(deftheme :preset "vellum")
 
 ;; ═════ Options ════════════════════════════════════════════════════
 ;; Mirror the `:set` commands every blnvim user gets implicitly via
@@ -312,60 +316,62 @@
            :keybinds ("<leader>ai" "<leader>ac")
            :lazy #t)
 
-;; ═════ Highlights — nord-palette syntax overrides ═════════════════
-;; shaunsingh/nord.nvim parity for the common syntax groups. The
-;; `deftheme :preset "nord"` form above seeds the baseline palette;
-;; these tune individual groups on top. Extend freely.
-(defhighlight :group "Normal"     :fg "#d8dee9" :bg "#2e3440")
-(defhighlight :group "Comment"    :fg "#4c566a" :italic #t)
-(defhighlight :group "String"     :fg "#a3be8c")
-(defhighlight :group "Number"     :fg "#b48ead")
-(defhighlight :group "Boolean"    :fg "#b48ead")
-(defhighlight :group "Function"   :fg "#88c0d0" :bold #t)
-(defhighlight :group "Keyword"    :fg "#81a1c1" :italic #t)
-(defhighlight :group "Statement"  :fg "#81a1c1")
-(defhighlight :group "Operator"   :fg "#81a1c1")
-(defhighlight :group "Type"       :fg "#8fbcbb")
-(defhighlight :group "Identifier" :fg "#eceff4")
-(defhighlight :group "Constant"   :fg "#5e81ac")
-(defhighlight :group "Special"    :fg "#ebcb8b")
+;; ═════ Highlights — vellum-palette syntax overrides ═══════════════
+;; The fleet theme (warm aged-paper Nord-matte). The `deftheme :preset
+;; "vellum"` form above seeds the baseline palette; these tune
+;; individual groups on top. Every hex is a BORN ishou VellumPalette
+;; token. (Classic-Nord hexes for these groups live in the standalone
+;; `vellum.lisp` sibling's history / the nord palette below.)
+(defhighlight :group "Normal"     :fg "#e2dbc8" :bg "#16140e")
+(defhighlight :group "Comment"    :fg "#90897b" :italic #t)
+(defhighlight :group "String"     :fg "#a9bb8c")
+(defhighlight :group "Number"     :fg "#b8a1b9")
+(defhighlight :group "Boolean"    :fg "#b8a1b9")
+(defhighlight :group "Function"   :fg "#99aabe" :bold #t)
+(defhighlight :group "Keyword"    :fg "#b8a1b9" :italic #t)
+(defhighlight :group "Statement"  :fg "#b8a1b9")
+(defhighlight :group "Operator"   :fg "#b8a1b9")
+(defhighlight :group "Type"       :fg "#d7c489")
+(defhighlight :group "Identifier" :fg "#e2dbc8")
+(defhighlight :group "Constant"   :fg "#cb9070")
+(defhighlight :group "Special"    :fg "#d7c489")
 
 ;; ── UI ────────────────────────────────────────────────────────────
-(defhighlight :group "CursorLine"   :bg "#3b4252")
-(defhighlight :group "LineNr"       :fg "#4c566a")
-(defhighlight :group "SignColumn"   :bg "#2e3440")
-(defhighlight :group "Visual"       :bg "#434c5e")
-(defhighlight :group "Search"       :fg "#2e3440" :bg "#ebcb8b")
-(defhighlight :group "IncSearch"    :fg "#2e3440" :bg "#d08770" :bold #t)
-(defhighlight :group "MatchParen"   :fg "#d08770" :bold #t)
-(defhighlight :group "StatusLine"   :fg "#d8dee9" :bg "#3b4252")
-(defhighlight :group "StatusLineNC" :fg "#4c566a" :bg "#2e3440")
-(defhighlight :group "Pmenu"        :fg "#d8dee9" :bg "#3b4252")
-(defhighlight :group "PmenuSel"     :fg "#2e3440" :bg "#88c0d0" :bold #t)
-(defhighlight :group "NormalFloat"  :bg "#3b4252")
-(defhighlight :group "FloatBorder"  :fg "#5e81ac" :bg "#3b4252")
+(defhighlight :group "CursorLine"   :bg "#1f1c15")
+(defhighlight :group "LineNr"       :fg "#90897b")
+(defhighlight :group "SignColumn"   :bg "#16140e")
+(defhighlight :group "Visual"       :bg "#2b2820")
+(defhighlight :group "Search"       :fg "#16140e" :bg "#d7c489")
+(defhighlight :group "IncSearch"    :fg "#16140e" :bg "#cb9070" :bold #t)
+(defhighlight :group "MatchParen"   :fg "#cb9070" :bold #t)
+(defhighlight :group "StatusLine"   :fg "#cdc7b6" :bg "#1f1c15")
+(defhighlight :group "StatusLineNC" :fg "#90897b" :bg "#16140e")
+(defhighlight :group "Pmenu"        :fg "#e2dbc8" :bg "#1f1c15")
+(defhighlight :group "PmenuSel"     :fg "#16140e" :bg "#94bbb8" :bold #t)
+(defhighlight :group "NormalFloat"  :bg "#1f1c15")
+(defhighlight :group "FloatBorder"  :fg "#99aabe" :bg "#1f1c15")
 
 ;; ── Diagnostics ───────────────────────────────────────────────────
-(defhighlight :group "DiagnosticError" :fg "#bf616a" :bold #t)
-(defhighlight :group "DiagnosticWarn"  :fg "#ebcb8b")
-(defhighlight :group "DiagnosticInfo"  :fg "#88c0d0")
-(defhighlight :group "DiagnosticHint"  :fg "#a3be8c")
+(defhighlight :group "DiagnosticError" :fg "#c9837b" :bold #t)
+(defhighlight :group "DiagnosticWarn"  :fg "#d7c489")
+(defhighlight :group "DiagnosticInfo"  :fg "#94bbb8")
+(defhighlight :group "DiagnosticHint"  :fg "#a9bb8c")
 
 ;; ── Git (gitsigns.nvim parity) ────────────────────────────────────
-(defhighlight :group "GitSignsAdd"    :fg "#a3be8c")
-(defhighlight :group "GitSignsChange" :fg "#ebcb8b")
-(defhighlight :group "GitSignsDelete" :fg "#bf616a")
-(defhighlight :group "DiffAdd"        :bg "#2d3f38")
-(defhighlight :group "DiffChange"     :bg "#3d3f2b")
-(defhighlight :group "DiffDelete"     :bg "#3f2d2d")
+(defhighlight :group "GitSignsAdd"    :fg "#a9bb8c")
+(defhighlight :group "GitSignsChange" :fg "#d7c489")
+(defhighlight :group "GitSignsDelete" :fg "#c9837b")
+(defhighlight :group "DiffAdd"        :bg "#4d543e")
+(defhighlight :group "DiffChange"     :bg "#595137")
+(defhighlight :group "DiffDelete"     :bg "#7b4f4a")
 
 ;; ── Tree-sitter semantic overrides ────────────────────────────────
 (defhighlight :group "@function.call" :link "Function")
 (defhighlight :group "@variable"      :link "Identifier")
-(defhighlight :group "@parameter"     :fg "#d8dee9" :italic #t)
-(defhighlight :group "@comment.todo"  :fg "#ebcb8b" :bold #t)
-(defhighlight :group "@comment.note"  :fg "#88c0d0" :bold #t)
-(defhighlight :group "@comment.warning" :fg "#d08770" :bold #t)
+(defhighlight :group "@parameter"     :fg "#e2dbc8" :italic #t)
+(defhighlight :group "@comment.todo"  :fg "#d7c489" :bold #t)
+(defhighlight :group "@comment.note"  :fg "#94bbb8" :bold #t)
+(defhighlight :group "@comment.warning" :fg "#cb9070" :bold #t)
 
 ;; ═════ Status line — lualine-style composition ════════════════════
 ;; Three-slot layout matches lualine's `sections.lualine_*` shape.
@@ -466,10 +472,21 @@
 (defformatter :filetype "markdown"   :command "prettier" :args ("--parser" "markdown"))
 (defformatter :filetype "sh"         :command "shfmt"    :args ("-i" "2"))
 
-;; ═════ Palette — nord canonical values ════════════════════════════
-;; Users can reference `:preset "nord"` (above) or name this palette
-;; explicitly via a `defhighlight :fg "nord.base0d"`-style ref once
-;; the runtime's palette resolver is wired.
+;; ═════ Palettes — vellum (fleet default) + nord ═══════════════════
+;; Users reference `:preset "vellum"` / `:preset "nord"` (above) or
+;; name a palette explicitly via a `defhighlight :fg "vellum.base0d"`-
+;; style ref once the runtime's palette resolver is wired.
+
+;; Vellum — the fleet theme (ishou VellumPalette::vellum() base16).
+(defpalette :name "vellum"
+            :base00 "#16140e" :base01 "#1f1c15" :base02 "#2b2820"
+            :base03 "#90897b" :base04 "#ada593" :base05 "#e2dbc8"
+            :base06 "#ede6d6" :base07 "#f4efe2"
+            :base08 "#c9837b" :base09 "#cb9070" :base0a "#d7c489"
+            :base0b "#a9bb8c" :base0c "#94bbb8" :base0d "#99aabe"
+            :base0e "#b8a1b9" :base0f "#b3886c")
+
+;; Nord — classic, retained for `:preset "nord"` users.
 (defpalette :name "nord"
             :base00 "#2e3440" :base01 "#3b4252" :base02 "#434c5e"
             :base03 "#4c566a" :base04 "#d8dee9" :base05 "#e5e9f0"
@@ -683,13 +700,13 @@
            :enable #t
            :intensity 0.6
            :radius 1.8
-           :color "#88c0d0")
+           :color "#94bbb8")
 
 (defeffect :name "cursor-trail"
            :kind "cursor-trail"
            :enable #f
            :intensity 0.4
-           :color "#81a1c1")
+           :color "#b8a1b9")
 
 (defeffect :name "bloom"
            :kind "screen"
@@ -711,7 +728,7 @@
            :kind "underglow"
            :enable #f
            :intensity 0.5
-           :color "#5e81ac")
+           :color "#99aabe")
 
 ;; ═════ Terms — typed bridge to mado over MCP ══════════════════════
 ;; Wire-compatible with mado's TermSpec. Activating a defterm sends
@@ -924,13 +941,13 @@
 
 (defruler :columns (80 120)
           :style "soft"
-          :color "#4c566a"
+          :color "#90897b"
           :description "classic 80 / 120 guides")
 
 (defruler :columns (100)
           :filetype "rust"
           :style "soft"
-          :color "#4c566a"
+          :color "#90897b"
           :description "rust line cap — clippy default")
 
 (defruler :columns (80)

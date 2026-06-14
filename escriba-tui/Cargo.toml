@@ -16,6 +16,10 @@ escriba-runtime = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-keymap  = { workspace = true }
 madori          = { workspace = true }
+# Vellum fleet theme — TUI chrome reads BORN ishou tokens. (Inherits
+# the workspace `wgpu` feature; the TUI uses only the pure-data
+# `VellumPalette` surface, so the wgpu-types dep is inert here.)
+ishou-tokens    = { workspace = true }
 ratatui         = "0.29"
 crossterm       = "0.28"
 anyhow          = { workspace = true }
