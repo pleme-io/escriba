@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "7ad47a73606d735b9c6066d336f083f041ee943a83f517123c7c7f83824e0cc1",
+  "cargo_lock_sha256": "4b76a0ec9712be4136365c6c52c231a3863210357abb584506675fd86fe38a62",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2527,8 +2527,8 @@
             "tree": "target"
           },
           {
-            "name": "irodori",
-            "package_key": "irodori-0.1.1-df0efcb8f75e41b515aec42c4c3957a6c38d3e93",
+            "name": "ishou_tokens",
+            "package_key": "ishou-tokens-0.1.3-5dac393ee6ca92e2970378599cb8a71828cee258",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2861,6 +2861,16 @@
           {
             "name": "escriba_ui",
             "package_key": "escriba-ui-0.1.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "ishou_tokens",
+            "package_key": "ishou-tokens-0.1.3-5dac393ee6ca92e2970378599cb8a71828cee258",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4183,7 +4193,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "irodori-0.1.1-df0efcb8f75e41b515aec42c4c3957a6c38d3e93": {
+      "irodori-0.1.1": {
         "runtime_dependencies": [
           {
             "name": "serde",
@@ -4216,6 +4226,57 @@
         "build_dependencies": [],
         "features": [
           "default"
+        ]
+      },
+      "ishou-tokens-0.1.3-5dac393ee6ca92e2970378599cb8a71828cee258": {
+        "runtime_dependencies": [
+          {
+            "name": "irodori",
+            "package_key": "irodori-0.1.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.150",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "wgpu_types",
+            "package_key": "wgpu-types-25.0.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "wgpu"
         ]
       },
       "itertools-0.13.0": {
@@ -24214,11 +24275,14 @@
     "inventory-0.3.24": {
       "edition": "2021"
     },
-    "irodori-0.1.1-df0efcb8f75e41b515aec42c4c3957a6c38d3e93": {
+    "irodori-0.1.1": {
       "edition": "2024"
     },
     "is_terminal_polyfill-1.70.2": {
       "edition": "2021"
+    },
+    "ishou-tokens-0.1.3-5dac393ee6ca92e2970378599cb8a71828cee258": {
+      "edition": "2024"
     },
     "itertools-0.13.0": {
       "edition": "2018"
@@ -24976,7 +25040,7 @@
     "gen-macros-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
     "gen-platform-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
     "gen-types-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
-    "irodori-0.1.1-df0efcb8f75e41b515aec42c4c3957a6c38d3e93": "sha256-p58w6c1lPDftGm1+30u/t5jGTWDFRB8A9edz915YGY0=",
+    "ishou-tokens-0.1.3-5dac393ee6ca92e2970378599cb8a71828cee258": "sha256-wh/QZs+INWpX4zPk1mCD4y//0vxfV+KueB68Td2pVnY=",
     "madori-0.1.2-dd7037ee3a600c3b670d56c15fbeb4319ee3b9a3": "sha256-63iTmh/CD4A8k1XRooEj9XnhChY2CwQHE2nMRUJ5imU=",
     "shikumi-0.1.1-693041f48e9f141e75553a7da692b6676833e0a9": "sha256-2oJ+xLL/OZN16C1oStly/8ttJ41yJl9daxYJ1WVuKf4=",
     "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y=",
