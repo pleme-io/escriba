@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use escriba_core::Mode;
 use escriba_runtime::EditorState;
 use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
-use ishou_tokens::{Rgb, Srgb, VellumPalette};
+use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb, VellumPalette};
 use madori::{RenderCallback, RenderContext};
 
 /// Shared handle to the editor state — both the GPU renderer (reads) and
@@ -64,7 +64,7 @@ impl GpuRenderer {
 impl RenderCallback for GpuRenderer {
     fn render(&mut self, ctx: &mut RenderContext<'_>) {
         // ── 1. Read state under lock, build display text. ──────────────
-        let (text, mode_str, cursor_line, cursor_col) = {
+        let (text, mode, cursor_line, cursor_col) = {
             let s = self
                 .state
                 .lock()
@@ -88,7 +88,7 @@ impl RenderCallback for GpuRenderer {
                     out.push('\n');
                 }
             }
-            (out, s.modal.mode.as_str(), s.cursor.line, s.cursor.column)
+            (out, s.modal.mode, s.cursor.line, s.cursor.column)
         };
 
         // ── 2. Layout glyphon buffer. ─────────────────────────────────
@@ -106,10 +106,14 @@ impl RenderCallback for GpuRenderer {
         );
         buffer.shape_until_scroll(&mut ctx.text.font_system, false);
 
-        // Status line — rendered as its own glyphon buffer.
+        // Status line — rendered as its own glyphon buffer. The mode is the
+        // BORN fleet mode glyph (`ishou_tokens::EscribaSignals`) + escriba's
+        // canonical uppercase mode label.
+        let signals = EscribaSignals::prescribed();
         let status = format!(
-            " {}  {}:{}  escriba v{} ",
-            mode_str,
+            " {} {}  {}:{}  escriba v{} ",
+            mode_glyph(&signals, mode).render(SignalMode::Glyph),
+            mode.as_str(),
             cursor_line + 1,
             cursor_col + 1,
             env!("CARGO_PKG_VERSION")
@@ -269,6 +273,21 @@ pub fn mode_color(mode: Mode) -> Rgb {
     }
 }
 
+/// Map an editor [`Mode`] to its fleet [`Signal`](ishou_tokens::Signal)
+/// from [`EscribaSignals`].
+///
+/// `VisualLine` shares `mode_visual` with `Visual` — the fleet signal set
+/// has one visual signal, matching how [`mode_color`] groups the two.
+#[must_use]
+pub fn mode_glyph(sig: &EscribaSignals, mode: Mode) -> &ishou_tokens::Signal {
+    match mode {
+        Mode::Normal => &sig.mode_normal,
+        Mode::Insert => &sig.mode_insert,
+        Mode::Visual | Mode::VisualLine => &sig.mode_visual,
+        Mode::Command => &sig.mode_command,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,5 +342,25 @@ mod tests {
         assert_eq!(mode_color(Mode::Insert).hex(), "#A9BB8C");
         assert_eq!(mode_color(Mode::Visual).hex(), "#B8A1B9");
         assert_eq!(mode_color(Mode::Command).hex(), "#D7C489");
+    }
+
+    /// Forcing function: the status-line mode glyphs are sourced from the
+    /// fleet `EscribaSignals` vocabulary, not hand-picked literals. Pins
+    /// the geometric `Glyph`-mode marks so drift in either escriba or
+    /// ishou surfaces here.
+    #[test]
+    fn mode_glyphs_are_fleet_signals() {
+        let sig = EscribaSignals::prescribed();
+        assert_eq!(mode_glyph(&sig, Mode::Normal).render(SignalMode::Glyph), "◆");
+        assert_eq!(mode_glyph(&sig, Mode::Insert).render(SignalMode::Glyph), "▸");
+        assert_eq!(mode_glyph(&sig, Mode::Visual).render(SignalMode::Glyph), "▮");
+        assert_eq!(
+            mode_glyph(&sig, Mode::VisualLine).render(SignalMode::Glyph),
+            "▮"
+        );
+        assert_eq!(
+            mode_glyph(&sig, Mode::Command).render(SignalMode::Glyph),
+            ":"
+        );
     }
 }

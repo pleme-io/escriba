@@ -6,7 +6,7 @@
 //! frostmourne, …) and the GPU backend.
 
 use escriba_runtime::EditorState;
-use ishou_tokens::VellumPalette;
+use ishou_tokens::{EscribaSignals, SignalMode, VellumPalette};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout as RLayout};
 use ratatui::style::{Color, Modifier, Style};
@@ -98,9 +98,22 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
         .and_then(|b| b.path.clone())
         .map_or("scratch".to_string(), |p| p.display().to_string());
     let modified = state.buffers.get(state.active).is_some_and(|b| b.modified);
-    let modified_indicator = if modified { " ●" } else { "" };
+    // Status glyphs are the BORN fleet vocabulary (`ishou_tokens::EscribaSignals`),
+    // not hand-picked literals. Single-width `Glyph` mode keeps the
+    // status-line column alignment-safe.
+    let sig = EscribaSignals::prescribed();
+    let modified_indicator = if modified {
+        format!(" {}", sig.modified.render(SignalMode::Glyph))
+    } else {
+        String::new()
+    };
 
-    let mode_span = Span::styled(format!(" {mode} "), mode_style_for(state.modal.mode));
+    // Mode pill = fleet mode glyph + escriba's canonical uppercase label.
+    let mode_glyph = mode_signal(&sig, state.modal.mode).render(SignalMode::Glyph);
+    let mode_span = Span::styled(
+        format!(" {mode_glyph} {mode} "),
+        mode_style_for(state.modal.mode),
+    );
     let path_span = Span::styled(format!(" {path}{modified_indicator} "), status_style());
     let minibuffer = if state.modal.mode == escriba_core::Mode::Command {
         Span::styled(format!(" :{}", state.modal.minibuffer), cmd_style())
@@ -174,6 +187,21 @@ fn error_style() -> Style {
         .bg(vellum(p.night0)) // #16140E
 }
 
+/// Map an editor [`Mode`](escriba_core::Mode) to its fleet
+/// [`Signal`](ishou_tokens::Signal) from [`EscribaSignals`].
+///
+/// `VisualLine` shares `mode_visual` with `Visual` — the fleet signal
+/// set has one visual signal, matching how [`mode_style_for`] groups the
+/// two under one pill color.
+fn mode_signal(sig: &EscribaSignals, mode: escriba_core::Mode) -> &ishou_tokens::Signal {
+    match mode {
+        escriba_core::Mode::Normal => &sig.mode_normal,
+        escriba_core::Mode::Insert => &sig.mode_insert,
+        escriba_core::Mode::Visual | escriba_core::Mode::VisualLine => &sig.mode_visual,
+        escriba_core::Mode::Command => &sig.mode_command,
+    }
+}
+
 fn mode_style_for(mode: escriba_core::Mode) -> Style {
     let p = VellumPalette::vellum();
     // Mode pills — all with dark (#16140E night0) text per the Vellum
@@ -188,4 +216,36 @@ fn mode_style_for(mode: escriba_core::Mode) -> Style {
         .fg(vellum(p.night0)) // #16140E — dark text on every pill
         .bg(vellum(bg))
         .add_modifier(Modifier::BOLD)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use escriba_core::Mode;
+
+    /// Forcing function: the status-line mode glyphs are sourced from the
+    /// fleet `EscribaSignals` vocabulary, not hand-picked literals.
+    #[test]
+    fn mode_glyphs_are_fleet_signals() {
+        let sig = EscribaSignals::prescribed();
+        assert_eq!(mode_signal(&sig, Mode::Normal).render(SignalMode::Glyph), "◆");
+        assert_eq!(mode_signal(&sig, Mode::Insert).render(SignalMode::Glyph), "▸");
+        assert_eq!(mode_signal(&sig, Mode::Visual).render(SignalMode::Glyph), "▮");
+        assert_eq!(
+            mode_signal(&sig, Mode::VisualLine).render(SignalMode::Glyph),
+            "▮"
+        );
+        assert_eq!(
+            mode_signal(&sig, Mode::Command).render(SignalMode::Glyph),
+            ":"
+        );
+    }
+
+    /// The modified indicator is the fleet `modified` glyph (`●`), not a
+    /// hand-picked literal.
+    #[test]
+    fn modified_indicator_is_fleet_signal() {
+        let sig = EscribaSignals::prescribed();
+        assert_eq!(sig.modified.render(SignalMode::Glyph), "●");
+    }
 }
