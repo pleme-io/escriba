@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "0de5f5a8aaf838efb19ca7564197e3e4f095578370c19814915a099f33f28ec9",
+  "cargo_lock_sha256": "771288a29aa1865158335d3665fcb8d6d6a80b39154f71c5133854123da52068",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -232,6 +232,44 @@
       },
       "autocfg-1.5.1": {
         "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
+      "awase-0.1.1-25880f6a1dddb6d8d589207e8afc2a5a73969ee0": {
+        "runtime_dependencies": [
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.18",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tracing",
+            "package_key": "tracing-0.1.44",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
         "build_dependencies": [],
         "features": []
       },
@@ -2583,6 +2621,16 @@
       },
       "escriba-runtime-0.1.6": {
         "runtime_dependencies": [
+          {
+            "name": "awase",
+            "package_key": "awase-0.1.1-25880f6a1dddb6d8d589207e8afc2a5a73969ee0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
           {
             "name": "escriba_buffer",
             "package_key": "escriba-buffer-0.1.6",
@@ -23956,6 +24004,9 @@
     "autocfg-1.5.1": {
       "edition": "2015"
     },
+    "awase-0.1.1-25880f6a1dddb6d8d589207e8afc2a5a73969ee0": {
+      "edition": "2024"
+    },
     "bincode-1.3.3": {
       "edition": "2015"
     },
@@ -25151,6 +25202,7 @@
     }
   },
   "git_nar_sha256": {
+    "awase-0.1.1-25880f6a1dddb6d8d589207e8afc2a5a73969ee0": "sha256-UvuzaneHM+C0wq3+uZ+sf6GEv5JDB1e/sJ2SuA7kJuQ=",
     "garasu-0.1.0-4a35c3ef6e0342a29b0fa614b4db2dcc29181adb": "sha256-7Xz0/2bYS58l0U3TvVGsSJSm4YGsNRq3gLzvL6tciZo=",
     "gen-macros-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
     "gen-platform-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
