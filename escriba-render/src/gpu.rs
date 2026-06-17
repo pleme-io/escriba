@@ -102,7 +102,7 @@ impl RenderCallback for GpuRenderer {
                     out.push('\n');
                 }
             }
-            (out, s.modal.mode, s.cursor.line, s.cursor.column)
+            (out, s.modal.mode(), s.cursor().line, s.cursor().column)
         };
 
         // ── 2. Layout glyphon buffer. ─────────────────────────────────
@@ -294,6 +294,17 @@ pub fn mode_color(mode: Mode) -> Rgb {
     }
 }
 
+/// The [`CursorShape`](escriba_core::CursorShape) the GPU backend should
+/// draw for `mode`. Derived from the single typed `Mode::cursor_shape`
+/// mapping shared with the TUI backend — so the GPU cursor (once it gains a
+/// dedicated glyph; today the buffer text carries the caret) renders the
+/// same shape the TUI does for any given mode. Exposed now so the shape is
+/// a typed value at the GPU layer, not a renderer-local literal later.
+#[must_use]
+pub fn cursor_shape(mode: Mode) -> escriba_core::CursorShape {
+    mode.cursor_shape()
+}
+
 /// Map an editor [`Mode`] to its fleet [`Signal`](ishou_tokens::Signal)
 /// from [`EscribaSignals`].
 ///
@@ -354,6 +365,16 @@ mod tests {
         let v = mode_color(Mode::Visual);
         assert_ne!((n.r, n.g, n.b), (i.r, i.g, i.b));
         assert_ne!((n.r, n.g, n.b), (v.r, v.g, v.b));
+    }
+
+    #[test]
+    fn cursor_shape_tracks_mode() {
+        use escriba_core::CursorShape;
+        assert_eq!(cursor_shape(Mode::Normal), CursorShape::Block);
+        assert_eq!(cursor_shape(Mode::Command), CursorShape::Block);
+        assert_eq!(cursor_shape(Mode::Insert), CursorShape::Bar);
+        assert_eq!(cursor_shape(Mode::Visual), CursorShape::Underline);
+        assert_eq!(cursor_shape(Mode::VisualLine), CursorShape::Underline);
     }
 
     #[test]

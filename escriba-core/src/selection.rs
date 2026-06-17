@@ -63,6 +63,67 @@ impl Cursor {
     }
 }
 
+/// The editor's cursor state — the single typed home for "where the
+/// caret(s) are".
+///
+/// **Phase 1 (today):** holds exactly one primary [`Position`]. The
+/// mutation surface (`primary` / `set_primary` / `map_primary`) is the same
+/// shape a single bare `Position` had, so callers route through it without
+/// behavioral change — but now there is ONE typed place that owns cursor
+/// state instead of a loose `Position` field beside an unused multi-caret
+/// [`Selection`]. That removes the dual-source-of-truth that would desync
+/// the moment multi-cursor lands.
+///
+/// **Phase 2 (later):** the inner representation grows to
+/// `{ primary: Position, secondaries: Vec<Position> }` (or wraps
+/// [`Selection`] directly). Because every caller already goes through this
+/// newtype's surface, that growth is a localized change here — not a
+/// fleet-wide rewrite of `self.cursor.line` reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+pub struct Cursors {
+    primary: Position,
+}
+
+impl Cursors {
+    /// One cursor at `p`.
+    #[must_use]
+    pub const fn single(p: Position) -> Self {
+        Self { primary: p }
+    }
+
+    /// The primary caret position — the single read accessor every renderer
+    /// and motion path uses.
+    #[must_use]
+    pub const fn primary(&self) -> Position {
+        self.primary
+    }
+
+    /// Move the primary caret to `p`. The single write path — `set_cursor`
+    /// in the runtime routes here, keeping clamp + viewport-follow as the
+    /// only way the cursor changes.
+    pub const fn set_primary(&mut self, p: Position) {
+        self.primary = p;
+    }
+
+    /// Transform the primary caret in place.
+    pub fn map_primary(&mut self, f: impl FnOnce(Position) -> Position) {
+        self.primary = f(self.primary);
+    }
+
+    /// Number of carets — always 1 in phase 1; the seam multi-cursor grows
+    /// at.
+    #[must_use]
+    pub const fn count(&self) -> usize {
+        1
+    }
+}
+
+impl From<Position> for Cursors {
+    fn from(p: Position) -> Self {
+        Self::single(p)
+    }
+}
+
 /// A multi-cursor selection — ordered by primary first, then secondaries
 /// in insertion order.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
@@ -137,5 +198,35 @@ mod tests {
     fn primary_is_first_by_default() {
         let s = Selection::single(Cursor::at(CaretId(0), Position::new(3, 2)));
         assert_eq!(s.primary().head, Position::new(3, 2));
+    }
+
+    // ── Cursors newtype (phase-1 single-cursor home) ─────────────────────
+
+    #[test]
+    fn cursors_single_round_trips_position() {
+        let c = Cursors::single(Position::new(2, 5));
+        assert_eq!(c.primary(), Position::new(2, 5));
+        assert_eq!(c.count(), 1);
+    }
+
+    #[test]
+    fn cursors_set_primary_is_the_write_path() {
+        let mut c = Cursors::default();
+        assert_eq!(c.primary(), Position::ZERO);
+        c.set_primary(Position::new(4, 1));
+        assert_eq!(c.primary(), Position::new(4, 1));
+    }
+
+    #[test]
+    fn cursors_map_primary_transforms_in_place() {
+        let mut c = Cursors::single(Position::new(1, 1));
+        c.map_primary(|p| Position::new(p.line + 1, p.column + 2));
+        assert_eq!(c.primary(), Position::new(2, 3));
+    }
+
+    #[test]
+    fn cursors_from_position() {
+        let c: Cursors = Position::new(7, 7).into();
+        assert_eq!(c.primary(), Position::new(7, 7));
     }
 }

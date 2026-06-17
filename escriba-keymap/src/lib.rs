@@ -8,7 +8,7 @@ use escriba_core::{Action, CountedAction, Mode, Motion};
 use escriba_mode::ModalState;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Key {
     Char(char),
     Esc,
@@ -279,17 +279,18 @@ impl Keymap {
 
     #[must_use]
     pub fn dispatch(&self, state: &ModalState, key: &Key) -> CountedAction {
-        if state.mode == Mode::Normal {
+        let mode = state.mode();
+        if mode == Mode::Normal {
             if let Key::Char(c) = key {
                 if c.is_ascii_digit() && *c != '0' {
                     return CountedAction::once(Action::Pending);
                 }
-                if *c == '0' && state.pending_count.is_some() {
+                if *c == '0' && state.pending_count().is_some() {
                     return CountedAction::once(Action::Pending);
                 }
             }
         }
-        if state.mode == Mode::Insert {
+        if mode == Mode::Insert {
             if let Key::Char(c) = key {
                 return CountedAction::once(Action::InsertChar(*c));
             }
@@ -297,13 +298,13 @@ impl Keymap {
                 return CountedAction::once(Action::InsertChar('\n'));
             }
         }
-        if state.mode == Mode::Command {
+        if mode == Mode::Command {
             if let Key::Char(c) = key {
                 return CountedAction::once(Action::InsertChar(*c));
             }
         }
-        if let Some(b) = self.lookup(state.mode, key) {
-            return CountedAction::repeated(state.pending_count.unwrap_or(1), b.action.clone());
+        if let Some(b) = self.lookup(mode, key) {
+            return CountedAction::repeated(state.pending_count().unwrap_or(1), b.action.clone());
         }
         CountedAction::once(Action::Pending)
     }

@@ -27,6 +27,14 @@ pub struct EditContext<'a> {
     pub buffers: &'a mut BufferSet,
     pub active: Option<BufferId>,
     pub state: &'a mut ModalState,
+    /// Typed quit signal. A command that wants to exit the editor sets
+    /// this to `true`; the runtime reads it after `run`. This replaces the
+    /// old stringly-typed `__quit__` sentinel that was smuggled through the
+    /// command minibuffer — a channel that only existed because `minibuffer`
+    /// used to be a mode-independent scratch `String`. With the typed
+    /// modal sum, the minibuffer exists only in Command mode, so quit is now
+    /// a proper typed flag, not a buffer hack.
+    pub quit_requested: &'a mut bool,
 }
 
 pub type CommandFn = fn(&mut EditContext<'_>, &[String]) -> Result<()>;
@@ -253,9 +261,10 @@ fn cmd_save(ctx: &mut EditContext<'_>, _args: &[String]) -> Result<()> {
 }
 
 fn cmd_quit(ctx: &mut EditContext<'_>, _: &[String]) -> Result<()> {
-    // Quit is signaled via state.minibuffer — phase 1 uses a sentinel, phase 2
-    // graduates to a proper Result enum with QuitRequested(code).
-    ctx.state.minibuffer.push_str("__quit__");
+    // Quit is a typed signal on the edit context — no string sentinel,
+    // no mode-specific scratch buffer. Phase 2 graduates this to a proper
+    // Result enum carrying `QuitRequested(code)`.
+    *ctx.quit_requested = true;
     Ok(())
 }
 
@@ -323,10 +332,12 @@ mod tests {
         let r = CommandRegistry::new();
         let mut bufs = BufferSet::new();
         let mut state = ModalState::new();
+        let mut quit = false;
         let mut ctx = EditContext {
             buffers: &mut bufs,
             active: None,
             state: &mut state,
+            quit_requested: &mut quit,
         };
         let err = r.run("nope", &mut ctx, &[]).unwrap_err();
         assert!(matches!(err, CommandError::NotFound(_)));
@@ -350,10 +361,12 @@ mod tests {
         let id = bufs.scratch("dirty");
         bufs.get_mut(id).unwrap().modified = true;
         let mut state = ModalState::new();
+        let mut quit = false;
         let mut ctx = EditContext {
             buffers: &mut bufs,
             active: Some(id),
             state: &mut state,
+            quit_requested: &mut quit,
         };
         // No path → write-all is a no-op, never NoPath-errors.
         r.run("w-all", &mut ctx, &[]).expect("action command runs");
@@ -368,10 +381,12 @@ mod tests {
         r.register(Command::action("pick", "Pick a file", "picker.files"));
         let mut bufs = BufferSet::new();
         let mut state = ModalState::new();
+        let mut quit = false;
         let mut ctx = EditContext {
             buffers: &mut bufs,
             active: None,
             state: &mut state,
+            quit_requested: &mut quit,
         };
         r.run("pick", &mut ctx, &[]).expect("unknown action is inert");
     }
@@ -391,11 +406,13 @@ mod tests {
         let id = bufs.scratch("dirty");
         bufs.get_mut(id).unwrap().modified = true;
         let mut state = ModalState::new();
+        let mut quit = false;
         {
             let mut ctx = EditContext {
                 buffers: &mut bufs,
                 active: Some(id),
                 state: &mut state,
+                quit_requested: &mut quit,
             };
             r.run("alias", &mut ctx, &[]).expect("alias runs inertly");
         }
@@ -406,20 +423,22 @@ mod tests {
     }
 
     #[test]
-    fn action_quit_sets_quit_sentinel() {
-        // `editor.quit` must route to the same sentinel the native
-        // quit command uses, so a Lisp-defined quit alias behaves
+    fn action_quit_sets_quit_flag() {
+        // `editor.quit` must route to the same typed quit signal the
+        // native quit command uses, so a Lisp-defined quit alias behaves
         // identically to the built-in.
         let mut r = CommandRegistry::new();
         r.register(Command::action("bye", "Quit", "editor.quit"));
         let mut bufs = BufferSet::new();
         let mut state = ModalState::new();
+        let mut quit = false;
         let mut ctx = EditContext {
             buffers: &mut bufs,
             active: None,
             state: &mut state,
+            quit_requested: &mut quit,
         };
         r.run("bye", &mut ctx, &[]).expect("quit action runs");
-        assert!(ctx.state.minibuffer.contains("__quit__"));
+        assert!(*ctx.quit_requested, "editor.quit sets the typed quit flag");
     }
 }
