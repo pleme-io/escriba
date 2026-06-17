@@ -5,6 +5,7 @@
 //! token, so the TUI chrome matches the rest of the fleet (mado, tear,
 //! frostmourne, …) and the GPU backend.
 
+use escriba_core::CursorShape;
 use escriba_runtime::EditorState;
 use ishou_tokens::{EscribaSignals, SignalMode, VellumPalette};
 use ratatui::Frame;
@@ -43,7 +44,12 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
     // Visible width minus the gutter ("{:>4} │ " = 7 columns).
     let vis_cols = win.map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
     let visible = area.height.saturating_sub(2).max(1);
-    let cursor = state.cursor;
+    let cursor = state.cursor();
+    // The cursor's on-screen shape is derived from the active mode through
+    // the one typed `Mode::cursor_shape` function — block in Normal/Command,
+    // bar in Insert, underline in Visual. Both backends read it from there,
+    // so the shapes can't drift apart.
+    let shape = state.modal.mode().cursor_shape();
 
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(visible as usize);
     for row in 0..visible as u32 {
@@ -58,7 +64,14 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
             .trim_end_matches('\n')
             .trim_end_matches('\r')
             .to_string();
-        lines.push(line_with_gutter(ln, &text, cursor, left as usize, vis_cols));
+        lines.push(line_with_gutter(
+            ln,
+            &text,
+            cursor,
+            left as usize,
+            vis_cols,
+            shape,
+        ));
     }
 
     let block = Block::default()
@@ -78,6 +91,7 @@ fn line_with_gutter(
     cursor: escriba_core::Position,
     left: usize,
     vis_cols: usize,
+    shape: CursorShape,
 ) -> Line<'static> {
     let gutter = format!("{:>4} │ ", ln + 1);
     let mut spans = vec![Span::styled(gutter, muted_style())];
@@ -90,15 +104,16 @@ fn line_with_gutter(
         // Cursor column relative to the horizontal scroll.
         let rel = cursor.column as usize - left;
         if rel >= visible.len() {
-            // Cursor at/after the end of the visible text → trailing block.
+            // Cursor at/after the end of the visible text — render the
+            // shape over a blank trailing cell.
             spans.push(Span::raw(visible.iter().collect::<String>()));
-            spans.push(Span::styled(" ".to_string(), cursor_style()));
+            spans.extend(cursor_spans(' ', shape));
         } else {
             let before: String = visible[..rel].iter().collect();
-            let under: String = visible[rel].to_string();
+            let under = visible[rel];
             let after: String = visible[rel + 1..].iter().collect();
             spans.push(Span::raw(before));
-            spans.push(Span::styled(under, cursor_style()));
+            spans.extend(cursor_spans(under, shape));
             spans.push(Span::raw(after));
         }
     } else {
@@ -108,9 +123,28 @@ fn line_with_gutter(
     Line::from(spans)
 }
 
+/// Render the cell under the cursor in its per-mode [`CursorShape`].
+///
+/// - [`CursorShape::Block`]: fill the cell (dark glyph on the cursor color)
+///   — the Normal/Command "you are here" indicator.
+/// - [`CursorShape::Bar`]: a thin vertical bar drawn BEFORE the glyph
+///   (Insert mode's between-glyphs caret), the glyph itself left plain.
+/// - [`CursorShape::Underline`]: the glyph with an underline modifier
+///   (Visual mode), so the highlighted selection stays readable.
+fn cursor_spans(under: char, shape: CursorShape) -> Vec<Span<'static>> {
+    match shape {
+        CursorShape::Block => vec![Span::styled(under.to_string(), cursor_block_style())],
+        CursorShape::Bar => vec![
+            Span::styled("▏".to_string(), cursor_bar_style()),
+            Span::raw(under.to_string()),
+        ],
+        CursorShape::Underline => vec![Span::styled(under.to_string(), cursor_underline_style())],
+    }
+}
+
 fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorState) {
-    let mode = state.modal.mode.as_str();
-    let pos = format!("{}:{}", state.cursor.line + 1, state.cursor.column + 1);
+    let mode = state.modal.mode().as_str();
+    let pos = format!("{}:{}", state.cursor().line + 1, state.cursor().column + 1);
     let path = state
         .buffers
         .get(state.active)
@@ -128,14 +162,14 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     };
 
     // Mode pill = fleet mode glyph + escriba's canonical uppercase label.
-    let mode_glyph = mode_signal(&sig, state.modal.mode).render(SignalMode::Glyph);
+    let mode_glyph = mode_signal(&sig, state.modal.mode()).render(SignalMode::Glyph);
     let mode_span = Span::styled(
         format!(" {mode_glyph} {mode} "),
-        mode_style_for(state.modal.mode),
+        mode_style_for(state.modal.mode()),
     );
     let path_span = Span::styled(format!(" {path}{modified_indicator} "), status_style());
-    let minibuffer = if state.modal.mode == escriba_core::Mode::Command {
-        Span::styled(format!(" :{}", state.modal.minibuffer), cmd_style())
+    let minibuffer = if state.modal.mode() == escriba_core::Mode::Command {
+        Span::styled(format!(" :{}", state.modal.minibuffer()), cmd_style())
     } else {
         Span::raw("")
     };
@@ -176,11 +210,32 @@ fn muted_style() -> Style {
     Style::default().fg(vellum(p.shadow1)) // #90897B — comment/gutter
 }
 
-fn cursor_style() -> Style {
+/// Block cursor (Normal / Command) — dark glyph filled onto the cursor
+/// color, the "you are here" cell.
+fn cursor_block_style() -> Style {
     let p = VellumPalette::vellum();
     Style::default()
         .fg(vellum(p.night0)) // #16140E — dark text on cursor
         .bg(vellum(p.green_bright)) // #ADD7A3 — cursor (= ishou surfaces.cursor)
+        .add_modifier(Modifier::BOLD)
+}
+
+/// Bar cursor (Insert) — the thin vertical caret drawn between glyphs,
+/// colored in the cursor accent.
+fn cursor_bar_style() -> Style {
+    let p = VellumPalette::vellum();
+    Style::default()
+        .fg(vellum(p.green_bright)) // #ADD7A3 — cursor accent for the bar
+        .add_modifier(Modifier::BOLD)
+}
+
+/// Underline cursor (Visual) — the glyph kept legible with an underline in
+/// the cursor accent.
+fn cursor_underline_style() -> Style {
+    let p = VellumPalette::vellum();
+    Style::default()
+        .fg(vellum(p.green_bright)) // #ADD7A3 — cursor accent underline
+        .add_modifier(Modifier::UNDERLINED)
         .add_modifier(Modifier::BOLD)
 }
 
@@ -266,5 +321,39 @@ mod tests {
     fn modified_indicator_is_fleet_signal() {
         let sig = EscribaSignals::prescribed();
         assert_eq!(sig.modified.render(SignalMode::Glyph), "●");
+    }
+
+    /// The cursor is rendered in its per-mode shape: a block fills the
+    /// cell (Normal), a bar precedes the glyph (Insert), an underline marks
+    /// the glyph (Visual). The shape is selected by `Mode::cursor_shape`.
+    #[test]
+    fn cursor_spans_render_per_mode_shape() {
+        // Block: a single span styled with the cursor BG (block fill).
+        let block = cursor_spans('a', CursorShape::Block);
+        assert_eq!(block.len(), 1);
+        assert_eq!(block[0].content, "a");
+        assert_eq!(block[0].style.bg, Some(vellum(VellumPalette::vellum().green_bright)));
+
+        // Bar: a thin caret span BEFORE the (unstyled) glyph.
+        let bar = cursor_spans('a', CursorShape::Bar);
+        assert_eq!(bar.len(), 2);
+        assert_eq!(bar[0].content, "▏");
+        assert_eq!(bar[1].content, "a");
+        assert_eq!(bar[1].style.bg, None, "bar leaves the glyph cell unfilled");
+
+        // Underline: one glyph span carrying the UNDERLINED modifier.
+        let under = cursor_spans('a', CursorShape::Underline);
+        assert_eq!(under.len(), 1);
+        assert!(under[0].style.add_modifier.contains(Modifier::UNDERLINED));
+    }
+
+    /// End-to-end: the shape the buffer pane uses is derived from the live
+    /// modal mode through the one typed `Mode::cursor_shape` mapping.
+    #[test]
+    fn buffer_shape_follows_modal_mode() {
+        use escriba_core::Mode;
+        assert_eq!(Mode::Normal.cursor_shape(), CursorShape::Block);
+        assert_eq!(Mode::Insert.cursor_shape(), CursorShape::Bar);
+        assert_eq!(Mode::Visual.cursor_shape(), CursorShape::Underline);
     }
 }

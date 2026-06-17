@@ -11,13 +11,15 @@ use std::collections::HashMap;
 
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
-use escriba_core::{Action, BufferId, Edit, Mode, Motion, Position, WindowId};
+use escriba_core::{Action, BufferId, Cursors, Edit, Mode, Motion, Position, WindowId};
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
 use escriba_mode::ModalState;
 use escriba_ui::{Layout, Rect, Viewport, Window};
 use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, HostEffect, VmError};
+use awase::KeyRepeatGate;
 use madori::AppEvent;
+use std::time::Instant;
 
 /// Full editor state — the single Rust value the binary hands to the
 /// renderer each frame.
@@ -28,7 +30,11 @@ pub struct EditorState {
     pub commands: CommandRegistry,
     pub layout: Layout,
     pub active: BufferId,
-    pub cursor: Position,
+    /// The single typed home for cursor state. Phase-1 holds one primary
+    /// [`Position`]; reads go through [`Self::cursor`], writes through
+    /// [`Self::set_cursor`] → [`Cursors::set_primary`]. There is no loose
+    /// `Position` field beside an unused multi-caret type to desync.
+    cursors: Cursors,
     pub quit_requested: bool,
     /// Messages surfaced to the user (status line / `:messages`) — the
     /// sink for the tatara-lisp `(message …)` effect and other feedback.
@@ -49,6 +55,14 @@ pub struct EditorState {
     /// `EditorState` (not `ModalState`) so `escriba-mode` needn't
     /// depend on `escriba-keymap`'s `Key`.
     pub pending_keys: Vec<Key>,
+    /// Per-key debouncer for OS key-repeat storms. Holding `j`/`l` makes
+    /// the windowing system deliver one `KeyDown` per repeat tick
+    /// (~30-50ms); without a gate those flood the motion path and thrash
+    /// the viewport. The gate lets ONE event per `min_interval` (80ms
+    /// default — ~12 intentional taps/sec still pass) reach the editor in
+    /// the navigation modes. The fleet primitive (`awase::KeyRepeatGate`,
+    /// the same one mado uses) is reused — not reinvented.
+    repeat_gate: KeyRepeatGate<Key>,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -87,19 +101,34 @@ impl EditorState {
             commands: CommandRegistry::default_set(),
             layout: Layout::single(window),
             active,
-            cursor: Position::ZERO,
+            cursors: Cursors::single(Position::ZERO),
             quit_requested: false,
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
             pending_keys: Vec::new(),
+            repeat_gate: KeyRepeatGate::new(),
         }
     }
 
     /// Advance one frame's worth of state given a raw madori event.
+    ///
+    /// Key events pass through the [`KeyRepeatGate`] first (see
+    /// [`Self::tick_at`]); everything else is handled directly.
     pub fn tick(&mut self, event: &AppEvent) {
+        self.tick_at(event, Instant::now());
+    }
+
+    /// [`Self::tick`] with an explicit timestamp for the key-repeat gate —
+    /// lets tests drive the debounce window without depending on the
+    /// wall clock.
+    pub fn tick_at(&mut self, event: &AppEvent, now: Instant) {
         match translate_app_event(event) {
-            InputOutcome::Key(k) => self.on_key(&k),
+            InputOutcome::Key(k) => {
+                if self.gate_key(&k, now) {
+                    self.on_key(&k);
+                }
+            }
             InputOutcome::Resized { width, height } => {
                 if let Some(w) = self
                     .layout
@@ -116,6 +145,24 @@ impl EditorState {
         }
     }
 
+    /// Decide whether `key` survives the key-repeat gate at time `now`.
+    ///
+    /// Returns `true` when the key should be processed, `false` when it is
+    /// an OS key-repeat storm tick that should be dropped. Gating applies
+    /// ONLY in the navigation modes (Normal / Visual / VisualLine) — those
+    /// are where a held `j`/`l` floods the motion path and thrashes the
+    /// viewport. Insert and Command modes pass every key through ungated,
+    /// because there "hold a key to repeat the character" is the intended
+    /// behavior, not a storm to suppress.
+    fn gate_key(&mut self, key: &Key, now: Instant) -> bool {
+        match self.modal.mode() {
+            Mode::Normal | Mode::Visual | Mode::VisualLine => {
+                self.repeat_gate.try_pass_at(*key, now)
+            }
+            Mode::Insert | Mode::Command => true,
+        }
+    }
+
     /// Dispatch a single key through the keymap + apply the resulting action.
     pub fn on_key(&mut self, key: &Key) {
         // Multi-key sequence resolution runs first: a key that begins or
@@ -124,8 +171,8 @@ impl EditorState {
         match self.step_sequence(key) {
             SeqStep::Pending => return,
             SeqStep::Resolved(action) => {
-                let count = self.modal.pending_count.unwrap_or(1);
-                self.modal.pending_count = None;
+                let count = self.modal.pending_count().unwrap_or(1);
+                self.modal.clear_count();
                 for _ in 0..count {
                     self.apply(&action);
                     if self.quit_requested {
@@ -154,7 +201,7 @@ impl EditorState {
             }
         }
         // After applying, reset pending count.
-        self.modal.pending_count = None;
+        self.modal.clear_count();
     }
 
     /// Advance the multi-key pending-stroke state machine for `key`.
@@ -169,21 +216,19 @@ impl EditorState {
     ///   chord timeout is needed) → start pending. Otherwise
     ///   [`SeqStep::Passthrough`] to the single-key dispatcher.
     fn step_sequence(&mut self, key: &Key) -> SeqStep {
-        if !matches!(
-            self.modal.mode,
-            Mode::Normal | Mode::Visual | Mode::VisualLine
-        ) {
+        let mode = self.modal.mode();
+        if !matches!(mode, Mode::Normal | Mode::Visual | Mode::VisualLine) {
             return SeqStep::Passthrough;
         }
         if !self.pending_keys.is_empty() {
             let mut seq = self.pending_keys.clone();
             seq.push(key.clone());
-            if let Some(b) = self.keymap.lookup_sequence(self.modal.mode, &seq) {
+            if let Some(b) = self.keymap.lookup_sequence(mode, &seq) {
                 let action = b.action.clone();
                 self.pending_keys.clear();
                 return SeqStep::Resolved(action);
             }
-            if self.keymap.is_sequence_prefix(self.modal.mode, &seq) {
+            if self.keymap.is_sequence_prefix(mode, &seq) {
                 self.pending_keys = seq;
                 return SeqStep::Pending;
             }
@@ -192,8 +237,8 @@ impl EditorState {
             self.pending_keys.clear();
         }
         let start = [key.clone()];
-        if self.keymap.is_sequence_prefix(self.modal.mode, &start)
-            && self.keymap.lookup(self.modal.mode, key).is_none()
+        if self.keymap.is_sequence_prefix(mode, &start)
+            && self.keymap.lookup(mode, key).is_none()
         {
             self.pending_keys = start.to_vec();
             return SeqStep::Pending;
@@ -201,25 +246,37 @@ impl EditorState {
         SeqStep::Passthrough
     }
 
+    /// The primary cursor position. The single read accessor — every
+    /// renderer + motion path goes through it, so the underlying
+    /// representation (today a single-cursor [`Cursors`]) can grow to
+    /// multi-caret without changing read sites.
+    #[must_use]
+    pub fn cursor(&self) -> Position {
+        self.cursors.primary()
+    }
+
     /// The **single** cursor-mutation path. Clamp the requested position to
     /// the active buffer's bounds, then scroll the active window's viewport
     /// to contain it on BOTH axes. Routing every cursor change through this
-    /// makes "cursor outside its viewport" an unrepresentable state: there
-    /// is no code path that advances the cursor without re-deriving the
-    /// viewport from it.
+    /// (and through [`Cursors::set_primary`]) makes "cursor outside its
+    /// viewport" an unrepresentable state, AND keeps cursor state in ONE
+    /// typed home — there is no code path that advances the cursor without
+    /// re-deriving the viewport from it, and no second `Position` field to
+    /// fall out of sync.
     fn set_cursor(&mut self, pos: Position) {
-        self.cursor = if let Some(buf) = self.buffers.get(self.active) {
+        let clamped = if let Some(buf) = self.buffers.get(self.active) {
             buf.clamp(pos)
         } else {
             pos
         };
+        self.cursors.set_primary(clamped);
         if let Some(w) = self
             .layout
             .windows
             .iter_mut()
             .find(|w| w.id == self.layout.active)
         {
-            w.viewport = w.viewport.scroll_to_contain(self.cursor, 2);
+            w.viewport = w.viewport.scroll_to_contain(self.cursors.primary(), 2);
         }
     }
 
@@ -235,19 +292,19 @@ impl EditorState {
                 }
                 // The buffer may have shrunk — re-follow so the viewport
                 // re-contains a now-out-of-bounds cursor.
-                self.set_cursor(self.cursor);
+                self.set_cursor(self.cursor());
             }
             Action::Redo => {
                 if let Some(buf) = self.buffers.get_mut(self.active) {
                     let _ = buf.redo();
                 }
-                self.set_cursor(self.cursor);
+                self.set_cursor(self.cursor());
             }
             Action::Save => {
                 if let Some(buf) = self.buffers.get_mut(self.active) {
                     let _ = buf.save();
                 }
-                self.set_cursor(self.cursor);
+                self.set_cursor(self.cursor());
             }
             Action::Quit => self.quit_requested = true,
             Action::SubmitCommand => self.submit_command(),
@@ -263,7 +320,7 @@ impl EditorState {
         let Some(buf) = self.buffers.get(self.active) else {
             return;
         };
-        let mut pos = self.cursor;
+        let mut pos = self.cursor();
         pos = match motion {
             Motion::Left => Position::new(pos.line, pos.column.saturating_sub(1)),
             Motion::Right => Position::new(pos.line, pos.column.saturating_add(1)),
@@ -303,19 +360,20 @@ impl EditorState {
     }
 
     fn insert_char(&mut self, c: char) {
-        if self.modal.mode == Mode::Command {
+        if self.modal.mode() == Mode::Command {
             self.modal.push_minibuffer(c);
             return;
         }
+        let cursor = self.cursor();
         let Some(buf) = self.buffers.get_mut(self.active) else {
             return;
         };
-        let edit = Edit::insert(self.cursor, c.to_string());
+        let edit = Edit::insert(cursor, c.to_string());
         if buf.apply(&edit).is_ok() {
             let next = if c == '\n' {
-                Position::new(self.cursor.line.saturating_add(1), 0)
+                Position::new(cursor.line.saturating_add(1), 0)
             } else {
-                self.cursor.shift_right(1)
+                cursor.shift_right(1)
             };
             // Route through the single cursor-mutation path so the viewport
             // follows the cursor (both axes) and the cursor stays clamped.
@@ -330,8 +388,11 @@ impl EditorState {
     }
 
     fn submit_command(&mut self) {
-        let line = self.modal.minibuffer.clone();
-        self.modal.enter(Mode::Normal);
+        // Read the command line BEFORE leaving Command mode — the minibuffer
+        // exists only in the `Command` variant, so the escape must come
+        // after the capture.
+        let line = self.modal.minibuffer().to_string();
+        self.modal.escape();
         let (name, args) = parse_command_line(&line);
         if name.is_empty() {
             return;
@@ -341,15 +402,20 @@ impl EditorState {
 
     fn run_command(&mut self, name: &str, args: &[String]) {
         let active = Some(self.active);
-        let mut ctx = EditContext {
-            buffers: &mut self.buffers,
-            active,
-            state: &mut self.modal,
-        };
-        let _ = self.commands.run(name, &mut ctx, args);
-        if self.modal.minibuffer.contains("__quit__") {
+        let mut quit = false;
+        {
+            let mut ctx = EditContext {
+                buffers: &mut self.buffers,
+                active,
+                state: &mut self.modal,
+                quit_requested: &mut quit,
+            };
+            let _ = self.commands.run(name, &mut ctx, args);
+        }
+        // The command's typed quit signal — no string sentinel, no
+        // mode-specific buffer to clear.
+        if quit {
             self.quit_requested = true;
-            self.modal.minibuffer.clear();
         }
     }
 
@@ -362,7 +428,7 @@ impl EditorState {
         let current_line = self
             .buffers
             .get(self.active)
-            .and_then(|b| b.line(self.cursor.line))
+            .and_then(|b| b.line(self.cursor().line))
             .map(|s| s.trim_end_matches('\n').to_string())
             .unwrap_or_default();
         let buffer_name = self
@@ -372,10 +438,10 @@ impl EditorState {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "[scratch]".to_string());
         EditorSnapshot {
-            cursor_line: i64::from(self.cursor.line),
-            cursor_column: i64::from(self.cursor.column),
+            cursor_line: i64::from(self.cursor().line),
+            cursor_column: i64::from(self.cursor().column),
             current_line,
-            mode: self.modal.mode.as_str().to_string(),
+            mode: self.modal.mode().as_str().to_string(),
             buffer_name,
         }
     }
@@ -426,18 +492,19 @@ impl EditorState {
         if text.is_empty() {
             return;
         }
+        let cursor = self.cursor();
         let Some(buf) = self.buffers.get_mut(self.active) else {
             return;
         };
-        let edit = Edit::insert(self.cursor, text.to_string());
+        let edit = Edit::insert(cursor, text.to_string());
         if buf.apply(&edit).is_ok() {
             let next = if let Some(nl) = text.rfind('\n') {
                 let added_lines = u32::try_from(text.matches('\n').count()).unwrap_or(0);
                 let last_line_len = u32::try_from(text[nl + 1..].chars().count()).unwrap_or(0);
-                Position::new(self.cursor.line + added_lines, last_line_len)
+                Position::new(cursor.line + added_lines, last_line_len)
             } else {
                 let n = u32::try_from(text.chars().count()).unwrap_or(0);
-                self.cursor.shift_right(n)
+                cursor.shift_right(n)
             };
             // Route through the single cursor-mutation path so the viewport
             // follows the cursor (both axes) and the cursor stays clamped.
@@ -539,7 +606,7 @@ mod tests {
     fn assert_cursor_in_viewport(s: &EditorState, ctx: &str) {
         let w = s.layout.active_window().expect("active window");
         let v = w.viewport;
-        let c = s.cursor;
+        let c = s.cursor();
         assert!(
             v.top_line <= c.line && c.line < v.top_line + v.visible_lines,
             "[{ctx}] cursor line {} not in vertical window [{}, {}); viewport={v:?}",
@@ -565,26 +632,42 @@ mod tests {
         })
     }
 
+    /// A monotonic clock for the key-repeat gate in tests — each `next()`
+    /// jumps a full second past the previous, so every press it stamps is
+    /// well outside the 80ms debounce window and therefore an INTENTIONAL
+    /// press (never a storm tick). Used by tests that fire the *same*
+    /// navigation key twice and assert editor logic, not debounce timing.
+    struct SpacedClock(std::time::Instant);
+    impl SpacedClock {
+        fn new() -> Self {
+            Self(std::time::Instant::now())
+        }
+        fn next(&mut self) -> std::time::Instant {
+            self.0 += std::time::Duration::from_secs(1);
+            self.0
+        }
+    }
+
     #[test]
     fn hjkl_moves_cursor() {
         let mut s = new_state_with("hello\nworld");
         s.tick(&press(KeyCode::Char('l')));
-        assert_eq!(s.cursor.column, 1);
+        assert_eq!(s.cursor().column, 1);
         s.tick(&press(KeyCode::Char('j')));
-        assert_eq!(s.cursor.line, 1);
+        assert_eq!(s.cursor().line, 1);
         s.tick(&press(KeyCode::Char('h')));
-        assert_eq!(s.cursor.column, 0);
+        assert_eq!(s.cursor().column, 0);
     }
 
     #[test]
     fn insert_mode_inserts_chars() {
         let mut s = new_state_with("");
         s.tick(&press(KeyCode::Char('i')));
-        assert_eq!(s.modal.mode, Mode::Insert);
+        assert_eq!(s.modal.mode(), Mode::Insert);
         s.tick(&press(KeyCode::Char('h')));
         s.tick(&press(KeyCode::Char('i')));
         assert_eq!(s.buffers.get(s.active).unwrap().to_string(), "hi");
-        assert_eq!(s.cursor.column, 2);
+        assert_eq!(s.cursor().column, 2);
     }
 
     #[test]
@@ -592,7 +675,7 @@ mod tests {
         let mut s = new_state_with("");
         s.tick(&press(KeyCode::Char('i')));
         s.tick(&press(KeyCode::Escape));
-        assert_eq!(s.modal.mode, Mode::Normal);
+        assert_eq!(s.modal.mode(), Mode::Normal);
     }
 
     #[test]
@@ -600,7 +683,7 @@ mod tests {
         let mut s = new_state_with("abcdefghij");
         s.tick(&press(KeyCode::Char('5')));
         s.tick(&press(KeyCode::Char('l')));
-        assert_eq!(s.cursor.column, 5);
+        assert_eq!(s.cursor().column, 5);
     }
 
     #[test]
@@ -613,10 +696,13 @@ mod tests {
     #[test]
     fn word_next_jumps_past_whitespace() {
         let mut s = new_state_with("foo bar baz");
-        s.tick(&press(KeyCode::Char('w')));
-        assert_eq!(s.cursor.column, 4);
-        s.tick(&press(KeyCode::Char('w')));
-        assert_eq!(s.cursor.column, 8);
+        // Two INTENTIONAL `w` presses, spaced past the key-repeat window so
+        // the gate passes both (a real user's two taps are ≥80ms apart).
+        let mut clk = SpacedClock::new();
+        s.tick_at(&press(KeyCode::Char('w')), clk.next());
+        assert_eq!(s.cursor().column, 4);
+        s.tick_at(&press(KeyCode::Char('w')), clk.next());
+        assert_eq!(s.cursor().column, 8);
     }
 
     // ── Multi-key / leader pending-stroke ───────────────────────────
@@ -633,11 +719,11 @@ mod tests {
         // `,` begins the sequence — held pending, nothing applied yet.
         s.on_key(&Key::Char(','));
         assert_eq!(s.pending_keys, vec![Key::Char(',')]);
-        assert_eq!(s.cursor, Position::ZERO);
+        assert_eq!(s.cursor(), Position::ZERO);
         // `g` completes `<leader>g` → DocEnd; pending clears.
         s.on_key(&Key::Char('g'));
         assert!(s.pending_keys.is_empty());
-        assert_eq!(s.cursor.line, 2);
+        assert_eq!(s.cursor().line, 2);
     }
 
     #[test]
@@ -649,13 +735,14 @@ mod tests {
             Action::Move(Motion::DocStart),
             "doc start",
         );
-        s.tick(&press(KeyCode::Char('j')));
-        s.tick(&press(KeyCode::Char('j')));
-        assert_eq!(s.cursor.line, 2);
+        let mut clk = SpacedClock::new();
+        s.tick_at(&press(KeyCode::Char('j')), clk.next());
+        s.tick_at(&press(KeyCode::Char('j')), clk.next());
+        assert_eq!(s.cursor().line, 2);
         s.on_key(&Key::Char('g')); // pending
         assert_eq!(s.pending_keys, vec![Key::Char('g')]);
         s.on_key(&Key::Char('g')); // resolve
-        assert_eq!(s.cursor, Position::ZERO);
+        assert_eq!(s.cursor(), Position::ZERO);
     }
 
     #[test]
@@ -671,7 +758,7 @@ mod tests {
         assert_eq!(s.pending_keys, vec![Key::Char('g')]);
         s.on_key(&Key::Char('x')); // breaks gg → abort; x is unbound → no-op
         assert!(s.pending_keys.is_empty());
-        assert_eq!(s.cursor, Position::ZERO);
+        assert_eq!(s.cursor(), Position::ZERO);
     }
 
     #[test]
@@ -680,9 +767,10 @@ mod tests {
         // a sequence fires the single binding immediately (no chord
         // timeout needed). Here `h` (move-left) also prefixes `hz`.
         let mut s = new_state_with("abcde");
-        s.tick(&press(KeyCode::Char('l')));
-        s.tick(&press(KeyCode::Char('l')));
-        assert_eq!(s.cursor.column, 2);
+        let mut clk = SpacedClock::new();
+        s.tick_at(&press(KeyCode::Char('l')), clk.next());
+        s.tick_at(&press(KeyCode::Char('l')), clk.next());
+        assert_eq!(s.cursor().column, 2);
         s.keymap.bind_sequence(
             Mode::Normal,
             vec![Key::Char('h'), Key::Char('z')],
@@ -691,7 +779,7 @@ mod tests {
         );
         s.on_key(&Key::Char('h'));
         assert!(s.pending_keys.is_empty(), "single binding should not pend");
-        assert_eq!(s.cursor.column, 1, "h moved left immediately");
+        assert_eq!(s.cursor().column, 1, "h moved left immediately");
     }
 
     // ── tatara-lisp runtime bridge (imperative programmability) ─────
@@ -708,7 +796,7 @@ mod tests {
         let mut s = new_state_with("");
         s.run_lisp(r#"(insert "abc")"#).unwrap();
         assert_eq!(s.buffers.get(s.active).unwrap().to_string(), "abc");
-        assert_eq!(s.cursor, Position::new(0, 3));
+        assert_eq!(s.cursor(), Position::new(0, 3));
     }
 
     #[test]
@@ -742,15 +830,18 @@ mod tests {
     }
 
     #[test]
-    fn lisp_run_command_quit_sets_quit_requested_and_clears_sentinel() {
+    fn lisp_run_command_quit_sets_quit_requested_via_typed_flag() {
         // The full imperative-quit path: (run-command "quit") routes
-        // through the registry's __quit__ sentinel handshake.
+        // through the registry's typed `quit_requested` signal — no string
+        // sentinel, and no minibuffer pollution (the editor stays in a
+        // clean Normal state, which has no minibuffer at all).
         let mut s = new_state_with("");
         s.run_lisp(r#"(run-command "quit")"#).unwrap();
         assert!(s.quit_requested, "lisp-driven quit must set quit_requested");
-        assert!(
-            !s.modal.minibuffer.contains("__quit__"),
-            "sentinel must be cleared so it can't re-trigger or pollute a command line",
+        assert_eq!(
+            s.modal.minibuffer(),
+            "",
+            "quit must not pollute any command line — Normal mode has no minibuffer",
         );
     }
 
@@ -807,7 +898,7 @@ mod tests {
         let mut s = new_state_with("");
         s.apply_host_effects(vec![HostEffect::InsertText("foo\nbar".to_string())]);
         assert_eq!(s.buffers.get(s.active).unwrap().to_string(), "foo\nbar");
-        assert_eq!(s.cursor, Position::new(1, 3));
+        assert_eq!(s.cursor(), Position::new(1, 3));
     }
 
     #[test]
@@ -824,7 +915,7 @@ mod tests {
         assert_eq!(s.pending_keys, vec![Key::Char('g')]);
         s.on_key(&Key::Char('e'));
         assert!(s.pending_keys.is_empty());
-        assert_eq!(s.cursor.column, 3, "ge resolved to doc-end in visual mode");
+        assert_eq!(s.cursor().column, 3, "ge resolved to doc-end in visual mode");
     }
 
     #[test]
@@ -843,7 +934,7 @@ mod tests {
         s.on_key(&Key::Char('l'));
         assert!(s.pending_keys.is_empty());
         assert_eq!(
-            s.cursor.column, 1,
+            s.cursor().column, 1,
             "the breaking key l should re-dispatch as move-right",
         );
     }
@@ -861,7 +952,7 @@ mod tests {
         // Enter insert mode and type 30 newline-separated lines — this is
         // the exact "type past the bottom" complaint.
         s.tick(&press(KeyCode::Char('i')));
-        assert_eq!(s.modal.mode, Mode::Insert);
+        assert_eq!(s.modal.mode(), Mode::Insert);
         for line in 0..30u32 {
             for c in "line".chars() {
                 s.tick(&press(KeyCode::Char(c)));
@@ -884,7 +975,7 @@ mod tests {
 
         // Back to normal mode and move in all directions / to extremes.
         s.tick(&press(KeyCode::Escape));
-        assert_eq!(s.modal.mode, Mode::Normal);
+        assert_eq!(s.modal.mode(), Mode::Normal);
         for m in [
             Motion::DocStart,
             Motion::DocEnd,
@@ -927,8 +1018,8 @@ mod tests {
         s.tick(&press(KeyCode::Char('i')));
         s.tick(&press(KeyCode::Char('d')));
         let buf = s.buffers.get(s.active).unwrap();
-        let clamped = buf.clamp(s.cursor);
-        assert_eq!(s.cursor, clamped, "cursor must be clamped in-bounds at EOF");
+        let clamped = buf.clamp(s.cursor());
+        assert_eq!(s.cursor(), clamped, "cursor must be clamped in-bounds at EOF");
         assert_cursor_in_viewport(&s, "insert at eof");
     }
 
@@ -945,6 +1036,114 @@ mod tests {
         s.on_key(&Key::Char('2'));
         s.on_key(&Key::Char('g'));
         s.on_key(&Key::Char('j'));
-        assert_eq!(s.cursor.line, 2, "count 2 should repeat the gj motion");
+        assert_eq!(s.cursor().line, 2, "count 2 should repeat the gj motion");
+    }
+
+    // ── Key-repeat gate (awase::KeyRepeatGate) ──────────────────────────
+
+    #[test]
+    fn held_key_repeat_storm_is_debounced_in_normal_mode() {
+        // The audit's exact complaint: holding `j` floods motion events
+        // and thrashes the viewport. Simulate an OS key-repeat storm — 20
+        // identical `j` KeyDowns at 50ms intervals (typical repeat cadence)
+        // — and assert only the gated subset (one per 80ms window) actually
+        // moves the cursor.
+        let mut s = new_state_with(&"x\n".repeat(40));
+        let t0 = std::time::Instant::now();
+        let mut delivered = 0u32;
+        for i in 0..20u32 {
+            let before = s.cursor().line;
+            s.tick_at(
+                &press(KeyCode::Char('j')),
+                t0 + std::time::Duration::from_millis(u64::from(i) * 50),
+            );
+            if s.cursor().line != before {
+                delivered += 1;
+            }
+        }
+        // 20 events over ~1s at 50ms spacing, 80ms gate ⇒ ~13 pass — far
+        // fewer than the 20 the ungated path would have applied.
+        assert!(
+            (10..=14).contains(&delivered),
+            "expected the storm debounced to ~13 moves, got {delivered}",
+        );
+        assert!(
+            delivered < 20,
+            "the gate must drop SOME storm ticks, not pass all 20",
+        );
+    }
+
+    #[test]
+    fn spaced_intentional_taps_all_pass() {
+        // Intentional taps spaced past the debounce window must ALL reach
+        // the editor — the gate filters storms, never deliberate input.
+        let mut s = new_state_with(&"x\n".repeat(10));
+        let t0 = std::time::Instant::now();
+        for i in 0..5u32 {
+            s.tick_at(
+                &press(KeyCode::Char('j')),
+                // 100ms apart — comfortably past the 80ms window.
+                t0 + std::time::Duration::from_millis(u64::from(i) * 100),
+            );
+        }
+        assert_eq!(s.cursor().line, 5, "all 5 spaced `j` taps moved the cursor");
+    }
+
+    #[test]
+    fn distinct_keys_have_independent_clocks() {
+        // Holding `j` must not block a simultaneous `l` — the gate keys on
+        // the Key, so independent keys have independent windows.
+        let mut s = new_state_with("abc\ndef\nghi");
+        let t = std::time::Instant::now();
+        s.tick_at(&press(KeyCode::Char('j')), t);
+        // `j` again within the window is dropped…
+        s.tick_at(&press(KeyCode::Char('j')), t + std::time::Duration::from_millis(10));
+        assert_eq!(s.cursor().line, 1, "second `j` within window dropped");
+        // …but `l` at the same instant passes (its own clock).
+        s.tick_at(&press(KeyCode::Char('l')), t + std::time::Duration::from_millis(10));
+        assert_eq!(s.cursor().column, 1, "`l` is not blocked by `j`'s clock");
+    }
+
+    // ── Cursors newtype is the single cursor home ──────────────────────
+
+    #[test]
+    fn cursor_home_preserves_single_cursor_behavior() {
+        // The typed `Cursors` wrapper behaves exactly like the old bare
+        // `Position` field for single-cursor editing: the read accessor
+        // tracks every mutation routed through `set_cursor`, and there is
+        // exactly one caret.
+        let mut s = new_state_with("hello\nworld\nthere");
+        assert_eq!(s.cursor(), Position::ZERO);
+        assert_eq!(s.cursors.count(), 1, "phase-1 holds exactly one caret");
+
+        s.apply_motion(Motion::Down);
+        s.apply_motion(Motion::Right);
+        s.apply_motion(Motion::Right);
+        assert_eq!(s.cursor(), Position::new(1, 2));
+        // Still a single caret after a sequence of motions.
+        assert_eq!(s.cursors.count(), 1);
+
+        // The accessor is the SAME value the viewport-follow path read.
+        let w = s.layout.active_window().unwrap();
+        assert!(w.viewport.top_line <= s.cursor().line);
+    }
+
+    #[test]
+    fn insert_mode_is_ungated_so_repeat_typing_works() {
+        // Holding a key to repeat-type a character is intended in Insert
+        // mode — the gate must NOT suppress it. 10 rapid identical `x`
+        // keystrokes at the same instant must all land as text.
+        let mut s = new_state_with("");
+        s.tick(&press(KeyCode::Char('i')));
+        assert_eq!(s.modal.mode(), Mode::Insert);
+        let t = std::time::Instant::now();
+        for _ in 0..10 {
+            s.tick_at(&press(KeyCode::Char('x')), t);
+        }
+        assert_eq!(
+            s.buffers.get(s.active).unwrap().to_string(),
+            "xxxxxxxxxx",
+            "insert-mode repeat typing is ungated",
+        );
     }
 }

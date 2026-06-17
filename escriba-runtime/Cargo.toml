@@ -18,6 +18,7 @@ escriba-input   = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-vm      = { workspace = true }
 madori          = { workspace = true }
+awase           = { workspace = true }
 serde           = { workspace = true }
 
 [dev-dependencies]
