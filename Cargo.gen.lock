@@ -57,7 +57,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -258,7 +258,7 @@
             "package_key": "bit-vec-0.8.0",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -451,9 +451,11 @@
             "name": "iana_time_zone",
             "package_key": "iana-time-zone-0.1.65",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "fallback"
+            ],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": "cfg(unix)",
             "tree": "target"
           },
@@ -462,7 +464,7 @@
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -643,19 +645,6 @@
       "codespan-reporting-0.12.0": {
         "runtime_dependencies": [
           {
-            "name": "serde",
-            "package_key": "serde-1.0.228",
-            "kind": "normal",
-            "features": [
-              "derive",
-              "alloc"
-            ],
-            "uses_default_features": false,
-            "optional": true,
-            "target": null,
-            "tree": "target"
-          },
-          {
             "name": "termcolor",
             "package_key": "termcolor-1.4.1",
             "kind": "normal",
@@ -812,7 +801,7 @@
             "package_key": "rustc-hash-1.1.0",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -868,7 +857,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -877,7 +866,7 @@
             "package_key": "ttf-parser-0.21.1",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -886,8 +875,10 @@
             "name": "unicode_bidi",
             "package_key": "unicode-bidi-0.3.18",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "hardcoded-data"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -986,7 +977,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": "cfg(unix)",
             "tree": "target"
           },
@@ -994,9 +985,11 @@
             "name": "signal_hook_mio",
             "package_key": "signal-hook-mio-0.2.5",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "support-v1_0"
+            ],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": "cfg(unix)",
             "tree": "target"
           }
@@ -1564,7 +1557,9 @@
             "name": "tracing_subscriber",
             "package_key": "tracing-subscriber-0.3.23",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "env-filter"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -2324,7 +2319,9 @@
             "name": "tracing_subscriber",
             "package_key": "tracing-subscriber-0.3.23",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "env-filter"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -2530,7 +2527,9 @@
             "name": "ishou_tokens",
             "package_key": "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "wgpu"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -2882,7 +2881,9 @@
             "name": "ishou_tokens",
             "package_key": "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "wgpu"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -3083,7 +3084,7 @@
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -4000,9 +4001,11 @@
             "name": "num_traits",
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "features": [
+              "libm"
+            ],
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -4031,9 +4034,11 @@
             "name": "allocator_api2",
             "package_key": "allocator-api2-0.2.21",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "features": [
+              "alloc"
+            ],
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -4288,7 +4293,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           }
@@ -4370,7 +4375,7 @@
             "kind": "build",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "host"
           }
@@ -4582,8 +4587,12 @@
             "name": "regex_automata",
             "package_key": "regex-automata-0.4.14",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "syntax",
+              "dfa-build",
+              "dfa-search"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -4666,7 +4675,7 @@
             "package_key": "bit-set-0.8.0",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -4685,8 +4694,11 @@
             "name": "codespan_reporting",
             "package_key": "codespan-reporting-0.12.0",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "std",
+              "termcolor"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -4722,7 +4734,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -4751,7 +4763,7 @@
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -4774,7 +4786,7 @@
             "package_key": "rustc-hash-1.1.0",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -4817,7 +4829,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           }
@@ -4976,7 +4988,7 @@
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -5302,7 +5314,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -5312,7 +5324,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -5331,7 +5343,7 @@
             "package_key": "num-traits-0.2.19",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -5374,7 +5386,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -5383,8 +5395,8 @@
             "package_key": "rusty-fork-0.3.1",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -5433,7 +5445,7 @@
             "package_key": "proc-macro2-1.0.106",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -5447,16 +5459,6 @@
       },
       "rand-0.9.4": {
         "runtime_dependencies": [
-          {
-            "name": "rand_chacha",
-            "package_key": "rand_chacha-0.9.0",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": true,
-            "target": null,
-            "tree": "target"
-          },
           {
             "name": "rand_core",
             "package_key": "rand_core-0.9.5",
@@ -5481,8 +5483,10 @@
             "name": "ppv_lite86",
             "package_key": "ppv-lite86-0.2.21",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "simd"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -5709,7 +5713,9 @@
             "name": "font_types",
             "package_key": "font-types-0.11.3",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "bytemuck"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -5728,8 +5734,8 @@
             "package_key": "aho-corasick-1.1.4",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -5747,8 +5753,13 @@
             "name": "regex_automata",
             "package_key": "regex-automata-0.4.14",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "alloc",
+              "syntax",
+              "meta",
+              "nfa-pikevm"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -5758,7 +5769,7 @@
             "package_key": "regex-syntax-0.8.10",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -5792,8 +5803,8 @@
             "package_key": "aho-corasick-1.1.4",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -5812,8 +5823,8 @@
             "package_key": "regex-syntax-0.8.10",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           }
@@ -5954,7 +5965,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           }
@@ -6013,8 +6024,13 @@
             "name": "ttf_parser",
             "package_key": "ttf-parser-0.21.1",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "opentype-layout",
+              "apple-layout",
+              "variable-fonts",
+              "glyph-names"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -6043,8 +6059,10 @@
             "name": "unicode_properties",
             "package_key": "unicode-properties-0.1.4",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "general-category"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -6246,8 +6264,10 @@
             "name": "proc_macro2",
             "package_key": "proc-macro2-1.0.106",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "proc-macro"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -6293,7 +6313,7 @@
             "package_key": "proc-macro2-1.0.106",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -6739,9 +6759,12 @@
             "name": "mio_1_0",
             "package_key": "mio-1.2.0",
             "kind": "normal",
-            "features": [],
+            "features": [
+              "net",
+              "os-ext"
+            ],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -6805,7 +6828,7 @@
             "package_key": "read-fonts-0.37.0",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -6845,18 +6868,7 @@
         ]
       },
       "smol_str-0.2.2": {
-        "runtime_dependencies": [
-          {
-            "name": "serde",
-            "package_key": "serde-1.0.228",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": true,
-            "target": null,
-            "tree": "target"
-          }
-        ],
+        "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
           "default",
@@ -7028,7 +7040,7 @@
             "package_key": "proc-macro2-1.0.106",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -7431,7 +7443,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "host"
           }
@@ -7663,7 +7675,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "host"
           },
@@ -7672,7 +7684,7 @@
             "package_key": "tracing-core-0.1.36",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -7807,7 +7819,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -7825,9 +7837,11 @@
             "name": "regex_automata",
             "package_key": "regex-automata-0.4.14",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "features": [
+              "std"
+            ],
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -7837,7 +7851,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           },
@@ -7876,7 +7890,7 @@
             "package_key": "tracing-core-0.1.36",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -7885,9 +7899,12 @@
             "name": "tracing_log",
             "package_key": "tracing-log-0.2.0",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
+            "features": [
+              "log-tracer",
+              "std"
+            ],
+            "uses_default_features": false,
+            "optional": true,
             "target": null,
             "tree": "target"
           }
@@ -8119,7 +8136,7 @@
             "package_key": "unicode-segmentation-1.13.2",
             "kind": "normal",
             "features": [],
-            "uses_default_features": true,
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -8262,16 +8279,6 @@
             "tree": "target"
           },
           {
-            "name": "naga",
-            "package_key": "naga-25.0.1",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": true,
-            "target": null,
-            "tree": "target"
-          },
-          {
             "name": "parking_lot",
             "package_key": "parking_lot-0.12.5",
             "kind": "normal",
@@ -8295,8 +8302,10 @@
             "name": "raw_window_handle",
             "package_key": "raw-window-handle-0.6.2",
             "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
+            "features": [
+              "std"
+            ],
+            "uses_default_features": false,
             "optional": false,
             "target": null,
             "tree": "target"
@@ -8332,52 +8341,12 @@
             "tree": "target"
           },
           {
-            "name": "wgpu_core",
-            "package_key": "wgpu-core-25.0.2",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "wgpu_core",
-            "package_key": "wgpu-core-25.0.2",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": "cfg(not(target_arch = \"wasm32\"))",
-            "tree": "target"
-          },
-          {
-            "name": "wgpu_core",
-            "package_key": "wgpu-core-25.0.2",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": "cfg(all(target_arch = \"wasm32\", not(target_os = \"emscripten\")))",
-            "tree": "target"
-          },
-          {
-            "name": "wgpu_core",
-            "package_key": "wgpu-core-25.0.2",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": "cfg(target_os = \"emscripten\")",
-            "tree": "target"
-          },
-          {
             "name": "wgpu_hal",
             "package_key": "wgpu-hal-25.0.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": "cfg(not(target_arch = \"wasm32\"))",
             "tree": "target"
           },
@@ -8387,7 +8356,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": "cfg(target_os = \"emscripten\")",
             "tree": "target"
           },
@@ -8481,18 +8450,7 @@
         ]
       },
       "winnow-0.7.15": {
-        "runtime_dependencies": [
-          {
-            "name": "memchr",
-            "package_key": "memchr-2.8.0",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": true,
-            "target": null,
-            "tree": "target"
-          }
-        ],
+        "runtime_dependencies": [],
         "build_dependencies": [],
         "features": [
           "alloc",
@@ -8532,7 +8490,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": null,
             "tree": "host"
           },
@@ -8542,7 +8500,7 @@
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": false,
+            "optional": true,
             "target": "cfg(any())",
             "tree": "host"
           }
@@ -8700,7 +8658,7 @@
                 "package_key": "core-foundation-sys-0.8.7",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -8747,7 +8705,7 @@
                 "package_key": "core-foundation-0.9.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -8757,7 +8715,7 @@
                 "package_key": "core-graphics-types-0.1.3",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -8806,7 +8764,7 @@
                 "package_key": "core-foundation-0.9.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -8881,8 +8839,13 @@
                 "name": "ttf_parser",
                 "package_key": "ttf-parser-0.20.0",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "opentype-layout",
+                  "apple-layout",
+                  "variable-fonts",
+                  "glyph-names"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9102,7 +9065,7 @@
                 "package_key": "core-graphics-types-0.1.3",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9172,7 +9135,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"macos\")",
                 "tree": "target"
               },
@@ -9314,7 +9277,7 @@
                 "package_key": "objc-sys-0.3.5",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9324,7 +9287,7 @@
                 "package_key": "objc2-encode-4.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9351,26 +9314,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "libc",
-                "package_key": "libc-0.2.186",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -9385,8 +9328,8 @@
                 "package_key": "objc2-core-data-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -9395,8 +9338,8 @@
                 "package_key": "objc2-core-image-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -9405,7 +9348,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9415,8 +9358,8 @@
                 "package_key": "objc2-quartz-core-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               }
@@ -9468,16 +9411,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -9492,7 +9425,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9508,16 +9441,6 @@
           "objc2-core-image-0.2.2": {
             "runtime_dependencies": [
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -9532,17 +9455,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "objc2_metal",
-                "package_key": "objc2-metal-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9593,16 +9506,6 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "libc",
-                "package_key": "libc-0.2.186",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
                 "optional": true,
                 "target": null,
                 "tree": "target"
@@ -9680,16 +9583,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -9704,7 +9597,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9734,16 +9627,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -9758,17 +9641,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "objc2_metal",
-                "package_key": "objc2-metal-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9960,7 +9833,7 @@
                 "package_key": "bit-set-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -9970,7 +9843,7 @@
                 "package_key": "bit-vec-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10075,8 +9948,8 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -10085,7 +9958,7 @@
                 "package_key": "rustc-hash-1.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10116,7 +9989,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -10249,7 +10122,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -10259,7 +10132,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -10279,7 +10152,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -10289,7 +10162,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -10310,9 +10183,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -10320,9 +10195,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"emscripten\")",
                 "tree": "target"
               },
@@ -10401,8 +10278,8 @@
                 "package_key": "ordered-float-4.6.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -10431,7 +10308,7 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10442,7 +10319,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -10579,7 +10456,34 @@
                 "name": "objc2_app_kit",
                 "package_key": "objc2-app-kit-0.2.2",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "NSAppearance",
+                  "NSApplication",
+                  "NSBitmapImageRep",
+                  "NSButton",
+                  "NSColor",
+                  "NSControl",
+                  "NSCursor",
+                  "NSDragging",
+                  "NSEvent",
+                  "NSGraphics",
+                  "NSGraphicsContext",
+                  "NSImage",
+                  "NSImageRep",
+                  "NSMenu",
+                  "NSMenuItem",
+                  "NSOpenGLView",
+                  "NSPasteboard",
+                  "NSResponder",
+                  "NSRunningApplication",
+                  "NSScreen",
+                  "NSTextInputClient",
+                  "NSTextInputContext",
+                  "NSView",
+                  "NSWindow",
+                  "NSWindowScripting",
+                  "NSWindowTabGroup"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": "cfg(target_os = \"macos\")",
@@ -10589,7 +10493,19 @@
                 "name": "objc2_foundation",
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "block2",
+                  "dispatch",
+                  "NSArray",
+                  "NSEnumerator",
+                  "NSGeometry",
+                  "NSObjCRuntime",
+                  "NSOperation",
+                  "NSString",
+                  "NSProcessInfo",
+                  "NSThread",
+                  "NSSet"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": "cfg(target_os = \"ios\")",
@@ -10599,7 +10515,19 @@
                 "name": "objc2_foundation",
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "block2",
+                  "dispatch",
+                  "NSArray",
+                  "NSEnumerator",
+                  "NSGeometry",
+                  "NSObjCRuntime",
+                  "NSOperation",
+                  "NSString",
+                  "NSProcessInfo",
+                  "NSThread",
+                  "NSSet"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": "cfg(target_os = \"macos\")",
@@ -10784,7 +10712,7 @@
                 "package_key": "core-foundation-sys-0.8.7",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10831,7 +10759,7 @@
                 "package_key": "core-foundation-0.9.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10841,7 +10769,7 @@
                 "package_key": "core-graphics-types-0.1.3",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10890,7 +10818,7 @@
                 "package_key": "core-foundation-0.9.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -10970,8 +10898,13 @@
                 "name": "ttf_parser",
                 "package_key": "ttf-parser-0.20.0",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "opentype-layout",
+                  "apple-layout",
+                  "variable-fonts",
+                  "glyph-names"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11191,7 +11124,7 @@
                 "package_key": "core-graphics-types-0.1.3",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11261,7 +11194,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"macos\")",
                 "tree": "target"
               },
@@ -11403,7 +11336,7 @@
                 "package_key": "objc-sys-0.3.5",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11413,7 +11346,7 @@
                 "package_key": "objc2-encode-4.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11440,26 +11373,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "libc",
-                "package_key": "libc-0.2.186",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -11474,8 +11387,8 @@
                 "package_key": "objc2-core-data-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -11484,8 +11397,8 @@
                 "package_key": "objc2-core-image-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -11494,7 +11407,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11504,8 +11417,8 @@
                 "package_key": "objc2-quartz-core-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               }
@@ -11557,16 +11470,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -11581,7 +11484,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11597,16 +11500,6 @@
           "objc2-core-image-0.2.2": {
             "runtime_dependencies": [
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -11621,17 +11514,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "objc2_metal",
-                "package_key": "objc2-metal-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11682,16 +11565,6 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "libc",
-                "package_key": "libc-0.2.186",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
                 "optional": true,
                 "target": null,
                 "tree": "target"
@@ -11769,16 +11642,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -11793,7 +11656,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -11823,16 +11686,6 @@
                 "tree": "target"
               },
               {
-                "name": "block2",
-                "package_key": "block2-0.5.1",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": null,
-                "tree": "target"
-              },
-              {
                 "name": "objc2",
                 "package_key": "objc2-0.5.2",
                 "kind": "normal",
@@ -11847,17 +11700,7 @@
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
-                "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "objc2_metal",
-                "package_key": "objc2-metal-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -12049,7 +11892,7 @@
                 "package_key": "bit-set-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -12059,7 +11902,7 @@
                 "package_key": "bit-vec-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -12164,8 +12007,8 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -12174,7 +12017,7 @@
                 "package_key": "rustc-hash-1.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -12205,7 +12048,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -12338,7 +12181,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -12348,7 +12191,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               },
@@ -12368,7 +12211,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -12378,7 +12221,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -12399,9 +12242,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -12409,9 +12254,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"emscripten\")",
                 "tree": "target"
               },
@@ -12490,8 +12337,8 @@
                 "package_key": "ordered-float-4.6.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -12520,7 +12367,7 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -12531,7 +12378,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -12668,7 +12515,34 @@
                 "name": "objc2_app_kit",
                 "package_key": "objc2-app-kit-0.2.2",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "NSAppearance",
+                  "NSApplication",
+                  "NSBitmapImageRep",
+                  "NSButton",
+                  "NSColor",
+                  "NSControl",
+                  "NSCursor",
+                  "NSDragging",
+                  "NSEvent",
+                  "NSGraphics",
+                  "NSGraphicsContext",
+                  "NSImage",
+                  "NSImageRep",
+                  "NSMenu",
+                  "NSMenuItem",
+                  "NSOpenGLView",
+                  "NSPasteboard",
+                  "NSResponder",
+                  "NSRunningApplication",
+                  "NSScreen",
+                  "NSTextInputClient",
+                  "NSTextInputContext",
+                  "NSView",
+                  "NSWindow",
+                  "NSWindowScripting",
+                  "NSWindowTabGroup"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": "cfg(target_os = \"macos\")",
@@ -12678,7 +12552,19 @@
                 "name": "objc2_foundation",
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "block2",
+                  "dispatch",
+                  "NSArray",
+                  "NSEnumerator",
+                  "NSGeometry",
+                  "NSObjCRuntime",
+                  "NSOperation",
+                  "NSString",
+                  "NSProcessInfo",
+                  "NSThread",
+                  "NSSet"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": "cfg(target_os = \"ios\")",
@@ -12688,7 +12574,19 @@
                 "name": "objc2_foundation",
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "block2",
+                  "dispatch",
+                  "NSArray",
+                  "NSEnumerator",
+                  "NSGeometry",
+                  "NSObjCRuntime",
+                  "NSOperation",
+                  "NSString",
+                  "NSProcessInfo",
+                  "NSThread",
+                  "NSSet"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": "cfg(target_os = \"macos\")",
@@ -13119,8 +13017,8 @@
                 "package_key": "fontconfig-parser-0.5.8",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"macos\", target_os = \"android\"))))",
                 "tree": "target"
               },
@@ -13170,8 +13068,13 @@
                 "name": "ttf_parser",
                 "package_key": "ttf-parser-0.20.0",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "opentype-layout",
+                  "apple-layout",
+                  "variable-fonts",
+                  "glyph-names"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -13402,7 +13305,7 @@
                 "package_key": "ttf-parser-0.25.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -13554,8 +13457,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -13564,8 +13471,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -13655,8 +13566,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -13665,8 +13580,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -13729,7 +13648,7 @@
                 "package_key": "smithay-client-toolkit-0.19.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -13738,8 +13657,11 @@
                 "name": "tiny_skia",
                 "package_key": "tiny-skia-0.11.4",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std",
+                  "simd"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -13787,7 +13709,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -13899,7 +13821,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client",
+                  "staging",
+                  "unstable"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -13909,7 +13835,9 @@
                 "name": "wayland_protocols_wlr",
                 "package_key": "wayland-protocols-wlr-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -14006,7 +13934,7 @@
                 "package_key": "tiny-skia-path-0.11.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14045,7 +13973,7 @@
                 "package_key": "strict-num-0.1.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14101,7 +14029,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14222,7 +14150,7 @@
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14297,7 +14225,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14348,7 +14276,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14407,7 +14335,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14542,7 +14470,7 @@
                 "package_key": "bit-set-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14552,7 +14480,7 @@
                 "package_key": "bit-vec-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14657,8 +14585,8 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14667,7 +14595,7 @@
                 "package_key": "rustc-hash-1.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14698,7 +14626,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(any(windows, target_os = \"linux\", target_os = \"android\"))",
                 "tree": "target"
               },
@@ -14824,7 +14752,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14844,7 +14772,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -14854,7 +14782,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -14875,9 +14803,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -14885,9 +14815,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"emscripten\")",
                 "tree": "target"
               },
@@ -14946,8 +14878,8 @@
                 "package_key": "ordered-float-4.6.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -14976,7 +14908,7 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -14987,7 +14919,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -15136,7 +15068,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15172,8 +15104,8 @@
                 "package_key": "sctk-adwaita-0.10.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15213,9 +15145,11 @@
                 "name": "wayland_backend",
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "features": [
+                  "client_system"
+                ],
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15225,7 +15159,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15233,9 +15167,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "staging"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15243,9 +15179,11 @@
                 "name": "wayland_protocols_plasma",
                 "package_key": "wayland-protocols-plasma-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15255,7 +15193,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -15365,7 +15303,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -15429,8 +15367,10 @@
                 "name": "x11rb_protocol",
                 "package_key": "x11rb-protocol-0.13.2",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -15894,8 +15834,8 @@
                 "package_key": "fontconfig-parser-0.5.8",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"macos\", target_os = \"android\"))))",
                 "tree": "target"
               },
@@ -15945,8 +15885,13 @@
                 "name": "ttf_parser",
                 "package_key": "ttf-parser-0.20.0",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "opentype-layout",
+                  "apple-layout",
+                  "variable-fonts",
+                  "glyph-names"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -16177,7 +16122,7 @@
                 "package_key": "ttf-parser-0.25.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -16329,8 +16274,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -16339,8 +16288,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -16430,8 +16383,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -16440,8 +16397,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -16504,7 +16465,7 @@
                 "package_key": "smithay-client-toolkit-0.19.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -16513,8 +16474,11 @@
                 "name": "tiny_skia",
                 "package_key": "tiny-skia-0.11.4",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std",
+                  "simd"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -16562,7 +16526,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -16674,7 +16638,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client",
+                  "staging",
+                  "unstable"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -16684,7 +16652,9 @@
                 "name": "wayland_protocols_wlr",
                 "package_key": "wayland-protocols-wlr-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -16781,7 +16751,7 @@
                 "package_key": "tiny-skia-path-0.11.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -16820,7 +16790,7 @@
                 "package_key": "strict-num-0.1.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -16876,7 +16846,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -16997,7 +16967,7 @@
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -17072,7 +17042,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -17123,7 +17093,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -17182,7 +17152,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -17317,7 +17287,7 @@
                 "package_key": "bit-set-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -17327,7 +17297,7 @@
                 "package_key": "bit-vec-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -17432,8 +17402,8 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -17442,7 +17412,7 @@
                 "package_key": "rustc-hash-1.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -17473,7 +17443,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(any(windows, target_os = \"linux\", target_os = \"android\"))",
                 "tree": "target"
               },
@@ -17599,7 +17569,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -17619,7 +17589,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -17629,7 +17599,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -17650,9 +17620,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -17660,9 +17632,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"emscripten\")",
                 "tree": "target"
               },
@@ -17721,8 +17695,8 @@
                 "package_key": "ordered-float-4.6.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -17751,7 +17725,7 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -17762,7 +17736,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -17911,7 +17885,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -17947,8 +17921,8 @@
                 "package_key": "sctk-adwaita-0.10.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -17988,9 +17962,11 @@
                 "name": "wayland_backend",
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "features": [
+                  "client_system"
+                ],
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -18000,7 +17976,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -18008,9 +17984,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "staging"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -18018,9 +17996,11 @@
                 "name": "wayland_protocols_plasma",
                 "package_key": "wayland-protocols-plasma-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -18030,7 +18010,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -18140,7 +18120,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -18204,8 +18184,10 @@
                 "name": "x11rb_protocol",
                 "package_key": "x11rb-protocol-0.13.2",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -18654,8 +18636,8 @@
                 "package_key": "fontconfig-parser-0.5.8",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"macos\", target_os = \"android\"))))",
                 "tree": "target"
               },
@@ -18705,8 +18687,13 @@
                 "name": "ttf_parser",
                 "package_key": "ttf-parser-0.20.0",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "opentype-layout",
+                  "apple-layout",
+                  "variable-fonts",
+                  "glyph-names"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -18937,7 +18924,7 @@
                 "package_key": "ttf-parser-0.25.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -19089,8 +19076,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -19099,8 +19090,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -19190,8 +19185,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -19200,8 +19199,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -19264,7 +19267,7 @@
                 "package_key": "smithay-client-toolkit-0.19.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -19273,8 +19276,11 @@
                 "name": "tiny_skia",
                 "package_key": "tiny-skia-0.11.4",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std",
+                  "simd"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -19322,7 +19328,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -19434,7 +19440,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client",
+                  "staging",
+                  "unstable"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -19444,7 +19454,9 @@
                 "name": "wayland_protocols_wlr",
                 "package_key": "wayland-protocols-wlr-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -19541,7 +19553,7 @@
                 "package_key": "tiny-skia-path-0.11.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -19580,7 +19592,7 @@
                 "package_key": "strict-num-0.1.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -19636,7 +19648,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -19757,7 +19769,7 @@
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -19832,7 +19844,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -19883,7 +19895,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -19942,7 +19954,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -20077,7 +20089,7 @@
                 "package_key": "bit-set-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -20087,7 +20099,7 @@
                 "package_key": "bit-vec-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -20192,8 +20204,8 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -20202,7 +20214,7 @@
                 "package_key": "rustc-hash-1.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -20233,7 +20245,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(any(windows, target_os = \"linux\", target_os = \"android\"))",
                 "tree": "target"
               },
@@ -20359,7 +20371,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -20379,7 +20391,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -20389,7 +20401,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -20410,9 +20422,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -20420,9 +20434,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"emscripten\")",
                 "tree": "target"
               },
@@ -20481,8 +20497,8 @@
                 "package_key": "ordered-float-4.6.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -20511,7 +20527,7 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -20522,7 +20538,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -20671,7 +20687,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20707,8 +20723,8 @@
                 "package_key": "sctk-adwaita-0.10.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20748,9 +20764,11 @@
                 "name": "wayland_backend",
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "features": [
+                  "client_system"
+                ],
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20760,7 +20778,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20768,9 +20786,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "staging"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20778,9 +20798,11 @@
                 "name": "wayland_protocols_plasma",
                 "package_key": "wayland-protocols-plasma-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20790,7 +20812,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -20900,7 +20922,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -20964,8 +20986,10 @@
                 "name": "x11rb_protocol",
                 "package_key": "x11rb-protocol-0.13.2",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -21414,8 +21438,8 @@
                 "package_key": "fontconfig-parser-0.5.8",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"macos\", target_os = \"android\"))))",
                 "tree": "target"
               },
@@ -21465,8 +21489,13 @@
                 "name": "ttf_parser",
                 "package_key": "ttf-parser-0.20.0",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "opentype-layout",
+                  "apple-layout",
+                  "variable-fonts",
+                  "glyph-names"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -21697,7 +21726,7 @@
                 "package_key": "ttf-parser-0.25.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -21849,8 +21878,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -21859,8 +21892,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.4.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"android\", target_os = \"linux\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", target_arch = \"s390x\"), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -21950,8 +21987,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(not(rustix_use_libc), not(miri), target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"))))",
                 "tree": "target"
@@ -21960,8 +22001,12 @@
                 "name": "linux_raw_sys",
                 "package_key": "linux-raw-sys-0.12.1",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "general",
+                  "ioctl",
+                  "no_std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_endian = \"little\", any(target_arch = \"s390x\", target_arch = \"powerpc\")), any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"riscv64\", all(rustix_use_experimental_asm, target_arch = \"powerpc\"), all(rustix_use_experimental_asm, target_arch = \"powerpc64\"), all(rustix_use_experimental_asm, target_arch = \"s390x\"), all(rustix_use_experimental_asm, target_arch = \"mips\"), all(rustix_use_experimental_asm, target_arch = \"mips32r6\"), all(rustix_use_experimental_asm, target_arch = \"mips64\"), all(rustix_use_experimental_asm, target_arch = \"mips64r6\"), target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\")))))))",
                 "tree": "target"
@@ -22024,7 +22069,7 @@
                 "package_key": "smithay-client-toolkit-0.19.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22033,8 +22078,11 @@
                 "name": "tiny_skia",
                 "package_key": "tiny-skia-0.11.4",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std",
+                  "simd"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22082,7 +22130,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -22194,7 +22242,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client",
+                  "staging",
+                  "unstable"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -22204,7 +22256,9 @@
                 "name": "wayland_protocols_wlr",
                 "package_key": "wayland-protocols-wlr-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
                 "optional": false,
                 "target": null,
@@ -22301,7 +22355,7 @@
                 "package_key": "tiny-skia-path-0.11.4",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22340,7 +22394,7 @@
                 "package_key": "strict-num-0.1.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22396,7 +22450,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -22517,7 +22571,7 @@
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22592,7 +22646,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -22643,7 +22697,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -22702,7 +22756,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -22837,7 +22891,7 @@
                 "package_key": "bit-set-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22847,7 +22901,7 @@
                 "package_key": "bit-vec-0.8.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22952,8 +23006,8 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -22962,7 +23016,7 @@
                 "package_key": "rustc-hash-1.1.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -22993,7 +23047,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(any(windows, target_os = \"linux\", target_os = \"android\"))",
                 "tree": "target"
               },
@@ -23119,7 +23173,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -23139,7 +23193,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -23149,7 +23203,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -23170,9 +23224,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -23180,9 +23236,11 @@
                 "name": "khronos_egl",
                 "package_key": "khronos-egl-6.0.0",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "dynamic"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(target_os = \"emscripten\")",
                 "tree": "target"
               },
@@ -23241,8 +23299,8 @@
                 "package_key": "ordered-float-4.6.0",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -23271,7 +23329,7 @@
                 "package_key": "raw-window-handle-0.6.2",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -23282,7 +23340,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(not(target_arch = \"wasm32\"))",
                 "tree": "target"
               },
@@ -23431,7 +23489,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23467,8 +23525,8 @@
                 "package_key": "sctk-adwaita-0.10.1",
                 "kind": "normal",
                 "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23508,9 +23566,11 @@
                 "name": "wayland_backend",
                 "package_key": "wayland-backend-0.3.15",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
-                "optional": false,
+                "features": [
+                  "client_system"
+                ],
+                "uses_default_features": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23520,7 +23580,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23528,9 +23588,11 @@
                 "name": "wayland_protocols",
                 "package_key": "wayland-protocols-0.32.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "staging"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23538,9 +23600,11 @@
                 "name": "wayland_protocols_plasma",
                 "package_key": "wayland-protocols-plasma-0.3.12",
                 "kind": "normal",
-                "features": [],
+                "features": [
+                  "client"
+                ],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23550,7 +23614,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": "cfg(all(unix, not(any(target_os = \"redox\", target_family = \"wasm\", target_os = \"android\", target_os = \"ios\", target_os = \"macos\"))))",
                 "tree": "target"
               },
@@ -23660,7 +23724,7 @@
                 "kind": "normal",
                 "features": [],
                 "uses_default_features": true,
-                "optional": false,
+                "optional": true,
                 "target": null,
                 "tree": "target"
               },
@@ -23724,8 +23788,10 @@
                 "name": "x11rb_protocol",
                 "package_key": "x11rb-protocol-0.13.2",
                 "kind": "normal",
-                "features": [],
-                "uses_default_features": true,
+                "features": [
+                  "std"
+                ],
+                "uses_default_features": false,
                 "optional": false,
                 "target": null,
                 "tree": "target"
@@ -23835,6 +23901,16 @@
     }
   },
   "per_crate": {
+    "ab_glyph-0.2.32": {
+      "edition": "2021"
+    },
+    "ab_glyph_rasterizer-0.1.10": {
+      "edition": "2021"
+    },
+    "ahash-0.8.12": {
+      "edition": "2018",
+      "build_script": "build.rs"
+    },
     "aho-corasick-1.1.4": {
       "edition": "2021"
     },
@@ -23866,6 +23942,9 @@
     "arrayvec-0.7.6": {
       "edition": "2018"
     },
+    "as-raw-xcb-connection-1.0.1": {
+      "edition": "2021"
+    },
     "ash-0.38.0+1.3.281": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -23886,21 +23965,12 @@
     "bit-vec-0.8.0": {
       "edition": "2015"
     },
-    "bitflags-1.3.2": {
-      "edition": "2018"
-    },
     "bitflags-2.11.1": {
       "edition": "2021"
     },
     "blake3-1.8.5": {
       "edition": "2024",
       "build_script": "build.rs"
-    },
-    "block-0.1.6": {
-      "edition": "2015"
-    },
-    "block2-0.5.1": {
-      "edition": "2021"
     },
     "bytemuck-1.25.0": {
       "edition": "2018"
@@ -23910,6 +23980,12 @@
       "proc_macro": true
     },
     "bytes-1.11.1": {
+      "edition": "2021"
+    },
+    "calloop-0.13.0": {
+      "edition": "2018"
+    },
+    "calloop-wayland-source-0.3.0": {
       "edition": "2021"
     },
     "cassowary-0.3.0": {
@@ -23961,20 +24037,11 @@
     "constant_time_eq-0.4.2": {
       "edition": "2024"
     },
-    "core-foundation-0.9.4": {
-      "edition": "2018"
-    },
-    "core-foundation-sys-0.8.7": {
-      "edition": "2018"
-    },
-    "core-graphics-0.23.2": {
-      "edition": "2018"
-    },
-    "core-graphics-types-0.1.3": {
-      "edition": "2018"
-    },
     "cosmic-text-0.14.2": {
       "edition": "2021"
+    },
+    "cpufeatures-0.3.0": {
+      "edition": "2024"
     },
     "crossterm-0.28.1": {
       "edition": "2021"
@@ -24001,8 +24068,8 @@
     "dirs-sys-0.5.0": {
       "edition": "2015"
     },
-    "dispatch-0.2.0": {
-      "edition": "2018"
+    "dlib-0.5.3": {
+      "edition": "2021"
     },
     "document-features-0.2.12": {
       "edition": "2018",
@@ -24011,6 +24078,9 @@
         "name": "document_features",
         "path": "lib.rs"
       }
+    },
+    "downcast-rs-1.2.1": {
+      "edition": "2015"
     },
     "dpi-0.1.2": {
       "edition": "2021"
@@ -24221,20 +24291,10 @@
     "font-types-0.11.3": {
       "edition": "2021"
     },
+    "fontconfig-parser-0.5.8": {
+      "edition": "2018"
+    },
     "fontdb-0.16.2": {
-      "edition": "2018"
-    },
-    "foreign-types-0.5.0": {
-      "edition": "2018"
-    },
-    "foreign-types-macros-0.2.3": {
-      "edition": "2018",
-      "proc_macro": true
-    },
-    "foreign-types-shared-0.3.1": {
-      "edition": "2018"
-    },
-    "fsevent-sys-4.1.0": {
       "edition": "2018"
     },
     "garasu-0.1.0": {
@@ -24252,6 +24312,9 @@
     },
     "gen-types-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": {
       "edition": "2024"
+    },
+    "gethostname-1.1.0": {
+      "edition": "2021"
     },
     "getrandom-0.3.4": {
       "edition": "2021",
@@ -24310,6 +24373,12 @@
     "inlinable_string-0.1.15": {
       "edition": "2018"
     },
+    "inotify-0.11.1": {
+      "edition": "2018"
+    },
+    "inotify-sys-0.1.5": {
+      "edition": "2015"
+    },
     "instability-0.3.12": {
       "edition": "2021",
       "proc_macro": true,
@@ -24340,12 +24409,6 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "kqueue-1.1.1": {
-      "edition": "2021"
-    },
-    "kqueue-sys-1.1.2": {
-      "edition": "2021"
-    },
     "lazy_static-1.5.0": {
       "edition": "2015"
     },
@@ -24359,6 +24422,12 @@
     "libm-0.2.16": {
       "edition": "2021",
       "build_script": "build.rs"
+    },
+    "linux-raw-sys-0.4.15": {
+      "edition": "2021"
+    },
+    "linux-raw-sys-0.12.1": {
+      "edition": "2021"
     },
     "litrs-1.0.0": {
       "edition": "2021"
@@ -24375,9 +24444,6 @@
     "madori-0.1.2-dd7037ee3a600c3b670d56c15fbeb4319ee3b9a3": {
       "edition": "2024"
     },
-    "malloc_buf-0.0.6": {
-      "edition": "2015"
-    },
     "matchers-0.2.0": {
       "edition": "2018"
     },
@@ -24385,9 +24451,6 @@
       "edition": "2021"
     },
     "memmap2-0.9.10": {
-      "edition": "2021"
-    },
-    "metal-0.31.0": {
       "edition": "2021"
     },
     "mio-1.2.0": {
@@ -24414,38 +24477,6 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "objc-0.2.7": {
-      "edition": "2015"
-    },
-    "objc-sys-0.3.5": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "links": "objc_0_3"
-    },
-    "objc2-0.5.2": {
-      "edition": "2021"
-    },
-    "objc2-app-kit-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-core-data-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-core-image-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-encode-4.1.0": {
-      "edition": "2021"
-    },
-    "objc2-foundation-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-metal-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-quartz-core-0.2.2": {
-      "edition": "2021"
-    },
     "once_cell-1.21.4": {
       "edition": "2021"
     },
@@ -24453,6 +24484,9 @@
       "edition": "2015"
     },
     "ordered-float-4.6.0": {
+      "edition": "2021"
+    },
+    "owned_ttf_parser-0.25.1": {
       "edition": "2021"
     },
     "parking_lot-0.12.5": {
@@ -24474,11 +24508,17 @@
       "edition": "2018",
       "proc_macro": true
     },
+    "percent-encoding-2.3.2": {
+      "edition": "2018"
+    },
     "pin-project-lite-0.2.17": {
       "edition": "2018"
     },
     "pkg-config-0.3.33": {
       "edition": "2018"
+    },
+    "polling-3.11.0": {
+      "edition": "2021"
     },
     "pollster-0.4.0": {
       "edition": "2018"
@@ -24505,6 +24545,9 @@
     },
     "quick-error-1.2.3": {
       "edition": "2015"
+    },
+    "quick-xml-0.39.4": {
+      "edition": "2021"
     },
     "quote-1.0.45": {
       "edition": "2021",
@@ -24549,6 +24592,9 @@
     "ropey-1.6.1": {
       "edition": "2015"
     },
+    "roxmltree-0.20.0": {
+      "edition": "2021"
+    },
     "rustc-hash-1.1.0": {
       "edition": "2015"
     },
@@ -24588,8 +24634,14 @@
       "edition": "2021",
       "proc_macro": true
     },
+    "scoped-tls-1.0.1": {
+      "edition": "2015"
+    },
     "scopeguard-1.2.0": {
       "edition": "2015"
+    },
+    "sctk-adwaita-0.10.1": {
+      "edition": "2021"
     },
     "self_cell-1.2.2": {
       "edition": "2018"
@@ -24648,12 +24700,19 @@
     "skrifa-0.40.0": {
       "edition": "2021"
     },
+    "slab-0.4.12": {
+      "edition": "2018"
+    },
     "slotmap-1.1.1": {
       "edition": "2018",
       "build_script": "build.rs"
     },
     "smallvec-1.15.1": {
       "edition": "2018"
+    },
+    "smithay-client-toolkit-0.19.2": {
+      "edition": "2021",
+      "build_script": "build.rs"
     },
     "smol_str-0.2.2": {
       "edition": "2018"
@@ -24670,6 +24729,9 @@
     },
     "str_indices-0.4.4": {
       "edition": "2021"
+    },
+    "strict-num-0.1.1": {
+      "edition": "2018"
     },
     "strsim-0.11.1": {
       "edition": "2015"
@@ -24727,6 +24789,12 @@
     },
     "thread_local-1.1.9": {
       "edition": "2021"
+    },
+    "tiny-skia-0.11.4": {
+      "edition": "2018"
+    },
+    "tiny-skia-path-0.11.4": {
+      "edition": "2018"
     },
     "tinyvec-1.11.0": {
       "edition": "2018"
@@ -24793,6 +24861,9 @@
       "edition": "2018"
     },
     "ttf-parser-0.21.1": {
+      "edition": "2018"
+    },
+    "ttf-parser-0.25.1": {
       "edition": "2018"
     },
     "unarray-0.1.4": {
@@ -24874,162 +24945,6 @@
     "walkdir-2.5.0": {
       "edition": "2018"
     },
-    "wgpu-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-core-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-core-deps-apple-25.0.0": {
-      "edition": "2021"
-    },
-    "wgpu-hal-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-types-25.0.0": {
-      "edition": "2021",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "winit-0.30.13": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "winnow-0.7.15": {
-      "edition": "2021"
-    },
-    "yansi-1.0.1": {
-      "edition": "2021"
-    },
-    "yazi-0.2.1": {
-      "edition": "2021"
-    },
-    "zeno-0.3.3": {
-      "edition": "2021"
-    },
-    "zerocopy-0.8.48": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "zerocopy-derive-0.8.48": {
-      "edition": "2021",
-      "proc_macro": true
-    },
-    "zmij-1.0.21": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "cpufeatures-0.3.0": {
-      "edition": "2024"
-    },
-    "ab_glyph-0.2.32": {
-      "edition": "2021"
-    },
-    "ab_glyph_rasterizer-0.1.10": {
-      "edition": "2021"
-    },
-    "ahash-0.8.12": {
-      "edition": "2018",
-      "build_script": "build.rs"
-    },
-    "as-raw-xcb-connection-1.0.1": {
-      "edition": "2021"
-    },
-    "calloop-0.13.0": {
-      "edition": "2018"
-    },
-    "calloop-wayland-source-0.3.0": {
-      "edition": "2021"
-    },
-    "dlib-0.5.3": {
-      "edition": "2021"
-    },
-    "downcast-rs-1.2.1": {
-      "edition": "2015"
-    },
-    "fontconfig-parser-0.5.8": {
-      "edition": "2018"
-    },
-    "gethostname-1.1.0": {
-      "edition": "2021"
-    },
-    "inotify-0.11.1": {
-      "edition": "2018"
-    },
-    "inotify-sys-0.1.5": {
-      "edition": "2015"
-    },
-    "linux-raw-sys-0.4.15": {
-      "edition": "2021"
-    },
-    "linux-raw-sys-0.12.1": {
-      "edition": "2021"
-    },
-    "owned_ttf_parser-0.25.1": {
-      "edition": "2021"
-    },
-    "percent-encoding-2.3.2": {
-      "edition": "2018"
-    },
-    "polling-3.11.0": {
-      "edition": "2021"
-    },
-    "quick-xml-0.39.4": {
-      "edition": "2021"
-    },
-    "roxmltree-0.20.0": {
-      "edition": "2021"
-    },
-    "scoped-tls-1.0.1": {
-      "edition": "2015"
-    },
-    "sctk-adwaita-0.10.1": {
-      "edition": "2021"
-    },
-    "slab-0.4.12": {
-      "edition": "2018"
-    },
-    "smithay-client-toolkit-0.19.2": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "strict-num-0.1.1": {
-      "edition": "2018"
-    },
-    "tiny-skia-0.11.4": {
-      "edition": "2018"
-    },
-    "tiny-skia-path-0.11.4": {
-      "edition": "2018"
-    },
-    "ttf-parser-0.25.1": {
-      "edition": "2018"
-    },
     "wayland-backend-0.3.15": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -25061,7 +24976,53 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "wgpu-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-core-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
     "wgpu-core-deps-windows-linux-android-25.0.0": {
+      "edition": "2021"
+    },
+    "wgpu-hal-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-types-25.0.0": {
+      "edition": "2021",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "winit-0.30.13": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "winnow-0.7.15": {
       "edition": "2021"
     },
     "x11-dl-2.21.0": {
@@ -25082,6 +25043,111 @@
     },
     "xkeysym-0.2.1": {
       "edition": "2018"
+    },
+    "yansi-1.0.1": {
+      "edition": "2021"
+    },
+    "yazi-0.2.1": {
+      "edition": "2021"
+    },
+    "zeno-0.3.3": {
+      "edition": "2021"
+    },
+    "zerocopy-0.8.48": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "zerocopy-derive-0.8.48": {
+      "edition": "2021",
+      "proc_macro": true
+    },
+    "zmij-1.0.21": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "bitflags-1.3.2": {
+      "edition": "2018"
+    },
+    "block-0.1.6": {
+      "edition": "2015"
+    },
+    "block2-0.5.1": {
+      "edition": "2021"
+    },
+    "core-foundation-0.9.4": {
+      "edition": "2018"
+    },
+    "core-foundation-sys-0.8.7": {
+      "edition": "2018"
+    },
+    "core-graphics-0.23.2": {
+      "edition": "2018"
+    },
+    "core-graphics-types-0.1.3": {
+      "edition": "2018"
+    },
+    "dispatch-0.2.0": {
+      "edition": "2018"
+    },
+    "foreign-types-0.5.0": {
+      "edition": "2018"
+    },
+    "foreign-types-macros-0.2.3": {
+      "edition": "2018",
+      "proc_macro": true
+    },
+    "foreign-types-shared-0.3.1": {
+      "edition": "2018"
+    },
+    "fsevent-sys-4.1.0": {
+      "edition": "2018"
+    },
+    "kqueue-1.1.1": {
+      "edition": "2021"
+    },
+    "kqueue-sys-1.1.2": {
+      "edition": "2021"
+    },
+    "malloc_buf-0.0.6": {
+      "edition": "2015"
+    },
+    "metal-0.31.0": {
+      "edition": "2021"
+    },
+    "objc-0.2.7": {
+      "edition": "2015"
+    },
+    "objc-sys-0.3.5": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "links": "objc_0_3"
+    },
+    "objc2-0.5.2": {
+      "edition": "2021"
+    },
+    "objc2-app-kit-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-core-data-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-core-image-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-encode-4.1.0": {
+      "edition": "2021"
+    },
+    "objc2-foundation-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-metal-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-quartz-core-0.2.2": {
+      "edition": "2021"
+    },
+    "wgpu-core-deps-apple-25.0.0": {
+      "edition": "2021"
     }
   },
   "git_nar_sha256": {
