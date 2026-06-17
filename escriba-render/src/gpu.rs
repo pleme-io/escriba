@@ -74,9 +74,13 @@ impl RenderCallback for GpuRenderer {
             };
             let win = s.layout.active_window().cloned();
             let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
+            let left_column = win.as_ref().map_or(0, |w| w.viewport.left_column) as usize;
             let visible_lines = win
                 .as_ref()
                 .map_or(40, |w| w.viewport.visible_lines.max(20));
+            let visible_columns = win
+                .as_ref()
+                .map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
             let mut out = String::new();
             for row in 0..visible_lines {
                 let ln = top_line + row;
@@ -84,7 +88,17 @@ impl RenderCallback for GpuRenderer {
                     break;
                 }
                 if let Some(line) = buf.line(ln) {
-                    out.push_str(line.trim_end_matches('\n').trim_end_matches('\r'));
+                    let trimmed = line.trim_end_matches('\n').trim_end_matches('\r');
+                    // Slice to the visible horizontal window
+                    // `[left_column, left_column + visible_columns)`. Char-based
+                    // so multibyte text stays aligned; we don't rely on glyphon
+                    // wrap — long lines are clipped to the window, not wrapped.
+                    let sliced: String = trimmed
+                        .chars()
+                        .skip(left_column)
+                        .take(visible_columns)
+                        .collect();
+                    out.push_str(&sliced);
                     out.push('\n');
                 }
             }
@@ -207,12 +221,19 @@ impl RenderCallback for GpuRenderer {
 
     fn resize(&mut self, width: u32, height: u32) {
         if let Ok(mut s) = self.state.lock() {
+            // Monospace cell width estimate — glyphon advance for the
+            // Family::Monospace face is ≈ 0.6 × font_size. Used to derive a
+            // visible-column count so the horizontal-scroll window tracks the
+            // real window width (mirrors the visible-line derivation below).
+            let cell_w = (self.font_size * 0.6).max(1.0);
             for w in &mut s.layout.windows {
                 w.rect.width = width;
                 w.rect.height = height;
                 // Rough visible-line count from height / line_height.
                 let lh = self.line_height.max(1.0);
                 w.viewport.visible_lines = ((height as f32 / lh).max(1.0) as u32).saturating_sub(1);
+                // Rough visible-column count from width / cell_width.
+                w.viewport.visible_columns = (width as f32 / cell_w).max(1.0) as u32;
             }
         }
     }

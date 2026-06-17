@@ -40,6 +40,8 @@ impl Renderer for TextRenderer {
         };
         let mut out = String::new();
         let top = win.viewport.top_line;
+        let left = win.viewport.left_column as usize;
+        let vis_cols = win.viewport.visible_columns as usize;
         let height = win.viewport.visible_lines.max(10);
         for row in 0..height {
             let ln = top + row;
@@ -48,17 +50,23 @@ impl Renderer for TextRenderer {
             }
             let line = buf.line(ln).unwrap_or_default();
             let line = line.trim_end_matches('\n').trim_end_matches('\r');
-            if ln == cursor.line {
-                let col = cursor.column as usize;
-                let (before, after) = split_at_char(line, col);
+            // Slice the line to the visible horizontal window
+            // `[left, left + vis_cols)` — char-based so multibyte text stays
+            // aligned. The cursor's on-screen column is computed relative to
+            // `left` so the cursor glyph tracks the horizontal scroll.
+            let visible: Vec<char> = line.chars().skip(left).take(vis_cols).collect();
+            if ln == cursor.line && cursor.column as usize >= left {
+                let rel = cursor.column as usize - left;
+                let before: String = visible.iter().take(rel).collect();
+                let under = visible.get(rel).copied().unwrap_or(' ');
+                let rest: String = visible.iter().skip(rel + 1).collect();
                 out.push_str(&format!(
-                    "{:4} │ {before}\x1b[7m{}\x1b[0m{rest}\n",
+                    "{:4} │ {before}\x1b[7m{under}\x1b[0m{rest}\n",
                     ln + 1,
-                    after.chars().next().unwrap_or(' '),
-                    rest = after.chars().skip(1).collect::<String>(),
                 ));
             } else {
-                out.push_str(&format!("{:4} │ {line}\n", ln + 1));
+                let visible: String = visible.iter().collect();
+                out.push_str(&format!("{:4} │ {visible}\n", ln + 1));
             }
         }
         let accent = VellumPalette::vellum().ice_cyan; // Vellum matte accent
@@ -70,11 +78,6 @@ impl Renderer for TextRenderer {
         ));
         out
     }
-}
-
-fn split_at_char(line: &str, col: usize) -> (&str, &str) {
-    let idx = line.char_indices().nth(col).map_or(line.len(), |(b, _)| b);
-    line.split_at(idx)
 }
 
 #[cfg(test)]

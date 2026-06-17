@@ -16,6 +16,7 @@ escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }
 escriba-input   = { workspace = true }
 escriba-ui      = { workspace = true }
+escriba-vm      = { workspace = true }
 madori          = { workspace = true }
 serde           = { workspace = true }
 

@@ -2,15 +2,19 @@
 //! state.
 //!
 //! Parsing the rc into a plan is the decoupled first pass; this
-//! module is the second pass that actually mutates a [`Keymap`] (and,
-//! in future waves, command registries, theme state, hook tables).
+//! module is the second pass that actually mutates a [`Keymap`], the
+//! [`CommandRegistry`], and the editor option store (more sinks land
+//! per wave).
 //!
 //! Kept separate from the parse layer so tests can build a plan in
 //! memory without touching live runtime types.
 //!
 //! # Key-string grammar
 //!
-//! Mirrors the zsh / vim / helix convention users already know:
+//! Mirrors the zsh / vim / helix convention users already know. Single
+//! keys and multi-key SEQUENCES (`<leader>ff`, `gg`, `<C-w>h`) share
+//! one tokenizer ([`parse_key_sequence`]); `<leader>` / `<localleader>`
+//! resolve to the keymap's configured leader.
 //!
 //! | Input         | Resolves to         |
 //! |---------------|---------------------|
@@ -24,6 +28,7 @@
 //! | `"<PageUp>"` / `"<PageDown>"` | paging |
 //! | `"<C-r>"`     | `Key::Ctrl('r')`    |
 //! | `"<A-f>"` / `"<M-f>"` | `Key::Alt('f')` |
+//! | `"<leader>ff"` | sequence `[leader, f, f]` |
 //!
 //! # Action-string grammar
 //!
@@ -33,6 +38,7 @@
 //! [`Action::Command`] — the command dispatcher resolves them at
 //! runtime against the command registry.
 
+use escriba_command::{Command, CommandRegistry};
 use escriba_core::{Action, Mode, Motion};
 use escriba_keymap::{Key, Keymap};
 
@@ -109,10 +115,12 @@ pub struct ApplyReport {
     /// — these fall through to [`Action::Command`] and will resolve
     /// at dispatch time (not an error, but worth surfacing).
     pub keybinds_deferred_to_commands: u32,
-    /// Keybindings deferred because they need pending-stroke machinery
-    /// that isn't wired yet (`gh`, `<leader>ff`, …). Aggregated so the
-    /// binary reports one line instead of N warnings at boot.
-    pub keybinds_deferred_multi_key: u32,
+    /// Multi-key SEQUENCE bindings applied (`gh`, `<leader>ff`, …).
+    /// These are bound into the keymap's sequence table and resolved
+    /// by the runtime's pending-stroke loop — a subset of
+    /// `keybinds_applied`, surfaced separately so the doctor can show
+    /// how much of the leader-driven surface is live.
+    pub keybinds_sequences: u32,
     /// Human-readable warnings for anything we had to skip entirely
     /// (unknown keys, malformed single-key sequences). Never a
     /// fatal error — partial application is preferable to a broken
@@ -124,38 +132,35 @@ impl ApplyReport {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "keybinds={} deferred_cmd={} deferred_multi={} warnings={}",
+            "keybinds={} deferred_cmd={} sequences={} warnings={}",
             self.keybinds_applied,
             self.keybinds_deferred_to_commands,
-            self.keybinds_deferred_multi_key,
+            self.keybinds_sequences,
             self.warnings.len(),
         )
     }
 }
 
 /// Apply every [`KeybindSpec`] in `plan` to `keymap`. Multi-key
-/// sequences like `"gh"` or `"<leader>ff"` currently aggregate into
-/// `keybinds_deferred_multi_key` (they need pending-stroke machinery
-/// landing in the next wave) rather than emitting per-binding
-/// warnings — the startup banner shows one count, not N noisy lines.
-/// Truly malformed bindings (unknown mode, unknown named key) still
-/// surface as individual warnings.
+/// sequences like `"gh"` or `"<leader>ff"` bind into the keymap's
+/// sequence table (resolved by the runtime's pending-stroke loop) and
+/// are tallied in `keybinds_sequences`; single keys bind into the flat
+/// table. Truly malformed bindings (unknown mode, unterminated `<…>`,
+/// unknown key token) surface as individual warnings — partial apply
+/// beats a dead editor on one typo.
 pub fn apply_plan_to_keymap(plan: &ApplyPlan, keymap: &mut Keymap) -> ApplyReport {
     let mut report = ApplyReport::default();
     for spec in &plan.keybinds {
         match apply_keybind(spec, keymap) {
-            Ok(outcome) => match outcome {
-                KeybindOutcome::AppliedTyped => {
-                    report.keybinds_applied += 1;
-                }
-                KeybindOutcome::AppliedCommand => {
-                    report.keybinds_applied += 1;
+            Ok(applied) => {
+                report.keybinds_applied += 1;
+                if applied.deferred_to_command {
                     report.keybinds_deferred_to_commands += 1;
                 }
-                KeybindOutcome::DeferredMultiKey => {
-                    report.keybinds_deferred_multi_key += 1;
+                if applied.is_sequence {
+                    report.keybinds_sequences += 1;
                 }
-            },
+            }
             Err(warning) => {
                 report.warnings.push(warning);
             }
@@ -164,71 +169,121 @@ pub fn apply_plan_to_keymap(plan: &ApplyPlan, keymap: &mut Keymap) -> ApplyRepor
     report
 }
 
-/// The three happy-path outcomes for a keybind apply. Split from
-/// `Err` so the caller can report them at different severities —
-/// typed wins are silent, command-deferred is info, multi-key
-/// deferred is tallied separately for one aggregate startup line.
-enum KeybindOutcome {
-    AppliedTyped,
-    AppliedCommand,
-    DeferredMultiKey,
+/// How a successfully-applied keybind was classified. `is_sequence`
+/// is true for multi-key bindings (`gh`, `<leader>ff`);
+/// `deferred_to_command` is true when the action wasn't a curated
+/// typed action and will resolve against the command registry at
+/// dispatch. The two are independent — a leader binding to a picker
+/// command is both.
+struct KeybindApplied {
+    is_sequence: bool,
+    deferred_to_command: bool,
 }
 
-/// Apply a single keybind. Returns an outcome describing how the
-/// binding was handled, or `Err(warning)` when the spec is
-/// malformed.
-fn apply_keybind(spec: &KeybindSpec, keymap: &mut Keymap) -> Result<KeybindOutcome, String> {
-    let mode = parse_mode(&spec.mode)
-        .map_err(|e| format!("defkeybind :mode {:?} — {e}", spec.mode))?;
-    let key = match parse_key(&spec.key) {
-        Ok(k) => k,
-        Err(e) => {
-            // Multi-key sequences (`gh`, `<leader>ff`, …) aren't
-            // per-binding warnings — they all aggregate into the
-            // `deferred_multi_key` counter. Anything else (typo,
-            // unknown named key) gets a proper error.
-            if looks_like_multi_key(&spec.key) {
-                return Ok(KeybindOutcome::DeferredMultiKey);
-            }
-            return Err(format!("defkeybind :key {:?} — {e}", spec.key));
-        }
-    };
+/// Apply a single keybind. Resolves the key string into a full key
+/// SEQUENCE (`<leader>ff` → three keys, `h` → one) and binds it —
+/// single keys into the flat table, multi-key sequences into the
+/// sequence table the runtime's pending-stroke loop resolves. Returns
+/// a classification, or `Err(warning)` when the spec is malformed
+/// (unknown mode, unterminated `<`, unknown key token).
+fn apply_keybind(spec: &KeybindSpec, keymap: &mut Keymap) -> Result<KeybindApplied, String> {
+    let mode =
+        parse_mode(&spec.mode).map_err(|e| format!("defkeybind :mode {:?} — {e}", spec.mode))?;
+    let leader = keymap.leader().clone();
+    let keys = parse_key_sequence(&spec.key, &leader)
+        .map_err(|e| format!("defkeybind :key {:?} — {e}", spec.key))?;
     let (action, deferred) = resolve_action(&spec.action);
     let description = if spec.description.is_empty() {
         spec.action.clone()
     } else {
         spec.description.clone()
     };
-    keymap.bind(mode, key, action, description);
-    Ok(if deferred {
-        KeybindOutcome::AppliedCommand
-    } else {
-        KeybindOutcome::AppliedTyped
+    let is_sequence = keys.len() > 1;
+    keymap.bind_sequence(mode, keys, action, description);
+    Ok(KeybindApplied {
+        is_sequence,
+        deferred_to_command: deferred,
     })
 }
 
-/// Best-effort classifier: is this key spec a multi-key sequence
-/// (vim-style `gh` / `gg` / `dd`, or a `<leader>`-prefixed
-/// compound)? These aren't errors — they just need pending-stroke
-/// support that lands in a later wave.
-fn looks_like_multi_key(s: &str) -> bool {
-    // `<leader>…` is always a compound even when the remainder is
-    // a single char. Match case-insensitively so `<Leader>` works.
-    if let Some(rest) = s.strip_prefix('<') {
-        if let Some(close) = rest.find('>') {
-            let inner = &rest[..close];
-            if inner.eq_ignore_ascii_case("leader")
-                || inner.eq_ignore_ascii_case("localleader")
-            {
-                // `<leader>X…` or `<leader>` alone both classify
-                // as multi-key pending-stroke territory.
-                return true;
+/// Tokenize a key string into `<…>` and bare-char tokens, parsing
+/// each into a [`Key`]. `<leader>ff` → `[leader, f, f]`; `gg` →
+/// `[g, g]`; `<C-w>h` → `[Ctrl('w'), h]`. `<leader>`/`<localleader>`
+/// resolve to `leader`. Errors on an unterminated `<…>`, an unknown
+/// token, or an empty string.
+fn parse_key_sequence(s: &str, leader: &Key) -> Result<Vec<Key>, String> {
+    let mut keys = Vec::new();
+    let mut chars = s.chars().peekable();
+    while let Some(&c) = chars.peek() {
+        let token: String = if c == '<' {
+            let mut t = String::new();
+            for ch in chars.by_ref() {
+                t.push(ch);
+                if ch == '>' {
+                    break;
+                }
             }
-        }
+            if !t.ends_with('>') {
+                return Err(format!("unterminated `<` in key `{s}`"));
+            }
+            t
+        } else {
+            chars.next();
+            c.to_string()
+        };
+        let key = parse_key_token(&token, leader)
+            .ok_or_else(|| format!("unknown key token `{token}` in `{s}`"))?;
+        keys.push(key);
     }
-    // Raw multi-char sequences (`gh`, `jk`) — more than one char
-    // and not wrapped in `<…>`.
-    s.chars().count() > 1 && !s.starts_with('<')
+    if keys.is_empty() {
+        return Err(format!("empty key string `{s}`"));
+    }
+    Ok(keys)
+}
+
+/// Parse a SINGLE key token — a bare char or a `<…>` form — resolving
+/// `<leader>`/`<localleader>` against `leader`. Returns `None` for an
+/// unknown token so [`parse_key_sequence`] can surface the offending
+/// piece.
+fn parse_key_token(tok: &str, leader: &Key) -> Option<Key> {
+    if let Some(inner) = tok.strip_prefix('<').and_then(|r| r.strip_suffix('>')) {
+        let lower = inner.to_ascii_lowercase();
+        if lower == "leader" || lower == "localleader" {
+            return Some(leader.clone());
+        }
+        return parse_bracket_key(inner);
+    }
+    let mut chars = tok.chars();
+    let c = chars.next()?;
+    if chars.next().is_none() {
+        Some(Key::Char(c))
+    } else {
+        None
+    }
+}
+
+/// Parse a leader-key VALUE — the `:value` of
+/// `(defoption :name "mapleader" :value …)` — into a [`Key`]. Accepts a
+/// bracket token (`<space>`, `<Tab>`, `<C-x>`) or a bare char (`,`,
+/// `\`). Unlike a keybind token it never resolves `<leader>` (a
+/// leader-of-a-leader is nonsense). Returns `None` if the value isn't a
+/// single key, so the caller can keep the default leader and warn.
+///
+/// Public because the binary reads the `mapleader` option from the
+/// applied option store and calls [`Keymap::set_leader`] BEFORE
+/// [`apply_plan_to_keymap`] — `<leader>` is resolved at bind time, so
+/// the leader must be set first.
+#[must_use]
+pub fn parse_leader_key(value: &str) -> Option<Key> {
+    let trimmed = value.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if lower == "<leader>" || lower == "<localleader>" {
+        return None;
+    }
+    // The dummy leader is irrelevant here — parse_key_token only
+    // consults it for the `<leader>`/`<localleader>` tokens we just
+    // rejected.
+    parse_key_token(trimmed, &Key::Char(','))
 }
 
 /// Parse a mode name from [`KeybindSpec`].
@@ -241,37 +296,6 @@ fn parse_mode(name: &str) -> LispResult<Mode> {
         "command" => Ok(Mode::Command),
         _ => Err(LispError::UnknownMode(name.to_string())),
     }
-}
-
-/// Parse a key string into a [`Key`]. Returns an error for malformed
-/// or unsupported sequences (including multi-key sequences — the
-/// caller decides how to defer those).
-fn parse_key(s: &str) -> Result<Key, String> {
-    // Multi-key sequences (`"gh"`, `"jk"`) are not yet wired into the
-    // keymap's pending-stroke machinery. Surface as a warning so the
-    // user sees what happened.
-    if s.chars().count() > 1 && !s.starts_with('<') {
-        return Err(format!(
-            "multi-key sequences aren't wired yet — `{s}` needs pending-stroke support"
-        ));
-    }
-
-    // Single char form.
-    if s.chars().count() == 1 {
-        return s
-            .chars()
-            .next()
-            .map(Key::Char)
-            .ok_or_else(|| format!("`{s}` is not a printable char"));
-    }
-
-    // Bracketed form — parse inner token.
-    if let Some(inner) = s.strip_prefix('<').and_then(|r| r.strip_suffix('>')) {
-        return parse_bracket_key(inner)
-            .ok_or_else(|| format!("unknown bracketed key `<{inner}>`"));
-    }
-
-    Err(format!("unrecognised key `{s}`"))
 }
 
 fn parse_bracket_key(inner: &str) -> Option<Key> {
@@ -294,6 +318,12 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
         ("end", Key::End),
         ("pageup", Key::PageUp),
         ("pagedown", Key::PageDown),
+        // Space is a first-class leader/binding token in the nvim
+        // ecosystem (`<space>` / `<Space>` / `<spc>`). The input layer
+        // produces `Key::Char(' ')` for the spacebar, so the keymap
+        // side must resolve the same.
+        ("space", Key::Char(' ')),
+        ("spc", Key::Char(' ')),
     ];
     for (n, k) in named {
         if lower == *n {
@@ -383,46 +413,237 @@ fn resolve_action(name: &str) -> (Action, bool) {
     }
 }
 
+/// Report of how an [`apply_plan_to_commands`] pass touched the
+/// [`CommandRegistry`]. Shaped like [`ApplyReport`] / frost doctor's
+/// "applied vs. skipped" so the binary surfaces it in `--list-rc`.
+#[derive(Debug, Clone, Default)]
+pub struct CommandApplyReport {
+    /// New command names registered (didn't previously exist).
+    pub registered: u32,
+    /// Existing command names overridden by a `defcmd` (last-writer
+    /// wins — user/rc commands intentionally shadow built-ins).
+    pub overridden: u32,
+    /// Names that overrode a command, surfaced so a user can see when
+    /// their `defcmd` replaced a built-in (rename if unintended).
+    pub overridden_names: Vec<String>,
+}
+
+impl CommandApplyReport {
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "commands_registered={} overridden={}",
+            self.registered, self.overridden,
+        )
+    }
+}
+
+/// Apply every [`CmdSpec`](crate::CmdSpec) in `plan` to `registry`.
+///
+/// Each `(defcmd :name … :description … :action "<dotted>")` becomes
+/// a [`Command`] with an [`escriba_command::Handler::Action`] handler
+/// — a genuinely invokable command whose dotted action symbol the
+/// registry resolves at run time. This is the keystone that connects
+/// the parse layer to live state: before this, a `defkeybind :action
+/// "write-all"` deferred to a command name that was never registered,
+/// so it dead-ended at the five built-ins. Now `defcmd` populates the
+/// registry the deferred keybinds dispatch into.
+///
+/// Last-writer-wins: a `defcmd` whose `:name` matches an existing
+/// command (built-in or earlier `defcmd`) overrides it — this is how
+/// a user rebinds `save` to a richer behavior. The override is tallied
+/// so `--list-rc` can show it.
+pub fn apply_plan_to_commands(
+    plan: &ApplyPlan,
+    registry: &mut CommandRegistry,
+) -> CommandApplyReport {
+    let mut report = CommandApplyReport::default();
+    for spec in &plan.commands {
+        if registry.contains(&spec.name) {
+            report.overridden += 1;
+            report.overridden_names.push(spec.name.clone());
+        } else {
+            report.registered += 1;
+        }
+        registry.register(Command::action(
+            spec.name.clone(),
+            spec.description.clone(),
+            spec.action.clone(),
+        ));
+    }
+    report
+}
+
+/// Report of how an [`apply_plan_to_options`] pass touched the option
+/// store.
+#[derive(Debug, Clone, Default)]
+pub struct OptionApplyReport {
+    /// Options newly set (name didn't previously exist).
+    pub set: u32,
+    /// Options whose value overrode an existing entry.
+    pub overridden: u32,
+}
+
+impl OptionApplyReport {
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!("options_set={} overridden={}", self.set, self.overridden)
+    }
+}
+
+/// Apply every `(defoption :name … :value …)` in `plan` to the option
+/// store. Last-writer-wins: a later `defoption` (or a runtime
+/// `(set-option …)` effect, or a user rc layered over the defaults)
+/// overrides an earlier value.
+///
+/// Crucially this writes the SAME `HashMap` that the tatara-lisp
+/// `set-option` effect writes (`escriba_vm::HostEffect::SetOption`) —
+/// the declarative (def-form) and imperative (live Lisp) tiers converge
+/// on one option source of truth rather than two parallel stores.
+pub fn apply_plan_to_options(
+    plan: &ApplyPlan,
+    options: &mut std::collections::HashMap<String, String>,
+) -> OptionApplyReport {
+    let mut report = OptionApplyReport::default();
+    for opt in &plan.options {
+        if options.insert(opt.name.clone(), opt.value.clone()).is_some() {
+            report.overridden += 1;
+        } else {
+            report.set += 1;
+        }
+    }
+    report
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::apply_source;
 
     #[test]
-    fn parse_single_char_key() {
-        assert_eq!(parse_key("a").unwrap(), Key::Char('a'));
-        assert_eq!(parse_key("G").unwrap(), Key::Char('G'));
-        assert_eq!(parse_key("0").unwrap(), Key::Char('0'));
+    fn parse_single_char_token() {
+        let l = Key::Char(',');
+        assert_eq!(parse_key_token("a", &l), Some(Key::Char('a')));
+        assert_eq!(parse_key_token("G", &l), Some(Key::Char('G')));
+        assert_eq!(parse_key_token("0", &l), Some(Key::Char('0')));
     }
 
     #[test]
-    fn parse_named_bracket_keys() {
-        assert_eq!(parse_key("<Esc>").unwrap(), Key::Esc);
-        assert_eq!(parse_key("<CR>").unwrap(), Key::Enter);
-        assert_eq!(parse_key("<Enter>").unwrap(), Key::Enter);
-        assert_eq!(parse_key("<Tab>").unwrap(), Key::Tab);
-        assert_eq!(parse_key("<Backspace>").unwrap(), Key::Backspace);
-        assert_eq!(parse_key("<BS>").unwrap(), Key::Backspace);
-        assert_eq!(parse_key("<Left>").unwrap(), Key::Left);
-        assert_eq!(parse_key("<PageUp>").unwrap(), Key::PageUp);
+    fn parse_named_bracket_tokens() {
+        let l = Key::Char(',');
+        assert_eq!(parse_key_token("<Esc>", &l), Some(Key::Esc));
+        assert_eq!(parse_key_token("<CR>", &l), Some(Key::Enter));
+        assert_eq!(parse_key_token("<Enter>", &l), Some(Key::Enter));
+        assert_eq!(parse_key_token("<Tab>", &l), Some(Key::Tab));
+        assert_eq!(parse_key_token("<Backspace>", &l), Some(Key::Backspace));
+        assert_eq!(parse_key_token("<BS>", &l), Some(Key::Backspace));
+        assert_eq!(parse_key_token("<Left>", &l), Some(Key::Left));
+        assert_eq!(parse_key_token("<PageUp>", &l), Some(Key::PageUp));
     }
 
     #[test]
-    fn parse_modifier_bracket_keys() {
-        assert_eq!(parse_key("<C-r>").unwrap(), Key::Ctrl('r'));
-        assert_eq!(parse_key("<c-r>").unwrap(), Key::Ctrl('r'));
-        assert_eq!(parse_key("<A-f>").unwrap(), Key::Alt('f'));
-        assert_eq!(parse_key("<M-f>").unwrap(), Key::Alt('f'));
+    fn parse_modifier_bracket_tokens() {
+        let l = Key::Char(',');
+        assert_eq!(parse_key_token("<C-r>", &l), Some(Key::Ctrl('r')));
+        assert_eq!(parse_key_token("<c-r>", &l), Some(Key::Ctrl('r')));
+        assert_eq!(parse_key_token("<A-f>", &l), Some(Key::Alt('f')));
+        assert_eq!(parse_key_token("<M-f>", &l), Some(Key::Alt('f')));
     }
 
     #[test]
-    fn parse_multi_key_rejected() {
-        assert!(parse_key("gh").is_err());
+    fn parse_leader_token_resolves_to_leader() {
+        // `<leader>` / `<localleader>` resolve to the keymap's leader.
+        assert_eq!(
+            parse_key_token("<leader>", &Key::Char(',')),
+            Some(Key::Char(','))
+        );
+        assert_eq!(
+            parse_key_token("<Leader>", &Key::Char(' ')),
+            Some(Key::Char(' '))
+        );
+        assert_eq!(
+            parse_key_token("<localleader>", &Key::Char('\\')),
+            Some(Key::Char('\\'))
+        );
     }
 
     #[test]
-    fn parse_unknown_bracket_rejected() {
-        assert!(parse_key("<Galactus>").is_err());
+    fn parse_token_rejects_multichar_and_unknown_bracket() {
+        let l = Key::Char(',');
+        // A bare multi-char token isn't a single key.
+        assert_eq!(parse_key_token("gh", &l), None);
+        // Unknown bracket name.
+        assert_eq!(parse_key_token("<Galactus>", &l), None);
+    }
+
+    #[test]
+    fn parse_key_sequence_tokenizes_leader_and_brackets() {
+        let comma = Key::Char(',');
+        assert_eq!(
+            parse_key_sequence("<leader>ff", &comma).unwrap(),
+            vec![Key::Char(','), Key::Char('f'), Key::Char('f')],
+        );
+        assert_eq!(
+            parse_key_sequence("gg", &comma).unwrap(),
+            vec![Key::Char('g'), Key::Char('g')],
+        );
+        assert_eq!(
+            parse_key_sequence("<C-w>h", &comma).unwrap(),
+            vec![Key::Ctrl('w'), Key::Char('h')],
+        );
+        assert_eq!(parse_key_sequence("x", &comma).unwrap(), vec![Key::Char('x')]);
+        // Malformed: unterminated bracket + unknown token.
+        assert!(parse_key_sequence("<leader", &comma).is_err());
+        assert!(parse_key_sequence("<Nope>", &comma).is_err());
+    }
+
+    #[test]
+    fn space_token_parses_in_tokens_and_sequences() {
+        let comma = Key::Char(',');
+        assert_eq!(parse_key_token("<space>", &comma), Some(Key::Char(' ')));
+        assert_eq!(parse_key_token("<Space>", &comma), Some(Key::Char(' ')));
+        assert_eq!(parse_key_token("<spc>", &comma), Some(Key::Char(' ')));
+        assert_eq!(
+            parse_key_sequence("<space>w", &comma).unwrap(),
+            vec![Key::Char(' '), Key::Char('w')],
+        );
+    }
+
+    #[test]
+    fn parse_leader_key_handles_space_comma_and_rejects_recursion() {
+        assert_eq!(parse_leader_key("<space>"), Some(Key::Char(' ')));
+        assert_eq!(parse_leader_key("<Space>"), Some(Key::Char(' ')));
+        assert_eq!(parse_leader_key(","), Some(Key::Char(',')));
+        assert_eq!(parse_leader_key("\\"), Some(Key::Char('\\')));
+        assert_eq!(parse_leader_key("<C-a>"), Some(Key::Ctrl('a')));
+        // leader-of-leader is nonsense; multichar isn't a single key.
+        assert_eq!(parse_leader_key("<leader>"), None);
+        assert_eq!(parse_leader_key("nope-multichar"), None);
+    }
+
+    #[test]
+    fn leader_sequence_resolves_against_configured_leader() {
+        // set_leader changes which prefix `<leader>` resolves to —
+        // proving the mapleader-config path the binary wires. With a
+        // space leader, `<leader>ff` binds under [space, f, f] and NOT
+        // under the comma default.
+        let mut km = Keymap::new();
+        km.set_leader(Key::Char(' '));
+        let plan = apply_source(
+            r#"(defkeybind :mode "normal" :key "<leader>ff" :action "picker.files")"#,
+        )
+        .unwrap();
+        apply_plan_to_keymap(&plan, &mut km);
+        let space_seq = vec![Key::Char(' '), Key::Char('f'), Key::Char('f')];
+        assert!(
+            km.lookup_sequence(Mode::Normal, &space_seq).is_some(),
+            "<leader>ff should bind under the configured space leader",
+        );
+        let comma_seq = vec![Key::Char(','), Key::Char('f'), Key::Char('f')];
+        assert!(
+            km.lookup_sequence(Mode::Normal, &comma_seq).is_none(),
+            "the comma default must NOT capture <leader> once leader is space",
+        );
     }
 
     #[test]
@@ -463,10 +684,8 @@ mod tests {
 
     #[test]
     fn apply_defers_unknown_action_to_command_registry() {
-        let plan = apply_source(
-            r#"(defkeybind :mode "normal" :key "g" :action "goto-home")"#,
-        )
-        .unwrap();
+        let plan =
+            apply_source(r#"(defkeybind :mode "normal" :key "g" :action "goto-home")"#).unwrap();
         let mut km = Keymap::new();
         let report = apply_plan_to_keymap(&plan, &mut km);
         assert_eq!(report.keybinds_applied, 1);
@@ -474,14 +693,14 @@ mod tests {
     }
 
     #[test]
-    fn apply_aggregates_multi_key_sequences_into_deferred_count() {
-        // Multi-key bindings (`gh`, `<leader>ff`) pile up into the
-        // `keybinds_deferred_multi_key` counter rather than emitting
-        // per-binding warnings — the startup line stays one-liner
-        // even when the rc has dozens of `<leader>`-prefixed binds.
+    fn apply_binds_multi_key_sequences_into_sequence_table() {
+        // Multi-key bindings (`gh`, `<leader>ff`) now BIND into the
+        // keymap's sequence table — the runtime's pending-stroke loop
+        // resolves them. `<leader>` resolves to the keymap's leader
+        // (`,` by default — blnvim parity).
         let plan = apply_source(
             r#"
-            (defkeybind :mode "normal" :key "gh" :action "home")
+            (defkeybind :mode "normal" :key "gh" :action "doc-start")
             (defkeybind :mode "normal" :key "<leader>ff" :action "picker.files")
             (defkeybind :mode "normal" :key "<leader>fg" :action "picker.grep")
             (defkeybind :mode "normal" :key "<Leader>fb" :action "picker.buffers")
@@ -490,25 +709,102 @@ mod tests {
         .unwrap();
         let mut km = Keymap::new();
         let report = apply_plan_to_keymap(&plan, &mut km);
-        assert_eq!(report.keybinds_applied, 0);
-        assert_eq!(report.keybinds_deferred_multi_key, 4);
-        assert!(
-            report.warnings.is_empty(),
-            "leader / multi-key specs should NOT produce per-binding warnings"
+        assert_eq!(report.keybinds_applied, 4);
+        assert_eq!(report.keybinds_sequences, 4);
+        // The three picker binds defer to the command registry; gh's
+        // `doc-start` is a curated typed action.
+        assert_eq!(report.keybinds_deferred_to_commands, 3);
+        assert!(report.warnings.is_empty());
+
+        // `<leader>ff` resolves to its command via the sequence table.
+        let seq = vec![Key::Char(','), Key::Char('f'), Key::Char('f')];
+        let b = km
+            .lookup_sequence(Mode::Normal, &seq)
+            .expect("<leader>ff should be bound");
+        assert!(matches!(&b.action, Action::Command { name, .. } if name == "picker.files"));
+
+        // `gh` binds as a 2-key sequence to a typed motion.
+        let gh = vec![Key::Char('g'), Key::Char('h')];
+        assert_eq!(
+            km.lookup_sequence(Mode::Normal, &gh).unwrap().action,
+            Action::Move(Motion::DocStart),
         );
     }
 
     #[test]
     fn apply_still_warns_on_truly_unrecognised_keys() {
-        let plan = apply_source(
-            r#"(defkeybind :mode "normal" :key "<Galactus>" :action "home")"#,
-        )
-        .unwrap();
+        let plan =
+            apply_source(r#"(defkeybind :mode "normal" :key "<Galactus>" :action "home")"#).unwrap();
         let mut km = Keymap::new();
         let report = apply_plan_to_keymap(&plan, &mut km);
         assert_eq!(report.keybinds_applied, 0);
-        assert_eq!(report.keybinds_deferred_multi_key, 0);
+        assert_eq!(report.keybinds_sequences, 0);
         assert_eq!(report.warnings.len(), 1);
+    }
+
+    #[test]
+    fn apply_commands_registers_defcmd_into_registry() {
+        let plan = apply_source(
+            r#"
+            (defcmd :name "write-all" :description "Write every modified buffer" :action "buffer.write-all")
+            (defcmd :name "pick-files" :description "Pick a file" :action "picker.files")
+            "#,
+        )
+        .unwrap();
+        let mut registry = CommandRegistry::default_set();
+        let before = registry.len();
+        let report = apply_plan_to_commands(&plan, &mut registry);
+        assert_eq!(report.registered, 2);
+        assert_eq!(report.overridden, 0);
+        assert!(registry.contains("write-all"));
+        assert!(registry.contains("pick-files"));
+        assert_eq!(registry.len(), before + 2);
+    }
+
+    #[test]
+    fn apply_commands_defcmd_overrides_builtin_last_writer_wins() {
+        // A `defcmd :name "save"` shadows the built-in `save` — the
+        // mechanism by which a user upgrades a built-in to a richer
+        // Lisp-authored behavior. The override is tallied, not silent.
+        let plan =
+            apply_source(r#"(defcmd :name "save" :description "Save, formatted" :action "buffer.write")"#)
+                .unwrap();
+        let mut registry = CommandRegistry::default_set();
+        let report = apply_plan_to_commands(&plan, &mut registry);
+        assert_eq!(report.registered, 0);
+        assert_eq!(report.overridden, 1);
+        assert_eq!(report.overridden_names, vec!["save".to_string()]);
+    }
+
+    #[test]
+    fn apply_commands_empty_plan_is_noop() {
+        let plan = apply_source("").unwrap();
+        let mut registry = CommandRegistry::default_set();
+        let before = registry.len();
+        let report = apply_plan_to_commands(&plan, &mut registry);
+        assert_eq!(report.registered, 0);
+        assert_eq!(report.overridden, 0);
+        assert_eq!(registry.len(), before);
+    }
+
+    #[test]
+    fn apply_options_sets_and_overrides() {
+        let plan = apply_source(
+            r#"
+            (defoption :name "number" :value "true")
+            (defoption :name "tabstop" :value "4")
+            (defoption :name "number" :value "false")
+            "#,
+        )
+        .unwrap();
+        let mut opts = std::collections::HashMap::new();
+        let report = apply_plan_to_options(&plan, &mut opts);
+        // 3 specs: number(set), tabstop(set), number(override).
+        assert_eq!(report.set, 2);
+        assert_eq!(report.overridden, 1);
+        // Last writer wins.
+        assert_eq!(opts.get("number").map(String::as_str), Some("false"));
+        assert_eq!(opts.get("tabstop").map(String::as_str), Some("4"));
     }
 
     #[test]
@@ -548,10 +844,7 @@ mod tests {
     fn grammar_apply_tolerates_defmode_without_tree_sitter() {
         // A `defmode` that omits `:tree-sitter` (e.g. plain-text
         // languages) should be skipped silently — no warning, no error.
-        let plan = apply_source(
-            r#"(defmode :name "plain" :extensions ("txt" "log"))"#,
-        )
-        .unwrap();
+        let plan = apply_source(r#"(defmode :name "plain" :extensions ("txt" "log"))"#).unwrap();
         let report = apply_plan_to_grammar_extensions(
             &plan,
             |_| true,
@@ -565,10 +858,8 @@ mod tests {
     fn apply_overrides_default_vim_binding() {
         // A user's `(defkeybind :mode "normal" :key "h" :action "move-right")`
         // should overwrite the default vim binding.
-        let plan = apply_source(
-            r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#,
-        )
-        .unwrap();
+        let plan =
+            apply_source(r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#).unwrap();
         let mut km = Keymap::default_vim();
         let before = km
             .lookup(Mode::Normal, &Key::Char('h'))

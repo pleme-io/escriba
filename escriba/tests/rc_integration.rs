@@ -18,8 +18,11 @@ fn load_and_apply(src: &str) -> (EditorState, escriba_lisp::ApplyReport) {
     let active_id = buffers.scratch("");
     let mut state = EditorState::new_with_buffer(buffers, active_id);
 
-    // Parse the rc source and apply its keybindings.
+    // Parse the rc source and apply it — commands FIRST (so deferred
+    // keybinds have real commands to resolve against), then keymap.
+    // This mirrors the binary's startup ordering exactly.
     let plan = escriba_lisp::apply_source(src).expect("parse rc");
+    let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
     let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
     (state, report)
 }
@@ -123,4 +126,181 @@ fn fresh_keymap_without_rc_stays_default_vim() {
         .lookup(Mode::Normal, &Key::Char('h'))
         .expect("default_vim binds h");
     assert_eq!(binding.action, Action::Move(Motion::Left));
+}
+
+// ── defcmd → CommandRegistry keystone (Wave 1 apply-layer slice) ─────
+
+#[test]
+fn defcmd_registers_and_keybind_dispatches_without_panic() {
+    // The keystone: a `(defcmd …)` registers a real, invokable command
+    // into the live registry, and a `(defkeybind … :action "<cmd>")`
+    // that defers to it now resolves against that registration instead
+    // of dead-ending at the five built-ins.
+    let (mut state, report) = load_and_apply(
+        r#"
+        (defcmd :name "write-all"
+                :description "Write every modified buffer"
+                :action "buffer.write-all")
+        (defkeybind :mode "normal" :key "W" :action "write-all")
+        "#,
+    );
+    // defcmd reached live state.
+    assert!(
+        state.commands.contains("write-all"),
+        "defcmd should register into EditorState.commands",
+    );
+    // The keybind deferred to the registry (not a curated typed action).
+    assert_eq!(report.keybinds_deferred_to_commands, 1);
+    // W resolves to Action::Command { name: "write-all" }.
+    let binding = state
+        .keymap
+        .lookup(Mode::Normal, &Key::Char('W'))
+        .expect("W should be bound in normal mode");
+    match &binding.action {
+        Action::Command { name, .. } => assert_eq!(name, "write-all"),
+        other => panic!("expected Action::Command, got {other:?}"),
+    }
+    // Driving the key dispatches through the registry and runs cleanly.
+    state.on_key(&Key::Char('W'));
+    assert!(!state.quit_requested);
+}
+
+#[test]
+fn keybind_to_unregistered_command_defers_without_panic() {
+    // Negative path: a keybind whose action names no registered command
+    // still binds (deferred), and pressing it misses the registry
+    // gracefully — swallowed NotFound, no panic, editor stays alive.
+    let (mut state, report) = load_and_apply(
+        r#"(defkeybind :mode "normal" :key "W" :action "no.such.command")"#,
+    );
+    assert_eq!(report.keybinds_deferred_to_commands, 1);
+    assert!(!state.commands.contains("no.such.command"));
+    state.on_key(&Key::Char('W'));
+    assert!(!state.quit_requested);
+}
+
+#[test]
+fn defcmd_write_all_saves_modified_file_buffer_end_to_end() {
+    // Observable end-to-end proof of invokability: a file-backed buffer
+    // edited in memory, then `W` (bound to a defcmd whose action is
+    // buffer.write-all) persists the edit to disk.
+    use escriba_core::{Edit, Position};
+
+    let path = std::env::temp_dir().join("escriba-it-defcmd-writeall.txt");
+    std::fs::write(&path, "before").expect("seed temp file");
+
+    let mut buffers = BufferSet::new();
+    let id = buffers.open(&path).expect("open temp file");
+    {
+        let buf = buffers.get_mut(id).expect("buffer present");
+        buf.apply(&Edit::insert(Position::ZERO, "X".to_string()))
+            .expect("edit applies");
+        buf.modified = true;
+    }
+    let mut state = EditorState::new_with_buffer(buffers, id);
+
+    let plan = escriba_lisp::apply_source(
+        r#"
+        (defcmd :name "w-all" :description "Write all" :action "buffer.write-all")
+        (defkeybind :mode "normal" :key "W" :action "w-all")
+        "#,
+    )
+    .expect("parse rc");
+    let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
+    let _ = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    assert!(state.commands.contains("w-all"));
+
+    state.on_key(&Key::Char('W'));
+
+    let on_disk = std::fs::read_to_string(&path).expect("read back temp file");
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        on_disk.starts_with('X'),
+        "buffer.write-all should persist the in-memory edit, got {on_disk:?}",
+    );
+}
+
+#[test]
+fn leader_sequence_dispatches_command_end_to_end() {
+    // The two slices compose: a `<leader>w` sequence binding resolves
+    // through the pending-stroke loop and dispatches a `defcmd` command
+    // that persists the buffer. Leader defaults to `,` (blnvim parity).
+    use escriba_core::{Edit, Position};
+
+    let path = std::env::temp_dir().join("escriba-it-leader-write.txt");
+    std::fs::write(&path, "z").expect("seed temp file");
+
+    let mut buffers = BufferSet::new();
+    let id = buffers.open(&path).expect("open temp file");
+    {
+        let buf = buffers.get_mut(id).expect("buffer present");
+        buf.apply(&Edit::insert(Position::ZERO, "Q".to_string()))
+            .expect("edit applies");
+        buf.modified = true;
+    }
+    let mut state = EditorState::new_with_buffer(buffers, id);
+
+    let plan = escriba_lisp::apply_source(
+        r#"
+        (defcmd :name "w-all" :description "Write all" :action "buffer.write-all")
+        (defkeybind :mode "normal" :key "<leader>w" :action "w-all")
+        "#,
+    )
+    .expect("parse rc");
+    let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
+    let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    assert_eq!(report.keybinds_sequences, 1, "<leader>w binds as a sequence");
+
+    // Drive the leader sequence: ',' (held) then 'w' (resolves).
+    state.on_key(&Key::Char(','));
+    assert_eq!(state.pending_keys, vec![Key::Char(',')]);
+    state.on_key(&Key::Char('w'));
+    assert!(state.pending_keys.is_empty());
+
+    let on_disk = std::fs::read_to_string(&path).expect("read back temp file");
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        on_disk.starts_with('Q'),
+        "<leader>w should run write-all and persist the edit, got {on_disk:?}",
+    );
+}
+
+// ── defoption → live option store (declarative tier) ────────────────
+
+#[test]
+fn defoption_applies_to_editor_option_store() {
+    let mut buffers = BufferSet::new();
+    let id = buffers.scratch("");
+    let mut state = EditorState::new_with_buffer(buffers, id);
+    let plan = escriba_lisp::apply_source(
+        r#"
+        (defoption :name "number" :value "true")
+        (defoption :name "tabstop" :value "4")
+        "#,
+    )
+    .expect("parse rc");
+    escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
+    assert_eq!(state.options.get("number").map(String::as_str), Some("true"));
+    assert_eq!(state.options.get("tabstop").map(String::as_str), Some("4"));
+}
+
+#[test]
+fn declarative_and_imperative_option_tiers_share_one_store() {
+    // `defoption` (declarative) sets number=true; a live `(set-option …)`
+    // (imperative tatara-lisp) then overrides it on the SAME store —
+    // proving the two programmability tiers converge on one source of
+    // truth rather than two parallel option maps.
+    let mut buffers = BufferSet::new();
+    let id = buffers.scratch("");
+    let mut state = EditorState::new_with_buffer(buffers, id);
+    let plan =
+        escriba_lisp::apply_source(r#"(defoption :name "number" :value "true")"#).expect("parse");
+    escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
+    assert_eq!(state.options.get("number").map(String::as_str), Some("true"));
+
+    state.run_lisp(r#"(set-option "number" "false")"#).unwrap();
+    assert_eq!(
+        state.options.get("number").map(String::as_str),
+        Some("false"),
+    );
 }

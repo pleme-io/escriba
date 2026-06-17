@@ -43,9 +43,28 @@ impl Binding {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Keymap {
     bindings: HashMap<(Mode, Key), Binding>,
+    /// Multi-key sequence bindings (`<leader>ff`, `gg`, `<C-w>h`).
+    /// Keyed by the full key sequence; resolved by the runtime's
+    /// pending-stroke loop ([`lookup_sequence`](Keymap::lookup_sequence)
+    /// + [`is_sequence_prefix`](Keymap::is_sequence_prefix)).
+    sequences: HashMap<(Mode, Vec<Key>), Binding>,
+    /// The prefix `<leader>` resolves to at sequence-apply time.
+    leader: Key,
+}
+
+impl Default for Keymap {
+    fn default() -> Self {
+        Self {
+            bindings: HashMap::new(),
+            sequences: HashMap::new(),
+            // blnvim's leader is comma; escriba ships blnvim-parity
+            // defaults, so the prefix users press matches muscle memory.
+            leader: Key::Char(','),
+        }
+    }
 }
 
 impl Keymap {
@@ -198,6 +217,66 @@ impl Keymap {
         self.bindings.get(&(mode, key.clone()))
     }
 
+    /// The leader key — what `<leader>` resolves to when a sequence
+    /// binding is applied. Defaults to `,` (blnvim parity).
+    #[must_use]
+    pub fn leader(&self) -> &Key {
+        &self.leader
+    }
+
+    /// Override the leader key. Applied before sequence bindings so
+    /// `<leader>`-prefixed specs resolve against the chosen prefix.
+    pub fn set_leader(&mut self, key: Key) {
+        self.leader = key;
+    }
+
+    /// Bind a multi-key SEQUENCE — `<leader>ff` →
+    /// `[Char(','), Char('f'), Char('f')]`, `gg` →
+    /// `[Char('g'), Char('g')]`. A length-1 sequence delegates to
+    /// [`bind`](Keymap::bind) so callers never special-case it; an
+    /// empty sequence is a no-op.
+    pub fn bind_sequence(
+        &mut self,
+        mode: Mode,
+        keys: Vec<Key>,
+        action: Action,
+        desc: impl Into<String>,
+    ) {
+        match keys.as_slice() {
+            [] => {}
+            [single] => self.bind(mode, single.clone(), action, desc),
+            _ => {
+                self.sequences
+                    .insert((mode, keys), Binding::new(action, desc));
+            }
+        }
+    }
+
+    /// Exact-match lookup for a full key sequence.
+    #[must_use]
+    pub fn lookup_sequence(&self, mode: Mode, keys: &[Key]) -> Option<&Binding> {
+        self.sequences.get(&(mode, keys.to_vec()))
+    }
+
+    /// Does any bound sequence in `mode` STRICTLY extend `prefix`
+    /// (i.e. `prefix` is a proper prefix of a longer bound sequence)?
+    /// Drives the runtime's pending-stroke state: a partial sequence
+    /// that is still a live prefix is held pending rather than
+    /// dispatched. Linear scan — fine at fleet sequence counts; a
+    /// trie is a later optimization if profiling ever asks for it.
+    #[must_use]
+    pub fn is_sequence_prefix(&self, mode: Mode, prefix: &[Key]) -> bool {
+        self.sequences
+            .keys()
+            .any(|(m, seq)| *m == mode && seq.len() > prefix.len() && seq.starts_with(prefix))
+    }
+
+    /// Count of bound multi-key sequences — for `--keymap` / doctor.
+    #[must_use]
+    pub fn sequence_len(&self) -> usize {
+        self.sequences.len()
+    }
+
     #[must_use]
     pub fn dispatch(&self, state: &ModalState, key: &Key) -> CountedAction {
         if state.mode == Mode::Normal {
@@ -298,5 +377,50 @@ mod tests {
             k.lookup(Mode::Normal, &Key::Alt('f')).unwrap().action,
             Action::Move(Motion::ForwardSexp)
         );
+    }
+
+    #[test]
+    fn default_leader_is_comma() {
+        assert_eq!(Keymap::new().leader(), &Key::Char(','));
+    }
+
+    #[test]
+    fn bind_sequence_stores_multikey_and_resolves() {
+        let mut k = Keymap::new();
+        let seq = vec![Key::Char(','), Key::Char('f'), Key::Char('f')];
+        k.bind_sequence(
+            Mode::Normal,
+            seq.clone(),
+            Action::Command {
+                name: "picker.files".into(),
+                args: vec![],
+            },
+            "find files",
+        );
+        // Exact match resolves.
+        let b = k.lookup_sequence(Mode::Normal, &seq).expect("seq bound");
+        assert!(matches!(&b.action, Action::Command { name, .. } if name == "picker.files"));
+        // Proper prefixes are live; the full sequence is NOT a prefix
+        // of itself.
+        assert!(k.is_sequence_prefix(Mode::Normal, &[Key::Char(',')]));
+        assert!(k.is_sequence_prefix(Mode::Normal, &[Key::Char(','), Key::Char('f')]));
+        assert!(!k.is_sequence_prefix(Mode::Normal, &seq));
+        // Wrong mode → not a prefix.
+        assert!(!k.is_sequence_prefix(Mode::Insert, &[Key::Char(',')]));
+        assert_eq!(k.sequence_len(), 1);
+    }
+
+    #[test]
+    fn bind_sequence_length_one_delegates_to_single() {
+        let mut k = Keymap::new();
+        k.bind_sequence(
+            Mode::Normal,
+            vec![Key::Char('x')],
+            Action::Undo,
+            "x is undo",
+        );
+        // Lands in the single-key table, not the sequence table.
+        assert_eq!(k.sequence_len(), 0);
+        assert!(k.lookup(Mode::Normal, &Key::Char('x')).is_some());
     }
 }

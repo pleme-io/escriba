@@ -110,6 +110,51 @@ struct Args {
 enum EscribaCommand {
     /// Show the materialized config at a tier (bare/default/discovered/custom/env).
     ConfigShow(shikumi::cli::ConfigShowCommand),
+    /// Evaluate tatara-lisp source against a fresh editor and print the
+    /// effects it produced — the user-facing entry to escriba's
+    /// imperative programmability tier (`escriba-vm`). Example:
+    /// `escriba eval '(set-option "number" "true")'`.
+    Eval(EvalArgs),
+    /// Inspect and load caixa-native plugins. An escriba plugin IS a
+    /// caixa (a dir with `caixa.lisp` + an `escriba/plugin.lisp` entry).
+    Plugin(PluginArgs),
+}
+
+/// Args for `escriba plugin <cmd>`.
+#[derive(clap::Args)]
+struct PluginArgs {
+    #[command(subcommand)]
+    cmd: PluginCmd,
+}
+
+#[derive(Subcommand)]
+enum PluginCmd {
+    /// List the plugins the rc declares (`defplugin` forms) and whether
+    /// each is installed in the plugins dir.
+    List,
+    /// Load a plugin caixa from a directory, apply its escriba entry to
+    /// a fresh editor, and report what it registered.
+    Load(PluginLoadArgs),
+}
+
+/// Args for `escriba plugin load <path>`.
+#[derive(clap::Args)]
+struct PluginLoadArgs {
+    /// Path to the plugin caixa directory (contains `caixa.lisp` +
+    /// `escriba/plugin.lisp`).
+    path: PathBuf,
+}
+
+/// Args for `escriba eval` — the imperative tatara-lisp entry point.
+#[derive(clap::Args)]
+struct EvalArgs {
+    /// Tatara-lisp source to evaluate, e.g. `'(message "hi")'`.
+    source: String,
+    /// Optional file to open as the active buffer before evaluating, so
+    /// buffer-mutating effects (`insert`, `run-command "save"`) have a
+    /// real target.
+    #[arg(long)]
+    file: Option<PathBuf>,
 }
 
 /// Public entry point — both `escriba` and `escriba-gpu` binaries
@@ -131,6 +176,8 @@ pub fn run() -> Result<()> {
                     .run::<escriba_config::EscribaConfig>("ESCRIBA_TIER")
                     .map_err(|e| anyhow::anyhow!("config-show failed: {e}"));
             }
+            EscribaCommand::Eval(cmd) => return run_eval(&cmd),
+            EscribaCommand::Plugin(cmd) => return run_plugin(&cmd),
         }
     }
 
@@ -145,7 +192,17 @@ pub fn run() -> Result<()> {
     }
 
     if args.commands {
-        let reg = CommandRegistry::default_set();
+        // Show the real command surface the editor boots with: built-ins
+        // plus every `(defcmd …)` from the bundled defaults and user rc.
+        let mut reg = CommandRegistry::default_set();
+        if !args.no_defaults {
+            if let Ok(plan) = escriba_lisp::apply_source(DEFAULT_RC) {
+                escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
+            }
+        }
+        if let Some((_, plan)) = load_rc_optional(args.rc.as_deref())? {
+            escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
+        }
         println!("escriba commands ({}):", reg.specs().len());
         for c in reg.specs() {
             println!("  {:<18} {}", c.name, c.description);
@@ -202,14 +259,29 @@ pub fn run() -> Result<()> {
     // `defkeybind` forms have the chance to override vim defaults
     // before the first frame renders.
     let mut state = EditorState::new_with_buffer(buffers, active_id);
+    // Register `defcmd` forms into the live command registry FIRST, so
+    // the deferred-keybind dispatch path (`Action::Command { name }`)
+    // that the keymap apply produces has real commands to resolve
+    // against instead of dead-ending at the five built-ins.
+    let cmd_report = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
+    let opt_report = escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
+    // Resolve the leader from the option store BEFORE binding keys —
+    // `<leader>` is resolved at bind time, so the leader must be set
+    // first or every `<leader>…` sequence binds under the wrong prefix.
+    apply_leader_option(&mut state);
     let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
     tracing::info!(
-        "plan applied: {}; apply={}",
+        "plan applied: {}; keymap={}; {}; {}",
         plan.summary(),
         report.summary(),
+        cmd_report.summary(),
+        opt_report.summary(),
     );
     for w in &report.warnings {
         tracing::warn!("rc: {w}");
+    }
+    for name in &cmd_report.overridden_names {
+        tracing::warn!("rc: defcmd `{name}` overrode an existing command");
     }
 
     // Tree-sitter grammar extensions — wire every `(defmode …)`
@@ -239,6 +311,10 @@ pub fn run() -> Result<()> {
             ts_report.unknown_languages,
         );
     }
+
+    // Activate eager, installed caixa plugins — their escriba entries
+    // layer their keybinds / commands / options on top of the rc.
+    activate_eager_plugins(&plan, &mut state);
 
     if args.dry_run {
         let buf = state.buffers.get(active_id).context("active buffer missing")?;
@@ -325,6 +401,194 @@ fn init_tracing() {
         .try_init();
 }
 
+/// Resolve the `mapleader` option from the applied option store and set
+/// it on the keymap. MUST run after `apply_plan_to_options` and BEFORE
+/// `apply_plan_to_keymap`, because `<leader>` is resolved at bind time.
+/// An unparseable value keeps the keymap's default leader and warns —
+/// partial application beats a dead leader surface.
+fn apply_leader_option(state: &mut EditorState) {
+    if let Some(value) = state.options.get("mapleader") {
+        match escriba_lisp::parse_leader_key(value) {
+            Some(key) => state.keymap.set_leader(key),
+            None => tracing::warn!(
+                "rc: mapleader value {value:?} is not a parseable key — keeping default leader"
+            ),
+        }
+    }
+}
+
+/// Apply a loaded plugin caixa's escriba entry to live editor state —
+/// the activation seam. The entry is plain escriba-lisp, so a plugin's
+/// keybinds / commands / options land through the SAME apply paths a
+/// user rc uses. Returns a one-line summary of what it registered.
+fn activate_plugin(
+    plugin: &escriba_plugin::PluginCaixa,
+    state: &mut EditorState,
+) -> Result<String> {
+    let plan = escriba_lisp::apply_source(&plugin.entry_src)
+        .with_context(|| format!("parsing plugin `{}` entry", plugin.name))?;
+    let cmd = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
+    let opt = escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
+    apply_leader_option(state);
+    let km = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    Ok(format!(
+        "commands +{} keybinds +{} (sequences {}) options +{}",
+        cmd.registered, km.keybinds_applied, km.keybinds_sequences, opt.set,
+    ))
+}
+
+/// Resolve the plugins directory: `$ESCRIBA_PLUGINS_DIR`, else
+/// `$XDG_DATA_HOME/escriba/plugins`, else `$HOME/.local/share/escriba/plugins`.
+fn plugins_dir() -> PathBuf {
+    if let Ok(p) = std::env::var("ESCRIBA_PLUGINS_DIR") {
+        if !p.is_empty() {
+            return PathBuf::from(p);
+        }
+    }
+    if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+        return PathBuf::from(xdg).join("escriba").join("plugins");
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        return PathBuf::from(home)
+            .join(".local")
+            .join("share")
+            .join("escriba")
+            .join("plugins");
+    }
+    PathBuf::from("plugins")
+}
+
+/// Map an `escriba-lisp` `PluginSpec` (the lazy.nvim-shaped `defplugin`)
+/// to caixa-plugin `:ativar-em` trigger strings.
+fn plugin_triggers(spec: &escriba_lisp::PluginSpec) -> Vec<String> {
+    let mut t = Vec::new();
+    if !spec.on_event.is_empty() {
+        t.push(format!("Event: {}", spec.on_event));
+    }
+    if !spec.on_command.is_empty() {
+        t.push(format!("Command: {}", spec.on_command));
+    }
+    t
+}
+
+/// Activate every EAGER, installed plugin the plan declares: resolve
+/// `<plugins_dir>/<name>`, load its caixa, and apply its entry. Lazy
+/// plugins (with an event/command trigger, or `:lazy`) are loaded on
+/// their trigger later — not yet wired, so they are skipped here.
+/// Best-effort: a declared-but-not-installed plugin is skipped silently;
+/// a malformed plugin warns but never aborts startup.
+fn activate_eager_plugins(plan: &escriba_lisp::ApplyPlan, state: &mut EditorState) {
+    let dir = plugins_dir();
+    if !dir.exists() {
+        return;
+    }
+    for spec in &plan.plugins {
+        let root = dir.join(&spec.name);
+        if !root.exists() {
+            continue;
+        }
+        let triggers = plugin_triggers(spec);
+        match escriba_plugin::PluginCaixa::load(&spec.name, "*", &triggers, &root) {
+            Ok(plugin) if plugin.is_eager() && !spec.lazy => match activate_plugin(&plugin, state) {
+                Ok(summary) => tracing::info!("plugin `{}` activated: {summary}", plugin.name),
+                Err(e) => tracing::warn!("plugin `{}` failed to activate: {e}", plugin.name),
+            },
+            Ok(_) => tracing::debug!("plugin `{}` is lazy — deferred", spec.name),
+            Err(e) => tracing::warn!("plugin `{}`: {e}", spec.name),
+        }
+    }
+}
+
+/// `escriba plugin <cmd>` dispatch.
+fn run_plugin(args: &PluginArgs) -> Result<()> {
+    match &args.cmd {
+        PluginCmd::List => run_plugin_list(),
+        PluginCmd::Load(a) => run_plugin_load(&a.path),
+    }
+}
+
+/// `escriba plugin list` — declared plugins (from bundled defaults + user
+/// rc) and whether each is installed in the plugins dir.
+fn run_plugin_list() -> Result<()> {
+    let mut plan = escriba_lisp::apply_source(DEFAULT_RC).context("parsing bundled defaults")?;
+    if let Some((_, user)) = load_rc_optional(None)? {
+        plan.merge(user);
+    }
+    let dir = plugins_dir();
+    println!("escriba plugins ({}):", plan.plugins.len());
+    println!("  plugins dir: {}", dir.display());
+    for spec in &plan.plugins {
+        let installed = dir.join(&spec.name).exists();
+        let mark = if installed { "✓ installed" } else { "⌀ declared " };
+        let lazy = if spec.lazy { "lazy" } else { "eager" };
+        println!(
+            "  {mark}  {:<22} [{:<11}] {lazy}",
+            spec.name, spec.category,
+        );
+    }
+    Ok(())
+}
+
+/// `escriba plugin load <path>` — load a plugin caixa + apply its entry
+/// to a fresh editor and report what it registered.
+fn run_plugin_load(path: &std::path::Path) -> Result<()> {
+    let name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("plugin");
+    let plugin = escriba_plugin::PluginCaixa::load(name, "*", &[], path)
+        .map_err(|e| anyhow::anyhow!("loading plugin {}: {e}", path.display()))?;
+
+    let mut buffers = BufferSet::new();
+    let active = buffers.scratch("");
+    let mut state = EditorState::new_with_buffer(buffers, active);
+    let summary = activate_plugin(&plugin, &mut state)?;
+
+    println!("✓ loaded plugin caixa `{}` (v{})", plugin.name, plugin.version);
+    let triggers = if plugin.triggers.is_empty() {
+        "eager".to_string()
+    } else {
+        format!("{:?}", plugin.triggers)
+    };
+    println!("  triggers:   {triggers}");
+    println!("  registered: {summary}");
+    Ok(())
+}
+
+/// `escriba eval` — run tatara-lisp against a fresh editor and report
+/// the effects it produced. The CLI face of the imperative
+/// programmability tier: snapshot → `EscribaVm` eval → apply effects.
+fn run_eval(args: &EvalArgs) -> Result<()> {
+    let mut buffers = BufferSet::new();
+    let active = if let Some(p) = &args.file {
+        buffers
+            .open(p)
+            .with_context(|| format!("opening {}", p.display()))?
+    } else {
+        buffers.scratch("")
+    };
+    let mut state = EditorState::new_with_buffer(buffers, active);
+    state
+        .run_lisp(&args.source)
+        .map_err(|e| anyhow::anyhow!("tatara-lisp eval failed: {e}"))?;
+
+    for m in &state.messages {
+        println!("message: {m}");
+    }
+    let mut opts: Vec<(&String, &String)> = state.options.iter().collect();
+    opts.sort();
+    for (k, v) in opts {
+        println!("option: {k} = {v}");
+    }
+    if let Some(buf) = state.buffers.get(active) {
+        let content = buf.to_string();
+        if !content.is_empty() {
+            println!("buffer:\n{content}");
+        }
+    }
+    Ok(())
+}
+
 /// Resolve the rc path (explicit `--rc` > env > xdg > home default) and
 /// load it if the file exists. Returns `Ok(None)` when no rc file is
 /// present anywhere — that's the default for a fresh install.
@@ -385,6 +649,17 @@ fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
 
     // User rc layered on top.
     let user = load_rc_optional(explicit)?;
+
+    // Composite plan (defaults + user) — the same plan the editor
+    // actually boots with. Used below for the wiring-status section.
+    let composite = {
+        let mut c = defaults.clone();
+        if let Some((_, p)) = &user {
+            c.merge(p.clone());
+        }
+        c
+    };
+
     println!();
     match user {
         Some((path, plan)) => {
@@ -417,7 +692,73 @@ fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
             );
         }
     }
+
+    print_wiring_status(&composite);
     Ok(())
+}
+
+/// Apply the composite plan to a fresh editor's live state and report
+/// which def-forms actually reached `EditorState` ("WIRED") versus
+/// those still parse-validated only ("parse-only"). This is the honest
+/// truth-up surface: as each wave wires another form, it graduates
+/// from parse-only to WIRED here. Mirrors `frost --doctor`'s applied
+/// counts.
+fn print_wiring_status(plan: &escriba_lisp::ApplyPlan) {
+    let mut buffers = BufferSet::new();
+    let active = buffers.scratch("");
+    let mut state = EditorState::new_with_buffer(buffers, active);
+
+    let cmd_report = escriba_lisp::apply_plan_to_commands(plan, &mut state.commands);
+    let opt_report = escriba_lisp::apply_plan_to_options(plan, &mut state.options);
+    apply_leader_option(&mut state);
+    let km_report = escriba_lisp::apply_plan_to_keymap(plan, &mut state.keymap);
+
+    println!();
+    println!("⚙ wiring status (def-form → live EditorState)");
+    println!(
+        "  {} defcmd        WIRED      registered={} overridden={} (registry now {} cmds)",
+        form_glyph("cmds"),
+        cmd_report.registered,
+        cmd_report.overridden,
+        state.commands.len(),
+    );
+    println!(
+        "  {} defoption     WIRED      set={} overridden={} (option store now {})",
+        form_glyph("options"),
+        opt_report.set,
+        opt_report.overridden,
+        state.options.len(),
+    );
+    println!(
+        "  {} defkeybind    WIRED      applied={} deferred_cmd={} sequences={} warnings={}",
+        form_glyph("keybinds"),
+        km_report.keybinds_applied,
+        km_report.keybinds_deferred_to_commands,
+        km_report.keybinds_sequences,
+        km_report.warnings.len(),
+    );
+    match escriba_ts::GrammarRegistry::builtin() {
+        Ok(mut reg) => {
+            let known: Vec<String> = reg.languages().map(String::from).collect();
+            let ts = escriba_lisp::apply_plan_to_grammar_extensions(
+                plan,
+                |n| known.iter().any(|l| l == n),
+                |lang, ext| {
+                    reg.add_extension(lang, ext);
+                },
+            );
+            println!(
+                "  {} defmode       WIRED      registered={} skipped_unknown_lang={}",
+                form_glyph("major_modes"),
+                ts.extensions_registered,
+                ts.extensions_skipped_unknown_language,
+            );
+        }
+        Err(_) => println!(
+            "  {} defmode       parse-only (tree-sitter registry unavailable)",
+            form_glyph("major_modes"),
+        ),
+    }
 }
 
 /// Group the plan's plugins by category for the list-rc output so
@@ -463,6 +804,52 @@ mod theme_tests {
         assert_eq!(
             plan.theme.as_ref().map(|t| t.preset.as_str()),
             Some("vellum"),
+        );
+    }
+}
+
+#[cfg(test)]
+mod leader_tests {
+    use super::*;
+    use escriba_keymap::Key;
+
+    fn state() -> EditorState {
+        let mut buffers = BufferSet::new();
+        let id = buffers.scratch("");
+        EditorState::new_with_buffer(buffers, id)
+    }
+
+    #[test]
+    fn apply_leader_option_sets_space_leader_from_option() {
+        let mut s = state();
+        s.options.insert("mapleader".into(), "<space>".into());
+        apply_leader_option(&mut s);
+        assert_eq!(s.keymap.leader(), &Key::Char(' '));
+    }
+
+    #[test]
+    fn apply_leader_option_keeps_default_on_unparseable() {
+        let mut s = state();
+        let before = s.keymap.leader().clone();
+        s.options.insert("mapleader".into(), "totally-bogus".into());
+        apply_leader_option(&mut s);
+        assert_eq!(s.keymap.leader(), &before, "bogus mapleader keeps default");
+    }
+
+    #[test]
+    fn bundled_defaults_resolve_space_leader_end_to_end() {
+        // The full glue: apply the bundled blnvim-defaults options, then
+        // resolve the leader — proving the shipped
+        // `(defoption :name "mapleader" :value "<space>")` actually
+        // takes effect on the live keymap.
+        let plan = escriba_lisp::apply_source(super::DEFAULT_RC).unwrap();
+        let mut s = state();
+        escriba_lisp::apply_plan_to_options(&plan, &mut s.options);
+        apply_leader_option(&mut s);
+        assert_eq!(
+            s.keymap.leader(),
+            &Key::Char(' '),
+            "bundled mapleader=<space> must resolve to the space leader",
         );
     }
 }

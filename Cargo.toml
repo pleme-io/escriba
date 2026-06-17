@@ -72,8 +72,13 @@ async-trait      = "0.1"
 # pleme-io sibling deps — git so CI works without checking out
 # every sibling. Local development overrides via
 # .cargo/config.toml [patch.<git-url>] sections.
-tatara-lisp        = { git = "https://github.com/pleme-io/tatara", branch = "main" }
-tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara", branch = "main" }
+# Unified on the single canonical tatara-lisp lineage (pleme-io/tatara-lisp)
+# — the WASM/WASI-capable platform with the host-embeddable evaluator
+# (tatara-lisp-eval) + compiler_spec polyglot seam. See
+# docs/programmability-and-caixa-design.md §"lineage unification".
+tatara-lisp        = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main" }
+tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main" }
+tatara-lisp-eval   = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main" }
 garasu             = { git = "https://github.com/pleme-io/garasu", branch = "main" }
 madori             = { git = "https://github.com/pleme-io/madori", branch = "main" }
 ishou-tokens       = { git = "https://github.com/pleme-io/ishou", branch = "main", features = ["wgpu"] }
