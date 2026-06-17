@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "7a9d6a88af24e562cfe7713c455ad19427c14c512b5a0d37b492b7e15c6b146c",
+  "cargo_lock_sha256": "b6d7a07cc75a5729e56a80a604c6ff04ae6377cb59b3852760729314ac521756",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -1862,7 +1862,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -1872,7 +1872,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2132,7 +2132,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2422,7 +2422,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2432,7 +2432,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2647,6 +2647,16 @@
           {
             "name": "escriba_ui",
             "package_key": "escriba-ui-0.1.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_vm",
+            "package_key": "escriba-vm-0.1.5",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3008,7 +3018,17 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp_eval",
+            "package_key": "tatara-lisp-eval-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7053,7 +7073,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": {
+      "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": {
         "runtime_dependencies": [
           {
             "name": "blake3",
@@ -7089,7 +7109,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163",
+            "package_key": "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7113,7 +7133,7 @@
           "default"
         ]
       },
-      "tatara-lisp-derive-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": {
+      "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -7142,6 +7162,32 @@
             "features": [
               "full"
             ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "tatara-lisp-eval-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": {
+        "runtime_dependencies": [
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.18",
+            "kind": "normal",
+            "features": [],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -23789,16 +23835,6 @@
     }
   },
   "per_crate": {
-    "ab_glyph-0.2.32": {
-      "edition": "2021"
-    },
-    "ab_glyph_rasterizer-0.1.10": {
-      "edition": "2021"
-    },
-    "ahash-0.8.12": {
-      "edition": "2018",
-      "build_script": "build.rs"
-    },
     "aho-corasick-1.1.4": {
       "edition": "2021"
     },
@@ -23830,9 +23866,6 @@
     "arrayvec-0.7.6": {
       "edition": "2018"
     },
-    "as-raw-xcb-connection-1.0.1": {
-      "edition": "2021"
-    },
     "ash-0.38.0+1.3.281": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -23853,12 +23886,21 @@
     "bit-vec-0.8.0": {
       "edition": "2015"
     },
+    "bitflags-1.3.2": {
+      "edition": "2018"
+    },
     "bitflags-2.11.1": {
       "edition": "2021"
     },
     "blake3-1.8.5": {
       "edition": "2024",
       "build_script": "build.rs"
+    },
+    "block-0.1.6": {
+      "edition": "2015"
+    },
+    "block2-0.5.1": {
+      "edition": "2021"
     },
     "bytemuck-1.25.0": {
       "edition": "2018"
@@ -23868,12 +23910,6 @@
       "proc_macro": true
     },
     "bytes-1.11.1": {
-      "edition": "2021"
-    },
-    "calloop-0.13.0": {
-      "edition": "2018"
-    },
-    "calloop-wayland-source-0.3.0": {
       "edition": "2021"
     },
     "cassowary-0.3.0": {
@@ -23925,11 +23961,20 @@
     "constant_time_eq-0.4.2": {
       "edition": "2024"
     },
+    "core-foundation-0.9.4": {
+      "edition": "2018"
+    },
+    "core-foundation-sys-0.8.7": {
+      "edition": "2018"
+    },
+    "core-graphics-0.23.2": {
+      "edition": "2018"
+    },
+    "core-graphics-types-0.1.3": {
+      "edition": "2018"
+    },
     "cosmic-text-0.14.2": {
       "edition": "2021"
-    },
-    "cpufeatures-0.3.0": {
-      "edition": "2024"
     },
     "crossterm-0.28.1": {
       "edition": "2021"
@@ -23956,8 +24001,8 @@
     "dirs-sys-0.5.0": {
       "edition": "2015"
     },
-    "dlib-0.5.3": {
-      "edition": "2021"
+    "dispatch-0.2.0": {
+      "edition": "2018"
     },
     "document-features-0.2.12": {
       "edition": "2018",
@@ -23966,9 +24011,6 @@
         "name": "document_features",
         "path": "lib.rs"
       }
-    },
-    "downcast-rs-1.2.1": {
-      "edition": "2015"
     },
     "dpi-0.1.2": {
       "edition": "2021"
@@ -24179,10 +24221,20 @@
     "font-types-0.11.3": {
       "edition": "2021"
     },
-    "fontconfig-parser-0.5.8": {
+    "fontdb-0.16.2": {
       "edition": "2018"
     },
-    "fontdb-0.16.2": {
+    "foreign-types-0.5.0": {
+      "edition": "2018"
+    },
+    "foreign-types-macros-0.2.3": {
+      "edition": "2018",
+      "proc_macro": true
+    },
+    "foreign-types-shared-0.3.1": {
+      "edition": "2018"
+    },
+    "fsevent-sys-4.1.0": {
       "edition": "2018"
     },
     "garasu-0.1.0": {
@@ -24200,9 +24252,6 @@
     },
     "gen-types-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": {
       "edition": "2024"
-    },
-    "gethostname-1.1.0": {
-      "edition": "2021"
     },
     "getrandom-0.3.4": {
       "edition": "2021",
@@ -24261,12 +24310,6 @@
     "inlinable_string-0.1.15": {
       "edition": "2018"
     },
-    "inotify-0.11.1": {
-      "edition": "2018"
-    },
-    "inotify-sys-0.1.5": {
-      "edition": "2015"
-    },
     "instability-0.3.12": {
       "edition": "2021",
       "proc_macro": true,
@@ -24297,6 +24340,12 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "kqueue-1.1.1": {
+      "edition": "2021"
+    },
+    "kqueue-sys-1.1.2": {
+      "edition": "2021"
+    },
     "lazy_static-1.5.0": {
       "edition": "2015"
     },
@@ -24310,12 +24359,6 @@
     "libm-0.2.16": {
       "edition": "2021",
       "build_script": "build.rs"
-    },
-    "linux-raw-sys-0.4.15": {
-      "edition": "2021"
-    },
-    "linux-raw-sys-0.12.1": {
-      "edition": "2021"
     },
     "litrs-1.0.0": {
       "edition": "2021"
@@ -24332,6 +24375,9 @@
     "madori-0.1.2-dd7037ee3a600c3b670d56c15fbeb4319ee3b9a3": {
       "edition": "2024"
     },
+    "malloc_buf-0.0.6": {
+      "edition": "2015"
+    },
     "matchers-0.2.0": {
       "edition": "2018"
     },
@@ -24339,6 +24385,9 @@
       "edition": "2021"
     },
     "memmap2-0.9.10": {
+      "edition": "2021"
+    },
+    "metal-0.31.0": {
       "edition": "2021"
     },
     "mio-1.2.0": {
@@ -24365,6 +24414,38 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "objc-0.2.7": {
+      "edition": "2015"
+    },
+    "objc-sys-0.3.5": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "links": "objc_0_3"
+    },
+    "objc2-0.5.2": {
+      "edition": "2021"
+    },
+    "objc2-app-kit-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-core-data-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-core-image-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-encode-4.1.0": {
+      "edition": "2021"
+    },
+    "objc2-foundation-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-metal-0.2.2": {
+      "edition": "2021"
+    },
+    "objc2-quartz-core-0.2.2": {
+      "edition": "2021"
+    },
     "once_cell-1.21.4": {
       "edition": "2021"
     },
@@ -24372,9 +24453,6 @@
       "edition": "2015"
     },
     "ordered-float-4.6.0": {
-      "edition": "2021"
-    },
-    "owned_ttf_parser-0.25.1": {
       "edition": "2021"
     },
     "parking_lot-0.12.5": {
@@ -24396,17 +24474,11 @@
       "edition": "2018",
       "proc_macro": true
     },
-    "percent-encoding-2.3.2": {
-      "edition": "2018"
-    },
     "pin-project-lite-0.2.17": {
       "edition": "2018"
     },
     "pkg-config-0.3.33": {
       "edition": "2018"
-    },
-    "polling-3.11.0": {
-      "edition": "2021"
     },
     "pollster-0.4.0": {
       "edition": "2018"
@@ -24433,9 +24505,6 @@
     },
     "quick-error-1.2.3": {
       "edition": "2015"
-    },
-    "quick-xml-0.39.4": {
-      "edition": "2021"
     },
     "quote-1.0.45": {
       "edition": "2021",
@@ -24480,9 +24549,6 @@
     "ropey-1.6.1": {
       "edition": "2015"
     },
-    "roxmltree-0.20.0": {
-      "edition": "2021"
-    },
     "rustc-hash-1.1.0": {
       "edition": "2015"
     },
@@ -24522,14 +24588,8 @@
       "edition": "2021",
       "proc_macro": true
     },
-    "scoped-tls-1.0.1": {
-      "edition": "2015"
-    },
     "scopeguard-1.2.0": {
       "edition": "2015"
-    },
-    "sctk-adwaita-0.10.1": {
-      "edition": "2021"
     },
     "self_cell-1.2.2": {
       "edition": "2018"
@@ -24588,19 +24648,12 @@
     "skrifa-0.40.0": {
       "edition": "2021"
     },
-    "slab-0.4.12": {
-      "edition": "2018"
-    },
     "slotmap-1.1.1": {
       "edition": "2018",
       "build_script": "build.rs"
     },
     "smallvec-1.15.1": {
       "edition": "2018"
-    },
-    "smithay-client-toolkit-0.19.2": {
-      "edition": "2021",
-      "build_script": "build.rs"
     },
     "smol_str-0.2.2": {
       "edition": "2018"
@@ -24617,9 +24670,6 @@
     },
     "str_indices-0.4.4": {
       "edition": "2021"
-    },
-    "strict-num-0.1.1": {
-      "edition": "2018"
     },
     "strsim-0.11.1": {
       "edition": "2015"
@@ -24643,12 +24693,15 @@
     "sys-locale-0.3.2": {
       "edition": "2018"
     },
-    "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": {
+    "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": {
       "edition": "2021"
     },
-    "tatara-lisp-derive-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": {
+    "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": {
       "edition": "2021",
       "proc_macro": true
+    },
+    "tatara-lisp-eval-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": {
+      "edition": "2021"
     },
     "tempfile-3.27.0": {
       "edition": "2021"
@@ -24674,12 +24727,6 @@
     },
     "thread_local-1.1.9": {
       "edition": "2021"
-    },
-    "tiny-skia-0.11.4": {
-      "edition": "2018"
-    },
-    "tiny-skia-path-0.11.4": {
-      "edition": "2018"
     },
     "tinyvec-1.11.0": {
       "edition": "2018"
@@ -24746,9 +24793,6 @@
       "edition": "2018"
     },
     "ttf-parser-0.21.1": {
-      "edition": "2018"
-    },
-    "ttf-parser-0.25.1": {
       "edition": "2018"
     },
     "unarray-0.1.4": {
@@ -24830,6 +24874,162 @@
     "walkdir-2.5.0": {
       "edition": "2018"
     },
+    "wgpu-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-core-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-core-deps-apple-25.0.0": {
+      "edition": "2021"
+    },
+    "wgpu-hal-25.0.2": {
+      "edition": "2021",
+      "build_script": "build.rs",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "wgpu-types-25.0.0": {
+      "edition": "2021",
+      "quirks": [
+        {
+          "kind": "force-cfg",
+          "cfg": "supports_64bit_atomics"
+        }
+      ]
+    },
+    "winit-0.30.13": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "winnow-0.7.15": {
+      "edition": "2021"
+    },
+    "yansi-1.0.1": {
+      "edition": "2021"
+    },
+    "yazi-0.2.1": {
+      "edition": "2021"
+    },
+    "zeno-0.3.3": {
+      "edition": "2021"
+    },
+    "zerocopy-0.8.48": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "zerocopy-derive-0.8.48": {
+      "edition": "2021",
+      "proc_macro": true
+    },
+    "zmij-1.0.21": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "cpufeatures-0.3.0": {
+      "edition": "2024"
+    },
+    "ab_glyph-0.2.32": {
+      "edition": "2021"
+    },
+    "ab_glyph_rasterizer-0.1.10": {
+      "edition": "2021"
+    },
+    "ahash-0.8.12": {
+      "edition": "2018",
+      "build_script": "build.rs"
+    },
+    "as-raw-xcb-connection-1.0.1": {
+      "edition": "2021"
+    },
+    "calloop-0.13.0": {
+      "edition": "2018"
+    },
+    "calloop-wayland-source-0.3.0": {
+      "edition": "2021"
+    },
+    "dlib-0.5.3": {
+      "edition": "2021"
+    },
+    "downcast-rs-1.2.1": {
+      "edition": "2015"
+    },
+    "fontconfig-parser-0.5.8": {
+      "edition": "2018"
+    },
+    "gethostname-1.1.0": {
+      "edition": "2021"
+    },
+    "inotify-0.11.1": {
+      "edition": "2018"
+    },
+    "inotify-sys-0.1.5": {
+      "edition": "2015"
+    },
+    "linux-raw-sys-0.4.15": {
+      "edition": "2021"
+    },
+    "linux-raw-sys-0.12.1": {
+      "edition": "2021"
+    },
+    "owned_ttf_parser-0.25.1": {
+      "edition": "2021"
+    },
+    "percent-encoding-2.3.2": {
+      "edition": "2018"
+    },
+    "polling-3.11.0": {
+      "edition": "2021"
+    },
+    "quick-xml-0.39.4": {
+      "edition": "2021"
+    },
+    "roxmltree-0.20.0": {
+      "edition": "2021"
+    },
+    "scoped-tls-1.0.1": {
+      "edition": "2015"
+    },
+    "sctk-adwaita-0.10.1": {
+      "edition": "2021"
+    },
+    "slab-0.4.12": {
+      "edition": "2018"
+    },
+    "smithay-client-toolkit-0.19.2": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "strict-num-0.1.1": {
+      "edition": "2018"
+    },
+    "tiny-skia-0.11.4": {
+      "edition": "2018"
+    },
+    "tiny-skia-path-0.11.4": {
+      "edition": "2018"
+    },
+    "ttf-parser-0.25.1": {
+      "edition": "2018"
+    },
     "wayland-backend-0.3.15": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -24861,53 +25061,7 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "wgpu-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-core-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
     "wgpu-core-deps-windows-linux-android-25.0.0": {
-      "edition": "2021"
-    },
-    "wgpu-hal-25.0.2": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "wgpu-types-25.0.0": {
-      "edition": "2021",
-      "quirks": [
-        {
-          "kind": "force-cfg",
-          "cfg": "supports_64bit_atomics"
-        }
-      ]
-    },
-    "winit-0.30.13": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "winnow-0.7.15": {
       "edition": "2021"
     },
     "x11-dl-2.21.0": {
@@ -24928,111 +25082,6 @@
     },
     "xkeysym-0.2.1": {
       "edition": "2018"
-    },
-    "yansi-1.0.1": {
-      "edition": "2021"
-    },
-    "yazi-0.2.1": {
-      "edition": "2021"
-    },
-    "zeno-0.3.3": {
-      "edition": "2021"
-    },
-    "zerocopy-0.8.48": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "zerocopy-derive-0.8.48": {
-      "edition": "2021",
-      "proc_macro": true
-    },
-    "zmij-1.0.21": {
-      "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "bitflags-1.3.2": {
-      "edition": "2018"
-    },
-    "block-0.1.6": {
-      "edition": "2015"
-    },
-    "block2-0.5.1": {
-      "edition": "2021"
-    },
-    "core-foundation-0.9.4": {
-      "edition": "2018"
-    },
-    "core-foundation-sys-0.8.7": {
-      "edition": "2018"
-    },
-    "core-graphics-0.23.2": {
-      "edition": "2018"
-    },
-    "core-graphics-types-0.1.3": {
-      "edition": "2018"
-    },
-    "dispatch-0.2.0": {
-      "edition": "2018"
-    },
-    "foreign-types-0.5.0": {
-      "edition": "2018"
-    },
-    "foreign-types-macros-0.2.3": {
-      "edition": "2018",
-      "proc_macro": true
-    },
-    "foreign-types-shared-0.3.1": {
-      "edition": "2018"
-    },
-    "fsevent-sys-4.1.0": {
-      "edition": "2018"
-    },
-    "kqueue-1.1.1": {
-      "edition": "2021"
-    },
-    "kqueue-sys-1.1.2": {
-      "edition": "2021"
-    },
-    "malloc_buf-0.0.6": {
-      "edition": "2015"
-    },
-    "metal-0.31.0": {
-      "edition": "2021"
-    },
-    "objc-0.2.7": {
-      "edition": "2015"
-    },
-    "objc-sys-0.3.5": {
-      "edition": "2021",
-      "build_script": "build.rs",
-      "links": "objc_0_3"
-    },
-    "objc2-0.5.2": {
-      "edition": "2021"
-    },
-    "objc2-app-kit-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-core-data-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-core-image-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-encode-4.1.0": {
-      "edition": "2021"
-    },
-    "objc2-foundation-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-metal-0.2.2": {
-      "edition": "2021"
-    },
-    "objc2-quartz-core-0.2.2": {
-      "edition": "2021"
-    },
-    "wgpu-core-deps-apple-25.0.0": {
-      "edition": "2021"
     }
   },
   "git_nar_sha256": {
@@ -25043,8 +25092,9 @@
     "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf": "sha256-7meyffgfegYgcRn/Rn343JAQG97hPHaclomPHE6Zo5E=",
     "madori-0.1.2-dd7037ee3a600c3b670d56c15fbeb4319ee3b9a3": "sha256-63iTmh/CD4A8k1XRooEj9XnhChY2CwQHE2nMRUJ5imU=",
     "shikumi-0.1.1-693041f48e9f141e75553a7da692b6676833e0a9": "sha256-2oJ+xLL/OZN16C1oStly/8ttJ41yJl9daxYJ1WVuKf4=",
-    "tatara-lisp-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y=",
-    "tatara-lisp-derive-0.2.3-6bcdf2f09c69c859a85e354cecaf1036cd4ca163": "sha256-W5c5u2Iq6ggok/HAH56ChWPcIECVwetKl278sGfJg1Y="
+    "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo=",
+    "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo=",
+    "tatara-lisp-eval-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo="
   },
   "flake_metadata": {}
 }

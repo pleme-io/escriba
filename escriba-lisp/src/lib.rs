@@ -97,7 +97,9 @@ mod workflow;
 
 pub use abbrev::AbbrevSpec;
 pub use apply::{
-    ApplyReport, GrammarApplyReport, apply_plan_to_grammar_extensions, apply_plan_to_keymap,
+    ApplyReport, CommandApplyReport, GrammarApplyReport, OptionApplyReport,
+    apply_plan_to_commands, apply_plan_to_grammar_extensions, apply_plan_to_keymap,
+    apply_plan_to_options, parse_leader_key,
 };
 pub use attest::{
     AttestResult, AttestSpec, KNOWN_KINDS as ATTEST_KINDS,

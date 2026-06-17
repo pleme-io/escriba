@@ -31,11 +31,63 @@ pub struct EditContext<'a> {
 
 pub type CommandFn = fn(&mut EditContext<'_>, &[String]) -> Result<()>;
 
+/// How a command executes when invoked.
+///
+/// - [`Handler::Native`] wraps a compiled-in Rust `fn` — the
+///   built-in command set (`save`, `quit`, …).
+/// - [`Handler::Action`] carries a dotted action symbol
+///   (e.g. `"buffer.write-all"`, `"picker.files"`) authored via a
+///   Tatara-Lisp `(defcmd …)` form and resolved at run time by
+///   [`run_action`]. This is what lets `defcmd` register a real,
+///   invokable command without a compiled handler.
+///
+/// A future `Lisp(Thunk)` variant will carry a `tatara-lisp-eval`
+/// closure for fully-programmable commands — the imperative tier of
+/// the two-tier programmability model. Keeping the handler an enum
+/// (not a bare `fn`) is what makes that extension a one-variant add.
+#[derive(Debug, Clone)]
+pub enum Handler {
+    /// Compiled-in Rust handler.
+    Native(CommandFn),
+    /// Dotted action symbol resolved at run time (Lisp `defcmd`).
+    Action(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct Command {
-    pub name: &'static str,
-    pub description: &'static str,
-    pub handler: CommandFn,
+    pub name: String,
+    pub description: String,
+    pub handler: Handler,
+}
+
+impl Command {
+    /// A built-in command backed by a compiled-in Rust `fn`.
+    pub fn native(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        handler: CommandFn,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+            handler: Handler::Native(handler),
+        }
+    }
+
+    /// A Lisp-authored command whose behavior is a dotted action
+    /// symbol resolved at run time. Mirrors `(defcmd :name … :action
+    /// "buffer.write-all")`.
+    pub fn action(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        action: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+            handler: Handler::Action(action.into()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -70,36 +122,47 @@ impl CommandRegistry {
     #[must_use]
     pub fn default_set() -> Self {
         let mut r = Self::new();
-        r.register(Command {
-            name: "save",
-            description: "Write the active buffer to disk",
-            handler: cmd_save,
-        });
-        r.register(Command {
-            name: "quit",
-            description: "Exit the editor",
-            handler: cmd_quit,
-        });
-        r.register(Command {
-            name: "undo",
-            description: "Undo the last change",
-            handler: cmd_undo,
-        });
-        r.register(Command {
-            name: "redo",
-            description: "Redo the last undone change",
-            handler: cmd_redo,
-        });
-        r.register(Command {
-            name: "buffer-info",
-            description: "Print the active buffer summary",
-            handler: cmd_buffer_info,
-        });
+        r.register(Command::native(
+            "save",
+            "Write the active buffer to disk",
+            cmd_save,
+        ));
+        r.register(Command::native("quit", "Exit the editor", cmd_quit));
+        r.register(Command::native("undo", "Undo the last change", cmd_undo));
+        r.register(Command::native(
+            "redo",
+            "Redo the last undone change",
+            cmd_redo,
+        ));
+        r.register(Command::native(
+            "buffer-info",
+            "Print the active buffer summary",
+            cmd_buffer_info,
+        ));
         r
     }
 
     pub fn register(&mut self, command: Command) {
-        self.commands.insert(command.name.to_string(), command);
+        self.commands.insert(command.name.clone(), command);
+    }
+
+    /// Is `name` registered? Lets the apply layer report
+    /// override-vs-new without exposing the inner map.
+    #[must_use]
+    pub fn contains(&self, name: &str) -> bool {
+        self.commands.contains_key(name)
+    }
+
+    /// Number of registered commands.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.commands.len()
+    }
+
+    /// True when no commands are registered.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
     }
 
     pub fn run(&self, name: &str, ctx: &mut EditContext<'_>, args: &[String]) -> Result<()> {
@@ -107,7 +170,10 @@ impl CommandRegistry {
             .commands
             .get(name)
             .ok_or_else(|| CommandError::NotFound(name.to_string()))?;
-        (cmd.handler)(ctx, args)
+        match &cmd.handler {
+            Handler::Native(f) => f(ctx, args),
+            Handler::Action(sym) => run_action(sym, ctx, args),
+        }
     }
 
     #[must_use]
@@ -131,6 +197,47 @@ impl CommandRegistry {
         out.sort_by(|a, b| a.name.cmp(&b.name));
         out
     }
+}
+
+/// Resolve a dotted action symbol — the `:action` of a Lisp
+/// `(defcmd …)` form — to a built-in behavior.
+///
+/// Canonical `buffer.*` / `editor.*` symbols map onto the same
+/// primitives the native commands use, so a Lisp-authored command is
+/// genuinely invokable (not a stub). Symbols that have no built-in
+/// yet (`picker.*`, `telescope.*`, plugin-provided actions) are an
+/// inert `Ok(())` — the command stays registered and invokable, it
+/// just does nothing until its wave lands. Crucially this NEVER
+/// errors or panics, so a deferred keybind whose action resolves to
+/// an unimplemented symbol degrades to a no-op instead of a crash.
+fn run_action(sym: &str, ctx: &mut EditContext<'_>, args: &[String]) -> Result<()> {
+    match sym {
+        "buffer.save" | "buffer.write" => cmd_save(ctx, args),
+        "buffer.write-all" => cmd_write_all(ctx, args),
+        "buffer.undo" => cmd_undo(ctx, args),
+        "buffer.redo" => cmd_redo(ctx, args),
+        "buffer.info" => cmd_buffer_info(ctx, args),
+        "editor.quit" => cmd_quit(ctx, args),
+        // Not-yet-implemented action namespace. Registered + invokable
+        // but inert until the relevant wave (pickers, plugin actions,
+        // tatara-lisp thunks) wires it. Inert, never fatal.
+        _ => Ok(()),
+    }
+}
+
+/// Save every modified, path-backed buffer. Best-effort: a single
+/// buffer's save failure (e.g. a permission error) must not abort the
+/// rest, and scratch buffers (no path) are skipped rather than
+/// surfacing [`BufferError::NoPath`].
+fn cmd_write_all(ctx: &mut EditContext<'_>, _args: &[String]) -> Result<()> {
+    for id in ctx.buffers.ids() {
+        if let Some(buf) = ctx.buffers.get_mut(id) {
+            if buf.modified && buf.path.is_some() {
+                let _ = buf.save();
+            }
+        }
+    }
+    Ok(())
 }
 
 fn cmd_save(ctx: &mut EditContext<'_>, _args: &[String]) -> Result<()> {
@@ -223,5 +330,96 @@ mod tests {
         };
         let err = r.run("nope", &mut ctx, &[]).unwrap_err();
         assert!(matches!(err, CommandError::NotFound(_)));
+    }
+
+    #[test]
+    fn action_command_registers_and_is_invokable() {
+        // A Lisp-authored `(defcmd :name "w-all" :action
+        // "buffer.write-all")` registers an `Action` handler. It must
+        // resolve (not NotFound) and run without error over a scratch
+        // buffer (write-all skips path-less buffers).
+        let mut r = CommandRegistry::new();
+        r.register(Command::action(
+            "w-all",
+            "Write every modified buffer",
+            "buffer.write-all",
+        ));
+        assert!(r.contains("w-all"));
+
+        let mut bufs = BufferSet::new();
+        let id = bufs.scratch("dirty");
+        bufs.get_mut(id).unwrap().modified = true;
+        let mut state = ModalState::new();
+        let mut ctx = EditContext {
+            buffers: &mut bufs,
+            active: Some(id),
+            state: &mut state,
+        };
+        // No path → write-all is a no-op, never NoPath-errors.
+        r.run("w-all", &mut ctx, &[]).expect("action command runs");
+    }
+
+    #[test]
+    fn unknown_action_symbol_is_inert_not_fatal() {
+        // An action symbol with no built-in (a future picker/plugin
+        // action) is registered + invokable but does nothing — it must
+        // never error, so a deferred keybind can't dead-end loudly.
+        let mut r = CommandRegistry::new();
+        r.register(Command::action("pick", "Pick a file", "picker.files"));
+        let mut bufs = BufferSet::new();
+        let mut state = ModalState::new();
+        let mut ctx = EditContext {
+            buffers: &mut bufs,
+            active: None,
+            state: &mut state,
+        };
+        r.run("pick", &mut ctx, &[]).expect("unknown action is inert");
+    }
+
+    #[test]
+    fn action_naming_a_command_is_inert_not_recursive() {
+        // A `defcmd :action` that names another COMMAND ("save") rather
+        // than a dotted action symbol ("buffer.save") is INERT —
+        // run_action only resolves dotted symbols and does NOT recurse
+        // into the registry. This pins the boundary: `:action` takes
+        // action SYMBOLS, not command names. (If aliasing-by-name is
+        // ever wanted, run_action must take registry access and this
+        // test will flip.)
+        let mut r = CommandRegistry::new();
+        r.register(Command::action("alias", "aliases save by name", "save"));
+        let mut bufs = BufferSet::new();
+        let id = bufs.scratch("dirty");
+        bufs.get_mut(id).unwrap().modified = true;
+        let mut state = ModalState::new();
+        {
+            let mut ctx = EditContext {
+                buffers: &mut bufs,
+                active: Some(id),
+                state: &mut state,
+            };
+            r.run("alias", &mut ctx, &[]).expect("alias runs inertly");
+        }
+        assert!(
+            bufs.get(id).unwrap().modified,
+            "command-name alias must be inert — save did not fire (no recursion)",
+        );
+    }
+
+    #[test]
+    fn action_quit_sets_quit_sentinel() {
+        // `editor.quit` must route to the same sentinel the native
+        // quit command uses, so a Lisp-defined quit alias behaves
+        // identically to the built-in.
+        let mut r = CommandRegistry::new();
+        r.register(Command::action("bye", "Quit", "editor.quit"));
+        let mut bufs = BufferSet::new();
+        let mut state = ModalState::new();
+        let mut ctx = EditContext {
+            buffers: &mut bufs,
+            active: None,
+            state: &mut state,
+        };
+        r.run("bye", &mut ctx, &[]).expect("quit action runs");
+        assert!(ctx.state.minibuffer.contains("__quit__"));
     }
 }

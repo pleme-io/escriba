@@ -956,6 +956,7 @@ dependencies = [
  "escriba-keymap",
  "escriba-mode",
  "escriba-ui",
+ "escriba-vm",
  "madori",
  "pretty_assertions",
  "serde",
@@ -1026,6 +1027,7 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "tatara-lisp",
+ "tatara-lisp-eval",
  "thiserror 2.0.18",
 ]
 
@@ -3184,8 +3186,8 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp"
-version = "0.2.3"
-source = "git+https://github.com/pleme-io/tatara?branch=main#6bcdf2f09c69c859a85e354cecaf1036cd4ca163"
+version = "0.2.4"
+source = "git+https://github.com/pleme-io/tatara-lisp?branch=main#92836e3723f0ff09c3cdd317cfe33005b4ecb582"
 dependencies = [
  "blake3",
  "serde",
@@ -3196,12 +3198,21 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp-derive"
-version = "0.2.3"
-source = "git+https://github.com/pleme-io/tatara?branch=main#6bcdf2f09c69c859a85e354cecaf1036cd4ca163"
+version = "0.2.4"
+source = "git+https://github.com/pleme-io/tatara-lisp?branch=main#92836e3723f0ff09c3cdd317cfe33005b4ecb582"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tatara-lisp-eval"
+version = "0.2.4"
+source = "git+https://github.com/pleme-io/tatara-lisp?branch=main#92836e3723f0ff09c3cdd317cfe33005b4ecb582"
+dependencies = [
+ "tatara-lisp",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

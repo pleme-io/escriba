@@ -1,6 +1,6 @@
 [package]
 name = "escriba-vm"
-description = "Tatara-lisp terreiro VM host for plugin evaluation. Phase 1 skeleton — arena, sandbox config, evaluator trait; full eval lives in phase 2."
+description = "Tatara-lisp runtime host for escriba — embeds tatara-lisp-eval's Interpreter<EscribaHost>, exposing editor operations as native Lisp fns that read a snapshot and emit typed, sandboxed effects."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,11 +9,12 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-escriba-core   = { workspace = true }
-escriba-plugin = { workspace = true }
-tatara-lisp    = { workspace = true }
-serde          = { workspace = true }
-thiserror      = { workspace = true }
+escriba-core     = { workspace = true }
+escriba-plugin   = { workspace = true }
+tatara-lisp      = { workspace = true }
+tatara-lisp-eval = { workspace = true }
+serde            = { workspace = true }
+thiserror        = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

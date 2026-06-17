@@ -39,6 +39,9 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
 
     let win = state.layout.active_window();
     let top = win.map_or(0, |w| w.viewport.top_line);
+    let left = win.map_or(0, |w| w.viewport.left_column);
+    // Visible width minus the gutter ("{:>4} │ " = 7 columns).
+    let vis_cols = win.map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
     let visible = area.height.saturating_sub(2).max(1);
     let cursor = state.cursor;
 
@@ -55,7 +58,7 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
             .trim_end_matches('\n')
             .trim_end_matches('\r')
             .to_string();
-        lines.push(line_with_gutter(ln, &text, cursor));
+        lines.push(line_with_gutter(ln, &text, cursor, left as usize, vis_cols));
     }
 
     let block = Block::default()
@@ -64,26 +67,42 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
     f.render_widget(Paragraph::new(lines).block(block), area);
 }
 
-fn line_with_gutter(ln: u32, text: &str, cursor: escriba_core::Position) -> Line<'static> {
+/// Render one line with a gutter, sliced horizontally to the visible
+/// column window `[left, left + vis_cols)`. Slicing is char-based (not
+/// byte-based) so multibyte text stays aligned, and the cursor's on-screen
+/// column is computed relative to `left` so the cursor glyph tracks the
+/// horizontal scroll.
+fn line_with_gutter(
+    ln: u32,
+    text: &str,
+    cursor: escriba_core::Position,
+    left: usize,
+    vis_cols: usize,
+) -> Line<'static> {
     let gutter = format!("{:>4} │ ", ln + 1);
     let mut spans = vec![Span::styled(gutter, muted_style())];
 
-    if ln == cursor.line {
-        let col = cursor.column as usize;
-        let chars: Vec<char> = text.chars().collect();
-        if col >= chars.len() {
-            spans.push(Span::raw(text.to_string()));
+    let chars: Vec<char> = text.chars().collect();
+    // The slice of characters actually visible in this window.
+    let visible: Vec<char> = chars.iter().copied().skip(left).take(vis_cols).collect();
+
+    if ln == cursor.line && cursor.column as usize >= left {
+        // Cursor column relative to the horizontal scroll.
+        let rel = cursor.column as usize - left;
+        if rel >= visible.len() {
+            // Cursor at/after the end of the visible text → trailing block.
+            spans.push(Span::raw(visible.iter().collect::<String>()));
             spans.push(Span::styled(" ".to_string(), cursor_style()));
         } else {
-            let before: String = chars[..col].iter().collect();
-            let under: String = chars[col].to_string();
-            let after: String = chars[col + 1..].iter().collect();
+            let before: String = visible[..rel].iter().collect();
+            let under: String = visible[rel].to_string();
+            let after: String = visible[rel + 1..].iter().collect();
             spans.push(Span::raw(before));
             spans.push(Span::styled(under, cursor_style()));
             spans.push(Span::raw(after));
         }
     } else {
-        spans.push(Span::raw(text.to_string()));
+        spans.push(Span::raw(visible.iter().collect::<String>()));
     }
 
     Line::from(spans)
