@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 escriba-core       = { workspace = true }
 escriba-config     = { workspace = true }
+escriba-lisp       = { workspace = true }
 tatara-lisp        = { workspace = true }
 tatara-lisp-derive = { workspace = true }
 serde              = { workspace = true }

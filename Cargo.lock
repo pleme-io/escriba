@@ -769,6 +769,7 @@ dependencies = [
  "madori",
  "nix",
  "shikumi 0.1.1",
+ "tatara-lisp",
  "tempfile",
  "tracing",
  "tracing-subscriber",
@@ -930,6 +931,7 @@ version = "0.1.7"
 dependencies = [
  "escriba-config",
  "escriba-core",
+ "escriba-lisp",
  "pretty_assertions",
  "schemars",
  "serde",
@@ -966,6 +968,7 @@ dependencies = [
  "escriba-core",
  "escriba-input",
  "escriba-keymap",
+ "escriba-lisp",
  "escriba-mode",
  "escriba-ui",
  "escriba-vm",

@@ -24,6 +24,9 @@ use escriba_config::PluginDecl;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod forge;
+pub use forge::{CaixaArtifacts, ForgeError, emit_flake_nix, forge_plugin, write_plugin_caixa};
+
 /// When a plugin's setup is applied to the editor — the lazy.nvim
 /// activation model, typed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

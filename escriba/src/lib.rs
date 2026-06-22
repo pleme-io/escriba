@@ -23,11 +23,37 @@ use escriba_render::{GpuRenderer, Renderer, TextRenderer};
 use escriba_runtime::EditorState;
 use madori::App;
 
-/// The "blnvim-parity" default rc, baked into the binary. Users get
-/// this unless they pass `--no-defaults`. A user rc (via `--rc` or
-/// `$ESCRIBARC`) merges on top — user declarations win per plan-merge
-/// semantics.
+pub mod catalog_bundle;
+
+/// The "blnvim-parity" BASELINE rc, baked into the binary. Carries the
+/// non-plugin substrate (theme, options, leader, major-modes, base
+/// highlights, escriba inventions). The plugin caixas in
+/// [`catalog_bundle`] are merged on top. Users get both unless they
+/// pass `--no-defaults`. A user rc (via `--rc` / `$ESCRIBARC`) merges
+/// last — user declarations win per plan-merge semantics.
 const DEFAULT_RC: &str = include_str!("../configs/blnvim-defaults.lisp");
+
+/// The composite default plan: the baseline rc plus every bundled
+/// plugin caixa's escriba entry (and a generated `defplugin` descriptor
+/// per plugin). The single source of truth for "what escriba boots with
+/// by default" — the editor boot path, `--commands`, `--list-rc`, and
+/// `plugin list` all build from here so they never drift. `no_defaults`
+/// yields an empty plan (the bare `--no-defaults` editor).
+fn default_plan(no_defaults: bool) -> Result<escriba_lisp::ApplyPlan> {
+    if no_defaults {
+        return Ok(escriba_lisp::ApplyPlan::default());
+    }
+    let mut plan =
+        escriba_lisp::apply_source(DEFAULT_RC).context("parsing baseline blnvim-defaults")?;
+    // Honor per-plugin toggles via `$ESCRIBA_DISABLED_PLUGINS` (the HM
+    // module's `programs.escriba.plugins.<name>.enable = false`).
+    let disabled = catalog_bundle::disabled_from_env();
+    plan.merge(
+        catalog_bundle::bundled_plan_excluding(&disabled)
+            .context("applying bundled plugin catalog")?,
+    );
+    Ok(plan)
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum RenderMode {
@@ -129,12 +155,20 @@ struct PluginArgs {
 
 #[derive(Subcommand)]
 enum PluginCmd {
-    /// List the plugins the rc declares (`defplugin` forms) and whether
-    /// each is installed in the plugins dir.
+    /// List the bundled catalog caixas + any rc-declared plugins, and
+    /// whether each is installed in the plugins dir.
     List,
     /// Load a plugin caixa from a directory, apply its escriba entry to
     /// a fresh editor, and report what it registered.
     Load(PluginLoadArgs),
+    /// Forge the bundled catalog (or a catalog dir) into complete,
+    /// installable caixa directories — caixa.lisp + escriba/plugin.lisp
+    /// + flake.nix + the persisted spec. The generation half of the
+    /// plugin substrate.
+    Forge(PluginForgeArgs),
+    /// Materialize the bundled catalog into the plugins dir, so the
+    /// default plugins are present on disk for forking / overriding.
+    InstallBundled(PluginInstallArgs),
 }
 
 /// Args for `escriba plugin load <path>`.
@@ -143,6 +177,27 @@ struct PluginLoadArgs {
     /// Path to the plugin caixa directory (contains `caixa.lisp` +
     /// `escriba/plugin.lisp`).
     path: PathBuf,
+}
+
+/// Args for `escriba plugin forge`.
+#[derive(clap::Args)]
+struct PluginForgeArgs {
+    /// Output directory for the forged caixa directories.
+    #[arg(long, default_value = "plugins-out")]
+    out: PathBuf,
+    /// Forge from this catalog dir's `*.escribaplugin.lisp` sources
+    /// instead of the baked bundle.
+    #[arg(long)]
+    catalog: Option<PathBuf>,
+}
+
+/// Args for `escriba plugin install-bundled`.
+#[derive(clap::Args)]
+struct PluginInstallArgs {
+    /// Plugins dir to install into. Defaults to the resolved plugins
+    /// dir (`$ESCRIBA_PLUGINS_DIR` / XDG / `~/.local/share/escriba/plugins`).
+    #[arg(long)]
+    out: Option<PathBuf>,
 }
 
 /// Args for `escriba eval` — the imperative tatara-lisp entry point.
@@ -195,11 +250,8 @@ pub fn run() -> Result<()> {
         // Show the real command surface the editor boots with: built-ins
         // plus every `(defcmd …)` from the bundled defaults and user rc.
         let mut reg = CommandRegistry::default_set();
-        if !args.no_defaults {
-            if let Ok(plan) = escriba_lisp::apply_source(DEFAULT_RC) {
-                escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
-            }
-        }
+        let plan = default_plan(args.no_defaults)?;
+        escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
         if let Some((_, plan)) = load_rc_optional(args.rc.as_deref())? {
             escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
         }
@@ -242,14 +294,10 @@ pub fn run() -> Result<()> {
         )
     };
 
-    // Build the composite plan: bundled blnvim defaults (unless
-    // `--no-defaults`) + user rc on top. User declarations override
-    // defaults thanks to the plan's merge semantics.
-    let mut plan = if args.no_defaults {
-        escriba_lisp::ApplyPlan::default()
-    } else {
-        escriba_lisp::apply_source(DEFAULT_RC).context("parsing bundled blnvim-defaults")?
-    };
+    // Build the composite plan: baseline + bundled plugin catalog
+    // (unless `--no-defaults`) + user rc on top. User declarations
+    // override defaults thanks to the plan's merge semantics.
+    let mut plan = default_plan(args.no_defaults)?;
     let user_rc = load_rc_optional(args.rc.as_deref())?;
     if let Some((_, user_plan)) = &user_rc {
         plan.merge(user_plan.clone());
@@ -312,9 +360,10 @@ pub fn run() -> Result<()> {
         );
     }
 
-    // Activate eager, installed caixa plugins — their escriba entries
-    // layer their keybinds / commands / options on top of the rc.
-    activate_eager_plugins(&plan, &mut state);
+    // Wire user-installed caixa plugins from the plugins dir: eager ones
+    // apply now; lazy ones register for trigger-gated activation. (The
+    // bundled default catalog is already in `plan` — baked, eager.)
+    activate_user_plugins(&plan, &mut state);
 
     if args.dry_run {
         let buf = state.buffers.get(active_id).context("active buffer missing")?;
@@ -459,7 +508,11 @@ fn plugins_dir() -> PathBuf {
 }
 
 /// Map an `escriba-lisp` `PluginSpec` (the lazy.nvim-shaped `defplugin`)
-/// to caixa-plugin `:ativar-em` trigger strings.
+/// to caixa-plugin `:ativar-em` trigger strings. Covers all three
+/// trigger kinds `ActivationTrigger::parse` understands — event,
+/// command, AND filetype. (`:keybinds` triggers are not yet a lazy
+/// trigger kind — there is no `Keybind` variant in `ActivationTrigger` /
+/// `LazyTrigger` — so they are intentionally not emitted here.)
 fn plugin_triggers(spec: &escriba_lisp::PluginSpec) -> Vec<String> {
     let mut t = Vec::new();
     if !spec.on_event.is_empty() {
@@ -468,16 +521,39 @@ fn plugin_triggers(spec: &escriba_lisp::PluginSpec) -> Vec<String> {
     if !spec.on_command.is_empty() {
         t.push(format!("Command: {}", spec.on_command));
     }
+    if !spec.on_filetype.is_empty() {
+        t.push(format!("FileType: {}", spec.on_filetype));
+    }
     t
 }
 
-/// Activate every EAGER, installed plugin the plan declares: resolve
-/// `<plugins_dir>/<name>`, load its caixa, and apply its entry. Lazy
-/// plugins (with an event/command trigger, or `:lazy`) are loaded on
-/// their trigger later — not yet wired, so they are skipped here.
-/// Best-effort: a declared-but-not-installed plugin is skipped silently;
-/// a malformed plugin warns but never aborts startup.
-fn activate_eager_plugins(plan: &escriba_lisp::ApplyPlan, state: &mut EditorState) {
+/// Map an `escriba-plugin` activation trigger to the runtime's lazy
+/// trigger. `Startup` plugins have no lazy trigger (they activate
+/// eagerly), so they map to `None`.
+fn map_lazy_trigger(
+    t: &escriba_plugin::ActivationTrigger,
+) -> Option<escriba_runtime::LazyTrigger> {
+    use escriba_plugin::ActivationTrigger as A;
+    use escriba_runtime::LazyTrigger as L;
+    match t {
+        A::Startup => None,
+        A::FileType(f) => Some(L::FileType(f.clone())),
+        A::Event(e) => Some(L::Event(e.clone())),
+        A::Command(c) => Some(L::Command(c.clone())),
+    }
+}
+
+/// Wire USER plugins installed in the plugins dir (declared via
+/// `(defplugin :name … :on-* …)` in the user rc): EAGER ones have their
+/// entry applied now; LAZY ones (an on-event / on-command / on-filetype
+/// trigger, or `:lazy`) are registered with the runtime's
+/// [`PluginHost`](escriba_runtime::PluginHost) for trigger-gated
+/// activation later. The BUNDLED default catalog is NOT touched here —
+/// it is baked into the binary and already merged into the boot plan; a
+/// bundled descriptor whose name isn't present in the plugins dir is
+/// skipped. Best-effort: a declared-but-not-installed plugin is skipped
+/// silently; a malformed plugin warns but never aborts startup.
+fn activate_user_plugins(plan: &escriba_lisp::ApplyPlan, state: &mut EditorState) {
     let dir = plugins_dir();
     if !dir.exists() {
         return;
@@ -493,7 +569,16 @@ fn activate_eager_plugins(plan: &escriba_lisp::ApplyPlan, state: &mut EditorStat
                 Ok(summary) => tracing::info!("plugin `{}` activated: {summary}", plugin.name),
                 Err(e) => tracing::warn!("plugin `{}` failed to activate: {e}", plugin.name),
             },
-            Ok(_) => tracing::debug!("plugin `{}` is lazy — deferred", spec.name),
+            Ok(plugin) => {
+                let lazy_triggers: Vec<_> =
+                    plugin.triggers.iter().filter_map(map_lazy_trigger).collect();
+                tracing::debug!(
+                    "plugin `{}` is lazy — registered for {} trigger(s)",
+                    plugin.name,
+                    lazy_triggers.len(),
+                );
+                state.register_lazy_plugin(plugin.name.clone(), lazy_triggers, plugin.entry_src.clone());
+            }
             Err(e) => tracing::warn!("plugin `{}`: {e}", spec.name),
         }
     }
@@ -504,27 +589,118 @@ fn run_plugin(args: &PluginArgs) -> Result<()> {
     match &args.cmd {
         PluginCmd::List => run_plugin_list(),
         PluginCmd::Load(a) => run_plugin_load(&a.path),
+        PluginCmd::Forge(a) => run_plugin_forge(a),
+        PluginCmd::InstallBundled(a) => run_plugin_install_bundled(a),
     }
+}
+
+/// Resolve the `(name, source)` pairs to forge: either every
+/// `*.escribaplugin.lisp` under `--catalog <dir>`, or the baked bundle.
+fn forge_sources(catalog: Option<&std::path::Path>) -> Result<Vec<(String, String)>> {
+    if let Some(dir) = catalog {
+        let mut out = Vec::new();
+        for entry in std::fs::read_dir(dir)
+            .with_context(|| format!("reading catalog dir {}", dir.display()))?
+        {
+            let path = entry?.path();
+            if path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .is_some_and(|n| n.ends_with(".escribaplugin.lisp"))
+            {
+                let src = std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?;
+                out.push((path.display().to_string(), src));
+            }
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(out)
+    } else {
+        Ok(catalog_bundle::BUNDLED
+            .iter()
+            .map(|b| (b.name.to_string(), b.source.to_string()))
+            .collect())
+    }
+}
+
+/// `escriba plugin forge` — emit every catalog plugin into a complete
+/// installable caixa directory under `--out`.
+fn run_plugin_forge(args: &PluginForgeArgs) -> Result<()> {
+    let sources = forge_sources(args.catalog.as_deref())?;
+    std::fs::create_dir_all(&args.out)
+        .with_context(|| format!("creating output dir {}", args.out.display()))?;
+    let mut forged = 0usize;
+    for (label, src) in &sources {
+        let (spec, artifacts) = escriba_plugin::forge_plugin(src)
+            .with_context(|| format!("forging {label}"))?;
+        let root = escriba_plugin::write_plugin_caixa(&spec, &artifacts, &args.out)
+            .with_context(|| format!("writing caixa for {}", spec.name))?;
+        forged += 1;
+        println!("  ✓ {:<32} → {}", spec.name, root.display());
+    }
+    println!("forged {forged} plugin caixa(s) into {}", args.out.display());
+    Ok(())
+}
+
+/// `escriba plugin install-bundled` — materialize the baked catalog
+/// into the plugins dir so the default plugins are present on disk.
+fn run_plugin_install_bundled(args: &PluginInstallArgs) -> Result<()> {
+    let dir = args.out.clone().unwrap_or_else(plugins_dir);
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("creating plugins dir {}", dir.display()))?;
+    let mut n = 0usize;
+    for b in catalog_bundle::BUNDLED {
+        let (spec, artifacts) = escriba_plugin::forge_plugin(b.source)
+            .with_context(|| format!("forging bundled `{}`", b.name))?;
+        escriba_plugin::write_plugin_caixa(&spec, &artifacts, &dir)
+            .with_context(|| format!("installing `{}`", b.name))?;
+        n += 1;
+    }
+    println!("installed {n} bundled plugin caixa(s) into {}", dir.display());
+    Ok(())
 }
 
 /// `escriba plugin list` — declared plugins (from bundled defaults + user
 /// rc) and whether each is installed in the plugins dir.
 fn run_plugin_list() -> Result<()> {
-    let mut plan = escriba_lisp::apply_source(DEFAULT_RC).context("parsing bundled defaults")?;
+    let mut plan = default_plan(false)?;
     if let Some((_, user)) = load_rc_optional(None)? {
         plan.merge(user);
     }
     let dir = plugins_dir();
-    println!("escriba plugins ({}):", plan.plugins.len());
-    println!("  plugins dir: {}", dir.display());
-    for spec in &plan.plugins {
-        let installed = dir.join(&spec.name).exists();
-        let mark = if installed { "✓ installed" } else { "⌀ declared " };
-        let lazy = if spec.lazy { "lazy" } else { "eager" };
+    let bundled = catalog_bundle::bundled_specs()?;
+    println!(
+        "escriba plugins: {} bundled caixas (baked, always-on) + {} declared",
+        bundled.len(),
+        plan.plugins.len(),
+    );
+    println!("  plugins dir (user installs): {}", dir.display());
+    println!();
+    println!("  ── bundled catalog (installed by default) ──");
+    for spec in &bundled {
+        let trigger = if spec.is_eager() {
+            "eager".to_string()
+        } else {
+            spec.ativar_em.join(", ")
+        };
         println!(
-            "  {mark}  {:<22} [{:<11}] {lazy}",
+            "  ✓ baked   {:<32} [{:<11}] {trigger}",
             spec.name, spec.category,
         );
+    }
+    // Any plugin declared in the rc but resolved from the plugins dir.
+    let dir_declared: Vec<_> = plan
+        .plugins
+        .iter()
+        .filter(|s| dir.join(&s.name).exists())
+        .collect();
+    if !dir_declared.is_empty() {
+        println!();
+        println!("  ── user-installed (plugins dir) ──");
+        for spec in dir_declared {
+            let lazy = if spec.lazy { "lazy" } else { "eager" };
+            println!("  ✓ installed {:<30} [{:<11}] {lazy}", spec.name, spec.category);
+        }
     }
     Ok(())
 }
@@ -635,10 +811,10 @@ fn glyph_summary(plan: &escriba_lisp::ApplyPlan) -> String {
 /// `--list-rc` handler. Parses the bundled defaults + optional user
 /// rc, reports the composite apply plan. Mirrors `frost --doctor`.
 fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
-    // Defaults plan (always green unless someone broke the bundled file).
-    let defaults = escriba_lisp::apply_source(DEFAULT_RC)
-        .context("parsing bundled blnvim-defaults")?;
-    println!("✦ escriba defaults (bundled blnvim-parity)");
+    // Defaults plan = baseline + bundled plugin catalog (always green
+    // unless someone broke a bundled file).
+    let defaults = default_plan(false)?;
+    println!("✦ escriba defaults (baseline + {} plugin caixas)", catalog_bundle::BUNDLED.len());
     println!("  {}", glyph_summary(&defaults));
     println!();
     println!("{} plugins ({})", form_glyph("plugins"), defaults.plugins.len());

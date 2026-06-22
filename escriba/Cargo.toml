@@ -56,6 +56,10 @@ tracing-subscriber = { workspace = true }
 nix      = { workspace = true }
 libc     = { workspace = true }
 tempfile = { workspace = true }
+# ─── plugin_matrix verification (CLOSED-LOOP MASS-SYNTHESIS) ────────────
+escriba-lisp   = { workspace = true }
+escriba-plugin = { workspace = true }
+tatara-lisp    = { workspace = true }
 
 [lints]
 workspace = true
