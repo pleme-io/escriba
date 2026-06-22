@@ -62,6 +62,7 @@ mod abbrev;
 mod apply;
 mod attest;
 mod bufferline;
+mod catalog;
 mod cmd;
 mod dap;
 mod effect;
@@ -87,6 +88,7 @@ mod ruler;
 mod schedule;
 mod session;
 mod snippet;
+mod sexp;
 mod statusline;
 mod strutil;
 mod task;
@@ -108,6 +110,10 @@ pub use attest::{
     is_known_severity as is_known_attest_severity,
 };
 pub use bufferline::BufferLineSpec;
+pub use catalog::{
+    CatalogError, EscribaPluginSpec, category_is_canonical, emit_caixa_lisp,
+    emit_defplugin_descriptor, read_catalog_meta,
+};
 pub use cmd::CmdSpec;
 pub use dap::{DapAdapterSpec, KNOWN_ADAPTERS, is_known_adapter};
 pub use effect::{

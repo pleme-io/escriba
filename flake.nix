@@ -52,6 +52,17 @@
     let
       lib = nixpkgs.lib;
 
+      # Auto-discovered plugin catalog names — the bundled caixas under
+      # escriba/catalog/. Read from the directory so the module's
+      # per-plugin toggle surface never drifts from the files on disk
+      # (CATALOG REFLECTION, in Nix). Stays in sync with the Rust
+      # `catalog_bundle::BUNDLED` table — the plugin_matrix test enforces
+      # the dir↔table bijection on the Rust side.
+      catalogNames =
+        let files = builtins.attrNames (builtins.readDir ./escriba/catalog);
+        in map (f: lib.removeSuffix ".escribaplugin.lisp" f)
+               (lib.filter (f: lib.hasSuffix ".escribaplugin.lisp" f) files);
+
       renderTheme = s:
         ''(deftheme :preset "${s.theme}")'';
 
@@ -98,7 +109,7 @@
 
       trio = (import "${substrate}/lib/module-trio.nix" { inherit lib; }).mkModuleTrio {
         name = "escriba";
-        description = "escriba — Rust + tatara-lisp editor (16 def-forms, blnvim-parity defaults)";
+        description = "escriba — Rust + tatara-lisp editor (32 def-forms + 45-caixa blnvim-parity plugin catalog)";
         hmNamespace = "programs";
         packageAttr = "escriba";
         binaryName = "escriba";
@@ -114,9 +125,14 @@
             type = lib.types.submodule {
               options = {
                 theme = lib.mkOption {
-                  type = lib.types.enum [ "nord" "gruvbox-dark" "tokyo-night" "catppuccin-mocha" ];
-                  default = "nord";
-                  description = "Color preset — escriba-lisp `deftheme`.";
+                  type = lib.types.enum [ "vellum" "nord" "gruvbox-dark" "tokyo-night" "catppuccin-mocha" ];
+                  default = "vellum";
+                  description = ''
+                    Color preset — escriba-lisp `deftheme`. Defaults to the
+                    pleme-io fleet theme `vellum` (matches
+                    `ishou_tokens::FleetTheme::Vellum`); the classic Nord
+                    palette ships in the escriba-nord caixa.
+                  '';
                 };
                 tabWidth = lib.mkOption {
                   type = lib.types.ints.between 1 16;
@@ -166,6 +182,27 @@
             '';
           };
 
+          plugins = lib.mkOption {
+            type = lib.types.attrsOf (lib.types.submodule {
+              options.enable = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+                description = "Whether this bundled plugin caixa is active.";
+              };
+            });
+            default = {};
+            example = lib.literalExpression ''{ escriba-colorizer.enable = false; escriba-snacks.enable = false; }'';
+            description = ''
+              Per-plugin enable/disable for the bundled blnvim-parity
+              plugin catalog. Every plugin is on by default; setting
+              `<name>.enable = false` removes that caixa's forms (keybinds,
+              commands, highlights, lsp servers, …) at boot via
+              `$ESCRIBA_DISABLED_PLUGINS`.
+
+              Available plugins: ${lib.concatStringsSep ", " catalogNames}.
+            '';
+          };
+
           extraConfig = lib.mkOption {
             type = lib.types.lines;
             default = "";
@@ -188,15 +225,22 @@
           };
         };
 
-        extraHmConfig = cfg: {
-          home.file.".config/escriba/rc.lisp".text = renderRc cfg;
+        extraHmConfig = cfg:
+          let
+            # Names of bundled plugins the user turned off.
+            disabledPlugins =
+              lib.attrNames (lib.filterAttrs (_: p: !(p.enable or true)) cfg.plugins);
+          in {
+            home.file.".config/escriba/rc.lisp".text = renderRc cfg;
 
-          home.sessionVariables = {
-            ESCRIBARC = "$HOME/.config/escriba/rc.lisp";
-          } // lib.optionalAttrs cfg.noDefaults {
-            ESCRIBA_NO_DEFAULTS = "1";
+            home.sessionVariables = {
+              ESCRIBARC = "$HOME/.config/escriba/rc.lisp";
+            } // lib.optionalAttrs cfg.noDefaults {
+              ESCRIBA_NO_DEFAULTS = "1";
+            } // lib.optionalAttrs (disabledPlugins != []) {
+              ESCRIBA_DISABLED_PLUGINS = lib.concatStringsSep "," disabledPlugins;
+            };
           };
-        };
       };
     in
     flake-utils.lib.eachDefaultSystem (system:

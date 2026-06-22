@@ -35,7 +35,10 @@ cargo run -- --render=text file.rs  # one-shot ANSI dump (CI / headless)
 cargo run -- --commands             # list registered commands
 cargo run -- --keymap               # list default keybindings
 cargo run -- --spec > escriba.json  # dump OpenAPI 3.1 surface
-cargo test --workspace --lib        # 86 unit tests
+cargo run -- plugin list            # 45 bundled plugin caixas + user installs
+cargo run -- plugin forge --out o   # emit every plugin caixa dir (caixa.lisp + entry + flake)
+cargo run -- --list-rc              # composite plan summary + wiring status
+cargo test --workspace --lib        # workspace unit tests (all green)
 ```
 
 ## Crate Map (19 crates)
@@ -54,8 +57,8 @@ cargo test --workspace --lib        # 86 unit tests
 | `escriba-render` | Render backends (GPU via madori/garasu, text) | `Renderer`, `GpuRenderer`, `TextRenderer` |
 | `escriba-tui` | ratatui + crossterm TUI backend | — |
 | `escriba-input` | Platform-event → escriba-key translation | `InputOutcome`, `translate_app_event` |
-| `escriba-runtime` | Editor state machine: `tick(event)` orchestration | `EditorState` |
-| `escriba-plugin` | Plugin hosting and lifecycle | — |
+| `escriba-runtime` | Editor state machine: `tick(event)` orchestration + lazy plugin host | `EditorState`, `PluginHost`, `LazyTrigger` |
+| `escriba-plugin` | Plugin caixa model + **forge** (emit caixa.lisp / entry / flake from a catalog source) | `PluginCaixa`, `ActivationTrigger`, `forge_plugin`, `CaixaArtifacts` |
 | `escriba-vm` | Embedded Lisp VM — skeleton for Lisp-authored logic | — |
 | `escriba-ts` | Tree-sitter integration (incremental parse + highlight) | — |
 | `escriba-lsp-client` | LSP client (tower-lsp-based) | — |
@@ -85,9 +88,59 @@ External integrations live in sibling crates:
 - `escriba-ts` — tree-sitter (incremental parse, highlight capture queries)
 - `escriba-lsp-client` — LSP servers (rust-analyzer, gopls, typescript-language-server, …)
 - `escriba-mcp` — AI agents via Model Context Protocol
-- `escriba-plugin` — WASM plugin host
+- `escriba-plugin` — plugin caixa model + forge (see "Plugin Caixa Substrate")
 - `escriba-vm` — embedded Lisp VM
-- `escriba-lisp` — Tatara-Lisp authoring bridge (see below)
+- `escriba-lisp` — Tatara-Lisp authoring bridge (32 def-forms + `defescribaplugin` catalog form)
+
+## ★ Plugin Caixa Substrate — generation-driven blnvim parity
+
+**Canonical doc: [`docs/plugin-substrate.md`](./docs/plugin-substrate.md).**
+**Every escriba plugin is a tatara-lisp caixa, emitted from one typed
+catalog, installed by default, with Nix + per-plugin module support.**
+This is Pillar 12 (generation over composition) + ★★ CLOSED-LOOP
+MASS-SYNTHESIS + ★★ CATALOG REFLECTION applied to the editor-plugin
+domain.
+
+- **Authoring** — one `(defescribaplugin …)` source per plugin under
+  `escriba/catalog/<name>.escribaplugin.lisp` (manifest form + the
+  escriba entry def-forms). The manifest is inert at apply time, so the
+  same file is both the spec and a valid plugin entry.
+- **Forge** — `escriba_plugin::forge_plugin` emits each caixa's
+  `caixa.lisp` (`:kind Biblioteca`) + `escriba/plugin.lisp` + `flake.nix`
+  + the persisted spec, via the typed `escriba_lisp::sexp::Sexp` emitter
+  (no string-concatenated lisp). `escriba plugin forge` / `install-bundled`
+  materialize them.
+- **45-caixa parity catalog** — every default-on blnvim capability is a
+  caixa (lspconfig, conform, telescope, gitsigns, trouble, oil, cmp,
+  treesitter + textobjects/fold/context/autotag, dap, neotest, illuminate,
+  helm, lualine, bufferline, devicons, …; vim-tmux-navigator is absorbed
+  by escriba-compass). The composite carries 12 LSP servers, 11
+  formatters, 17 text objects, 5 DAP adapters, 23 icons, 58 highlights,
+  93 keybinds.
+- **Installed by default by construction** — the catalog is baked into
+  the binary (`catalog_bundle::BUNDLED`, `include_str!`) and merged into
+  the boot plan eagerly. No on-disk install, no network.
+- **Solve once** — `configs/blnvim-defaults.lisp` is now the BASELINE
+  only (theme, options, leader, major-modes, base highlights, escriba
+  inventions). Plugin-owned forms (deflsp / defformatter / deftextobject
+  / deffold / defdap / deficon / nord palette / statusline / bufferline /
+  tasks / mcp) MIGRATED into their caixas — one concern, one home. A
+  matrix test proves the migration lost nothing.
+- **Lazy activation** — bundled defaults are eager; USER plugins in the
+  plugins dir activate lazily via `escriba_runtime::PluginHost` (their
+  entry applies on the first `Command` / `FileType` / `Event` trigger —
+  the lazy.nvim model, typed).
+- **Nix + modules** — each caixa ships a `flake.nix`; the HM/NixOS/Darwin
+  trio exposes `programs.escriba.plugins.<name>.enable` (auto-discovered
+  from the catalog dir), which sets `$ESCRIBA_DISABLED_PLUGINS` to omit a
+  plugin's forms at boot.
+- **Verification matrix** — `tests/plugin_matrix.rs` fails the build if a
+  catalog file is malformed, mis-named, or missing from the baked table
+  (dir↔table bijection), or if the composite loses capability.
+
+**Adding a plugin** = drop a `catalog/<name>.escribaplugin.lisp` + add one
+row to `catalog_bundle::BUNDLED` + `cargo test --test plugin_matrix`. The
+substrate emits the caixa.lisp, the entry, and the flake mechanically.
 
 ## Absorption Thesis
 
