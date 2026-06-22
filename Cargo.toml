@@ -76,17 +76,25 @@ async-trait      = "0.1"
 # — the WASM/WASI-capable platform with the host-embeddable evaluator
 # (tatara-lisp-eval) + compiler_spec polyglot seam. See
 # docs/programmability-and-caixa-design.md §"lineage unification".
-tatara-lisp        = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main" }
-tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main" }
-tatara-lisp-eval   = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main" }
-garasu             = { git = "https://github.com/pleme-io/garasu", branch = "main" }
-madori             = { git = "https://github.com/pleme-io/madori", branch = "main" }
-ishou-tokens       = { git = "https://github.com/pleme-io/ishou", branch = "main", features = ["wgpu"] }
-awase              = { git = "https://github.com/pleme-io/awase", branch = "main" }
-hayai              = { git = "https://github.com/pleme-io/hayai", branch = "main" }
-irodori            = { git = "https://github.com/pleme-io/irodori", branch = "main" }
-mojiban            = { git = "https://github.com/pleme-io/mojiban", branch = "main" }
-shikumi            = { git = "https://github.com/pleme-io/shikumi", branch = "main" }
+#
+# Each carries BOTH `git` (build source) and `version` (publish source):
+# `cargo publish` strips the git spec and records the version req, so
+# crates.io resolves the sibling from its published release. The version
+# req matches the git-pinned build version AND an available crates.io
+# release; without it crates.io rejects the publish ("all dependencies
+# must have a version requirement"). This is the ★★ AUTO-RELEASE
+# publish contract.
+tatara-lisp        = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main", version = "0.2" }
+tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main", version = "0.2" }
+tatara-lisp-eval   = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main", version = "0.2" }
+garasu             = { git = "https://github.com/pleme-io/garasu", branch = "main", version = "0.1" }
+madori             = { git = "https://github.com/pleme-io/madori", branch = "main", version = "0.1" }
+ishou-tokens       = { git = "https://github.com/pleme-io/ishou", branch = "main", features = ["wgpu"], version = "0.1" }
+awase              = { git = "https://github.com/pleme-io/awase", branch = "main", version = "0.1" }
+hayai              = { git = "https://github.com/pleme-io/hayai", branch = "main", version = "0.1" }
+irodori            = { git = "https://github.com/pleme-io/irodori", branch = "main", version = "0.1" }
+mojiban            = { git = "https://github.com/pleme-io/mojiban", branch = "main", version = "0.1" }
+shikumi            = { git = "https://github.com/pleme-io/shikumi", branch = "main", version = "0.1" }
 
 # Testing.
 pretty_assertions = "1"
