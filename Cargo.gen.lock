@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "ccdd01cf1f4f3a2589ae8c5360c6b533193c3d9305eb7f78deb18a39483dec44",
+  "cargo_lock_sha256": "88aea5dbcfc09de014d4f1b9ca3644980ec1c6f18aa4074fe52463cfb512cdcc",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2432,6 +2432,16 @@
             "tree": "target"
           },
           {
+            "name": "escriba_lisp",
+            "package_key": "escriba-lisp-0.1.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "schemars",
             "package_key": "schemars-0.8.22",
             "kind": "normal",
@@ -2674,6 +2684,16 @@
           {
             "name": "escriba_keymap",
             "package_key": "escriba-keymap-0.1.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_lisp",
+            "package_key": "escriba-lisp-0.1.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -9413,26 +9433,6 @@
                 "tree": "target"
               },
               {
-                "name": "objc2_core_data",
-                "package_key": "objc2-core-data-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": "cfg(target_vendor = \"apple\")",
-                "tree": "target"
-              },
-              {
-                "name": "objc2_core_image",
-                "package_key": "objc2-core-image-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": "cfg(target_vendor = \"apple\")",
-                "tree": "target"
-              },
-              {
                 "name": "objc2_foundation",
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
@@ -9440,16 +9440,6 @@
                 "uses_default_features": false,
                 "optional": false,
                 "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "objc2_quartz_core",
-                "package_key": "objc2-quartz-core-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               }
             ],
@@ -17095,26 +17085,6 @@
                 "tree": "target"
               },
               {
-                "name": "objc2_core_data",
-                "package_key": "objc2-core-data-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": "cfg(target_vendor = \"apple\")",
-                "tree": "target"
-              },
-              {
-                "name": "objc2_core_image",
-                "package_key": "objc2-core-image-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": "cfg(target_vendor = \"apple\")",
-                "tree": "target"
-              },
-              {
                 "name": "objc2_foundation",
                 "package_key": "objc2-foundation-0.2.2",
                 "kind": "normal",
@@ -17122,16 +17092,6 @@
                 "uses_default_features": false,
                 "optional": false,
                 "target": null,
-                "tree": "target"
-              },
-              {
-                "name": "objc2_quartz_core",
-                "package_key": "objc2-quartz-core-0.2.2",
-                "kind": "normal",
-                "features": [],
-                "uses_default_features": false,
-                "optional": true,
-                "target": "cfg(target_vendor = \"apple\")",
                 "tree": "target"
               }
             ],
