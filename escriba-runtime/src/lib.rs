@@ -7,6 +7,9 @@
 
 extern crate self as escriba_runtime;
 
+mod plugin_host;
+pub use plugin_host::{LazyTrigger, PluginHost};
+
 use std::collections::HashMap;
 
 use escriba_buffer::BufferSet;
@@ -63,6 +66,11 @@ pub struct EditorState {
     /// the navigation modes. The fleet primitive (`awase::KeyRepeatGate`,
     /// the same one mado uses) is reused — not reinvented.
     repeat_gate: KeyRepeatGate<Key>,
+    /// Runtime lazy-activation host for USER plugin caixas (the bundled
+    /// default catalog is applied eagerly at boot, not through here).
+    /// A command / filetype-open / event fires the matching plugins'
+    /// entries through the escriba-lisp apply paths. See [`PluginHost`].
+    pub plugin_host: PluginHost,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -108,7 +116,65 @@ impl EditorState {
             lisp_vm: None,
             pending_keys: Vec::new(),
             repeat_gate: KeyRepeatGate::new(),
+            plugin_host: PluginHost::default(),
         }
+    }
+
+    /// Register a lazy USER plugin: its escriba entry is deferred until
+    /// one of its `triggers` fires. Bundled defaults do NOT go through
+    /// here — they are applied eagerly at boot. Empty `triggers` means
+    /// the plugin never lazily activates (the binary applies eager
+    /// plugins directly).
+    pub fn register_lazy_plugin(
+        &mut self,
+        name: impl Into<String>,
+        triggers: Vec<LazyTrigger>,
+        entry_src: impl Into<String>,
+    ) {
+        self.plugin_host.register(name, triggers, entry_src);
+    }
+
+    /// Apply a plugin entry's escriba-lisp to live state — the same
+    /// keymap / command / option apply paths a user rc uses. Options are
+    /// applied before keybinds so a plugin that sets `mapleader` resolves
+    /// `<leader>` correctly. Returns the count of commands + keybinds it
+    /// registered (best-effort; a malformed entry is skipped, not fatal).
+    fn apply_plugin_entry(&mut self, entry_src: &str) -> usize {
+        let Ok(plan) = escriba_lisp::apply_source(entry_src) else {
+            return 0;
+        };
+        let cmd = escriba_lisp::apply_plan_to_commands(&plan, &mut self.commands);
+        escriba_lisp::apply_plan_to_options(&plan, &mut self.options);
+        if let Some(value) = self.options.get("mapleader") {
+            if let Some(key) = escriba_lisp::parse_leader_key(value) {
+                self.keymap.set_leader(key);
+            }
+        }
+        let km = escriba_lisp::apply_plan_to_keymap(&plan, &mut self.keymap);
+        (cmd.registered + km.keybinds_applied) as usize
+    }
+
+    /// Fire any lazy plugin gated on a `FileType` trigger for `filetype`.
+    /// Returns the number of plugins activated. Call when a buffer of a
+    /// known filetype is opened.
+    pub fn activate_filetype_plugins(&mut self, filetype: &str) -> usize {
+        let pending = self.plugin_host.pending_for_filetype(filetype);
+        let n = pending.len();
+        for src in pending {
+            self.apply_plugin_entry(&src);
+        }
+        n
+    }
+
+    /// Fire any lazy plugin gated on an `Event` trigger for `event`.
+    /// Returns the number of plugins activated.
+    pub fn activate_event_plugins(&mut self, event: &str) -> usize {
+        let pending = self.plugin_host.pending_for_event(event);
+        let n = pending.len();
+        for src in pending {
+            self.apply_plugin_entry(&src);
+        }
+        n
     }
 
     /// Advance one frame's worth of state given a raw madori event.
@@ -401,6 +467,17 @@ impl EditorState {
     }
 
     fn run_command(&mut self, name: &str, args: &[String]) {
+        // Lazy-activation seam (lazy.nvim `cmd =` model): a user plugin
+        // gated on `Command: <name>` has its entry applied the first time
+        // that command runs, BEFORE dispatch — so the activated plugin
+        // can register the very command being invoked and it resolves on
+        // this same call.
+        if self.plugin_host.pending() > 0 {
+            let pending = self.plugin_host.pending_for_command(name);
+            for src in pending {
+                self.apply_plugin_entry(&src);
+            }
+        }
         let active = Some(self.active);
         let mut quit = false;
         {
@@ -843,6 +920,49 @@ mod tests {
             "",
             "quit must not pollute any command line — Normal mode has no minibuffer",
         );
+    }
+
+    // ── Lazy plugin activation (PluginHost) ────────────────────────
+
+    #[test]
+    fn lazy_plugin_activates_on_command_trigger() {
+        // A user plugin gated on `Command: LazyGo` has its entry applied
+        // the first time that command runs — proving the lazy.nvim
+        // `cmd =` model works end-to-end against live editor state.
+        let mut s = new_state_with("");
+        s.register_lazy_plugin(
+            "user-lazy",
+            vec![LazyTrigger::Command("LazyGo".into())],
+            r#"(defoption :name "lazy-loaded" :value "yes")
+               (defcmd :name "LazyGo" :description "noop" :action "editor.noop")"#,
+        );
+        assert_eq!(s.plugin_host.pending(), 1);
+        assert!(s.options.get("lazy-loaded").is_none(), "entry not applied yet");
+
+        // Drive the command through the public imperative path.
+        s.run_lisp(r#"(run-command "LazyGo")"#).unwrap();
+
+        assert_eq!(
+            s.options.get("lazy-loaded").map(String::as_str),
+            Some("yes"),
+            "the command trigger applied the plugin's entry",
+        );
+        assert_eq!(s.plugin_host.pending(), 0, "plugin activated exactly once");
+    }
+
+    #[test]
+    fn lazy_plugin_activates_on_filetype() {
+        let mut s = new_state_with("");
+        s.register_lazy_plugin(
+            "user-rust",
+            vec![LazyTrigger::FileType("rust".into())],
+            r#"(defoption :name "rust-plugin" :value "on")"#,
+        );
+        let n = s.activate_filetype_plugins("rust");
+        assert_eq!(n, 1);
+        assert_eq!(s.options.get("rust-plugin").map(String::as_str), Some("on"));
+        // A second open of the same filetype is a no-op (one-shot).
+        assert_eq!(s.activate_filetype_plugins("rust"), 0);
     }
 
     #[test]
