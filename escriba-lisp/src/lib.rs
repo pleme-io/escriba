@@ -57,6 +57,14 @@
 //! struct plus `#[tatara(keyword = "…")]`, re-export it from [`lib`], and
 //! add a line in [`apply_source`] that pulls it out via
 //! `tatara_lisp::compile_typed`.
+//!
+//! # Plugin catalog
+//!
+//! The [`catalog`] module hosts the `(defescribaplugin …)` authoring form
+//! and the typed [`sexp`] emitter used to forge installable plugin caixas
+//! from one catalog source. `apply_source` deliberately ignores the
+//! `defescribaplugin` form, so a catalog source doubles as a valid plugin
+//! entry. See `docs/plugin-substrate.md`.
 
 mod abbrev;
 mod apply;
