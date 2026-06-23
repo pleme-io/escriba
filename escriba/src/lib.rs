@@ -9,6 +9,12 @@
 //! Every escriba-* crate composes here; the [`run`] function is
 //! the shared entry point both `escriba` and `escriba-gpu`
 //! binaries call into.
+//!
+//! Operator subcommands: `escriba plugin {list,forge,install-bundled}`
+//! manage the baked blnvim-parity plugin caixa catalog (see
+//! `catalog_bundle` + `docs/plugin-substrate.md`); `escriba config-show`
+//! and `escriba eval` cover the typed config tier model and the
+//! imperative tatara-lisp programmability tier.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
