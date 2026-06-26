@@ -14,7 +14,9 @@ use std::collections::HashMap;
 
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
-use escriba_core::{Action, BufferId, Cursors, Edit, Mode, Motion, Position, WindowId};
+use escriba_core::{
+    Action, BufferId, Cursors, Edit, Mode, Motion, Operator, Position, Range, WindowId,
+};
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
 use escriba_mode::ModalState;
@@ -71,6 +73,11 @@ pub struct EditorState {
     /// A command / filetype-open / event fires the matching plugins'
     /// entries through the escriba-lisp apply paths. See [`PluginHost`].
     pub plugin_host: PluginHost,
+    /// The unnamed register — the home for text an operator yanks or
+    /// deletes (`Operator::leaves_register`). `None` until the first
+    /// register-leaving operator runs. Phase-1 holds the single unnamed
+    /// register; named registers (`"ay`) layer on later.
+    register: Option<String>,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -111,6 +118,7 @@ impl EditorState {
             active,
             cursors: Cursors::single(Position::ZERO),
             quit_requested: false,
+            register: None,
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
@@ -375,19 +383,24 @@ impl EditorState {
             Action::Quit => self.quit_requested = true,
             Action::SubmitCommand => self.submit_command(),
             Action::Command { name, args } => self.run_command(name, args),
-            Action::ApplyOperator { .. } => {
-                // Phase 2: operator-over-motion composition.
-            }
+            Action::ApplyOperator { op, motion } => self.apply_operator(*op, *motion),
             Action::Pending => {}
         }
     }
 
-    fn apply_motion(&mut self, motion: Motion) {
-        let Some(buf) = self.buffers.get(self.active) else {
-            return;
-        };
-        let mut pos = self.cursor();
-        pos = match motion {
+    /// Resolve a [`Motion`] from `from` to its target [`Position`] against the
+    /// active buffer — **pure**: no cursor mutation, no side effects. This is
+    /// the single motion-resolution source of truth that both [`apply_motion`]
+    /// (move the cursor *to* the target) and [`apply_operator`] (use the target
+    /// as the *other end* of an operated range) stand on. `None` only if there
+    /// is no active buffer.
+    ///
+    /// [`apply_motion`]: Self::apply_motion
+    /// [`apply_operator`]: Self::apply_operator
+    fn resolve_motion(&self, from: Position, motion: Motion) -> Option<Position> {
+        let buf = self.buffers.get(self.active)?;
+        let pos = from;
+        Some(match motion {
             Motion::Left => Position::new(pos.line, pos.column.saturating_sub(1)),
             Motion::Right => Position::new(pos.line, pos.column.saturating_add(1)),
             Motion::Up => Position::new(pos.line.saturating_sub(1), pos.column),
@@ -419,10 +432,75 @@ impl EditorState {
             | Motion::EndOfDefun
             | Motion::BeginningOfSexp
             | Motion::EndOfSexp => pos,
+        })
+    }
+
+    fn apply_motion(&mut self, motion: Motion) {
+        let Some(pos) = self.resolve_motion(self.cursor(), motion) else {
+            return;
         };
         // The single cursor-mutation path clamps to the buffer and scrolls
         // the viewport to contain the cursor on both axes.
         self.set_cursor(pos);
+    }
+
+    /// Apply an operator over a motion — the vim `{operator}{motion}` verbs
+    /// (`dw` delete-word, `c$` change-to-line-end, `y0` yank-to-line-start).
+    /// Composition is explicit: the motion resolves a target via
+    /// [`resolve_motion`](Self::resolve_motion); the operator acts over the
+    /// `[cursor, target)` range. Register-leaving operators
+    /// ([`Operator::leaves_register`]) capture the text first.
+    fn apply_operator(&mut self, op: Operator, motion: Motion) {
+        let from = self.cursor();
+        let Some(to) = self.resolve_motion(from, motion) else {
+            return;
+        };
+        let range = Range { start: from, end: to }.normalized();
+        if range.is_empty() {
+            return;
+        }
+        // Capture the operated text (for the register) before mutating.
+        let text = self
+            .buffers
+            .get(self.active)
+            .and_then(|buf| buf.slice(range).ok());
+        if op.leaves_register() {
+            if let Some(t) = &text {
+                self.register = Some(t.clone());
+            }
+        }
+        match op {
+            // Delete + Change remove the range; Change then enters Insert so
+            // the operator pairs with immediate typing (`ciw`, `c$`).
+            Operator::Delete | Operator::Change => {
+                if let Some(buf) = self.buffers.get_mut(self.active) {
+                    let _ = buf.apply(&Edit::delete(range));
+                }
+                self.set_cursor(range.start);
+                if op == Operator::Change {
+                    self.modal.enter(Mode::Insert);
+                }
+            }
+            // Yank copies to the register without mutating the buffer; vim
+            // leaves the cursor at the range start.
+            Operator::Yank => {
+                self.set_cursor(range.start);
+            }
+            // Indent/Format/structural operators are not yet wired — named,
+            // not faked (no buffer mutation, register already captured for the
+            // register-leaving ones above).
+            _ => {
+                self.messages
+                    .push("operator not yet implemented".to_owned());
+            }
+        }
+    }
+
+    /// The text last yanked or deleted into the unnamed register, if any.
+    /// The future `p`/`P` paste reads this.
+    #[must_use]
+    pub fn register(&self) -> Option<&str> {
+        self.register.as_deref()
     }
 
     fn insert_char(&mut self, c: char) {
@@ -707,6 +785,70 @@ mod tests {
             modifiers: Modifiers::default(),
             text: None,
         })
+    }
+
+    // ── operator-over-motion (the `dw`/`c$`/`y0` verbs) ──────────────
+
+    fn line0_len(s: &EditorState) -> u32 {
+        s.buffers.get(s.active).unwrap().line_len_chars(0)
+    }
+
+    #[test]
+    fn delete_to_line_end_clears_line_and_fills_register() {
+        let mut s = new_state_with("hello world");
+        s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::LineEnd });
+        assert_eq!(line0_len(&s), 0, "d$ deletes to end of line");
+        assert_eq!(s.register(), Some("hello world"), "delete fills the register");
+        assert_eq!(s.cursor(), Position::ZERO, "cursor lands at the range start");
+    }
+
+    #[test]
+    fn delete_over_right_motion_removes_one_char() {
+        let mut s = new_state_with("abc");
+        s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::Right });
+        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("bc"));
+        assert_eq!(s.register(), Some("a"));
+    }
+
+    #[test]
+    fn change_to_line_end_deletes_and_enters_insert() {
+        let mut s = new_state_with("hello world");
+        assert_eq!(s.modal.mode(), Mode::Normal);
+        s.apply(&Action::ApplyOperator { op: Operator::Change, motion: Motion::LineEnd });
+        assert_eq!(line0_len(&s), 0, "c$ deletes the range");
+        assert_eq!(s.modal.mode(), Mode::Insert, "change enters Insert to type the replacement");
+        assert_eq!(s.register(), Some("hello world"), "change fills the register");
+    }
+
+    #[test]
+    fn yank_to_line_end_fills_register_without_mutating() {
+        let mut s = new_state_with("hello world");
+        s.apply(&Action::ApplyOperator { op: Operator::Yank, motion: Motion::LineEnd });
+        assert_eq!(line0_len(&s), 11, "yank does not mutate the buffer");
+        assert_eq!(s.register(), Some("hello world"), "yank fills the register");
+        assert_eq!(s.modal.mode(), Mode::Normal, "yank stays in Normal");
+    }
+
+    #[test]
+    fn resolve_motion_is_the_shared_target_for_move_and_operator() {
+        // The encapsulation proof: apply_motion (cursor move) and
+        // apply_operator (range end) BOTH stand on resolve_motion — so a move
+        // to LineEnd lands at exactly the position the operator deletes to.
+        let mut s = new_state_with("hello world");
+        let target = s.resolve_motion(Position::ZERO, Motion::LineEnd).unwrap();
+        assert_eq!(target, Position::new(0, 11));
+        s.apply_motion(Motion::LineEnd);
+        assert_eq!(s.cursor(), target, "the move path resolves the same target the operator uses");
+    }
+
+    #[test]
+    fn empty_motion_range_is_a_no_op() {
+        // An operator over a zero-width motion (cursor already at line start)
+        // mutates nothing and leaves the register untouched.
+        let mut s = new_state_with("abc");
+        s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::LineStart });
+        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("abc"));
+        assert_eq!(s.register(), None);
     }
 
     /// A monotonic clock for the key-repeat gate in tests — each `next()`
