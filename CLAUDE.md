@@ -46,8 +46,13 @@ holds the pending operator until the next motion composes
 primitive** (escriba is zenmai's 3rd cross-repo consumer, after bolso +
 gaveta) — the editor doesn't re-roll a bespoke `Option<Operator>` + dispatch
 `if let`s. So typing `d` then `w` deletes a word from the keyboard today.
+**Counts compose correctly** (`3dw` = 3 words, `2d3l` = 6 chars): the FSM's
+event/effect is `(Action, count)` and it owns count composition (operator
+count × motion count), so a bare `5j` still passes through unchanged — the
+prior naive outer repeat-loop, which silently broke `3dw`, is gone.
 **Remaining:** `dd` linewise (a doubled operator currently cancels),
-text-objects (`ciw`/`diw`), counts (`3dw`), and the named-but-unwired
+text-objects (`ciw`/`diw`), a combined register for counted deletes (the
+register currently holds only the last sub-delete), and the named-but-unwired
 operators (Indent/Format/structural).
 
 > **★★★ CSE / Knowable Construction.** This repo operates under

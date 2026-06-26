@@ -277,12 +277,10 @@ impl EditorState {
             }
             return;
         }
-        for _ in 0..counted.count {
-            self.apply(&counted.action);
-            if self.quit_requested {
-                return;
-            }
-        }
+        // The count flows through the operator-pending FSM (apply_counted), which
+        // owns repetition: a bare motion runs count× , an operator captures its
+        // count, and an operated motion multiplies the two. No naive outer loop.
+        self.apply_counted(&counted.action, counted.count);
         // After applying, reset pending count.
         self.modal.clear_count();
     }
@@ -363,13 +361,26 @@ impl EditorState {
         }
     }
 
-    /// Dispatch one resolved action. Routes it through the operator-pending
-    /// FSM ([`OperatorPending`], on `zenmai`) first: most actions pass straight
-    /// to [`apply_resolved`](Self::apply_resolved), an operator key is held, and
-    /// an operator-then-motion pair is rewritten into [`Action::ApplyOperator`].
+    /// Dispatch one resolved action at count 1. See [`apply_counted`](Self::apply_counted).
     fn apply(&mut self, action: &Action) {
-        for resolved in self.op_pending.dispatch(action.clone()) {
-            self.apply_resolved(&resolved);
+        self.apply_counted(action, 1);
+    }
+
+    /// Dispatch one resolved action with its count. Routes `(action, count)`
+    /// through the operator-pending FSM ([`OperatorPending`], on `zenmai`): most
+    /// actions pass straight to [`apply_resolved`](Self::apply_resolved) carrying
+    /// their count (so `5j` runs the motion 5×), an operator key is held, and an
+    /// operator-then-motion pair is rewritten into a counted
+    /// [`Action::ApplyOperator`] (so `3dw` deletes 3 words). The FSM owns count
+    /// composition — there is no naive outer repeat loop.
+    fn apply_counted(&mut self, action: &Action, count: u32) {
+        for (resolved, times) in self.op_pending.dispatch((action.clone(), count)) {
+            for _ in 0..times {
+                self.apply_resolved(&resolved);
+                if self.quit_requested {
+                    return;
+                }
+            }
         }
     }
 
@@ -901,6 +912,36 @@ mod tests {
         s.apply(&Action::Move(Motion::LineEnd));
         assert_eq!(s.cursor(), Position::new(0, 11));
         assert_eq!(line0_len(&s), 11, "a bare motion never mutates");
+    }
+
+    #[test]
+    fn counted_operator_deletes_count_times() {
+        // `3d` + a right-motion = `3dl` = delete 3 chars. The operator's count
+        // flows through the FSM to the composed motion (the bug fix: previously
+        // the count repeated the operator key and toggled the FSM).
+        let mut s = new_state_with("abcdef");
+        s.apply_counted(&Action::Operator(Operator::Delete), 3);
+        assert_eq!(line0_len(&s), 6, "the operator key alone mutates nothing");
+        s.apply(&Action::Move(Motion::Right));
+        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("def"));
+    }
+
+    #[test]
+    fn operator_and_motion_counts_multiply_end_to_end() {
+        // `2d3l` = delete 2×3 = 6 chars.
+        let mut s = new_state_with("abcdefgh");
+        s.apply_counted(&Action::Operator(Operator::Delete), 2);
+        s.apply_counted(&Action::Move(Motion::Right), 3);
+        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("gh"));
+    }
+
+    #[test]
+    fn bare_counted_motion_still_repeats_no_regression() {
+        // `3j` still moves down 3 lines — the count passes through the FSM
+        // unchanged when no operator is pending.
+        let mut s = new_state_with("a\nb\nc\nd\ne");
+        s.apply_counted(&Action::Move(Motion::Down), 3);
+        assert_eq!(s.cursor().line, 3, "5j-style counted motion preserved");
     }
 
     /// A monotonic clock for the key-repeat gate in tests — each `next()`
