@@ -95,6 +95,9 @@ hayai              = { git = "https://github.com/pleme-io/hayai", branch = "main
 irodori            = { git = "https://github.com/pleme-io/irodori", branch = "main", version = "0.1" }
 mojiban            = { git = "https://github.com/pleme-io/mojiban", branch = "main", version = "0.1" }
 shikumi            = { git = "https://github.com/pleme-io/shikumi", branch = "main", version = "0.1" }
+# The fleet Mealy-machine-with-effects primitive — escriba-runtime's
+# operator-pending FSM stands on it (3rd consumer after bolso + gaveta).
+zenmai             = { git = "https://github.com/pleme-io/zenmai", branch = "main", version = "0.0" }
 
 # Testing.
 pretty_assertions = "1"
