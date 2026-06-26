@@ -25,10 +25,23 @@ parity gap:** the WIRED def-form set is `defcmd`/`defoption`/`defkeybind`
 /`defmode` only — so the ~40 catalog plugins that declare picker/LSP/git/
 completion/formatter/diagnostic keybinds, and the operator-edit verbs
 (`dw`/`ciw`/paste/search), are **bound-but-inert** until their subsystem
-waves land (a running LSP client, a picker, a git layer, ApplyOperator
-composition, a `tema`→palette renderer for live theme-switch). Closing
-those = escriba feature-work, not a config change. See
-`theory`-side analysis or run `escriba config-show default`.
+waves land (a running LSP client, a picker, a git layer, a `tema`→palette
+renderer for live theme-switch). Closing those = escriba feature-work,
+not a config change. See `theory`-side analysis or run
+`escriba config-show default`.
+
+**Operator-over-motion engine (2026-06-26, shipped):** the vim
+`{operator}{motion}` verbs (`dw`/`c$`/`y0`) execute in `escriba-runtime`
+— `Action::ApplyOperator { op, motion }` is no longer a no-op.
+Composition stands on a pure `resolve_motion(from, motion) -> Position`
+(extracted so the cursor-move path AND the operator-range path share one
+motion-resolution source of truth); Delete/Change/Yank act over the
+resolved `[cursor, target)` range with undo, Change enters Insert, a
+single unnamed `register` captures deleted/yanked text. Indent/Format/
+structural operators are named-but-unwired. **Remaining layer:** the
+keymap operator-pending FSM (so *typing* `d` then `w` emits
+`ApplyOperator`) — the engine is proven via direct `apply()` tests; the
+key-sequence binding is the thin follow-on.
 
 > **★★★ CSE / Knowable Construction.** This repo operates under
 > **Constructive Substrate Engineering** — canonical specification at
