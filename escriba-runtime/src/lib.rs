@@ -10,6 +10,9 @@ extern crate self as escriba_runtime;
 mod plugin_host;
 pub use plugin_host::{LazyTrigger, PluginHost};
 
+mod operator_pending;
+pub use operator_pending::{OpState, OperatorPending};
+
 use std::collections::HashMap;
 
 use escriba_buffer::BufferSet;
@@ -78,6 +81,11 @@ pub struct EditorState {
     /// register-leaving operator runs. Phase-1 holds the single unnamed
     /// register; named registers (`"ay`) layer on later.
     register: Option<String>,
+    /// The operator-pending FSM (`d`/`c`/`y` then a motion → `dw`/`c$`/`y0`),
+    /// standing on the fleet `zenmai` Mealy-machine primitive. Every dispatched
+    /// action passes through it; only an operator-then-motion pair is rewritten
+    /// into an [`Action::ApplyOperator`].
+    op_pending: zenmai::Stateful<OperatorPending>,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -119,6 +127,7 @@ impl EditorState {
             cursors: Cursors::single(Position::ZERO),
             quit_requested: false,
             register: None,
+            op_pending: zenmai::Stateful::new(OpState::Resting),
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
@@ -354,7 +363,17 @@ impl EditorState {
         }
     }
 
+    /// Dispatch one resolved action. Routes it through the operator-pending
+    /// FSM ([`OperatorPending`], on `zenmai`) first: most actions pass straight
+    /// to [`apply_resolved`](Self::apply_resolved), an operator key is held, and
+    /// an operator-then-motion pair is rewritten into [`Action::ApplyOperator`].
     fn apply(&mut self, action: &Action) {
+        for resolved in self.op_pending.dispatch(action.clone()) {
+            self.apply_resolved(&resolved);
+        }
+    }
+
+    fn apply_resolved(&mut self, action: &Action) {
         match action {
             Action::Move(m) => self.apply_motion(*m),
             Action::ChangeMode(m) => self.modal.enter(*m),
@@ -384,6 +403,9 @@ impl EditorState {
             Action::SubmitCommand => self.submit_command(),
             Action::Command { name, args } => self.run_command(name, args),
             Action::ApplyOperator { op, motion } => self.apply_operator(*op, *motion),
+            // The operator-pending FSM consumes Operator keys (begins pending);
+            // they never reach the executor. Defensive no-op for exhaustiveness.
+            Action::Operator(_) => {}
             Action::Pending => {}
         }
     }
@@ -849,6 +871,36 @@ mod tests {
         s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::LineStart });
         assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("abc"));
         assert_eq!(s.register(), None);
+    }
+
+    #[test]
+    fn operator_then_motion_composes_through_the_pending_fsm() {
+        // The full keymap→FSM→engine path: dispatching the `d` operator action
+        // then a `$` motion composes `d$` via the zenmai operator-pending FSM —
+        // the operator key alone does nothing until the motion arrives.
+        let mut s = new_state_with("hello world");
+        s.apply(&Action::Operator(Operator::Delete));
+        assert_eq!(line0_len(&s), 11, "the operator key alone mutates nothing");
+        s.apply(&Action::Move(Motion::LineEnd));
+        assert_eq!(line0_len(&s), 0, "d then $ composes d$ and deletes the line");
+        assert_eq!(s.register(), Some("hello world"));
+    }
+
+    #[test]
+    fn change_operator_through_fsm_enters_insert() {
+        let mut s = new_state_with("hello world");
+        s.apply(&Action::Operator(Operator::Change));
+        s.apply(&Action::Move(Motion::LineEnd));
+        assert_eq!(s.modal.mode(), Mode::Insert, "c$ deletes and enters Insert");
+    }
+
+    #[test]
+    fn lone_motion_after_no_operator_just_moves() {
+        // Without a preceding operator the motion passes through unchanged.
+        let mut s = new_state_with("hello world");
+        s.apply(&Action::Move(Motion::LineEnd));
+        assert_eq!(s.cursor(), Position::new(0, 11));
+        assert_eq!(line0_len(&s), 11, "a bare motion never mutates");
     }
 
     /// A monotonic clock for the key-repeat gate in tests — each `next()`

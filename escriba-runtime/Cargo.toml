@@ -20,6 +20,7 @@ escriba-vm      = { workspace = true }
 escriba-lisp    = { workspace = true }
 madori          = { workspace = true }
 awase           = { workspace = true }
+zenmai          = { workspace = true }
 serde           = { workspace = true }
 
 [dev-dependencies]

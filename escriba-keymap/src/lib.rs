@@ -4,7 +4,7 @@ extern crate self as escriba_keymap;
 
 use std::collections::HashMap;
 
-use escriba_core::{Action, CountedAction, Mode, Motion};
+use escriba_core::{Action, CountedAction, Mode, Motion, Operator};
 use escriba_mode::ModalState;
 use serde::{Deserialize, Serialize};
 
@@ -125,6 +125,26 @@ impl Keymap {
             Key::Char('G'),
             Action::Move(Motion::DocEnd),
             "doc end",
+        );
+        // Operators — `d`/`c`/`y` arm the operator-pending FSM; the next
+        // motion composes (e.g. `dw`, `c$`, `y0`).
+        nm(
+            &mut m,
+            Key::Char('d'),
+            Action::Operator(Operator::Delete),
+            "delete (operator)",
+        );
+        nm(
+            &mut m,
+            Key::Char('c'),
+            Action::Operator(Operator::Change),
+            "change (operator)",
+        );
+        nm(
+            &mut m,
+            Key::Char('y'),
+            Action::Operator(Operator::Yank),
+            "yank (operator)",
         );
         // Structural Lisp motions — Alt-prefixed like emacs paredit.
         nm(

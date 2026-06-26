@@ -11,6 +11,10 @@ use crate::motion::{Motion, Operator};
 pub enum Action {
     /// Move every cursor by `motion`.
     Move(Motion),
+    /// Begin an operator (the `d`/`c`/`y` key). The editor enters
+    /// operator-pending: the next motion composes into an [`Action::ApplyOperator`].
+    /// Resolved by the operator-pending FSM, never executed directly.
+    Operator(Operator),
     /// Apply a pending operator over a motion (delete-word, yank-line, etc.).
     ApplyOperator {
         op: Operator,

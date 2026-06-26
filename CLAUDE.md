@@ -38,10 +38,17 @@ Composition stands on a pure `resolve_motion(from, motion) -> Position`
 motion-resolution source of truth); Delete/Change/Yank act over the
 resolved `[cursor, target)` range with undo, Change enters Insert, a
 single unnamed `register` captures deleted/yanked text. Indent/Format/
-structural operators are named-but-unwired. **Remaining layer:** the
-keymap operator-pending FSM (so *typing* `d` then `w` emits
-`ApplyOperator`) — the engine is proven via direct `apply()` tests; the
-key-sequence binding is the thin follow-on.
+structural operators are named-but-unwired. The keymap **operator-pending
+FSM** is now wired: `d`/`c`/`y` are bound to `Action::Operator(_)` and a
+small `(State,Event)->(State,effects)` machine (`operator_pending.rs`)
+holds the pending operator until the next motion composes
+`Action::ApplyOperator`. That FSM **stands on the fleet `zenmai`
+primitive** (escriba is zenmai's 3rd cross-repo consumer, after bolso +
+gaveta) — the editor doesn't re-roll a bespoke `Option<Operator>` + dispatch
+`if let`s. So typing `d` then `w` deletes a word from the keyboard today.
+**Remaining:** `dd` linewise (a doubled operator currently cancels),
+text-objects (`ciw`/`diw`), counts (`3dw`), and the named-but-unwired
+operators (Indent/Format/structural).
 
 > **★★★ CSE / Knowable Construction.** This repo operates under
 > **Constructive Substrate Engineering** — canonical specification at

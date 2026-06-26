@@ -976,6 +976,7 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "tempfile",
+ "zenmai",
 ]
 
 [[package]]
@@ -4573,6 +4574,11 @@ name = "yazi"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e01738255b5a16e78bbb83e7fbba0a1e7dd506905cfc53f4622d89015a03fbb5"
+
+[[package]]
+name = "zenmai"
+version = "0.0.1"
+source = "git+https://github.com/pleme-io/zenmai?branch=main#6399d02ff24b964da003cf4b0debae2ac6c7178d"
 
 [[package]]
 name = "zeno"
