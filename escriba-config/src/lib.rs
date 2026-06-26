@@ -133,11 +133,12 @@ impl EscribaConfig {
 // Prior migrations: tatara, zoekt-mcp, kindling, ayatsuri, kenshi,
 // taimen. See `shikumi/src/tiered.rs` for the trait contract.
 //
-// EscribaConfig is currently all-Option: today bare() and
-// prescribed_default() are byte-identical (no curated defaults are
-// shipped yet — the operator's lisp file IS the prescription). The
-// impl pins the structural contract; once defaults arrive (eg.
-// largura_tab: Some(4)) the diff fans out from one place.
+// bare() is the all-None zero-opinion floor. prescribed_default() now
+// mirrors the shipped `configs/blnvim-defaults.lisp` baseline (theme +
+// numbers + tab-width 2 + statusline) so `escriba config-show default`
+// reports what actually boots. The `.lisp` remains the load-bearing
+// prescription (it carries the keymaps/modes/highlights this 7-field
+// struct cannot express); this struct is the operator-facing summary.
 
 impl shikumi::TieredConfig for EscribaConfig {
     /// Tier 0 — bare: zero-opinion floor. Every field None.
@@ -153,15 +154,22 @@ impl shikumi::TieredConfig for EscribaConfig {
         }
     }
 
-    /// Tier 2 — prescribed: the curated defaults that ship today.
-    /// The fleet theme `vellum` (warm aged-paper Nord-matte) is the
-    /// prescribed `:tema`, matching `ishou_tokens::FleetTheme::Vellum`
-    /// — so an operator who sets no theme lands on the fleet look. The
-    /// remaining fields stay `None` (the operator's lisp prescribes them).
+    /// Tier 2 — prescribed: the curated defaults that ship today. These
+    /// MIRROR the load-bearing `configs/blnvim-defaults.lisp` baseline the
+    /// editor actually boots (theme `vellum` = `ishou_tokens::FleetTheme::Vellum`;
+    /// line numbers + relative numbers on; tab width 2; no soft wrap;
+    /// statusline on; tabbar off — `showtabline=0`, blnvim parity). The
+    /// `.lisp` remains the load-bearing prescription; this keeps
+    /// `escriba config-show default` honest about what ships.
     fn prescribed_default() -> Self {
         Self {
             tema: Some("vellum".into()),
-            ..Self::default()
+            numeros_linha: Some(true),
+            numeros_relativos: Some(true),
+            largura_tab: Some(2),
+            quebra_suave: Some(false),
+            mostrar_statusline: Some(true),
+            mostrar_tabbar: Some(false),
         }
     }
 }
@@ -184,14 +192,18 @@ mod tiered_tests {
     }
 
     #[test]
-    fn escriba_config_prescribed_pins_vellum_theme() {
-        // The prescribed default carries the fleet theme; every other
-        // field stays None (the operator's lisp prescribes them).
+    fn escriba_config_prescribed_mirrors_blnvim_baseline() {
+        // The prescribed default mirrors the shipped blnvim-defaults.lisp so
+        // `escriba config-show default` reflects the real boot baseline.
         let p = <EscribaConfig as TieredConfig>::prescribed_default();
         assert_eq!(p.tema.as_deref(), Some("vellum"));
-        assert!(p.numeros_linha.is_none());
-        assert!(p.largura_tab.is_none());
-        // Prescribed differs from the all-None bare floor only by the theme.
+        assert_eq!(p.numeros_linha, Some(true));
+        assert_eq!(p.numeros_relativos, Some(true));
+        assert_eq!(p.largura_tab, Some(2));
+        assert_eq!(p.quebra_suave, Some(false));
+        assert_eq!(p.mostrar_statusline, Some(true));
+        assert_eq!(p.mostrar_tabbar, Some(false));
+        // Prescribed differs from the all-None bare floor.
         let bare = <EscribaConfig as TieredConfig>::bare();
         assert_ne!(p, bare);
     }

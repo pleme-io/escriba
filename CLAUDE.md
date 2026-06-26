@@ -1,13 +1,34 @@
 # escriba
 
 skip-fleet-convergence-guard: EscribaConfig (escriba-config/src/lib.rs)
-is intentionally all-Option — no curated visual default values that
-participate in `ishou_tokens::FleetDefaults::prescribed()` exist at
-the config layer (font/theme/cursor live in escriba-render's GPU
-target, not in EscribaConfig). The ishou_tokens convergence Guard
-has nothing to assert against. Reconsider if a future EscribaConfig
-revision introduces typed visual defaults (font_family / font_size /
-theme / cursor).
+exposes NO `font_family` / `font_size` / `cursor` fields that participate
+in `ishou_tokens::FleetDefaults::prescribed()` — those visual primitives
+live in escriba-render's GPU target, not in EscribaConfig — so the
+ishou_tokens convergence Guard has nothing to assert against. (Since
+2026-06-26, `prescribed_default()` DOES pin scalar defaults — `tema`
+"vellum" + line numbers + tab-width 2 + statusline — mirroring the
+load-bearing `configs/blnvim-defaults.lisp` so `config-show default`
+is honest; but none of those are FleetDefaults font/cursor primitives,
+so the waiver stands.) Reconsider if a future EscribaConfig revision
+introduces typed `font_family` / `font_size` / `cursor` fields.
+
+## Default config (the shipped blnvim-parity baseline)
+
+`nix run .#escriba` boots a baked-in curated default —
+`escriba/configs/blnvim-defaults.lisp` (`include_str!` at
+`escriba/src/lib.rs:40`) + the 45-entry bundled plugin catalog
+(`catalog_bundle.rs`) — applied at boot unless `--no-defaults`. The
+default mirrors blackmatter-nvim (blnvim): leader `,` (blnvim parity),
+tab-width 2, ~19 `:set` options, `<C-s>` save, 14 tree-sitter major
+modes, the Vellum (Nord-matte) theme, ~30 highlights. **Tier-honest
+parity gap:** the WIRED def-form set is `defcmd`/`defoption`/`defkeybind`
+/`defmode` only — so the ~40 catalog plugins that declare picker/LSP/git/
+completion/formatter/diagnostic keybinds, and the operator-edit verbs
+(`dw`/`ciw`/paste/search), are **bound-but-inert** until their subsystem
+waves land (a running LSP client, a picker, a git layer, ApplyOperator
+composition, a `tema`→palette renderer for live theme-switch). Closing
+those = escriba feature-work, not a config change. See
+`theory`-side analysis or run `escriba config-show default`.
 
 > **★★★ CSE / Knowable Construction.** This repo operates under
 > **Constructive Substrate Engineering** — canonical specification at
