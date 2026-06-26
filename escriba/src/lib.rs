@@ -1019,19 +1019,20 @@ mod leader_tests {
     }
 
     #[test]
-    fn bundled_defaults_resolve_space_leader_end_to_end() {
+    fn bundled_defaults_resolve_comma_leader_end_to_end() {
         // The full glue: apply the bundled blnvim-defaults options, then
         // resolve the leader — proving the shipped
-        // `(defoption :name "mapleader" :value "<space>")` actually
-        // takes effect on the live keymap.
+        // `(defoption :name "mapleader" :value ",")` actually takes effect
+        // on the live keymap. The leader is COMMA to match blnvim
+        // (`vim.g.mapleader = ","`), so an operator's muscle memory carries.
         let plan = escriba_lisp::apply_source(super::DEFAULT_RC).unwrap();
         let mut s = state();
         escriba_lisp::apply_plan_to_options(&plan, &mut s.options);
         apply_leader_option(&mut s);
         assert_eq!(
             s.keymap.leader(),
-            &Key::Char(' '),
-            "bundled mapleader=<space> must resolve to the space leader",
+            &Key::Char(','),
+            "bundled mapleader=',' must resolve to the comma leader (blnvim parity)",
         );
     }
 }

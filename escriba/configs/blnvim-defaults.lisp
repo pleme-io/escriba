@@ -31,8 +31,8 @@
 (defoption :name "relativenumber"  :value "true")
 (defoption :name "cursorline"      :value "true")
 (defoption :name "expandtab"       :value "true")
-(defoption :name "tabstop"         :value "4")
-(defoption :name "shiftwidth"      :value "4")
+(defoption :name "tabstop"         :value "2")
+(defoption :name "shiftwidth"      :value "2")
 (defoption :name "smartindent"     :value "true")
 (defoption :name "wrap"            :value "false")
 (defoption :name "hlsearch"        :value "true")
@@ -46,22 +46,27 @@
 (defoption :name "updatetime"      :value "300")
 (defoption :name "scrolloff"       :value "8")
 (defoption :name "sidescrolloff"   :value "8")
+(defoption :name "timeoutlen"      :value "300")
+(defoption :name "undofile"        :value "true")
 
 ;; ═════ Leader ═════════════════════════════════════════════════════
-;; The blnvim leader is SPACE. `<leader>` resolves at bind time against
-;; this option — set FIRST so every `<leader>…` sequence (here + in the
-;; catalog plugins) binds under the right prefix.
-(defoption :name "mapleader"       :value "<space>")
-(defoption :name "maplocalleader"  :value "<space>")
+;; The blnvim leader is COMMA (`vim.g.mapleader = ","` — package/init.lua:5).
+;; `<leader>` resolves at bind time against this option — set FIRST so every
+;; `<leader>…` sequence (here + in the catalog plugins) binds under the right
+;; prefix. Matched to blnvim so an operator's muscle memory carries over.
+(defoption :name "mapleader"       :value ",")
+(defoption :name "maplocalleader"  :value ",")
 
 ;; ═════ Baseline keybindings ═══════════════════════════════════════
 ;; Non-plugin editor motions + buffer/file ops. Plugin keybinds
 ;; (picker.*, lsp.*, git.*, trouble.*, files.*, pane.*) live in their
 ;; catalog caixas.
 (defkeybind :mode "normal" :key "<C-d>" :action "half-page-down"
-            :description "half page down, centered")
+            :description "half page down")
 (defkeybind :mode "normal" :key "<C-u>" :action "half-page-up"
-            :description "half page up, centered")
+            :description "half page up")
+(defkeybind :mode "normal" :key "<C-s>" :action "save"
+            :description "write the active buffer (blnvim <C-s>)")
 (defkeybind :mode "normal" :key "<leader>bd" :action "buffer.delete"
             :description "close the current buffer")
 (defkeybind :mode "normal" :key "<leader>w" :action "save"
