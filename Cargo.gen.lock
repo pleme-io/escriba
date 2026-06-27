@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "483ab00105dbb77ab455e15593579e129677a164fa187ae76660ad8b71bb1a66",
+  "cargo_lock_sha256": "8bda42aeb656e0d84eac6be80064897479ccbe465a2836762868b67c5434bd02",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2748,6 +2748,16 @@
             "features": [
               "derive"
             ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "zenmai",
+            "package_key": "zenmai-0.0.1-6399d02ff24b964da003cf4b0debae2ac6c7178d",
+            "kind": "normal",
+            "features": [],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -8582,6 +8592,11 @@
         "features": [
           "std"
         ]
+      },
+      "zenmai-0.0.1-6399d02ff24b964da003cf4b0debae2ac6c7178d": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
       },
       "zeno-0.3.3": {
         "runtime_dependencies": [],
@@ -25224,6 +25239,9 @@
     "yazi-0.2.1": {
       "edition": "2021"
     },
+    "zenmai-0.0.1-6399d02ff24b964da003cf4b0debae2ac6c7178d": {
+      "edition": "2021"
+    },
     "zeno-0.3.3": {
       "edition": "2021"
     },
@@ -25251,7 +25269,8 @@
     "shikumi-0.1.1-693041f48e9f141e75553a7da692b6676833e0a9": "sha256-2oJ+xLL/OZN16C1oStly/8ttJ41yJl9daxYJ1WVuKf4=",
     "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo=",
     "tatara-lisp-derive-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo=",
-    "tatara-lisp-eval-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo="
+    "tatara-lisp-eval-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo=",
+    "zenmai-0.0.1-6399d02ff24b964da003cf4b0debae2ac6c7178d": "sha256-F/xqa6v/faW/Kq2HCqnkdfDwP4HSvRImH0gVYhXvIag="
   },
   "flake_metadata": {}
 }
