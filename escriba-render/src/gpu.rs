@@ -405,4 +405,25 @@ mod tests {
             ":"
         );
     }
+
+    /// Fleet convergence guard: escriba's GPU chrome paints through
+    /// `VellumPalette::vellum()` — the fleet-prescribed `FleetTheme::Vellum`.
+    /// This pins that convergence so a drift in the fleet baseline (e.g.
+    /// `FleetDefaults::prescribed().theme` moving off Vellum) surfaces here
+    /// instead of silently leaving escriba's chrome out of step with the
+    /// rest of the fleet (mado, tear, frostmourne, …). Formalises the
+    /// ad-hoc token pins in `nord_bg_matches_ishou_night0` /
+    /// `mode_colors_are_vellum_pills` under the shared
+    /// `ishou_tokens::convergence::Guard` harness the other fleet apps use.
+    #[test]
+    fn escriba_gpu_chrome_converges_with_fleet() {
+        use ishou_tokens::{FleetTheme, convergence::Guard};
+        // The theme escriba's GPU backend renders. It is Vellum by
+        // construction (every paint site reads `VellumPalette::vellum()`),
+        // and the Guard asserts that equals the fleet prescribed theme.
+        let chrome_theme = FleetTheme::Vellum;
+        Guard::for_app("escriba-render")
+            .expect_theme(chrome_theme)
+            .run();
+    }
 }

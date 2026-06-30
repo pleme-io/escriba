@@ -356,4 +356,23 @@ mod tests {
         assert_eq!(Mode::Insert.cursor_shape(), CursorShape::Bar);
         assert_eq!(Mode::Visual.cursor_shape(), CursorShape::Underline);
     }
+
+    /// Fleet convergence guard: escriba's TUI chrome paints through
+    /// `VellumPalette::vellum()` — the fleet-prescribed `FleetTheme::Vellum`,
+    /// the same theme its GPU backend uses. This pins that convergence so a
+    /// drift in the fleet baseline (e.g. `FleetDefaults::prescribed().theme`
+    /// moving off Vellum) surfaces here rather than silently leaving the TUI
+    /// chrome out of step with the GPU backend and the rest of the fleet.
+    /// Uses the shared `ishou_tokens::convergence::Guard` harness.
+    #[test]
+    fn escriba_tui_chrome_converges_with_fleet() {
+        use ishou_tokens::{FleetTheme, convergence::Guard};
+        // Vellum by construction — every chrome helper above reads
+        // `VellumPalette::vellum()`. The Guard asserts that equals the
+        // fleet prescribed theme.
+        let chrome_theme = FleetTheme::Vellum;
+        Guard::for_app("escriba-tui")
+            .expect_theme(chrome_theme)
+            .run();
+    }
 }
