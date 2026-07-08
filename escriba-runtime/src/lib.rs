@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
 use escriba_core::{
-    Action, BufferId, Cursors, Edit, Mode, Motion, Operator, Position, Range, WindowId,
+    Action, BufferId, Cursors, Edit, EditGen, Mode, Motion, Operator, Position, Range, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -86,6 +86,11 @@ pub struct EditorState {
     /// action passes through it; only an operator-then-motion pair is rewritten
     /// into an [`Action::ApplyOperator`].
     op_pending: zenmai::Stateful<OperatorPending>,
+    /// Monotonic refresh-generation stamp — the root of the sealed refresh
+    /// tree (`theory/ESCRIBA.md` §Refresh-Seal). Bumped on every applied
+    /// action + resize; the renderer gates on it so an idle frame does zero
+    /// re-highlight / re-shape, and a stale frame is unreachable.
+    edit_gen: EditGen,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -134,7 +139,21 @@ impl EditorState {
             pending_keys: Vec::new(),
             repeat_gate: KeyRepeatGate::new(),
             plugin_host: PluginHost::default(),
+            edit_gen: EditGen::default(),
         }
+    }
+
+    /// The current refresh generation. A renderer caches its products against
+    /// this; equality is the freshness test (an unchanged generation ⇒ the
+    /// last frame is still valid, so skip the re-highlight + re-shape).
+    #[must_use]
+    pub fn edit_gen(&self) -> EditGen {
+        self.edit_gen
+    }
+
+    /// Advance the refresh generation (a mutation happened).
+    fn bump_gen(&mut self) {
+        self.edit_gen = self.edit_gen.next();
     }
 
     /// Register a lazy USER plugin: its escriba entry is deferred until
@@ -222,6 +241,7 @@ impl EditorState {
                     w.rect.width = width;
                     w.rect.height = height;
                 }
+                self.bump_gen();
             }
             InputOutcome::Quit => self.quit_requested = true,
             InputOutcome::Focus(_) | InputOutcome::None => {}
@@ -419,6 +439,11 @@ impl EditorState {
             Action::Operator(_) => {}
             Action::Pending => {}
         }
+        // An action reached the executor ⇒ visible state may have changed.
+        // Advance the refresh generation so the renderer repaints (and
+        // re-highlights) exactly once. A gated-out key never reaches here, so
+        // a key-repeat storm does not spin the renderer.
+        self.bump_gen();
     }
 
     /// Resolve a [`Motion`] from `from` to its target [`Position`] against the
@@ -773,6 +798,26 @@ mod tests {
         let mut bufs = BufferSet::new();
         let id = bufs.scratch(text);
         EditorState::new_with_buffer(bufs, id)
+    }
+
+    /// The refresh-seal driver (theory/ESCRIBA.md §Refresh-Seal): an applied
+    /// action advances `edit_gen` (so the renderer repaints), and merely
+    /// reading the generation does not. This is what lets `gpu.rs` gate the
+    /// re-highlight/re-shape on a generation change — an idle frame observes an
+    /// unchanged generation and reuses its cached buffer.
+    #[test]
+    fn edit_gen_advances_on_applied_action_not_on_read() {
+        let mut s = new_state_with("hello\nworld\n");
+        let g0 = s.edit_gen();
+        s.apply(&Action::InsertChar('X'));
+        assert_ne!(
+            s.edit_gen(),
+            g0,
+            "an applied action must advance the refresh generation",
+        );
+        // Reading the generation is not a mutation — idle frames stay put.
+        let g1 = s.edit_gen();
+        assert_eq!(s.edit_gen(), g1, "reading edit_gen must not advance it");
     }
 
     /// A state whose active window is a deliberately tiny viewport

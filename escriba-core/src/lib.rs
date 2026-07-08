@@ -21,6 +21,7 @@ extern crate self as escriba_core;
 
 pub mod action;
 pub mod edit;
+pub mod r#gen;
 pub mod id;
 pub mod mode;
 pub mod motion;
@@ -30,6 +31,7 @@ pub mod selection;
 
 pub use action::{Action, CountedAction};
 pub use edit::{Edit, EditKind};
+pub use r#gen::EditGen;
 pub use id::{BufferId, CaretId, WindowId};
 pub use mode::{CursorShape, Mode, ModeTransition};
 pub use motion::{Motion, Operator};

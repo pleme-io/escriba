@@ -16,7 +16,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use escriba_core::Mode;
+use escriba_core::{EditGen, Mode};
 use escriba_runtime::EditorState;
 use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
 use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb, VellumPalette};
@@ -44,6 +44,15 @@ pub struct GpuRenderer {
     eco: Ecosystem,
     /// Nord syntax theme (HlClass→Rgb).
     theme: NordTheme,
+    /// The refresh generation of the currently-cached text buffer — the seal
+    /// (`theory/ESCRIBA.md` §Refresh-Seal). When `EditorState::edit_gen()`
+    /// still equals this, the cached shaped buffer is reused verbatim: no
+    /// re-highlight, no re-shape. Init `u64::MAX` so the first frame always
+    /// paints.
+    last_gen: EditGen,
+    /// The shaped main-text glyphon buffer, cached across frames while the
+    /// generation is unchanged. `None` before the first paint.
+    cached_text: Option<Buffer>,
 }
 
 impl GpuRenderer {
@@ -58,6 +67,8 @@ impl GpuRenderer {
             metrics: Metrics::new(font_size, line_height),
             eco: Ecosystem::with_builtins(),
             theme: NordTheme,
+            last_gen: EditGen(u64::MAX),
+            cached_text: None,
         }
     }
 
@@ -72,8 +83,12 @@ impl GpuRenderer {
 
 impl RenderCallback for GpuRenderer {
     fn render(&mut self, ctx: &mut RenderContext<'_>) {
-        // ── 1. Read state under lock, build display text. ──────────────
-        let (text, path, mode, cursor_line, cursor_col) = {
+        // ── 1. Read state under lock. The visible text is built ONLY when a
+        //    rebuild is due (the refresh-generation gate): an idle frame reads
+        //    just mode/cursor for the status line and reuses the cached shaped
+        //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
+        //    is Some((text, path)) exactly when the generation moved.
+        let (rebuild_input, mode, cursor_line, cursor_col, cur_gen) = {
             let s = self
                 .state
                 .lock()
@@ -81,77 +96,89 @@ impl RenderCallback for GpuRenderer {
             let Some(buf) = s.buffers.get(s.active) else {
                 return clear_frame(ctx);
             };
-            // The open file's path drives hikari language resolution.
-            let path = buf
-                .path
-                .as_ref()
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let win = s.layout.active_window().cloned();
-            let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
-            let left_column = win.as_ref().map_or(0, |w| w.viewport.left_column) as usize;
-            let visible_lines = win
-                .as_ref()
-                .map_or(40, |w| w.viewport.visible_lines.max(20));
-            let visible_columns = win
-                .as_ref()
-                .map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
-            let mut out = String::new();
-            for row in 0..visible_lines {
-                let ln = top_line + row;
-                if ln >= buf.line_count() {
-                    break;
+            let cur_gen = s.edit_gen();
+            let rebuild = cur_gen != self.last_gen || self.cached_text.is_none();
+            let rebuild_input: Option<(String, String)> = if rebuild {
+                // The open file's path drives hikari language resolution.
+                let path = buf
+                    .path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let win = s.layout.active_window().cloned();
+                let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
+                let left_column = win.as_ref().map_or(0, |w| w.viewport.left_column) as usize;
+                let visible_lines = win
+                    .as_ref()
+                    .map_or(40, |w| w.viewport.visible_lines.max(20));
+                let visible_columns = win
+                    .as_ref()
+                    .map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
+                let mut out = String::new();
+                for row in 0..visible_lines {
+                    let ln = top_line + row;
+                    if ln >= buf.line_count() {
+                        break;
+                    }
+                    if let Some(line) = buf.line(ln) {
+                        let trimmed = line.trim_end_matches('\n').trim_end_matches('\r');
+                        // Slice to the visible horizontal window
+                        // `[left_column, left_column + visible_columns)`.
+                        // Char-based so multibyte text stays aligned; long
+                        // lines clip to the window, no glyphon wrap.
+                        let sliced: String = trimmed
+                            .chars()
+                            .skip(left_column)
+                            .take(visible_columns)
+                            .collect();
+                        out.push_str(&sliced);
+                        out.push('\n');
+                    }
                 }
-                if let Some(line) = buf.line(ln) {
-                    let trimmed = line.trim_end_matches('\n').trim_end_matches('\r');
-                    // Slice to the visible horizontal window
-                    // `[left_column, left_column + visible_columns)`. Char-based
-                    // so multibyte text stays aligned; we don't rely on glyphon
-                    // wrap — long lines are clipped to the window, not wrapped.
-                    let sliced: String = trimmed
-                        .chars()
-                        .skip(left_column)
-                        .take(visible_columns)
-                        .collect();
-                    out.push_str(&sliced);
-                    out.push('\n');
-                }
-            }
-            (out, path, s.modal.mode(), s.cursor().line, s.cursor().column)
+                Some((out, path))
+            } else {
+                None
+            };
+            (rebuild_input, s.modal.mode(), s.cursor().line, s.cursor().column, cur_gen)
         };
 
-        // ── 2. Layout glyphon buffer. ─────────────────────────────────
+        // ── 2. Rebuild the shaped main-text buffer ONLY on a generation
+        //    change; otherwise reuse the cached one. This is the seal
+        //    (theory/ESCRIBA.md §Refresh-Seal): highlight + set_rich_text +
+        //    shape — the frame's dominant cost — run once per edit, never
+        //    per vsync.
         let palette = VellumPalette::vellum();
         let fg = vellum_glyph(palette.snow1); // #E2DBC8 — warm cream fg
-        let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
-        buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
-        // hikari: resolve the language from the path, highlight the visible
-        // text, and paint each span its Nord color. The span vec is a
-        // coverage-complete, non-overlapping, sorted partition of `text` (the
-        // SpanSink invariant), so each (slice, color) run is a valid
-        // set_rich_text item — no manual gap-filling. Offsets are
-        // self-consistent because we highlight the same string we render.
-        let base = Attrs::new().family(Family::Monospace);
-        let hl = self.eco.highlighter_for_path(&path);
-        let spans = hl.highlight(&text);
-        let runs: Vec<(&str, Attrs)> = spans
-            .iter()
-            .filter_map(|s| {
-                text.get(s.span.range()).map(|slice| {
-                    (slice, base.clone().color(hl_to_glyph(self.theme.color(s.class))))
+        if let Some((text, path)) = rebuild_input {
+            let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
+            buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
+            // hikari: resolve the language, highlight the visible text, paint
+            // each span its Nord color. The span vec is a coverage-complete,
+            // non-overlapping, sorted partition of `text` (the SpanSink
+            // invariant), so each (slice, color) run is a valid set_rich_text
+            // item. Offsets are self-consistent (highlight == render string).
+            let base = Attrs::new().family(Family::Monospace);
+            let hl = self.eco.highlighter_for_path(&path);
+            let spans = hl.highlight(&text);
+            let runs: Vec<(&str, Attrs)> = spans
+                .iter()
+                .filter_map(|s| {
+                    text.get(s.span.range()).map(|slice| {
+                        (slice, base.clone().color(hl_to_glyph(self.theme.color(s.class))))
+                    })
                 })
-            })
-            .collect();
-        buffer.set_rich_text(
-            &mut ctx.text.font_system,
-            runs,
-            &base,
-            Shaping::Advanced,
-            None,
-        );
-        buffer.shape_until_scroll(&mut ctx.text.font_system, false);
+                .collect();
+            buffer.set_rich_text(&mut ctx.text.font_system, runs, &base, Shaping::Advanced, None);
+            buffer.shape_until_scroll(&mut ctx.text.font_system, false);
+            self.cached_text = Some(buffer);
+            self.last_gen = cur_gen;
+        }
+        let buffer = self
+            .cached_text
+            .as_ref()
+            .expect("cached_text is built on the first frame (last_gen inits to u64::MAX)");
 
         // Status line — rendered as its own glyphon buffer. The mode is the
         // BORN fleet mode glyph (`ishou_tokens::EscribaSignals`) + escriba's
@@ -183,7 +210,7 @@ impl RenderCallback for GpuRenderer {
 
         let text_areas = [
             TextArea {
-                buffer: &buffer,
+                buffer,
                 left: 8.0,
                 top: 8.0,
                 scale: 1.0,
