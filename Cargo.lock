@@ -951,6 +951,7 @@ dependencies = [
  "escriba-ui",
  "garasu 0.1.0 (git+https://github.com/pleme-io/garasu?branch=main)",
  "glyphon",
+ "hikari-core",
  "ishou-tokens",
  "madori",
  "serde",
@@ -1457,6 +1458,12 @@ name = "hexf-parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
+name = "hikari-core"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aba7ec15221525f51361accc68d2f809fd6a95a88ef770c4da9960aa01296b16"
 
 [[package]]
 name = "iana-time-zone"
