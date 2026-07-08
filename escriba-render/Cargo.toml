@@ -20,6 +20,9 @@ escriba-runtime = { workspace = true }
 ishou-tokens    = { workspace = true }
 madori          = { workspace = true }
 garasu          = { workspace = true }
+# hikari (光) — path→highlighter→coverage-complete HlClass spans; NordTheme
+# maps HlClass→Rgb. Replaces the flat single-color buffer paint.
+hikari-core     = { workspace = true }
 glyphon         = "0.9"
 wgpu            = "25"
 tracing         = { workspace = true }

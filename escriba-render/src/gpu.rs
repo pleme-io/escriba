@@ -21,6 +21,9 @@ use escriba_runtime::EditorState;
 use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
 use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb, VellumPalette};
 use madori::{RenderCallback, RenderContext};
+// hikari (光) — the fleet syntax-highlighting spine. path→Box<dyn Highlighter>,
+// coverage-complete HlClass span partition, HlClass→Rgb via NordTheme.
+use hikari_core::{Ecosystem, NordTheme, Rgb as HlRgb, Theme};
 
 /// Shared handle to the editor state — both the GPU renderer (reads) and
 /// the madori `on_event` callback (writes) hold one.
@@ -37,6 +40,10 @@ pub struct GpuRenderer {
     line_height: f32,
     /// Cached font metrics — rebuilt if font_size changes.
     metrics: Metrics,
+    /// hikari highlight registry (built once — resolves path→Highlighter).
+    eco: Ecosystem,
+    /// Nord syntax theme (HlClass→Rgb).
+    theme: NordTheme,
 }
 
 impl GpuRenderer {
@@ -49,6 +56,8 @@ impl GpuRenderer {
             font_size,
             line_height,
             metrics: Metrics::new(font_size, line_height),
+            eco: Ecosystem::with_builtins(),
+            theme: NordTheme,
         }
     }
 
@@ -64,7 +73,7 @@ impl GpuRenderer {
 impl RenderCallback for GpuRenderer {
     fn render(&mut self, ctx: &mut RenderContext<'_>) {
         // ── 1. Read state under lock, build display text. ──────────────
-        let (text, mode, cursor_line, cursor_col) = {
+        let (text, path, mode, cursor_line, cursor_col) = {
             let s = self
                 .state
                 .lock()
@@ -72,6 +81,12 @@ impl RenderCallback for GpuRenderer {
             let Some(buf) = s.buffers.get(s.active) else {
                 return clear_frame(ctx);
             };
+            // The open file's path drives hikari language resolution.
+            let path = buf
+                .path
+                .as_ref()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default();
             let win = s.layout.active_window().cloned();
             let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
             let left_column = win.as_ref().map_or(0, |w| w.viewport.left_column) as usize;
@@ -102,7 +117,7 @@ impl RenderCallback for GpuRenderer {
                     out.push('\n');
                 }
             }
-            (out, s.modal.mode(), s.cursor().line, s.cursor().column)
+            (out, path, s.modal.mode(), s.cursor().line, s.cursor().column)
         };
 
         // ── 2. Layout glyphon buffer. ─────────────────────────────────
@@ -112,11 +127,29 @@ impl RenderCallback for GpuRenderer {
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
         buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
-        buffer.set_text(
+        // hikari: resolve the language from the path, highlight the visible
+        // text, and paint each span its Nord color. The span vec is a
+        // coverage-complete, non-overlapping, sorted partition of `text` (the
+        // SpanSink invariant), so each (slice, color) run is a valid
+        // set_rich_text item — no manual gap-filling. Offsets are
+        // self-consistent because we highlight the same string we render.
+        let base = Attrs::new().family(Family::Monospace);
+        let hl = self.eco.highlighter_for_path(&path);
+        let spans = hl.highlight(&text);
+        let runs: Vec<(&str, Attrs)> = spans
+            .iter()
+            .filter_map(|s| {
+                text.get(s.span.range()).map(|slice| {
+                    (slice, base.clone().color(hl_to_glyph(self.theme.color(s.class))))
+                })
+            })
+            .collect();
+        buffer.set_rich_text(
             &mut ctx.text.font_system,
-            &text,
-            &Attrs::new().family(Family::Monospace),
+            runs,
+            &base,
             Shaping::Advanced,
+            None,
         );
         buffer.shape_until_scroll(&mut ctx.text.font_system, false);
 
@@ -277,6 +310,11 @@ fn nord_bg() -> wgpu::Color {
 
 /// ishou Vellum `Rgb` → glyphon `Color` (sRGB u8 RGBA, opaque).
 fn vellum_glyph(c: Rgb) -> GlyphColor {
+    GlyphColor::rgba(c.r, c.g, c.b, 0xFF)
+}
+
+/// hikari `Rgb` (sRGB u8) → glyphon `Color` (opaque) — the syntax-span paint.
+fn hl_to_glyph(c: HlRgb) -> GlyphColor {
     GlyphColor::rgba(c.r, c.g, c.b, 0xFF)
 }
 
