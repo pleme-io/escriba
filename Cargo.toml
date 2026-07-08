@@ -49,6 +49,9 @@ escriba-input   = { path = "escriba-input", version = "0.1.1" }
 escriba-runtime = { path = "escriba-runtime", version = "0.1.1" }
 escriba-ts      = { path = "escriba-ts", version = "0.1.1" }
 escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.1" }
+# hikari (光) — the fleet syntax-highlighting spine (crates.io, zero-dep).
+# escriba-render consumes it. See theory/HIKARI.md + theory/ESCRIBA.md.
+hikari-core     = "0.1.2"
 escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
 escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
 escriba-lisp    = { path = "escriba-lisp", version = "0.1.1" }
