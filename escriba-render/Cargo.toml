@@ -21,8 +21,10 @@ ishou-tokens    = { workspace = true }
 madori          = { workspace = true }
 garasu          = { workspace = true }
 # hikari (光) — path→highlighter→coverage-complete HlClass spans; NordTheme
-# maps HlClass→Rgb. Replaces the flat single-color buffer paint.
+# maps HlClass→Rgb. hikari-ts registers real tree-sitter grammars into the
+# Ecosystem (rust); the zero-dep table backend fills every other language.
 hikari-core     = { workspace = true }
+hikari-ts       = { workspace = true }
 glyphon         = "0.9"
 wgpu            = "25"
 tracing         = { workspace = true }
