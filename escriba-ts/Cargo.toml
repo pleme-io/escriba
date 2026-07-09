@@ -11,11 +11,12 @@ authors      .workspace = true
 [dependencies]
 escriba-core   = { workspace = true }
 escriba-buffer = { workspace = true }
+# The fleet semantic vocabulary — re-exported as escriba_ts::Semantic (dedup).
+hikari-token   = { workspace = true }
 tree-sitter           = "0.22"
 tree-sitter-highlight = "0.22"
 tree-sitter-rust      = "0.21"
 serde                 = { workspace = true }
-schemars              = { workspace = true }
 thiserror             = { workspace = true }
 
 [dev-dependencies]

@@ -53,6 +53,12 @@ pub struct GpuRenderer {
     /// The shaped main-text glyphon buffer, cached across frames while the
     /// generation is unchanged. `None` before the first paint.
     cached_text: Option<Buffer>,
+    /// The incremental highlighter for the active buffer's language (M2). Held
+    /// across frames so a re-highlight re-lexes only the lines that changed
+    /// (hikari's `LineState` fixpoint, `theory/ESCRIBA.md` §X) instead of the
+    /// whole visible window. Keyed by path so a language switch rebuilds it;
+    /// `None` before the first paint.
+    highlighter: Option<(String, Box<dyn hikari_core::IncrementalHighlighter>)>,
 }
 
 impl GpuRenderer {
@@ -69,6 +75,7 @@ impl GpuRenderer {
             theme: NordTheme,
             last_gen: EditGen(u64::MAX),
             cached_text: None,
+            highlighter: None,
         }
     }
 
@@ -160,7 +167,20 @@ impl RenderCallback for GpuRenderer {
             // invariant), so each (slice, color) run is a valid set_rich_text
             // item. Offsets are self-consistent (highlight == render string).
             let base = Attrs::new().family(Family::Monospace);
-            let hl = self.eco.highlighter_for_path(&path);
+            // hikari incremental (M2): reuse the per-path LineCache and re-lex
+            // only the lines that changed since the last frame (the LineState
+            // fixpoint). A language switch (path change) rebuilds the cache; a
+            // scroll re-lexes the newly-visible window (graceful degrade). This
+            // is byte-identical to the one-shot highlighter it replaces.
+            if self.highlighter.as_ref().is_none_or(|(p, _)| p != &path) {
+                self.highlighter =
+                    Some((path.clone(), self.eco.incremental_highlighter_for_path(&path)));
+            }
+            let hl = &mut self
+                .highlighter
+                .as_mut()
+                .expect("highlighter set immediately above")
+                .1;
             let spans = hl.highlight(&text);
             let runs: Vec<(&str, Attrs)> = spans
                 .iter()

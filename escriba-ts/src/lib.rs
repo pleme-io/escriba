@@ -11,31 +11,16 @@ extern crate self as escriba_ts;
 
 use std::collections::HashMap;
 
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Semantic highlight buckets — the small enum every tool (fmt/lint/LSP/nvim)
-/// agrees on. Mirrors `caixa_theme::Semantic` so consumers can map 1:1.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-pub enum Semantic {
-    Keyword,
-    Symbol,
-    KeywordArg,
-    String,
-    Number,
-    Literal,
-    Comment,
-    Accent,
-    Muted,
-    Error,
-    Warning,
-    Info,
-    Hint,
-    Added,
-    Removed,
-    Unchanged,
-}
+/// The fleet semantic highlight vocabulary — **owned by `hikari-token`** and
+/// re-exported here (dedup: the fleet grew several byte-identical copies of
+/// this 16-variant enum; the canonical one now lives in one crate and every
+/// consumer inherits changes on the next dep bump). `hikari_token::Semantic`
+/// carries the total `From<Semantic> for HlClass` morphism, so a highlight
+/// span produced here lowers into the hikari spine with no local mapping.
+pub use hikari_token::Semantic;
 use tree_sitter::{Language, Parser, Tree};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
