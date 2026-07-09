@@ -23,7 +23,7 @@ use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb, VellumPalette};
 use madori::{RenderCallback, RenderContext};
 // hikari (光) — the fleet syntax-highlighting spine. path→Box<dyn Highlighter>,
 // coverage-complete HlClass span partition, HlClass→Rgb via NordTheme.
-use hikari_core::{Ecosystem, NordTheme, Rgb as HlRgb, Theme};
+use hikari_core::{Ecosystem, Language, NordTheme, Rgb as HlRgb, Theme};
 
 /// Shared handle to the editor state — both the GPU renderer (reads) and
 /// the madori `on_event` callback (writes) hold one.
@@ -71,7 +71,7 @@ impl GpuRenderer {
             font_size,
             line_height,
             metrics: Metrics::new(font_size, line_height),
-            eco: Ecosystem::with_builtins(),
+            eco: build_ecosystem(),
             theme: NordTheme,
             last_gen: EditGen(u64::MAX),
             cached_text: None,
@@ -319,6 +319,33 @@ impl RenderCallback for GpuRenderer {
     }
 }
 
+/// The highlight registry escriba renders through: **tree-sitter grammars
+/// (hikari-ts) take precedence** for the languages they cover, and the zero-dep
+/// table backend fills every other language. So `.rs` gets real tree-sitter
+/// highlighting while `.py` / `.lisp` / `.json` / … get the batteries-included
+/// table lexer — and both flow through the same coverage-complete `HlClass`
+/// partition. Registration order is load-bearing: `Ecosystem::resolve` returns
+/// the first matching plugin, so tree-sitter (registered first) wins for its
+/// languages; the table backend is skipped for any language tree-sitter already
+/// covers (no duplicate). If the tree-sitter host fails to build, the table
+/// backend covers everything — never a panic, never an empty registry.
+fn build_ecosystem() -> Ecosystem {
+    let mut eco = Ecosystem::new();
+    let mut covered: Vec<Language> = Vec::new();
+    if let Ok(host) = hikari_ts::TreeSitterHost::builtin() {
+        for p in host.plugins() {
+            covered.push(p.language());
+            eco.register(p);
+        }
+    }
+    for p in hikari_core::langs::builtins() {
+        if !covered.contains(&p.language()) {
+            eco.register(p);
+        }
+    }
+    eco
+}
+
 /// Utility — clear the frame to Nord background. Used on error paths.
 fn clear_frame(ctx: &mut RenderContext<'_>) {
     let mut encoder = ctx
@@ -441,6 +468,29 @@ mod tests {
         let id = bufs.scratch("hello\n");
         let state = Arc::new(Mutex::new(EditorState::new_with_buffer(bufs, id)));
         let _r = GpuRenderer::new(state);
+    }
+
+    /// Phase 4: the render Ecosystem serves `.rs` from the **tree-sitter**
+    /// backend (hikari-ts) and other languages from the table backend — both a
+    /// coverage-complete `HlClass` partition. Proves real tree-sitter
+    /// highlighting is wired into the live render path (not just the table lexer).
+    #[test]
+    fn ecosystem_uses_tree_sitter_for_rust_and_table_for_the_rest() {
+        use hikari_core::{HlClass, Language};
+        let eco = build_ecosystem();
+        // .rs resolves to a grammar and produces real (non-Plain) classification.
+        assert_eq!(eco.resolve("src/main.rs"), Language("rust"));
+        let rs = eco
+            .highlighter_for_path("src/main.rs")
+            .highlight("fn main() { let x = 42; }");
+        assert!(
+            rs.iter().any(|s| s.class != HlClass::Plain),
+            "rust must be really highlighted (tree-sitter or table)",
+        );
+        // A tree-sitter-uncovered language still resolves via the table backend.
+        assert_eq!(eco.resolve("app.py"), Language("python"));
+        // An unknown extension is still total (plain text, never a panic).
+        assert_eq!(eco.resolve("notes.xyz"), hikari_core::PLAIN_TEXT);
     }
 
     #[test]

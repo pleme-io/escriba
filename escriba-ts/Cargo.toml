@@ -9,18 +9,9 @@ repository   .workspace = true
 authors      .workspace = true
 
 [dependencies]
-escriba-core   = { workspace = true }
-escriba-buffer = { workspace = true }
-# The fleet semantic vocabulary — re-exported as escriba_ts::Semantic (dedup).
-hikari-token   = { workspace = true }
-tree-sitter           = "0.22"
-tree-sitter-highlight = "0.22"
-tree-sitter-rust      = "0.21"
-serde                 = { workspace = true }
-thiserror             = { workspace = true }
-
-[dev-dependencies]
-pretty_assertions = { workspace = true }
+# The tree-sitter host lives in hikari-ts (self-contained, crates.io); this crate
+# re-exports it. escriba_ts::Semantic == hikari_token::Semantic transitively.
+hikari-ts = { workspace = true }
 
 [lints]
 workspace = true

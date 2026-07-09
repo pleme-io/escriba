@@ -55,6 +55,9 @@ escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.1" }
 # See theory/HIKARI.md + theory/ESCRIBA.md.
 hikari-core     = "0.1"
 hikari-token    = { version = "0.1", features = ["schema"] }
+# hikari-ts — the self-contained tree-sitter host; escriba-ts re-exports it and
+# escriba-render registers its grammars into the highlight Ecosystem.
+hikari-ts       = "0.1.5"
 escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
 escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
 escriba-lisp    = { path = "escriba-lisp", version = "0.1.1" }

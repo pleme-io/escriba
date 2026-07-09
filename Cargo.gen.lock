@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "540d27faba9912cc8addc13d2c5793efe5413cfd7dd756ff5a5855ed78ab8a23",
+  "cargo_lock_sha256": "855446603d9b1e2411f4758f42e9c0ff932c2ad2eae7de3af88b4c1e19317714",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2582,6 +2582,16 @@
             "tree": "target"
           },
           {
+            "name": "hikari_ts",
+            "package_key": "hikari-ts-0.1.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "ishou_tokens",
             "package_key": "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf",
             "kind": "normal",
@@ -2796,82 +2806,8 @@
       "escriba-ts-0.1.13": {
         "runtime_dependencies": [
           {
-            "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.13",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "escriba_core",
-            "package_key": "escriba-core-0.1.13",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "hikari_token",
-            "package_key": "hikari-token-0.1.4",
-            "kind": "normal",
-            "features": [
-              "schema"
-            ],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "serde",
-            "package_key": "serde-1.0.228",
-            "kind": "normal",
-            "features": [
-              "derive"
-            ],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "thiserror",
-            "package_key": "thiserror-2.0.18",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "tree_sitter",
-            "package_key": "tree-sitter-0.22.6",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "tree_sitter_highlight",
-            "package_key": "tree-sitter-highlight-0.22.6",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "tree_sitter_rust",
-            "package_key": "tree-sitter-rust-0.21.2",
+            "name": "hikari_ts",
+            "package_key": "hikari-ts-0.1.5",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4194,12 +4130,40 @@
             "tree": "target"
           },
           {
-            "name": "schemars",
-            "package_key": "schemars-0.8.22",
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "hikari-ts-0.1.5": {
+        "runtime_dependencies": [
+          {
+            "name": "hikari_core",
+            "package_key": "hikari-core-0.1.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
-            "optional": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "hikari_token",
+            "package_key": "hikari-token-0.1.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
             "target": null,
             "tree": "target"
           },
@@ -4214,12 +4178,50 @@
             "optional": false,
             "target": null,
             "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-1.0.69",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_highlight",
+            "package_key": "tree-sitter-highlight-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_rust",
+            "package_key": "tree-sitter-rust-0.21.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
           }
         ],
         "build_dependencies": [],
-        "features": [
-          "schema"
-        ]
+        "features": []
       },
       "ident_case-1.0.1": {
         "runtime_dependencies": [],
@@ -24558,6 +24560,9 @@
       "edition": "2024"
     },
     "hikari-token-0.1.4": {
+      "edition": "2024"
+    },
+    "hikari-ts-0.1.5": {
       "edition": "2024"
     },
     "iana-time-zone-0.1.65": {

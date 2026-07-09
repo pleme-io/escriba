@@ -952,6 +952,7 @@ dependencies = [
  "garasu 0.1.0 (git+https://github.com/pleme-io/garasu?branch=main)",
  "glyphon",
  "hikari-core",
+ "hikari-ts",
  "ishou-tokens",
  "madori",
  "serde",
@@ -993,15 +994,7 @@ dependencies = [
 name = "escriba-ts"
 version = "0.1.13"
 dependencies = [
- "escriba-buffer",
- "escriba-core",
- "hikari-token",
- "pretty_assertions",
- "serde",
- "thiserror 2.0.18",
- "tree-sitter",
- "tree-sitter-highlight",
- "tree-sitter-rust",
+ "hikari-ts",
 ]
 
 [[package]]
@@ -1472,8 +1465,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f92ffaccb2ff06210ffc7e7e0427b15340b3eddba8af0cea8478b82c44d19fc7"
 dependencies = [
  "hikari-core",
- "schemars",
  "serde",
+]
+
+[[package]]
+name = "hikari-ts"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4e0a19ce20b51d27f4a1ba59df4e2c72f99d465c233ad3e8c03bf7a4d400279"
+dependencies = [
+ "hikari-core",
+ "hikari-token",
+ "serde",
+ "thiserror 1.0.69",
+ "tree-sitter",
+ "tree-sitter-highlight",
+ "tree-sitter-rust",
 ]
 
 [[package]]
