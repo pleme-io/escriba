@@ -56,8 +56,9 @@ escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.1" }
 hikari-core     = "0.1"
 hikari-token    = { version = "0.1", features = ["schema"] }
 # hikari-ts — the self-contained tree-sitter host; escriba-ts re-exports it and
-# escriba-render registers its grammars into the highlight Ecosystem.
-hikari-ts       = "0.1.5"
+# escriba-render registers its grammars into the highlight Ecosystem. Caret so a
+# hikari-ts bump (new grammars) widens the editor's real-highlighting set free.
+hikari-ts       = "0.1"
 escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
 escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
 escriba-lisp    = { path = "escriba-lisp", version = "0.1.1" }

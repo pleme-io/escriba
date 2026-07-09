@@ -487,8 +487,11 @@ mod tests {
             rs.iter().any(|s| s.class != HlClass::Plain),
             "rust must be really highlighted (tree-sitter or table)",
         );
-        // A tree-sitter-uncovered language still resolves via the table backend.
+        // Python is also served (tree-sitter, once hikari-ts ships that grammar;
+        // the table backend covers it otherwise) — either way it classifies.
         assert_eq!(eco.resolve("app.py"), Language("python"));
+        // A tree-sitter-uncovered language still resolves via the table backend.
+        assert_eq!(eco.resolve("init.lisp"), Language("lisp"));
         // An unknown extension is still total (plain text, never a panic).
         assert_eq!(eco.resolve("notes.xyz"), hikari_core::PLAIN_TEXT);
     }
