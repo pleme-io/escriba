@@ -18,7 +18,8 @@ use std::collections::HashMap;
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
 use escriba_core::{
-    Action, BufferId, Cursors, Edit, EditGen, Mode, Motion, Operator, Position, Range, WindowId,
+    Action, BufferId, Cursors, Damage, Edit, EditGen, Mode, Motion, Operator, Position, Range,
+    WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -91,6 +92,11 @@ pub struct EditorState {
     /// action + resize; the renderer gates on it so an idle frame does zero
     /// re-highlight / re-shape, and a stale frame is unreachable.
     edit_gen: EditGen,
+    /// The accumulated dirty region since the renderer last drained it (M1).
+    /// Only ever widened via [`Damage::join`] at the mutation funnel, so it
+    /// always covers the changed region (`Damage ⊇ changed`); the renderer
+    /// drains it with [`take_damage`](Self::take_damage) to scope its work.
+    damage: Damage,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -140,6 +146,7 @@ impl EditorState {
             repeat_gate: KeyRepeatGate::new(),
             plugin_host: PluginHost::default(),
             edit_gen: EditGen::default(),
+            damage: Damage::None,
         }
     }
 
@@ -154,6 +161,27 @@ impl EditorState {
     /// Advance the refresh generation (a mutation happened).
     fn bump_gen(&mut self) {
         self.edit_gen = self.edit_gen.next();
+    }
+
+    /// The accumulated dirty region (read-only). See [`take_damage`](Self::take_damage).
+    #[must_use]
+    pub fn damage(&self) -> Damage {
+        self.damage
+    }
+
+    /// Drain the accumulated dirty region, resetting to [`Damage::None`]. The
+    /// renderer calls this once per frame to learn what to repaint, then the
+    /// accumulator restarts — so damage never double-counts across frames.
+    pub fn take_damage(&mut self) -> Damage {
+        std::mem::replace(&mut self.damage, Damage::None)
+    }
+
+    /// The line count of the active buffer (0 if none) — used to compute the
+    /// [`Damage`] scope of a mutation.
+    fn active_line_count(&self) -> u32 {
+        self.buffers
+            .get(self.active)
+            .map_or(0, escriba_buffer::Buffer::line_count)
     }
 
     /// Register a lazy USER plugin: its escriba entry is deferred until
@@ -241,6 +269,7 @@ impl EditorState {
                     w.rect.width = width;
                     w.rect.height = height;
                 }
+                self.damage = self.damage.join(Damage::Viewport);
                 self.bump_gen();
             }
             InputOutcome::Quit => self.quit_requested = true,
@@ -405,6 +434,10 @@ impl EditorState {
     }
 
     fn apply_resolved(&mut self, action: &Action) {
+        // Snapshot the scope inputs before the mutation so the resulting
+        // Damage covers the changed region (the S3 seal — conservative widen).
+        let lines_before = self.active_line_count();
+        let cline_before = self.cursor().line;
         match action {
             Action::Move(m) => self.apply_motion(*m),
             Action::ChangeMode(m) => self.modal.enter(*m),
@@ -439,6 +472,33 @@ impl EditorState {
             Action::Operator(_) => {}
             Action::Pending => {}
         }
+        // Widen the dirty region by what this action touched (M1). Content
+        // mutations that changed the line count run to end-of-document (every
+        // line below shifted); an in-place edit or a cursor move is local;
+        // arbitrary commands are conservatively Full. Never narrows.
+        let lines_after = self.active_line_count();
+        let cline_after = self.cursor().line;
+        let d = match action {
+            Action::InsertChar(_)
+            | Action::Edit(_)
+            | Action::Undo
+            | Action::Redo
+            | Action::ApplyOperator { .. } => {
+                if lines_after == lines_before {
+                    Damage::span(cline_before, cline_after)
+                } else {
+                    Damage::Lines {
+                        from: cline_before.min(cline_after),
+                        to: u32::MAX,
+                    }
+                }
+            }
+            Action::Move(_) | Action::ChangeMode(_) => Damage::span(cline_before, cline_after),
+            Action::Save => Damage::Viewport,
+            Action::Command { .. } | Action::SubmitCommand => Damage::Full,
+            Action::Quit | Action::Operator(_) | Action::Pending => Damage::None,
+        };
+        self.damage = self.damage.join(d);
         // An action reached the executor ⇒ visible state may have changed.
         // Advance the refresh generation so the renderer repaints (and
         // re-highlights) exactly once. A gated-out key never reaches here, so
@@ -818,6 +878,37 @@ mod tests {
         // Reading the generation is not a mutation — idle frames stay put.
         let g1 = s.edit_gen();
         assert_eq!(s.edit_gen(), g1, "reading edit_gen must not advance it");
+    }
+
+    /// The M1 refresh node (theory/ESCRIBA.md §X): a mutation widens the typed
+    /// `Damage` to cover exactly what changed — local for an in-place edit,
+    /// to-end-of-document when the line count shifts — and the renderer drains
+    /// it per frame. `Damage ⊇ changed` by construction; it never narrows.
+    #[test]
+    fn damage_tracks_edit_scope_and_drains() {
+        let mut s = new_state_with("hello\nworld\n");
+        assert!(s.damage().is_none(), "a fresh state has no damage");
+
+        s.apply(&Action::InsertChar('X')); // in-place edit on line 0
+        assert_eq!(
+            s.damage(),
+            Damage::Lines { from: 0, to: 0 },
+            "a local edit damages just its line",
+        );
+
+        let drained = s.take_damage();
+        assert_eq!(drained, Damage::Lines { from: 0, to: 0 });
+        assert!(s.damage().is_none(), "take_damage drains to None");
+
+        s.apply(&Action::InsertChar('\n')); // splits line 0 → line count grows
+        assert_eq!(
+            s.damage(),
+            Damage::Lines {
+                from: 0,
+                to: u32::MAX,
+            },
+            "a line-count change damages to end-of-document",
+        );
     }
 
     /// A state whose active window is a deliberately tiny viewport

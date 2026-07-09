@@ -995,8 +995,8 @@ version = "0.1.13"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
+ "hikari-token",
  "pretty_assertions",
- "schemars",
  "serde",
  "thiserror 2.0.18",
  "tree-sitter",
@@ -1461,9 +1461,20 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
 name = "hikari-core"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aba7ec15221525f51361accc68d2f809fd6a95a88ef770c4da9960aa01296b16"
+checksum = "1f780c8fd946f9529e24db2b0bd1427c4499939fb1b8f19a85c01a72d29ea329"
+
+[[package]]
+name = "hikari-token"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f92ffaccb2ff06210ffc7e7e0427b15340b3eddba8af0cea8478b82c44d19fc7"
+dependencies = [
+ "hikari-core",
+ "schemars",
+ "serde",
+]
 
 [[package]]
 name = "iana-time-zone"

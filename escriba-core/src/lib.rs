@@ -20,6 +20,7 @@
 extern crate self as escriba_core;
 
 pub mod action;
+pub mod damage;
 pub mod edit;
 pub mod r#gen;
 pub mod id;
@@ -30,6 +31,7 @@ pub mod range;
 pub mod selection;
 
 pub use action::{Action, CountedAction};
+pub use damage::{Damage, LineDelta};
 pub use edit::{Edit, EditKind};
 pub use r#gen::EditGen;
 pub use id::{BufferId, CaretId, WindowId};
