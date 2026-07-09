@@ -21,7 +21,7 @@ use thiserror::Error;
 /// carries the total `From<Semantic> for HlClass` morphism, so a highlight
 /// span produced here lowers into the hikari spine with no local mapping.
 pub use hikari_token::Semantic;
-use tree_sitter::{Language, Parser, Tree};
+use tree_sitter::{InputEdit, Language, Parser, Point, Tree};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 #[derive(Debug, Error)]
@@ -151,10 +151,43 @@ impl BufferParser {
         &self.language
     }
 
-    /// Re-parse the full source. Phase 2: incremental `Tree::edit` + reparse.
+    /// Re-parse `src` from scratch. Passes `None` as the old tree on purpose:
+    /// tree-sitter's incremental path requires the old tree to have been
+    /// `Tree::edit`-ed to reflect exactly what changed, and this method is the
+    /// unstructured "the whole buffer is now `src`" path where the edit is
+    /// unknown. Handing `parse()` an *un-edited* old tree against changed source
+    /// violates tree-sitter's contract and can yield an incorrect tree — so the
+    /// correct answer for an unknown delta is a full parse. Callers that know
+    /// the edit use [`reparse_edit`](Self::reparse_edit) for the incremental
+    /// (`Tree::edit` + reuse) path.
     pub fn reparse(&mut self, src: &str) -> Result<()> {
-        let new = self.parser.parse(src, self.tree.as_ref());
-        self.tree = new;
+        self.tree = self.parser.parse(src, None);
+        Ok(())
+    }
+
+    /// Incrementally re-parse after splicing `[start_byte, old_end_byte)` of
+    /// `old_src` to produce `new_src` (M5, `theory/ESCRIBA.md` §X). Edits the
+    /// retained tree by the splice ([`TsEdit`]) so tree-sitter reuses every
+    /// unchanged subtree and reparses only the affected span — `O(edit)`, not
+    /// `O(document)`. With no prior tree it falls back to a full parse. The
+    /// resulting tree is identical to a full parse of `new_src` (the
+    /// differential-equivalence invariant, tested).
+    pub fn reparse_edit(
+        &mut self,
+        old_src: &str,
+        new_src: &str,
+        start_byte: usize,
+        old_end_byte: usize,
+    ) -> Result<()> {
+        if self.tree.is_some() {
+            let edit = TsEdit::from_splice(old_src, new_src, start_byte, old_end_byte);
+            if let Some(tree) = self.tree.as_mut() {
+                tree.edit(&edit.to_input_edit());
+            }
+            self.tree = self.parser.parse(new_src, self.tree.as_ref());
+        } else {
+            self.tree = self.parser.parse(new_src, None);
+        }
         Ok(())
     }
 
@@ -162,6 +195,68 @@ impl BufferParser {
     pub fn tree(&self) -> Option<&Tree> {
         self.tree.as_ref()
     }
+}
+
+/// A typed, byte-based description of one contiguous splice, for incremental
+/// tree-sitter reparse. tree-sitter's native unit is the byte offset + a
+/// `(row, byte-column)` point, so this converts from a plain source splice —
+/// no tree-sitter type crosses the caller boundary. Construct with
+/// [`from_splice`](TsEdit::from_splice).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TsEdit {
+    pub start_byte: usize,
+    pub old_end_byte: usize,
+    pub new_end_byte: usize,
+    /// `(row, byte-column)` of the splice start (identical in old + new — the
+    /// prefix is unchanged).
+    pub start_point: (usize, usize),
+    pub old_end_point: (usize, usize),
+    pub new_end_point: (usize, usize),
+}
+
+impl TsEdit {
+    /// Compute the splice that turns `old` into `new` by replacing
+    /// `old[start_byte..old_end_byte]`. The unchanged suffix
+    /// (`old[old_end_byte..]`) has the same length in `new`, so
+    /// `new_end_byte = new.len() - (old.len() - old_end_byte)`. Points are
+    /// derived by counting the `\n`s in the respective text before each byte
+    /// (tree-sitter columns are byte offsets within the row).
+    #[must_use]
+    pub fn from_splice(old: &str, new: &str, start_byte: usize, old_end_byte: usize) -> Self {
+        let new_end_byte = new.len() - (old.len() - old_end_byte);
+        Self {
+            start_byte,
+            old_end_byte,
+            new_end_byte,
+            start_point: byte_to_point(old, start_byte),
+            old_end_point: byte_to_point(old, old_end_byte),
+            new_end_point: byte_to_point(new, new_end_byte),
+        }
+    }
+
+    fn to_input_edit(self) -> InputEdit {
+        let pt = |(row, column): (usize, usize)| Point { row, column };
+        InputEdit {
+            start_byte: self.start_byte,
+            old_end_byte: self.old_end_byte,
+            new_end_byte: self.new_end_byte,
+            start_position: pt(self.start_point),
+            old_end_position: pt(self.old_end_point),
+            new_end_position: pt(self.new_end_point),
+        }
+    }
+}
+
+/// `(row, byte-column)` of `byte` within `text` — row = number of `\n` before
+/// `byte`, column = bytes since the last `\n`. tree-sitter's point columns are
+/// byte offsets within the line, not char offsets.
+#[must_use]
+fn byte_to_point(text: &str, byte: usize) -> (usize, usize) {
+    let byte = byte.min(text.len());
+    let prefix = &text[..byte];
+    let row = prefix.bytes().filter(|&b| b == b'\n').count();
+    let col = prefix.len() - prefix.rfind('\n').map_or(0, |i| i + 1);
+    (row, col)
 }
 
 /// A colored text span — byte range + canonical semantic bucket.
@@ -305,5 +400,87 @@ mod tests {
     fn unknown_grammar_errors() {
         let r = GrammarRegistry::builtin().unwrap();
         assert!(BufferParser::new("klingon", &r).is_err());
+    }
+
+    // ── M5: incremental Tree::edit reparse ──
+
+    #[test]
+    fn byte_to_point_counts_rows_and_byte_columns() {
+        assert_eq!(byte_to_point("abc", 2), (0, 2));
+        assert_eq!(byte_to_point("ab\ncd", 0), (0, 0));
+        assert_eq!(byte_to_point("ab\ncd", 3), (1, 0)); // just after the \n
+        assert_eq!(byte_to_point("ab\ncd", 5), (1, 2)); // end of "cd"
+        assert_eq!(byte_to_point("x\ny\nz", 4), (2, 0));
+    }
+
+    /// The M5 seal: an incremental `Tree::edit` reparse yields a tree identical
+    /// to a full parse of the new source — incrementality is an optimization,
+    /// never a semantic change. Single-line value edit (`1` → `42`).
+    #[test]
+    fn incremental_reparse_equals_full_parse_single_line() {
+        let r = GrammarRegistry::builtin().unwrap();
+        let old = "fn main() { let x = 1; }";
+        let new = "fn main() { let x = 42; }";
+        let start = old.find('1').unwrap();
+        let old_end = start + 1; // "1" is one byte
+
+        let mut inc = BufferParser::new("rust", &r).unwrap();
+        inc.reparse(old).unwrap();
+        inc.reparse_edit(old, new, start, old_end).unwrap();
+
+        let mut full = BufferParser::new("rust", &r).unwrap();
+        full.reparse(new).unwrap();
+
+        assert_eq!(
+            inc.tree().unwrap().root_node().to_sexp(),
+            full.tree().unwrap().root_node().to_sexp(),
+            "incremental reparse must equal a full parse of the new source",
+        );
+    }
+
+    /// Same seal across a newline-inserting edit (rows shift below the splice).
+    #[test]
+    fn incremental_reparse_equals_full_parse_multiline() {
+        let r = GrammarRegistry::builtin().unwrap();
+        let old = "fn a() {}\nfn b() {}\n";
+        let new = "fn a() {}\nfn NEW() {}\nfn b() {}\n";
+        // Insert "fn NEW() {}\n" at the start of line 1 (byte just after first '\n').
+        let start = old.find('\n').unwrap() + 1;
+        let old_end = start; // pure insertion
+
+        let mut inc = BufferParser::new("rust", &r).unwrap();
+        inc.reparse(old).unwrap();
+        inc.reparse_edit(old, new, start, old_end).unwrap();
+
+        let mut full = BufferParser::new("rust", &r).unwrap();
+        full.reparse(new).unwrap();
+
+        assert_eq!(
+            inc.tree().unwrap().root_node().to_sexp(),
+            full.tree().unwrap().root_node().to_sexp(),
+        );
+    }
+
+    /// A no-prior-tree `reparse_edit` falls back to a correct full parse.
+    #[test]
+    fn reparse_edit_without_prior_tree_full_parses() {
+        let r = GrammarRegistry::builtin().unwrap();
+        let mut p = BufferParser::new("rust", &r).unwrap();
+        let new = "fn z() {}";
+        p.reparse_edit("", new, 0, 0).unwrap();
+        assert!(p.tree().is_some());
+        assert!(!p.tree().unwrap().root_node().has_error());
+    }
+
+    #[test]
+    fn ts_edit_new_end_byte_accounts_for_length_delta() {
+        // "1" -> "42": +1 byte, so new_end_byte = start + 2.
+        let old = "x = 1;";
+        let new = "x = 42;";
+        let start = old.find('1').unwrap();
+        let e = TsEdit::from_splice(old, new, start, start + 1);
+        assert_eq!(e.start_byte, start);
+        assert_eq!(e.old_end_byte, start + 1);
+        assert_eq!(e.new_end_byte, start + 2);
     }
 }
