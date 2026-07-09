@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "855446603d9b1e2411f4758f42e9c0ff932c2ad2eae7de3af88b4c1e19317714",
+  "cargo_lock_sha256": "3d6e2f04c1bb57a2762033ff20a14ead99ff58620d5e0560b35b714145bb819e",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2583,7 +2583,7 @@
           },
           {
             "name": "hikari_ts",
-            "package_key": "hikari-ts-0.1.5",
+            "package_key": "hikari-ts-0.1.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2807,7 +2807,7 @@
         "runtime_dependencies": [
           {
             "name": "hikari_ts",
-            "package_key": "hikari-ts-0.1.5",
+            "package_key": "hikari-ts-0.1.6",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4145,7 +4145,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "hikari-ts-0.1.5": {
+      "hikari-ts-0.1.6": {
         "runtime_dependencies": [
           {
             "name": "hikari_core",
@@ -4200,8 +4200,38 @@
             "tree": "target"
           },
           {
+            "name": "tree_sitter_bash",
+            "package_key": "tree-sitter-bash-0.21.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "tree_sitter_highlight",
             "package_key": "tree-sitter-highlight-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_json",
+            "package_key": "tree-sitter-json-0.21.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_python",
+            "package_key": "tree-sitter-python-0.21.0",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -8092,6 +8122,33 @@
         ],
         "features": []
       },
+      "tree-sitter-bash-0.21.0": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
       "tree-sitter-highlight-0.22.6": {
         "runtime_dependencies": [
           {
@@ -8136,6 +8193,60 @@
           }
         ],
         "build_dependencies": [],
+        "features": []
+      },
+      "tree-sitter-json-0.21.0": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
+      "tree-sitter-python-0.21.0": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
         "features": []
       },
       "tree-sitter-rust-0.21.2": {
@@ -24562,7 +24673,7 @@
     "hikari-token-0.1.4": {
       "edition": "2024"
     },
-    "hikari-ts-0.1.5": {
+    "hikari-ts-0.1.6": {
       "edition": "2024"
     },
     "iana-time-zone-0.1.65": {
@@ -25098,8 +25209,32 @@
         "path": "binding_rust/lib.rs"
       }
     },
+    "tree-sitter-bash-0.21.0": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_bash",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
     "tree-sitter-highlight-0.22.6": {
       "edition": "2021"
+    },
+    "tree-sitter-json-0.21.0": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_json",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
+    "tree-sitter-python-0.21.0": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_python",
+        "path": "bindings/rust/lib.rs"
+      }
     },
     "tree-sitter-rust-0.21.2": {
       "edition": "2021",
