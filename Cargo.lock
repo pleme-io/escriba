@@ -1024,6 +1024,7 @@ dependencies = [
  "escriba-buffer",
  "escriba-core",
  "escriba-mode",
+ "ishou-tokens",
  "pretty_assertions",
  "schemars",
  "serde",

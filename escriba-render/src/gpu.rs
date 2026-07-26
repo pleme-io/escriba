@@ -8,7 +8,7 @@
 //!   4. Prepares + renders through `madori::RenderContext::text`.
 //!
 //! Colors are the **Vellum** fleet theme (warm aged-paper Nord-matte),
-//! sourced from `ishou_tokens::VellumPalette` so the GPU chrome matches
+//! sourced from `escriba_ui::chrome::ChromePalette` so the GPU chrome matches
 //! the rest of the fleet (mado, tear, frostmourne, …) and escriba's TUI
 //! backend. Text is rendered in `snow1` (#E2DBC8, warm cream foreground)
 //! over a `night0` (#16140E, parchment ground) background. The status
@@ -19,7 +19,8 @@ use std::sync::{Arc, Mutex};
 use escriba_core::{EditGen, Mode};
 use escriba_runtime::EditorState;
 use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
-use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb, VellumPalette};
+use escriba_ui::chrome::ChromePalette;
+use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb};
 use madori::{RenderCallback, RenderContext};
 // hikari (光) — the fleet syntax-highlighting spine. path→Box<dyn Highlighter>,
 // coverage-complete HlClass span partition, HlClass→Rgb via NordTheme.
@@ -154,8 +155,8 @@ impl RenderCallback for GpuRenderer {
         //    (theory/ESCRIBA.md §Refresh-Seal): highlight + set_rich_text +
         //    shape — the frame's dominant cost — run once per edit, never
         //    per vsync.
-        let palette = VellumPalette::vellum();
-        let fg = vellum_glyph(palette.snow1); // #E2DBC8 — warm cream fg
+        let palette = ChromePalette::prescribed();
+        let fg = chrome_glyph(palette.text);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
         if let Some((text, path)) = rebuild_input {
@@ -226,7 +227,7 @@ impl RenderCallback for GpuRenderer {
         );
         status_buf.shape_until_scroll(&mut ctx.text.font_system, false);
 
-        let status_color = vellum_glyph(palette.ice_cyan); // #94BBB8 — matte accent
+        let status_color = chrome_glyph(palette.info);
 
         let text_areas = [
             TextArea {
@@ -284,7 +285,7 @@ impl RenderCallback for GpuRenderer {
                     view: ctx.surface_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(nord_bg()),
+                        load: wgpu::LoadOp::Clear(ground_bg()),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -361,7 +362,7 @@ fn clear_frame(ctx: &mut RenderContext<'_>) {
                 view: ctx.surface_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(nord_bg()),
+                    load: wgpu::LoadOp::Clear(ground_bg()),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -373,17 +374,18 @@ fn clear_frame(ctx: &mut RenderContext<'_>) {
     ctx.gpu.queue.submit(std::iter::once(encoder.finish()));
 }
 
-/// Vellum parchment-ground background (`night0` #16140E) as
-/// `wgpu::Color`. Gamma-correct: the sRGB token is promoted through
-/// `ishou_tokens`' typed sRGB→linear path so it composites correctly on
-/// the linear-storage surface.
-fn nord_bg() -> wgpu::Color {
-    let c = VellumPalette::vellum().night0;
+/// The editor ground as `wgpu::Color`, resolved from the fleet-prescribed
+/// theme's `background` role. Gamma-correct: the sRGB token is promoted
+/// through `ishou_tokens`' typed sRGB→linear path so it composites
+/// correctly on the linear-storage surface.
+fn ground_bg() -> wgpu::Color {
+    let c = ChromePalette::prescribed().background;
     Srgb::from(c).to_linear().with_alpha(1.0).into()
 }
 
-/// ishou Vellum `Rgb` → glyphon `Color` (sRGB u8 RGBA, opaque).
-fn vellum_glyph(c: Rgb) -> GlyphColor {
+/// ishou `Rgb` → glyphon `Color` (sRGB u8 RGBA, opaque). Theme-agnostic —
+/// was `vellum_glyph`, back when the paint path was hardwired to Vellum.
+fn chrome_glyph(c: Rgb) -> GlyphColor {
     GlyphColor::rgba(c.r, c.g, c.b, 0xFF)
 }
 
@@ -392,17 +394,17 @@ fn hl_to_glyph(c: HlRgb) -> GlyphColor {
     GlyphColor::rgba(c.r, c.g, c.b, 0xFF)
 }
 
-/// Mode indicator color — used by higher-layer rendering paths that want
-/// a glance-readable color. Vellum mode pills: Normal cyan, Insert green,
-/// Visual purple, Command yellow.
+/// Mode indicator color — used by higher-layer rendering paths that want a
+/// glance-readable color. Named by ROLE so the hue follows the active theme:
+/// Normal info, Insert success, Visual accent, Command warning.
 #[must_use]
 pub fn mode_color(mode: Mode) -> Rgb {
-    let p = VellumPalette::vellum();
+    let c = ChromePalette::prescribed();
     match mode {
-        Mode::Insert => p.aurora_green,    // #A9BB8C
-        Mode::Command => p.first_light,    // #D7C489
-        Mode::Visual | Mode::VisualLine => p.solar_magenta, // #B8A1B9
-        Mode::Normal => p.ice_cyan,        // #94BBB8
+        Mode::Insert => c.success,
+        Mode::Command => c.warning,
+        Mode::Visual | Mode::VisualLine => c.accent,
+        Mode::Normal => c.info,
     }
 }
 
@@ -438,28 +440,25 @@ mod tests {
     use escriba_buffer::BufferSet;
 
     #[test]
-    fn nord_bg_is_vellum_parchment() {
-        let bg = nord_bg();
-        // Vellum night0 = #16140E promoted to gamma-correct linear: the
-        // parchment ground is a very dark warm tone, so all channels sit
-        // near zero (r ≳ g ≳ b) after the sRGB→linear transform.
-        assert!((0.0..0.03).contains(&bg.r), "r = {}", bg.r);
-        assert!((0.0..0.03).contains(&bg.g), "g = {}", bg.g);
-        assert!((0.0..0.03).contains(&bg.b), "b = {}", bg.b);
-        // Warm: red channel >= green >= blue (a > e > 0E in hex).
-        assert!(bg.r >= bg.g && bg.g >= bg.b);
-        assert_eq!(bg.a, 1.0);
-    }
-
-    #[test]
-    fn nord_bg_matches_ishou_night0() {
-        // The clear color must equal the BORN Vellum background token
-        // run through ishou's typed sRGB→linear path — no drift.
-        let want: wgpu::Color = Srgb::from(VellumPalette::vellum().night0)
+    fn ground_is_the_prescribed_theme_promoted_to_linear() {
+        let bg = ground_bg();
+        // Was pinned to Vellum's warm parchment (night0 #16140E, r >= g >= b).
+        // The prescribed theme is now Nord, whose ground is COOL (b >= r), so
+        // the old warmth assertion was theme-specific and had to go. What is
+        // actually invariant — and worth asserting — is that the ground is a
+        // dark, opaque, gamma-correct promotion of the theme's own
+        // background role.
+        let want = Srgb::from(ChromePalette::prescribed().background)
             .to_linear()
-            .with_alpha(1.0)
-            .into();
-        assert_eq!(nord_bg(), want);
+            .with_alpha(1.0);
+        let want: wgpu::Color = want.into();
+        assert!((bg.r - want.r).abs() < 1e-6, "r {} != {}", bg.r, want.r);
+        assert!((bg.g - want.g).abs() < 1e-6, "g {} != {}", bg.g, want.g);
+        assert!((bg.b - want.b).abs() < 1e-6, "b {} != {}", bg.b, want.b);
+        assert_eq!(bg.a, 1.0);
+        // Dark ground: an editor background must stay well below mid-grey in
+        // linear space whatever the theme.
+        assert!(bg.r < 0.1 && bg.g < 0.1 && bg.b < 0.1, "ground is not dark: {bg:?}");
     }
 
     #[test]
@@ -515,13 +514,26 @@ mod tests {
         assert_eq!(cursor_shape(Mode::VisualLine), CursorShape::Underline);
     }
 
+    /// Mode pills map to ROLES, not to one theme's hexes. This test used to
+    /// pin the four Vellum values (`#94BBB8` …), which is precisely why it
+    /// went red the moment the fleet theme moved — a test asserting a
+    /// theme's spelling has to be rewritten on every theme change, and is
+    /// no evidence the mapping is right. Asserting role identity instead
+    /// survives the move AND still catches a mis-wired pill.
     #[test]
-    fn mode_colors_are_vellum_pills() {
-        // Normal cyan, Insert green, Visual purple, Command yellow.
-        assert_eq!(mode_color(Mode::Normal).hex(), "#94BBB8");
-        assert_eq!(mode_color(Mode::Insert).hex(), "#A9BB8C");
-        assert_eq!(mode_color(Mode::Visual).hex(), "#B8A1B9");
-        assert_eq!(mode_color(Mode::Command).hex(), "#D7C489");
+    fn mode_colors_are_role_pills() {
+        let c = ChromePalette::prescribed();
+        assert_eq!(mode_color(Mode::Normal).hex(), c.info.hex(), "Normal = info");
+        assert_eq!(mode_color(Mode::Insert).hex(), c.success.hex(), "Insert = success");
+        assert_eq!(mode_color(Mode::Visual).hex(), c.accent.hex(), "Visual = accent");
+        assert_eq!(mode_color(Mode::Command).hex(), c.warning.hex(), "Command = warning");
+
+        // The four pills must be mutually distinct, or the mode is not
+        // glance-readable regardless of which theme is active.
+        let mut seen = std::collections::BTreeSet::new();
+        for m in [Mode::Normal, Mode::Insert, Mode::Visual, Mode::Command] {
+            assert!(seen.insert(mode_color(m).hex()), "{m:?} duplicates another pill");
+        }
     }
 
     /// Forcing function: the status-line mode glyphs are sourced from the
@@ -544,24 +556,20 @@ mod tests {
         );
     }
 
-    /// Fleet convergence guard: escriba's GPU chrome paints through
-    /// `VellumPalette::vellum()` — the fleet-prescribed `FleetTheme::Vellum`.
-    /// This pins that convergence so a drift in the fleet baseline (e.g.
-    /// `FleetDefaults::prescribed().theme` moving off Vellum) surfaces here
-    /// instead of silently leaving escriba's chrome out of step with the
-    /// rest of the fleet (mado, tear, frostmourne, …). Formalises the
-    /// ad-hoc token pins in `nord_bg_matches_ishou_night0` /
-    /// `mode_colors_are_vellum_pills` under the shared
-    /// `ishou_tokens::convergence::Guard` harness the other fleet apps use.
+    /// Fleet convergence guard: escriba's GPU chrome paints whatever
+    /// `ChromePalette::prescribed()` resolves, which is
+    /// `FleetTheme::prescribed_default()` BY CONSTRUCTION — so this Guard
+    /// cannot be satisfied by a stale hand-written constant.
+    ///
+    /// It previously hardcoded `FleetTheme::Vellum` to match a paint path
+    /// hardwired to `VellumPalette::vellum()`. When the fleet moved its
+    /// prescribed theme to PlemeDark (Nord) this went RED — correctly, since
+    /// the GPU backend really was painting the wrong theme while the TUI
+    /// face and the rest of the fleet (mado, tear, frostmourne, …) moved on.
     #[test]
     fn escriba_gpu_chrome_converges_with_fleet() {
         use ishou_tokens::{FleetTheme, convergence::Guard};
-        // The theme escriba's GPU backend renders. It is Vellum by
-        // construction (every paint site reads `VellumPalette::vellum()`),
-        // and the Guard asserts that equals the fleet prescribed theme.
-        let chrome_theme = FleetTheme::Vellum;
-        Guard::for_app("escriba-render")
-            .expect_theme(chrome_theme)
-            .run();
+        let chrome_theme = FleetTheme::prescribed_default();
+        Guard::for_app("escriba-render").expect_theme(chrome_theme).run();
     }
 }

@@ -2,6 +2,11 @@
 
 extern crate self as escriba_ui;
 
+/// Theme → concrete chrome colors. The ONE place a `FleetTheme` becomes
+/// paintable values, shared by the TUI and GPU renderers so they cannot
+/// drift apart (or off the fleet baseline) again.
+pub mod chrome;
+
 use escriba_core::{BufferId, Position, WindowId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

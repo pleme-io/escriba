@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "448c69a41a1d9410b8896c95d0457825779025bce33732218014f6c1b37915a4",
+  "cargo_lock_sha256": "3003714b50c12a75237c4d73a2738731478a8413a67d58079b090657aac6871b",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2986,6 +2986,18 @@
             "package_key": "escriba-mode-0.1.14",
             "kind": "normal",
             "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "ishou_tokens",
+            "package_key": "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2",
+            "kind": "normal",
+            "features": [
+              "wgpu"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,

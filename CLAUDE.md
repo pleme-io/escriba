@@ -1,5 +1,38 @@
 # escriba
 
+## Theming — how escriba paints (2026-07-26)
+
+**One seam: `escriba_ui::chrome::ChromePalette`.** Both faces (the ratatui
+TUI chrome and the GPU backend) resolve every color through it, and it
+resolves through `ishou_tokens::SemanticRoles` — the closed ROLE vocabulary —
+never through a theme's own token spelling. Consequences worth knowing:
+
+- **Colors are named by role, not hue.** `c.info`, not "cyan". On Nord
+  `info` is frost blue; on Vellum it was ice cyan; no call site knows or
+  cares. This is what makes a theme change a value change instead of a
+  fleet-wide rename.
+- **`ChromePalette::for_theme` is total over `FleetTheme`** — no wildcard
+  arm, so adding a theme upstream fails `chrome.rs` to compile rather than
+  silently painting the wrong thing.
+- **There are no hex literals in the paint path.** The last one
+  (`Color::Rgb(0xCD, 0xC7, 0xB6)`, "statusline_fg") is gone.
+- **Both convergence guards assert `FleetTheme::prescribed_default()`**, not
+  a hand-written constant, so they cannot be satisfied by a stale literal.
+
+**Why this landed:** the renderers were hardwired to
+`VellumPalette::vellum()`. When the fleet moved its prescribed theme from
+Vellum to PlemeDark (Nord — what mado ships), escriba kept painting Vellum
+and both guards went RED (`theme drift — actual Vellum != fleet PlemeDark`).
+`(deftheme :preset …)` had the same defect from the other side: it resolved
+to a real `FleetTheme` that **nothing outside tests consumed**.
+
+**Tier-honest, still open:** the paint path reads
+`ChromePalette::prescribed()` — the FLEET theme — not the operator's
+`(deftheme :preset …)`. The seam to fix that now exists
+(`ChromePalette::for_theme`), but nothing threads a config value into it, so
+**live theme-switch remains inert**. That is the remaining half; it is a
+wiring job (config → renderer), not a redesign.
+
 skip-fleet-convergence-guard: EscribaConfig (escriba-config/src/lib.rs)
 exposes NO `font_family` / `font_size` / `cursor` fields that participate
 in `ishou_tokens::FleetDefaults::prescribed()` — those visual primitives

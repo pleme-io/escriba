@@ -7,7 +7,8 @@
 
 use escriba_core::CursorShape;
 use escriba_runtime::EditorState;
-use ishou_tokens::{EscribaSignals, SignalMode, VellumPalette};
+use escriba_ui::chrome::ChromePalette;
+use ishou_tokens::{EscribaSignals, SignalMode};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout as RLayout};
 use ratatui::style::{Color, Modifier, Style};
@@ -16,8 +17,10 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 
 /// ishou `Rgb` → ratatui `Color::Rgb`. The single conversion point so
 /// every chrome color flows from the BORN Vellum tokens.
-fn vellum(rgb: ishou_tokens::Rgb) -> Color {
-    Color::Rgb(rgb.r, rgb.g, rgb.b)
+/// Theme-agnostic `ishou` color → ratatui color. (Was `vellum()`, back when
+/// the paint path was hardwired to one theme.)
+fn rgb(c: ishou_tokens::Rgb) -> Color {
+    Color::Rgb(c.r, c.g, c.b)
 }
 
 /// Draw one frame. Call from within `terminal.draw(|f| draw_frame(f, state))`.
@@ -193,72 +196,74 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
 
 // ─── Styles — Vellum (warm aged-paper Nord-matte) ───────────────────────
 //
-// Every chrome color is a BORN `ishou_tokens::VellumPalette` token.
-// `VellumPalette::vellum()` is cheap (plain struct construction); the
-// per-call cost is negligible at the once-per-frame cadence these
-// helpers run at.
+// Every chrome color resolves through `escriba_ui::chrome::ChromePalette`
+// — the one theme seam, shared with the GPU backend so the two faces cannot
+// drift apart. Colors are named by ROLE (text / surface / cursor / error),
+// never by a theme's own token spelling, which is what lets the theme change
+// without touching a single call site here.
+//
+// `ChromePalette::prescribed()` is cheap (plain struct construction from
+// ishou role bindings); the per-call cost is negligible at the
+// once-per-frame cadence these helpers run at.
+//
+// NOTE: these read the FLEET-PRESCRIBED theme, not a per-buffer
+// `(deftheme :preset …)`. Threading the operator's chosen theme down to the
+// paint path is the remaining half of the theming work — the seam now exists
+// (`ChromePalette::for_theme`), but nothing calls it with a config value yet.
 
 fn buffer_style() -> Style {
-    let p = VellumPalette::vellum();
-    Style::default()
-        .fg(vellum(p.snow1)) // #E2DBC8 — fg
-        .bg(vellum(p.night0)) // #16140E — bg
+    let c = ChromePalette::prescribed();
+    Style::default().fg(rgb(c.text)).bg(rgb(c.background))
 }
 
 fn muted_style() -> Style {
-    let p = VellumPalette::vellum();
-    Style::default().fg(vellum(p.shadow1)) // #90897B — comment/gutter
+    let c = ChromePalette::prescribed();
+    Style::default().fg(rgb(c.text_dim)) // comment / gutter
 }
 
 /// Block cursor (Normal / Command) — dark glyph filled onto the cursor
 /// color, the "you are here" cell.
 fn cursor_block_style() -> Style {
-    let p = VellumPalette::vellum();
+    let c = ChromePalette::prescribed();
     Style::default()
-        .fg(vellum(p.night0)) // #16140E — dark text on cursor
-        .bg(vellum(p.green_bright)) // #ADD7A3 — cursor (= ishou surfaces.cursor)
+        .fg(rgb(c.background)) // ground-colored text on the cursor
+        .bg(rgb(c.cursor))
         .add_modifier(Modifier::BOLD)
 }
 
 /// Bar cursor (Insert) — the thin vertical caret drawn between glyphs,
 /// colored in the cursor accent.
 fn cursor_bar_style() -> Style {
-    let p = VellumPalette::vellum();
-    Style::default()
-        .fg(vellum(p.green_bright)) // #ADD7A3 — cursor accent for the bar
-        .add_modifier(Modifier::BOLD)
+    let c = ChromePalette::prescribed();
+    Style::default().fg(rgb(c.cursor)).add_modifier(Modifier::BOLD)
 }
 
 /// Underline cursor (Visual) — the glyph kept legible with an underline in
 /// the cursor accent.
 fn cursor_underline_style() -> Style {
-    let p = VellumPalette::vellum();
+    let c = ChromePalette::prescribed();
     Style::default()
-        .fg(vellum(p.green_bright)) // #ADD7A3 — cursor accent underline
+        .fg(rgb(c.cursor))
         .add_modifier(Modifier::UNDERLINED)
         .add_modifier(Modifier::BOLD)
 }
 
 fn status_style() -> Style {
-    let p = VellumPalette::vellum();
-    Style::default()
-        .fg(Color::Rgb(0xCD, 0xC7, 0xB6)) // statusline_fg (Vellum extra)
-        .bg(vellum(p.night1)) // #1F1C15 — statusline_bg
+    let c = ChromePalette::prescribed();
+    // Was a raw `Color::Rgb(0xCD, 0xC7, 0xB6)` literal ("statusline_fg,
+    // Vellum extra") — the one genuinely hardcoded color in this file, and
+    // dead weight the moment the theme moved. It is now the `text` role.
+    Style::default().fg(rgb(c.text)).bg(rgb(c.surface))
 }
 
 fn cmd_style() -> Style {
-    let p = VellumPalette::vellum();
-    Style::default()
-        .fg(vellum(p.first_light)) // #D7C489 — yellow hint
-        .bg(vellum(p.night1)) // #1F1C15
-        .add_modifier(Modifier::BOLD)
+    let c = ChromePalette::prescribed();
+    Style::default().fg(rgb(c.warning)).bg(rgb(c.surface)).add_modifier(Modifier::BOLD)
 }
 
 fn error_style() -> Style {
-    let p = VellumPalette::vellum();
-    Style::default()
-        .fg(vellum(p.aurora_red)) // #C9837B — red
-        .bg(vellum(p.night0)) // #16140E
+    let c = ChromePalette::prescribed();
+    Style::default().fg(rgb(c.error)).bg(rgb(c.background))
 }
 
 /// Map an editor [`Mode`](escriba_core::Mode) to its fleet
@@ -277,19 +282,19 @@ fn mode_signal(sig: &EscribaSignals, mode: escriba_core::Mode) -> &ishou_tokens:
 }
 
 fn mode_style_for(mode: escriba_core::Mode) -> Style {
-    let p = VellumPalette::vellum();
-    // Mode pills — all with dark (#16140E night0) text per the Vellum
-    // spec: Normal cyan, Insert green, Visual purple, Command yellow.
+    let c = ChromePalette::prescribed();
+    // Mode pills — ground-colored text on a role-colored field:
+    // Normal info, Insert success, Visual accent, Command warning. Naming
+    // the ROLE rather than the hue is what keeps these correct across
+    // themes: on Nord `info` is frost blue, on Vellum it was ice cyan, and
+    // neither call site has to know.
     let bg = match mode {
-        escriba_core::Mode::Normal => p.ice_cyan, // #94BBB8
-        escriba_core::Mode::Insert => p.aurora_green, // #A9BB8C
-        escriba_core::Mode::Visual | escriba_core::Mode::VisualLine => p.solar_magenta, // #B8A1B9
-        escriba_core::Mode::Command => p.first_light, // #D7C489
+        escriba_core::Mode::Normal => c.info,
+        escriba_core::Mode::Insert => c.success,
+        escriba_core::Mode::Visual | escriba_core::Mode::VisualLine => c.accent,
+        escriba_core::Mode::Command => c.warning,
     };
-    Style::default()
-        .fg(vellum(p.night0)) // #16140E — dark text on every pill
-        .bg(vellum(bg))
-        .add_modifier(Modifier::BOLD)
+    Style::default().fg(rgb(c.background)).bg(rgb(bg)).add_modifier(Modifier::BOLD)
 }
 
 #[cfg(test)]
@@ -332,7 +337,10 @@ mod tests {
         let block = cursor_spans('a', CursorShape::Block);
         assert_eq!(block.len(), 1);
         assert_eq!(block[0].content, "a");
-        assert_eq!(block[0].style.bg, Some(vellum(VellumPalette::vellum().green_bright)));
+        // The cursor ROLE, not a theme's own token — this assertion used to
+        // name `VellumPalette::vellum().green_bright`, which pinned the test
+        // to one theme and would have had to change on every theme move.
+        assert_eq!(block[0].style.bg, Some(rgb(ChromePalette::prescribed().cursor)));
 
         // Bar: a thin caret span BEFORE the (unstyled) glyph.
         let bar = cursor_spans('a', CursorShape::Bar);
@@ -357,22 +365,32 @@ mod tests {
         assert_eq!(Mode::Visual.cursor_shape(), CursorShape::Underline);
     }
 
-    /// Fleet convergence guard: escriba's TUI chrome paints through
-    /// `VellumPalette::vellum()` — the fleet-prescribed `FleetTheme::Vellum`,
-    /// the same theme its GPU backend uses. This pins that convergence so a
-    /// drift in the fleet baseline (e.g. `FleetDefaults::prescribed().theme`
-    /// moving off Vellum) surfaces here rather than silently leaving the TUI
-    /// chrome out of step with the GPU backend and the rest of the fleet.
-    /// Uses the shared `ishou_tokens::convergence::Guard` harness.
+    /// Fleet convergence guard: escriba's TUI chrome paints whatever
+    /// `ChromePalette::prescribed()` resolves, which is
+    /// `FleetTheme::prescribed_default()` BY CONSTRUCTION — so this Guard
+    /// can no longer be satisfied by a stale hand-written constant.
+    ///
+    /// It previously hardcoded `FleetTheme::Vellum` here to match a paint
+    /// path hardwired to `VellumPalette::vellum()`. When the fleet moved its
+    /// prescribed theme to PlemeDark (Nord), that made the test RED —
+    /// correctly: escriba really was painting the wrong theme. Asserting the
+    /// resolved value instead of a literal is what stops that class of drift
+    /// from needing a human to notice it twice.
     #[test]
     fn escriba_tui_chrome_converges_with_fleet() {
         use ishou_tokens::{FleetTheme, convergence::Guard};
-        // Vellum by construction — every chrome helper above reads
-        // `VellumPalette::vellum()`. The Guard asserts that equals the
-        // fleet prescribed theme.
-        let chrome_theme = FleetTheme::Vellum;
-        Guard::for_app("escriba-tui")
-            .expect_theme(chrome_theme)
-            .run();
+        let chrome_theme = FleetTheme::prescribed_default();
+        Guard::for_app("escriba-tui").expect_theme(chrome_theme).run();
+    }
+
+    /// The chrome helpers must actually paint the fleet theme — not merely
+    /// agree with it in the assertion above. Pins the buffer ground to the
+    /// prescribed chrome's background so a renderer that silently kept a
+    /// different palette would fail here even if the Guard passed.
+    #[test]
+    fn buffer_ground_is_the_prescribed_chrome() {
+        let c = ChromePalette::prescribed();
+        assert_eq!(buffer_style().bg, Some(rgb(c.background)));
+        assert_eq!(buffer_style().fg, Some(rgb(c.text)));
     }
 }
