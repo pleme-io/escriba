@@ -14,6 +14,10 @@ escriba-buffer = { workspace = true }
 escriba-mode   = { workspace = true }
 serde          = { workspace = true }
 schemars       = { workspace = true }
+# `chrome::ChromePalette` — the one seam turning a FleetTheme into the colors
+# both renderers paint with. Pure data (theme -> resolved roles), so it stays
+# inside this crate's "pure state" charter; nothing here renders.
+ishou-tokens   = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

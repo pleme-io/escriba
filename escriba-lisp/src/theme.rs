@@ -11,10 +11,11 @@
 //! Preset names mirror `irodzuki` / `irodori`. Unknown presets leave
 //! the theme unchanged (forward-compat with user-added presets).
 //!
-//! `vellum` is the fleet theme — warm aged-paper Nord-matte — and the
-//! default an empty/unset `:preset` resolves to (see
+//! `nord` is the fleet theme — the same look mado and frostmourne render —
+//! and the default an empty/unset `:preset` resolves to (see
 //! [`ThemeSpec::default`] + [`DEFAULT_PRESET`]). It mirrors
-//! `ishou_tokens::FleetTheme::Vellum`.
+//! `ishou_tokens::FleetTheme::PlemeDark`. (`vellum` was the fleet theme
+//! before 2026-07; it stays selectable — retired, not removed.)
 
 use serde::{Deserialize, Serialize};
 use tatara_lisp::DeriveTataraDomain;
@@ -36,8 +37,8 @@ pub const DEFAULT_PRESET: &str = "nord";
 #[serde(rename_all = "camelCase")]
 #[tatara(keyword = "deftheme")]
 pub struct ThemeSpec {
-    /// Named preset (`"vellum"`, `"nord"`, `"gruvbox-dark"`, …). Empty
-    /// resolves to [`DEFAULT_PRESET`] (`"vellum"`).
+    /// Named preset (`"nord"`, `"vellum"`, `"gruvbox-dark"`, …). Empty
+    /// resolves to [`DEFAULT_PRESET`] (`"nord"`).
     #[serde(default = "default_preset")]
     pub preset: String,
 }
@@ -47,7 +48,7 @@ fn default_preset() -> String {
 }
 
 impl Default for ThemeSpec {
-    /// The default theme is the fleet default — `vellum`.
+    /// The default theme is the fleet default — `nord`.
     fn default() -> Self {
         Self { preset: DEFAULT_PRESET.to_string() }
     }
@@ -55,7 +56,7 @@ impl Default for ThemeSpec {
 
 impl ThemeSpec {
     /// The effective preset — the named one, or [`DEFAULT_PRESET`]
-    /// (`"vellum"`) when unset/empty.
+    /// (`"nord"`) when unset/empty.
     #[must_use]
     pub fn effective_preset(&self) -> &str {
         if self.preset.is_empty() {
