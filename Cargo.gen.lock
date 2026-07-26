@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "c35a9e615fa3e094964ce83d1a033334fd02a7a45e39d74f17d7ca0eace0b954",
+  "cargo_lock_sha256": "448c69a41a1d9410b8896c95d0457825779025bce33732218014f6c1b37915a4",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2130,6 +2130,18 @@
             "tree": "target"
           },
           {
+            "name": "ishou_tokens",
+            "package_key": "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2",
+            "kind": "normal",
+            "features": [
+              "wgpu"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "schemars",
             "package_key": "schemars-0.8.22",
             "kind": "normal",
@@ -2593,7 +2605,7 @@
           },
           {
             "name": "ishou_tokens",
-            "package_key": "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf",
+            "package_key": "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2",
             "kind": "normal",
             "features": [
               "wgpu"
@@ -2903,7 +2915,7 @@
           },
           {
             "name": "ishou_tokens",
-            "package_key": "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf",
+            "package_key": "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2",
             "kind": "normal",
             "features": [
               "wgpu"
@@ -4418,7 +4430,7 @@
           "default"
         ]
       },
-      "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf": {
+      "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2": {
         "runtime_dependencies": [
           {
             "name": "irodori",
@@ -24712,7 +24724,7 @@
     "is_terminal_polyfill-1.70.2": {
       "edition": "2021"
     },
-    "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf": {
+    "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2": {
       "edition": "2024"
     },
     "itertools-0.13.0": {
@@ -25481,7 +25493,7 @@
     "gen-macros-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
     "gen-platform-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
     "gen-types-0.1.8-97aaf2e4ce3cfbc50d0f7377d227bda42dd4d2c6": "sha256-/qPu9zmukIQuTj76JofI0drfJ7h69z9sneMSUVZqIak=",
-    "ishou-tokens-0.1.3-e1414094450cd4ee3707769a19e4a01b39a628cf": "sha256-7meyffgfegYgcRn/Rn343JAQG97hPHaclomPHE6Zo5E=",
+    "ishou-tokens-0.1.4-395c331e62af71972056aa7923a044a6951b5df2": "sha256-SM+MCVVGr5VqkD38kC6Ds11pHoUU79LdBlZZMNXmSHc=",
     "madori-0.1.2-dd7037ee3a600c3b670d56c15fbeb4319ee3b9a3": "sha256-63iTmh/CD4A8k1XRooEj9XnhChY2CwQHE2nMRUJ5imU=",
     "shikumi-0.1.1-693041f48e9f141e75553a7da692b6676833e0a9": "sha256-2oJ+xLL/OZN16C1oStly/8ttJ41yJl9daxYJ1WVuKf4=",
     "tatara-lisp-0.2.4-92836e3723f0ff09c3cdd317cfe33005b4ecb582": "sha256-jVEj0yG+OXNH7vg9cC2bK7f3eehlyTgAWpBBQvmjryo=",
