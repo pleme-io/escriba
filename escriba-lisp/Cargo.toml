@@ -13,6 +13,11 @@ escriba-core    = { workspace = true }
 escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }
 tatara-lisp     = { workspace = true }
+# `(deftheme :preset …)` resolves to a typed `ishou_tokens::FleetTheme` HERE,
+# in the spec crate, so BOTH faces (escriba-tui and escriba-render) consume
+# one mapping instead of each guessing its own. That shared resolution is
+# what makes deftheme a system rather than decorative config.
+ishou-tokens    = { workspace = true }
 serde           = { workspace = true }
 serde_json      = { workspace = true }
 thiserror       = { workspace = true }
