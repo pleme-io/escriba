@@ -301,6 +301,39 @@ fn parse_mode(name: &str) -> LispResult<Mode> {
 fn parse_bracket_key(inner: &str) -> Option<Key> {
     // Named keys (case-insensitive for the common ones).
     let lower = inner.to_ascii_lowercase();
+    if let Some(k) = named_key(&lower) {
+        return Some(k);
+    }
+
+    // Modifier+char form: `C-r`, `A-f`, `M-f`, `S-h`. Dash-separated.
+    // The operand is a single char OR a named key that denotes a
+    // printable char (`<C-Space>` -> Ctrl(' ')) — see `modifier_operand`.
+    if let Some(rest) = inner.strip_prefix("C-").or_else(|| inner.strip_prefix("c-")) {
+        return modifier_operand(rest).map(Key::Ctrl);
+    }
+    if let Some(rest) = inner
+        .strip_prefix("A-")
+        .or_else(|| inner.strip_prefix("a-"))
+        .or_else(|| inner.strip_prefix("M-"))
+        .or_else(|| inner.strip_prefix("m-"))
+    {
+        return modifier_operand(rest).map(Key::Alt);
+    }
+    // Shift has no `Key` variant of its own, and needs none: the input
+    // layer already delivers a shifted letter as its uppercase char, so
+    // `<S-h>` IS `H` (the vim convention this catalog is written in).
+    // Modelling it as a distinct modifier would make `<S-h>` and a typed
+    // `H` two different bindings for one physical keystroke.
+    if let Some(rest) = inner.strip_prefix("S-").or_else(|| inner.strip_prefix("s-")) {
+        return modifier_operand(rest).map(|c| Key::Char(c.to_ascii_uppercase()));
+    }
+
+    None
+}
+
+/// The named-key table, shared by the bare `<Esc>` form and by the
+/// modifier forms via [`modifier_operand`].
+fn named_key(lower: &str) -> Option<Key> {
     let named: &[(&str, Key)] = &[
         ("esc", Key::Esc),
         ("escape", Key::Esc),
@@ -330,22 +363,25 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
             return Some(k.clone());
         }
     }
-
-    // Modifier+char form: `C-r`, `A-f`, `M-f`. Dash-separated, single
-    // char after the modifier.
-    if let Some(rest) = inner.strip_prefix("C-").or_else(|| inner.strip_prefix("c-")) {
-        return single_char(rest).map(Key::Ctrl);
-    }
-    if let Some(rest) = inner
-        .strip_prefix("A-")
-        .or_else(|| inner.strip_prefix("a-"))
-        .or_else(|| inner.strip_prefix("M-"))
-        .or_else(|| inner.strip_prefix("m-"))
-    {
-        return single_char(rest).map(Key::Alt);
-    }
-
     None
+}
+
+/// Resolve the char a modifier applies to. Accepts a bare single char
+/// (`C-r` -> 'r') or a named key that denotes a printable char
+/// (`C-Space` -> ' '), which is what made `<C-Space>` — shipped in
+/// escriba's own `escriba-cmp` catalog plugin — fail to parse: the
+/// operand was required to be exactly one char, so the 5-char `Space`
+/// was rejected and the binding was dropped with a startup warning.
+/// Named keys with no printable char (`<C-Esc>`) stay unrepresentable,
+/// since `Key::Ctrl` holds a `char`.
+fn modifier_operand(s: &str) -> Option<char> {
+    if let Some(c) = single_char(s) {
+        return Some(c);
+    }
+    match named_key(&s.to_ascii_lowercase()) {
+        Some(Key::Char(c)) => Some(c),
+        _ => None,
+    }
 }
 
 fn single_char(s: &str) -> Option<char> {
@@ -607,6 +643,34 @@ mod tests {
             parse_key_sequence("<space>w", &comma).unwrap(),
             vec![Key::Char(' '), Key::Char('w')],
         );
+    }
+
+    /// Regression: escriba's OWN bundled catalog shipped three bindings
+    /// its parser rejected, so every default boot logged three warnings
+    /// and silently dropped the bindings —
+    /// `<C-Space>` (escriba-cmp: trigger completion) and `<S-h>`/`<S-l>`
+    /// (escriba-bufferline: prev/next buffer). Two independent gaps: a
+    /// modifier operand had to be exactly one char (so `Space` failed),
+    /// and `S-` was not a recognised modifier at all.
+    #[test]
+    fn modifier_accepts_named_operand_and_shift() {
+        let comma = Key::Char(',');
+        // `<C-Space>` — named operand behind a modifier.
+        assert_eq!(parse_key_token("<C-Space>", &comma), Some(Key::Ctrl(' ')));
+        assert_eq!(parse_key_token("<c-space>", &comma), Some(Key::Ctrl(' ')));
+        assert_eq!(parse_key_token("<A-Space>", &comma), Some(Key::Alt(' ')));
+        // `<S-h>` / `<S-l>` — shift folds to the uppercase char, which is
+        // what the input layer delivers for a shifted letter.
+        assert_eq!(parse_key_token("<S-h>", &comma), Some(Key::Char('H')));
+        assert_eq!(parse_key_token("<S-l>", &comma), Some(Key::Char('L')));
+        assert_eq!(parse_key_token("<s-h>", &comma), Some(Key::Char('H')));
+        // Plain modifier forms keep working.
+        assert_eq!(parse_key_token("<C-w>", &comma), Some(Key::Ctrl('w')));
+        // A named key with no printable char stays unrepresentable —
+        // `Key::Ctrl` holds a `char`, so `<C-Esc>` has nothing to hold.
+        assert_eq!(parse_key_token("<C-Esc>", &comma), None);
+        // And genuine nonsense still errors rather than binding silently.
+        assert_eq!(parse_key_token("<C-NotAKey>", &comma), None);
     }
 
     #[test]
