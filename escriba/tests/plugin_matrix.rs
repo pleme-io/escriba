@@ -121,6 +121,57 @@ fn catalog_covers_the_parity_set() {
     assert_eq!(n, BUNDLED.len(), "every catalog file is baked exactly once");
 }
 
+/// The DEFAULT BOOT IS SILENT. `escriba` with no user config applies
+/// the baked `blnvim-defaults.lisp` plus the whole bundled catalog; a
+/// warning there is escriba complaining about its OWN shipped content,
+/// and it is never the operator's to fix.
+///
+/// This is a forcing function, not a snapshot: it failed when written.
+/// The catalog shipped `<C-Space>` (escriba-cmp) and `<S-h>`/`<S-l>`
+/// (escriba-bufferline) — three bindings the key parser rejected, so
+/// every boot logged three warnings AND silently dropped the bindings.
+/// `every_catalog_plugin_forges_and_applies` could not catch it: these
+/// surface as `ApplyReport::warnings`, never as an `Err`.
+#[test]
+fn the_default_boot_applies_without_a_single_warning() {
+    let mut failures: Vec<String> = Vec::new();
+
+    // Half 1 — the baked default rc.
+    let rc_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("configs/blnvim-defaults.lisp");
+    let rc_src = std::fs::read_to_string(&rc_path).expect("default rc readable");
+    match escriba_lisp::apply_source(&rc_src) {
+        Ok(plan) => {
+            let mut keymap = escriba_keymap::Keymap::default_vim();
+            let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut keymap);
+            for w in report.warnings {
+                failures.push(format!("blnvim-defaults.lisp: {w}"));
+            }
+        }
+        Err(e) => failures.push(format!("blnvim-defaults.lisp does not apply: {e}")),
+    }
+
+    // Half 2 — the bundled plugin catalog, as one composite plan (the
+    // shape the binary actually boots).
+    match escriba::catalog_bundle::bundled_plan() {
+        Ok(plan) => {
+            let mut keymap = escriba_keymap::Keymap::default_vim();
+            let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut keymap);
+            for w in report.warnings {
+                failures.push(format!("bundled catalog: {w}"));
+            }
+        }
+        Err(e) => failures.push(format!("bundled plan does not build: {e}")),
+    }
+
+    assert!(
+        failures.is_empty(),
+        "the default boot emitted {} warning(s) — escriba's own shipped \
+         config must apply cleanly:\n  - {}",
+        failures.len(),
+        failures.join("\n  - "),
+    );
+}
+
 #[test]
 fn bundled_composite_preserves_full_capability() {
     // The migration invariant: moving plugin-owned forms out of the
