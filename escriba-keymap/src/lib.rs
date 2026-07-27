@@ -213,6 +213,12 @@ impl Keymap {
             "abort",
         );
         m.bind(Mode::Command, Key::Enter, Action::SubmitCommand, "submit");
+        m.bind(
+            Mode::Command,
+            Key::Backspace,
+            Action::PromptBackspace,
+            "erase one char",
+        );
 
         // ── search ────────────────────────────────────────────────────
         // `/` and `?` open the prompt; `<CR>` is the existing SubmitCommand,
