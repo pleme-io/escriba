@@ -67,6 +67,25 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
             .trim_end_matches('\n')
             .trim_end_matches('\r')
             .to_string();
+        // Search matches are DOCUMENT char offsets; the renderer paints
+        // COLUMNS. Translate once per line via the line's own start offset,
+        // so no offset arithmetic leaks into the span builder.
+        let line_start = buf.position_to_char(escriba_core::Position::new(ln, 0)).unwrap_or(0);
+        let line_len = text.chars().count();
+        let hl: Vec<(usize, usize)> = state
+            .search
+            .highlights()
+            .iter()
+            .filter_map(|m| {
+                // Clip the match to this line; a multi-line match paints its
+                // overlapping part on each line it crosses.
+                let s = m.start.saturating_sub(line_start);
+                let e = m.end.saturating_sub(line_start);
+                (m.end > line_start && m.start < line_start + line_len + 1)
+                    .then(|| (s.min(line_len), e.min(line_len)))
+            })
+            .filter(|(s, e)| e > s)
+            .collect();
         lines.push(line_with_gutter(
             ln,
             &text,
@@ -74,6 +93,7 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
             left as usize,
             vis_cols,
             shape,
+            &hl,
         ));
     }
 
@@ -95,6 +115,7 @@ fn line_with_gutter(
     left: usize,
     vis_cols: usize,
     shape: CursorShape,
+    highlights: &[(usize, usize)],
 ) -> Line<'static> {
     let gutter = format!("{:>4} │ ", ln + 1);
     let mut spans = vec![Span::styled(gutter, muted_style())];
@@ -103,27 +124,61 @@ fn line_with_gutter(
     // The slice of characters actually visible in this window.
     let visible: Vec<char> = chars.iter().copied().skip(left).take(vis_cols).collect();
 
-    if ln == cursor.line && cursor.column as usize >= left {
-        // Cursor column relative to the horizontal scroll.
-        let rel = cursor.column as usize - left;
-        if rel >= visible.len() {
-            // Cursor at/after the end of the visible text — render the
-            // shape over a blank trailing cell.
-            spans.push(Span::raw(visible.iter().collect::<String>()));
-            spans.extend(cursor_spans(' ', shape));
-        } else {
-            let before: String = visible[..rel].iter().collect();
-            let under = visible[rel];
-            let after: String = visible[rel + 1..].iter().collect();
-            spans.push(Span::raw(before));
-            spans.extend(cursor_spans(under, shape));
-            spans.push(Span::raw(after));
+    // One style slot per visible cell. Painting cell-by-cell and coalescing
+    // afterwards is what lets the cursor and any number of search matches
+    // overlap on the same line — the previous before/cursor/after split could
+    // only ever express ONE styled region, so highlights had nowhere to go.
+    let mut cell_styles: Vec<Option<Style>> = vec![None; visible.len()];
+    for &(hs, he) in highlights {
+        for col in hs..he {
+            if col >= left {
+                if let Some(slot) = cell_styles.get_mut(col - left) {
+                    *slot = Some(search_match_style());
+                }
+            }
         }
+    }
+
+    // The cursor wins over a highlight on its own cell — you must always be
+    // able to see where you are, even sitting on a match.
+    let cursor_here =
+        (ln == cursor.line && cursor.column as usize >= left).then(|| cursor.column as usize - left);
+
+    if let Some(rel) = cursor_here {
+        if rel >= visible.len() {
+            push_runs(&mut spans, &visible, &cell_styles);
+            spans.extend(cursor_spans(' ', shape));
+            return Line::from(spans);
+        }
+        push_runs(&mut spans, &visible[..rel], &cell_styles[..rel]);
+        spans.extend(cursor_spans(visible[rel], shape));
+        push_runs(&mut spans, &visible[rel + 1..], &cell_styles[rel + 1..]);
     } else {
-        spans.push(Span::raw(visible.iter().collect::<String>()));
+        push_runs(&mut spans, &visible, &cell_styles);
     }
 
     Line::from(spans)
+}
+
+/// Emit `chars` as the fewest spans that preserve `styles`, merging adjacent
+/// cells that share a style. Without the merge a 200-column line would emit
+/// 200 single-char spans every frame.
+fn push_runs(spans: &mut Vec<Span<'static>>, chars: &[char], styles: &[Option<Style>]) {
+    debug_assert_eq!(chars.len(), styles.len(), "one style slot per cell");
+    let mut i = 0;
+    while i < chars.len() {
+        let style = styles.get(i).copied().flatten();
+        let mut j = i + 1;
+        while j < chars.len() && styles.get(j).copied().flatten() == style {
+            j += 1;
+        }
+        let run: String = chars[i..j].iter().collect();
+        spans.push(match style {
+            Some(st) => Span::styled(run, st),
+            None => Span::raw(run),
+        });
+        i = j;
+    }
 }
 
 /// Render the cell under the cursor in its per-mode [`CursorShape`].
@@ -172,7 +227,22 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     );
     let path_span = Span::styled(format!(" {path}{modified_indicator} "), status_style());
     let minibuffer = if state.modal.mode() == escriba_core::Mode::Command {
-        Span::styled(format!(" :{}", state.modal.minibuffer()), cmd_style())
+        {
+        // Command mode now hosts BOTH the ex-line and the search prompt (vim's
+        // cmdline does the same). Showing a hardcoded ':' made a `/foo` search
+        // render as `:foo` — the prefix must report which prompt is actually
+        // open, and `search.prompt()` is the same typed discriminator the
+        // runtime routes <CR> with, so the two cannot disagree.
+        let prefix = match state.search.prompt().map(|p| p.direction) {
+            Some(escriba_search::Direction::Forward) => '/',
+            Some(escriba_search::Direction::Backward) => '?',
+            None => ':',
+        };
+        let mut line = String::from(" ");
+        line.push(prefix);
+        line.push_str(state.modal.minibuffer());
+        Span::styled(line, cmd_style())
+    }
     } else {
         Span::raw("")
     };
@@ -240,6 +310,18 @@ fn cursor_bar_style() -> Style {
 
 /// Underline cursor (Visual) — the glyph kept legible with an underline in
 /// the cursor accent.
+/// Style for a search match under `hlsearch`.
+///
+/// Reversed against the `warning` role rather than a literal colour: it reads
+/// as "look here" without colliding with `cursor` (which must stay
+/// distinguishable when the cursor sits ON a match) or with `error`. Sourced
+/// from ChromePalette so it follows the fleet theme like every other style
+/// here — a hardcoded hex would be the one span that ignores the theme.
+fn search_match_style() -> Style {
+    let c = ChromePalette::prescribed();
+    Style::default().fg(rgb(c.background)).bg(rgb(c.warning))
+}
+
 fn cursor_underline_style() -> Style {
     let c = ChromePalette::prescribed();
     Style::default()
@@ -299,6 +381,131 @@ fn mode_style_for(mode: escriba_core::Mode) -> Style {
 
 #[cfg(test)]
 mod tests {
+
+    // ── search highlight rendering ────────────────────────────────────
+
+    fn styles_of(spans: &[Span<'static>]) -> Vec<(String, bool)> {
+        // (text, is-highlighted) — comparing against the exact Style would
+        // pin the palette, which is a theming concern, not a layout one.
+        spans
+            .iter()
+            .map(|sp| (sp.content.to_string(), sp.style.bg == search_match_style().bg))
+            .collect()
+    }
+
+    #[test]
+    fn push_runs_merges_adjacent_cells_of_equal_style() {
+        // A 200-column line must not emit 200 spans per frame.
+        let chars: Vec<char> = "aaaabbbb".chars().collect();
+        let mut styles = vec![None; 8];
+        for slot in styles.iter_mut().take(4) {
+            *slot = Some(search_match_style());
+        }
+        let mut spans = vec![];
+        push_runs(&mut spans, &chars, &styles);
+        assert_eq!(spans.len(), 2, "one span per run, not per char");
+        assert_eq!(spans[0].content, "aaaa");
+        assert_eq!(spans[1].content, "bbbb");
+    }
+
+    #[test]
+    fn push_runs_on_empty_input_emits_nothing() {
+        let mut spans = vec![];
+        push_runs(&mut spans, &[], &[]);
+        assert!(spans.is_empty());
+    }
+
+    #[test]
+    fn a_match_is_painted_and_the_rest_is_not() {
+        // "hello world", match on "world" (cols 6..11), cursor elsewhere.
+        let line = line_with_gutter(
+            0,
+            "hello world",
+            escriba_core::Position::new(9, 0), // cursor on another line
+            0,
+            80,
+            CursorShape::Block,
+            &[(6, 11)],
+        );
+        let painted: Vec<String> = styles_of(&line.spans)
+            .into_iter()
+            .filter(|(_, hl)| *hl)
+            .map(|(t, _)| t)
+            .collect();
+        assert_eq!(painted, vec!["world".to_string()], "exactly the match is lit");
+    }
+
+    #[test]
+    fn two_matches_on_one_line_are_both_painted() {
+        // The old before/cursor/after split could express only ONE styled
+        // region — this is the case it structurally could not render.
+        let line = line_with_gutter(
+            0,
+            "foo bar foo",
+            escriba_core::Position::new(9, 0),
+            0,
+            80,
+            CursorShape::Block,
+            &[(0, 3), (8, 11)],
+        );
+        let painted: Vec<String> = styles_of(&line.spans)
+            .into_iter()
+            .filter(|(_, hl)| *hl)
+            .map(|(t, _)| t)
+            .collect();
+        assert_eq!(painted, vec!["foo".to_string(), "foo".to_string()]);
+    }
+
+    #[test]
+    fn the_cursor_stays_visible_when_sitting_on_a_match() {
+        // A highlight must never swallow the cursor cell, or you lose your
+        // place the moment you land on a match — which is always, after `n`.
+        let line = line_with_gutter(
+            0,
+            "foo bar",
+            escriba_core::Position::new(0, 1),
+            0,
+            80,
+            CursorShape::Block,
+            &[(0, 3)],
+        );
+        let texts: Vec<String> = line.spans.iter().map(|s| s.content.to_string()).collect();
+        assert!(texts.contains(&"o".to_string()), "cursor cell rendered alone: {texts:?}");
+    }
+
+    #[test]
+    fn highlights_respect_horizontal_scroll() {
+        // Scrolled right by 4: the match at cols 6..11 must shift left by 4.
+        let line = line_with_gutter(
+            0,
+            "hello world",
+            escriba_core::Position::new(9, 0),
+            4,
+            80,
+            CursorShape::Block,
+            &[(6, 11)],
+        );
+        let painted: Vec<String> = styles_of(&line.spans)
+            .into_iter()
+            .filter(|(_, hl)| *hl)
+            .map(|(t, _)| t)
+            .collect();
+        assert_eq!(painted, vec!["world".to_string()], "still exactly the match");
+    }
+
+    #[test]
+    fn no_highlights_renders_a_plain_line() {
+        let line = line_with_gutter(
+            0,
+            "hello world",
+            escriba_core::Position::new(9, 0),
+            0,
+            80,
+            CursorShape::Block,
+            &[],
+        );
+        assert!(styles_of(&line.spans).iter().all(|(_, hl)| !hl), "nothing lit");
+    }
     use super::*;
     use escriba_core::Mode;
 
