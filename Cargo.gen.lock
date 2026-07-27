@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "9c10c97a95d0d8f781e2970a902750aa4c49654b4044ac9eb54afd8c83f382c2",
+  "cargo_lock_sha256": "205263c5b057951a7c564c20d0fee03c031f466eb8bcfca6fd57b969599be734",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2976,6 +2976,16 @@
           {
             "name": "escriba_runtime",
             "package_key": "escriba-runtime-0.1.17",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_search",
+            "package_key": "escriba-search-0.1.17",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
