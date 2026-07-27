@@ -9,6 +9,7 @@ repository   .workspace = true
 authors      .workspace = true
 
 [dependencies]
+escriba-search = { workspace = true }
 escriba-core    = { workspace = true }
 escriba-buffer  = { workspace = true }
 escriba-mode    = { workspace = true }

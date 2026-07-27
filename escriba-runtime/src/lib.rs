@@ -17,6 +17,7 @@ use std::collections::HashMap;
 
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
+use escriba_search::{Direction as SearchDirection, SearchState};
 use escriba_core::{
     Action, BufferId, Cursors, Damage, Edit, EditGen, Mode, Motion, Operator, Position, Range,
     WindowId,
@@ -35,6 +36,10 @@ use std::time::Instant;
 pub struct EditorState {
     pub buffers: BufferSet,
     pub modal: ModalState,
+    /// Search session — the committed pattern, its matches, the live `/`
+    /// prompt and history. Owns no buffer or cursor; it answers questions
+    /// about text and this runtime applies the answers.
+    pub search: SearchState,
     pub keymap: Keymap,
     pub commands: CommandRegistry,
     pub layout: Layout,
@@ -131,6 +136,7 @@ impl EditorState {
         Self {
             buffers: initial,
             modal: ModalState::new(),
+            search: SearchState::new(escriba_search::CaseMode::Smart),
             keymap: Keymap::default_vim(),
             commands: CommandRegistry::default_set(),
             layout: Layout::single(window),
@@ -433,6 +439,87 @@ impl EditorState {
         }
     }
 
+    /// The active buffer's text. Search is a pure function of it.
+    fn active_text(&self) -> String {
+        self.buffers.get(self.active).map(escriba_buffer::Buffer::to_string).unwrap_or_default()
+    }
+
+    /// The cursor as a char offset — the coordinate search speaks.
+    fn cursor_char(&self) -> usize {
+        self.buffers
+            .get(self.active)
+            .and_then(|b| b.position_to_char(self.cursor()).ok())
+            .unwrap_or(0)
+    }
+
+    /// Move the cursor onto a match and report a wrap the way vim does.
+    fn land_on(&mut self, step: escriba_search::Step) {
+        if let Some(buf) = self.buffers.get(self.active) {
+            let pos = buf.char_to_position(step.target.start);
+            self.set_cursor(pos);
+        }
+        if let Some(msg) = step.wrapped.message() {
+            self.messages.push(msg.to_string());
+        }
+    }
+
+    /// `n` / `N`. Reports vim's E486 when the pattern matches nothing, rather
+    /// than failing silently — a search that appears to do nothing is
+    /// indistinguishable from a dropped keystroke.
+    fn jump_search(&mut self, reverse: bool) {
+        let at = self.cursor_char();
+        match self.search.repeat(at, reverse) {
+            Some(step) => self.land_on(step),
+            None => {
+                let msg = self.search.pattern().map_or_else(
+                    || "E35: No previous regular expression".to_string(),
+                    |p| {
+                        let mut m = String::from("E486: Pattern not found: ");
+                        m.push_str(p.raw());
+                        m
+                    },
+                );
+                self.messages.push(msg);
+            }
+        }
+    }
+
+    /// Commit the `/` prompt: compile, search, jump, and report like vim.
+    fn submit_search(&mut self) {
+        let text = self.active_text();
+        let at = self.cursor_char();
+        let outcome = self.search.accept(&text);
+        match outcome {
+            escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
+                self.modal.clear_minibuffer();
+                self.modal.enter(Mode::Normal);
+                match self.search.repeat(at.saturating_sub(1), false) {
+                    Some(step) => self.land_on(step),
+                    None => {
+                        let mut m = String::from("E486: Pattern not found");
+                        if let Some(p) = self.search.pattern() {
+                            m.push_str(": ");
+                            m.push_str(p.raw());
+                        }
+                        self.messages.push(m);
+                    }
+                }
+            }
+            escriba_search::Accepted::NothingToRepeat => {
+                self.modal.clear_minibuffer();
+                self.modal.enter(Mode::Normal);
+                self.messages.push("E35: No previous regular expression".to_string());
+            }
+            // The prompt stays OPEN so the typed pattern is not lost; the user
+            // fixes the regex instead of retyping it.
+            escriba_search::Accepted::Invalid(e) => {
+                let mut m = String::from("E383: Invalid search string: ");
+                m.push_str(&e.to_string());
+                self.messages.push(m);
+            }
+        }
+    }
+
     fn apply_resolved(&mut self, action: &Action) {
         // Snapshot the scope inputs before the mutation so the resulting
         // Damage covers the changed region (the S3 seal — conservative widen).
@@ -440,7 +527,41 @@ impl EditorState {
         let cline_before = self.cursor().line;
         match action {
             Action::Move(m) => self.apply_motion(*m),
-            Action::ChangeMode(m) => self.modal.enter(*m),
+            Action::SearchOpen(dir) => {
+                // vim's `/` is the command-line with a different prompt char,
+                // so we reuse Command mode; `search.prompt` is what tells a
+                // later <CR> this is a search and not an ex-command.
+                let origin = self.cursor_char();
+                self.search.open(*dir, origin);
+                self.modal.enter(Mode::Command);
+            }
+            Action::SearchRepeat { reverse } => self.jump_search(*reverse),
+            Action::SearchWord { reverse } => {
+                let dir =
+                    if *reverse { SearchDirection::Backward } else { SearchDirection::Forward };
+                let (text, at) = (self.active_text(), self.cursor_char());
+                match self.search.search_word(&text, at, dir) {
+                    Some(step) => self.land_on(step),
+                    // vim beeps and stays put when there is no word under the
+                    // cursor; a silent no-op would look like a broken key.
+                    None => self.messages.push("E348: No string under cursor".to_string()),
+                }
+            }
+            Action::ClearSearchHighlight => self.search.clear_highlight(),
+            Action::ChangeMode(m) => {
+                // Leaving the cmdline abandons any open search prompt and
+                // returns the cursor home. The COMMITTED pattern survives —
+                // cancelling a new search must not erase the old highlights.
+                if *m == Mode::Normal && self.search.is_prompting() {
+                    if let Some(origin) = self.search.cancel() {
+                        if let Some(buf) = self.buffers.get(self.active) {
+                            let pos = buf.char_to_position(origin);
+                            self.set_cursor(pos);
+                        }
+                    }
+                }
+                self.modal.enter(*m);
+            }
             Action::InsertChar(c) => self.insert_char(*c),
             Action::Edit(edit) => self.apply_edit(edit),
             Action::Undo => {
@@ -464,7 +585,13 @@ impl EditorState {
                 self.set_cursor(self.cursor());
             }
             Action::Quit => self.quit_requested = true,
-            Action::SubmitCommand => self.submit_command(),
+            Action::SubmitCommand => {
+                if self.search.is_prompting() {
+                    self.submit_search();
+                } else {
+                    self.submit_command();
+                }
+            }
             Action::Command { name, args } => self.run_command(name, args),
             Action::ApplyOperator { op, motion } => self.apply_operator(*op, *motion),
             // The operator-pending FSM consumes Operator keys (begins pending);
@@ -479,6 +606,13 @@ impl EditorState {
         let lines_after = self.active_line_count();
         let cline_after = self.cursor().line;
         let d = match action {
+            // A search repaints every highlight in the viewport, not just the
+            // line the cursor left — so it must widen to Full. Treating it as a
+            // cursor move would leave stale highlights on untouched lines.
+            Action::SearchOpen(_)
+            | Action::SearchRepeat { .. }
+            | Action::SearchWord { .. }
+            | Action::ClearSearchHighlight => Damage::Full,
             Action::InsertChar(_)
             | Action::Edit(_)
             | Action::Undo
@@ -519,6 +653,15 @@ impl EditorState {
         let buf = self.buffers.get(self.active)?;
         let pos = from;
         Some(match motion {
+            // Search-as-motion: what makes `dn` / `d/foo<CR>` work. Resolved
+            // against the committed match list, so it is `None` (motion fails,
+            // operator aborts, buffer untouched) when nothing is committed —
+            // never a silent move to 0, which would delete to the file start.
+            Motion::SearchNext | Motion::SearchPrev => {
+                let at = buf.position_to_char(pos).ok()?;
+                let step = self.search.repeat(at, matches!(motion, Motion::SearchPrev))?;
+                buf.char_to_position(step.target.start)
+            }
             Motion::Left => Position::new(pos.line, pos.column.saturating_sub(1)),
             Motion::Right => Position::new(pos.line, pos.column.saturating_add(1)),
             Motion::Up => Position::new(pos.line.saturating_sub(1), pos.column),
@@ -623,7 +766,15 @@ impl EditorState {
 
     fn insert_char(&mut self, c: char) {
         if self.modal.mode() == Mode::Command {
-            self.modal.push_minibuffer(c);
+            // A search prompt and an ex-command share Command mode (vim's
+            // cmdline). `search.is_prompting()` is the typed discriminator —
+            // it can only be true when `/` or `?` actually opened a prompt.
+            if self.search.is_prompting() {
+                self.search.push(c);
+                self.modal.push_minibuffer(c);
+            } else {
+                self.modal.push_minibuffer(c);
+            }
             return;
         }
         let cursor = self.cursor();
@@ -853,6 +1004,124 @@ fn parse_command_line(line: &str) -> (String, Vec<String>) {
 mod tests {
     use super::*;
     use madori::event::{KeyCode, KeyEvent, Modifiers};
+
+    // ── search wiring (escriba-search integration) ────────────────────
+    //
+    // The engine is proven in escriba-search's own 61 tests. These prove the
+    // WIRING: that keys reach it, that the cursor lands where it says, and
+    // that a search prompt and an ex-command can share Command mode without
+    // being confused for one another.
+
+    fn type_search(st: &mut EditorState, dir: SearchDirection, pat: &str) {
+        st.apply(&Action::SearchOpen(dir));
+        for c in pat.chars() {
+            st.apply(&Action::InsertChar(c));
+        }
+        st.apply(&Action::SubmitCommand);
+    }
+
+    #[test]
+    fn slash_search_moves_the_cursor_to_the_match() {
+        let mut st = new_state_with("alpha\nbravo\ncharlie\n");
+        type_search(&mut st, SearchDirection::Forward, "charlie");
+        assert_eq!(st.cursor().line, 2, "cursor lands on the matching line");
+        assert_eq!(st.modal.mode(), Mode::Normal, "prompt closes on submit");
+        assert_eq!(st.search.matches().len(), 1);
+    }
+
+    #[test]
+    fn n_and_N_walk_matches_in_both_directions() {
+        let mut st = new_state_with("foo\nbar\nfoo\nbaz\nfoo\n");
+        type_search(&mut st, SearchDirection::Forward, "foo");
+        let first = st.cursor().line;
+        st.apply(&Action::SearchRepeat { reverse: false });
+        let second = st.cursor().line;
+        assert!(second > first, "n advances ({first} -> {second})");
+        st.apply(&Action::SearchRepeat { reverse: true });
+        assert_eq!(st.cursor().line, first, "N comes back");
+    }
+
+    #[test]
+    fn star_searches_the_word_under_the_cursor() {
+        let mut st = new_state_with("needle\nhaystack\nneedle\n");
+        st.apply(&Action::SearchWord { reverse: false });
+        assert_eq!(st.search.pattern().unwrap().raw(), r"\bneedle\b");
+        assert_eq!(st.cursor().line, 2, "jumps to the other occurrence");
+    }
+
+    #[test]
+    fn escape_abandons_the_prompt_and_keeps_the_previous_search() {
+        let mut st = new_state_with("foo\nbar\nfoo\n");
+        type_search(&mut st, SearchDirection::Forward, "foo");
+        let matches_before = st.search.matches().len();
+
+        st.apply(&Action::SearchOpen(SearchDirection::Forward));
+        st.apply(&Action::InsertChar('z'));
+        st.apply(&Action::ChangeMode(Mode::Normal));
+
+        assert!(!st.search.is_prompting(), "prompt gone");
+        assert_eq!(st.search.pattern().unwrap().raw(), "foo", "old pattern survives");
+        assert_eq!(st.search.matches().len(), matches_before, "old highlights survive");
+    }
+
+    #[test]
+    fn a_search_prompt_and_an_ex_command_are_not_confused() {
+        let mut st = new_state_with("foo\n");
+        // No `/` pressed: Command mode belongs to the ex-command line.
+        st.apply(&Action::ChangeMode(Mode::Command));
+        assert!(!st.search.is_prompting(), "`:` must not open a search");
+        st.apply(&Action::InsertChar('w'));
+        assert!(st.search.prompt().is_none(), "typed char went to the ex line");
+    }
+
+    #[test]
+    fn a_missing_pattern_reports_instead_of_failing_silently() {
+        let mut st = new_state_with("alpha\nbravo\n");
+        type_search(&mut st, SearchDirection::Forward, "zzz");
+        assert!(
+            st.messages.iter().any(|m| m.contains("E486")),
+            "must report not-found, got {:?}",
+            st.messages
+        );
+    }
+
+    #[test]
+    fn n_without_any_search_reports_rather_than_moving() {
+        let mut st = new_state_with("alpha\nbravo\n");
+        let before = st.cursor();
+        st.apply(&Action::SearchRepeat { reverse: false });
+        assert_eq!(st.cursor(), before, "cursor must not move");
+        assert!(st.messages.iter().any(|m| m.contains("E35")), "got {:?}", st.messages);
+    }
+
+    #[test]
+    fn search_as_a_motion_composes_with_an_operator() {
+        // The point of Motion::SearchNext: `d` + search deletes to the match.
+        let mut st = new_state_with("alpha bravo charlie\n");
+        type_search(&mut st, SearchDirection::Forward, "charlie");
+        st.set_cursor(Position::new(0, 0));
+        let target = st.resolve_motion(Position::new(0, 0), Motion::SearchNext);
+        assert!(target.is_some(), "search must resolve as a motion");
+        assert_eq!(target.unwrap().column, 12, "at `charlie`");
+    }
+
+    #[test]
+    fn search_motion_without_a_pattern_fails_the_motion_instead_of_moving_to_zero() {
+        // A silent fallback to offset 0 would make `d` + search delete to the
+        // start of the file — the worst possible failure for an operator.
+        let st = new_state_with("alpha bravo\n");
+        assert!(st.resolve_motion(Position::new(0, 5), Motion::SearchNext).is_none());
+    }
+
+    #[test]
+    fn clear_highlight_keeps_the_pattern_usable() {
+        let mut st = new_state_with("foo\nbar\nfoo\n");
+        type_search(&mut st, SearchDirection::Forward, "foo");
+        st.apply(&Action::ClearSearchHighlight);
+        assert!(st.search.highlights().is_empty(), "nothing lit");
+        st.apply(&Action::SearchRepeat { reverse: false });
+        assert!(st.search.pattern().is_some(), "but n still works");
+    }
 
     fn new_state_with(text: &str) -> EditorState {
         let mut bufs = BufferSet::new();

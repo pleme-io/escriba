@@ -1,3 +1,4 @@
+use escriba_search::Direction as SearchDirection;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +42,31 @@ pub enum Action {
     Save,
     /// Quit the editor.
     Quit,
+    // ── search (vim `/`, `?`, `n`, `N`, `*`, `#`) ──────────────────────
+    /// Open the search prompt in `direction` (the `/` and `?` keys).
+    ///
+    /// The prompt reuses `Mode::Command` rather than adding a mode variant:
+    /// vim's `/` IS the command-line with a different prompt character, and
+    /// this module's own doc states new modes are layered through pending
+    /// state, not new variants. `SearchState`'s typed `Option<Prompt>` is what
+    /// disambiguates a `<CR>` that submits a search from one that submits an
+    /// ex-command — a discriminator that cannot be forgotten, unlike a bool.
+    SearchOpen(SearchDirection),
+    /// `n` (`reverse = false`) / `N` (`reverse = true`) — jump to the next
+    /// match, relative to the direction the search was committed with, so `N`
+    /// after a `?` search moves forward.
+    SearchRepeat {
+        reverse: bool,
+    },
+    /// `*` (`reverse = false`) / `#` (`reverse = true`) — search the whole word
+    /// under the cursor. Literal, not regex: the word may contain `.` or `[`
+    /// and the user means those characters.
+    SearchWord {
+        reverse: bool,
+    },
+    /// `:noh` — stop highlighting matches while keeping the pattern, so `n`
+    /// still works. Distinct from cancelling a search.
+    ClearSearchHighlight,
     /// No-op — used when a key sequence is pending but not yet complete.
     Pending,
 }

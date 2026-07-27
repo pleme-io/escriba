@@ -47,6 +47,16 @@ pub enum Motion {
     BeginningOfSexp,
     /// Move to the end of the current s-expression (matching close).
     EndOfSexp,
+
+    // ── search motions ────────────────────────────────────────────────
+    /// To the next search match — vim's `n` used as a MOTION, which is what
+    /// makes `d/foo<CR>`, `dn` and `y*` work. Search being a motion rather
+    /// than a bare cursor jump is the difference between a search box and vim
+    /// search; resolving it needs the committed `SearchState`, so the executor
+    /// supplies it — the enum stays a pure description, like every other arm.
+    SearchNext,
+    /// To the previous search match (vim's `N` as a motion).
+    SearchPrev,
 }
 
 impl Motion {
