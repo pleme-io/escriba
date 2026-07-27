@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cargo_lock_sha256": "968e4fc095c5332dd69f9dc6f087e82d0886417e20f28c3eab3d7c6baf4b102d",
+  "cargo_lock_sha256": "c2a48b0388b8b91a4c836d3144a5aa867c5532293326bb6381309bf193e04711",
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2788,6 +2788,44 @@
           {
             "name": "zenmai",
             "package_key": "zenmai-0.0.1-6399d02ff24b964da003cf4b0debae2ac6c7178d",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "escriba-search-0.1.16": {
+        "runtime_dependencies": [
+          {
+            "name": "regex",
+            "package_key": "regex-1.12.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.18",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -24539,6 +24577,13 @@
       "edition": "2024",
       "lib_target": {
         "name": "escriba_runtime",
+        "path": "src/lib.rs"
+      }
+    },
+    "escriba-search-0.1.16": {
+      "edition": "2024",
+      "lib_target": {
+        "name": "escriba_search",
         "path": "src/lib.rs"
       }
     },
