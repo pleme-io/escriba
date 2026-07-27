@@ -5,6 +5,7 @@ members = [
     "escriba-buffer",
     "escriba-config",
     "escriba-mode",
+    "escriba-search",
     "escriba-keymap",
     "escriba-command",
     "escriba-api",
@@ -37,6 +38,7 @@ escriba-core    = { path = "escriba-core", version = "0.1.1" }
 escriba-buffer  = { path = "escriba-buffer", version = "0.1.1" }
 escriba-config  = { path = "escriba-config", version = "0.1.1" }
 escriba-mode    = { path = "escriba-mode", version = "0.1.1" }
+escriba-search  = { path = "escriba-search", version = "0.1.1" }
 escriba-keymap  = { path = "escriba-keymap", version = "0.1.1" }
 escriba-command = { path = "escriba-command", version = "0.1.1" }
 escriba-api     = { path = "escriba-api", version = "0.1.1" }
@@ -72,6 +74,7 @@ anyhow           = "1"
 blake3           = "1"
 clap             = { version = "4", features = ["derive", "env"] }
 ropey            = "1"
+regex            = "1"
 schemars         = { version = "0.8", features = ["chrono"] }
 tracing          = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

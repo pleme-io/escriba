@@ -1,0 +1,20 @@
+[package]
+name = "escriba-search"
+description = "Incremental buffer search for escriba — vim-grade `/` and `?` with smartcase, regex, wrap-around, whole-word `*`/`#`, hlsearch and search history. Pure and side-effect-free: a function of (text, pattern, cursor)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde     = { workspace = true }
+thiserror = { workspace = true }
+regex     = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true
