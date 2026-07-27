@@ -45,6 +45,14 @@ pub struct GpuRenderer {
     eco: Ecosystem,
     /// Nord syntax theme (HlClass→Rgb).
     theme: NordTheme,
+    /// The resolved CHROME palette this renderer paints with.
+    ///
+    /// Held as state rather than re-derived per paint site, so a theme is
+    /// a VALUE the renderer owns and `set_theme` can change at runtime.
+    /// Every site previously called `ChromePalette::prescribed()` directly,
+    /// which hardwired the paint path to the FLEET default and made
+    /// `(deftheme :preset …)` inert no matter what the operator authored.
+    chrome: ChromePalette,
     /// The refresh generation of the currently-cached text buffer — the seal
     /// (`theory/ESCRIBA.md` §Refresh-Seal). When `EditorState::edit_gen()`
     /// still equals this, the cached shaped buffer is reused verbatim: no
@@ -74,10 +82,37 @@ impl GpuRenderer {
             metrics: Metrics::new(font_size, line_height),
             eco: build_ecosystem(),
             theme: NordTheme,
+            // Nord (the fleet prescribed default) until a config resolves
+            // otherwise — never a hand-written constant, so a fleet
+            // re-point lands here for free.
+            chrome: ChromePalette::prescribed(),
             last_gen: EditGen(u64::MAX),
             cached_text: None,
             highlighter: None,
         }
+    }
+
+    /// Point the renderer at a theme — the wiring that makes
+    /// `(deftheme :preset …)` real.
+    ///
+    /// `ChromePalette::for_theme` is total over `FleetTheme` (no wildcard
+    /// arm), so a theme added upstream fails this to compile rather than
+    /// silently painting the wrong thing.
+    pub fn set_theme(&mut self, theme: ishou_tokens::FleetTheme) {
+        self.chrome = ChromePalette::for_theme(theme);
+    }
+
+    /// The palette currently painted with.
+    #[must_use]
+    pub fn chrome(&self) -> ChromePalette {
+        self.chrome
+    }
+
+    /// Builder form of [`Self::set_theme`].
+    #[must_use]
+    pub fn with_theme(mut self, theme: ishou_tokens::FleetTheme) -> Self {
+        self.set_theme(theme);
+        self
     }
 
     #[must_use]
@@ -155,7 +190,7 @@ impl RenderCallback for GpuRenderer {
         //    (theory/ESCRIBA.md §Refresh-Seal): highlight + set_rich_text +
         //    shape — the frame's dominant cost — run once per edit, never
         //    per vsync.
-        let palette = ChromePalette::prescribed();
+        let palette = self.chrome;
         let fg = chrome_glyph(palette.text);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
@@ -566,6 +601,47 @@ mod tests {
     /// prescribed theme to PlemeDark (Nord) this went RED — correctly, since
     /// the GPU backend really was painting the wrong theme while the TUI
     /// face and the rest of the fleet (mado, tear, frostmourne, …) moved on.
+    /// Smallest real editor state — a scratch buffer. The theming tests
+    /// care about the palette, not the buffer, but GpuRenderer owns state.
+    fn test_renderer() -> GpuRenderer {
+        let mut bufs = escriba_buffer::BufferSet::new();
+        let id = bufs.scratch("");
+        GpuRenderer::new(Arc::new(Mutex::new(EditorState::new_with_buffer(bufs, id))))
+    }
+
+    #[test]
+    fn default_theme_is_the_fleet_prescribed_nord() {
+        // Nord is the default because the FLEET says so — asserted against
+        // FleetTheme::prescribed_default(), never a hand-written "nord",
+        // so a fleet re-point cannot leave escriba silently behind.
+        let r = test_renderer();
+        let want = ChromePalette::for_theme(ishou_tokens::FleetTheme::prescribed_default());
+        assert_eq!(r.chrome().hex_tuple(), want.hex_tuple());
+    }
+
+    #[test]
+    fn set_theme_actually_changes_what_is_painted() {
+        // The wiring this exists to prove: before it, every paint site
+        // called ChromePalette::prescribed() directly, so (deftheme :preset)
+        // resolved to a real FleetTheme that NOTHING consumed. If set_theme
+        // ever stops reaching the paint path, this fails.
+        let mut r = test_renderer();
+        let before = r.chrome().hex_tuple();
+        r.set_theme(ishou_tokens::FleetTheme::Vellum);
+        let after = r.chrome().hex_tuple();
+        assert_ne!(
+            before, after,
+            "switching to Vellum must change the painted palette"
+        );
+        assert_eq!(
+            after,
+            ChromePalette::for_theme(ishou_tokens::FleetTheme::Vellum).hex_tuple()
+        );
+        // And it is reversible — a theme is a value, not a one-way latch.
+        r.set_theme(ishou_tokens::FleetTheme::prescribed_default());
+        assert_eq!(r.chrome().hex_tuple(), before);
+    }
+
     #[test]
     fn escriba_gpu_chrome_converges_with_fleet() {
         use ishou_tokens::{FleetTheme, convergence::Guard};
