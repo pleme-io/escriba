@@ -74,6 +74,14 @@ pub enum Action {
     /// One action serves both prompts; the runtime routes it by whether a
     /// search prompt is open.
     PromptBackspace,
+    /// Up/Down inside a prompt — walk search history.
+    ///
+    /// `back = true` is older. Stepping forward past the newest entry restores
+    /// the text that was being typed when browsing began, so arrowing through
+    /// history and back never destroys a half-typed pattern.
+    PromptHistory {
+        back: bool,
+    },
     /// No-op — used when a key sequence is pending but not yet complete.
     Pending,
 }

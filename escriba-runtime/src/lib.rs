@@ -622,6 +622,19 @@ impl EditorState {
                     self.preview_search();
                 }
             }
+            Action::PromptHistory { back } => {
+                if self.search.is_prompting() {
+                    self.search.history_step(*back);
+                    // The minibuffer is a separate display buffer, so it must
+                    // be rewritten from the prompt rather than left showing the
+                    // pattern history just replaced.
+                    self.modal.clear_minibuffer();
+                    if let Some(text) = self.search.prompt().map(|p| p.text.clone()) {
+                        self.modal.push_minibuffer_str(&text);
+                    }
+                    self.preview_search();
+                }
+            }
             Action::Pending => {}
         }
         // Widen the dirty region by what this action touched (M1). Content
@@ -635,6 +648,7 @@ impl EditorState {
             // line the cursor left — so it must widen to Full. Treating it as a
             // cursor move would leave stale highlights on untouched lines.
             Action::SearchOpen(_)
+            | Action::PromptHistory { .. }
             | Action::PromptBackspace
             | Action::SearchRepeat { .. }
             | Action::SearchWord { .. }
@@ -1244,6 +1258,38 @@ mod tests {
         st.apply(&Action::PromptBackspace);
         assert_eq!(st.modal.minibuffer(), "w");
         assert!(st.search.prompt().is_none(), "no search was involved");
+    }
+
+    #[test]
+    fn up_arrow_recalls_the_previous_search() {
+        let mut st = new_state_with("alpha\nbravo\n");
+        type_search(&mut st, SearchDirection::Forward, "bravo");
+        st.apply(&Action::SearchOpen(SearchDirection::Forward));
+        st.apply(&Action::PromptHistory { back: true });
+        assert_eq!(st.search.prompt().unwrap().text, "bravo");
+        assert_eq!(st.modal.minibuffer(), "bravo", "display follows the prompt");
+    }
+
+    #[test]
+    fn arrowing_back_down_restores_the_half_typed_pattern() {
+        let mut st = new_state_with("alpha\nbravo\n");
+        type_search(&mut st, SearchDirection::Forward, "bravo");
+        st.apply(&Action::SearchOpen(SearchDirection::Forward));
+        st.apply(&Action::InsertChar('a'));
+        st.apply(&Action::PromptHistory { back: true });
+        assert_eq!(st.search.prompt().unwrap().text, "bravo");
+        st.apply(&Action::PromptHistory { back: false });
+        assert_eq!(st.search.prompt().unwrap().text, "a", "the draft comes back");
+        assert_eq!(st.modal.minibuffer(), "a");
+    }
+
+    #[test]
+    fn history_arrows_do_nothing_on_the_ex_line() {
+        let mut st = new_state_with("alpha\n");
+        st.apply(&Action::ChangeMode(Mode::Command));
+        st.apply(&Action::InsertChar('w'));
+        st.apply(&Action::PromptHistory { back: true });
+        assert_eq!(st.modal.minibuffer(), "w", "ex line untouched");
     }
 
     fn new_state_with(text: &str) -> EditorState {
