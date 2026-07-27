@@ -215,6 +215,18 @@ impl Keymap {
         m.bind(Mode::Command, Key::Enter, Action::SubmitCommand, "submit");
         m.bind(
             Mode::Command,
+            Key::Up,
+            Action::PromptHistory { back: true },
+            "older search",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Down,
+            Action::PromptHistory { back: false },
+            "newer search",
+        );
+        m.bind(
+            Mode::Command,
             Key::Backspace,
             Action::PromptBackspace,
             "erase one char",
