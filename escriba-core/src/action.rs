@@ -67,6 +67,13 @@ pub enum Action {
     /// `:noh` — stop highlighting matches while keeping the pattern, so `n`
     /// still works. Distinct from cancelling a search.
     ClearSearchHighlight,
+    /// Backspace inside a command-line or search prompt.
+    ///
+    /// Key::Backspace was previously bound in NO mode, so the minibuffer could
+    /// be typed into but never corrected — a typo meant Esc and start again.
+    /// One action serves both prompts; the runtime routes it by whether a
+    /// search prompt is open.
+    PromptBackspace,
     /// No-op — used when a key sequence is pending but not yet complete.
     Pending,
 }

@@ -484,6 +484,22 @@ impl EditorState {
         }
     }
 
+    /// Move the cursor to where the in-progress pattern would land, without
+    /// committing anything. vim's `incsearch`.
+    ///
+    /// A pattern that does not compile yet (`/a[`, mid-typing) previews
+    /// nothing and reports nothing — an error toast on every keystroke of a
+    /// character class would be unusable.
+    fn preview_search(&mut self) {
+        let text = self.active_text();
+        if let Some(step) = self.search.preview(&text) {
+            if let Some(buf) = self.buffers.get(self.active) {
+                let pos = buf.char_to_position(step.target.start);
+                self.set_cursor(pos);
+            }
+        }
+    }
+
     /// Commit the `/` prompt: compile, search, jump, and report like vim.
     fn submit_search(&mut self) {
         let text = self.active_text();
@@ -597,6 +613,15 @@ impl EditorState {
             // The operator-pending FSM consumes Operator keys (begins pending);
             // they never reach the executor. Defensive no-op for exhaustiveness.
             Action::Operator(_) => {}
+            Action::PromptBackspace => {
+                self.prompt_backspace();
+                // Shortening the pattern changes which matches exist, so the
+                // preview must re-run — otherwise the cursor sits on a match
+                // of a pattern that is no longer typed.
+                if self.search.is_prompting() {
+                    self.preview_search();
+                }
+            }
             Action::Pending => {}
         }
         // Widen the dirty region by what this action touched (M1). Content
@@ -610,6 +635,7 @@ impl EditorState {
             // line the cursor left — so it must widen to Full. Treating it as a
             // cursor move would leave stale highlights on untouched lines.
             Action::SearchOpen(_)
+            | Action::PromptBackspace
             | Action::SearchRepeat { .. }
             | Action::SearchWord { .. }
             | Action::ClearSearchHighlight => Damage::Full,
@@ -772,6 +798,7 @@ impl EditorState {
             if self.search.is_prompting() {
                 self.search.push(c);
                 self.modal.push_minibuffer(c);
+                self.preview_search();
             } else {
                 self.modal.push_minibuffer(c);
             }
@@ -794,6 +821,25 @@ impl EditorState {
         }
     }
 
+    /// Backspace inside a prompt. Keeps the search buffer and the displayed
+    /// minibuffer in lockstep — if only one shrank, the pattern submitted
+    /// would differ from the text on screen.
+    fn prompt_backspace(&mut self) -> bool {
+        if self.modal.mode() != Mode::Command {
+            return false;
+        }
+        if self.search.is_prompting() {
+            // Backspacing past the `/` closes the prompt, as vim does.
+            if self.search.backspace() {
+                self.modal.clear_minibuffer();
+                self.modal.enter(Mode::Normal);
+                return true;
+            }
+        }
+        self.modal.pop_minibuffer();
+        true
+    }
+
     fn apply_edit(&mut self, _edit: &Edit) {
         // Phase 2: actually apply arbitrary edits from the keymap. For now
         // the only keymap-originated edits are InsertChar (handled above)
@@ -814,6 +860,15 @@ impl EditorState {
     }
 
     fn run_command(&mut self, name: &str, args: &[String]) {
+        // `:noh` is handled here rather than in the command registry because
+        // it mutates SearchState, which EditContext does not expose (and
+        // should not — the registry's contract is buffers + modal state).
+        // Without it there is no way to turn highlights off, which makes
+        // hlsearch actively unpleasant rather than useful.
+        if matches!(name, "noh" | "nohl" | "nohlsearch") {
+            self.search.clear_highlight();
+            return;
+        }
         // Lazy-activation seam (lazy.nvim `cmd =` model): a user plugin
         // gated on `Command: <name>` has its entry applied the first time
         // that command runs, BEFORE dispatch — so the activated plugin
@@ -1121,6 +1176,74 @@ mod tests {
         assert!(st.search.highlights().is_empty(), "nothing lit");
         st.apply(&Action::SearchRepeat { reverse: false });
         assert!(st.search.pattern().is_some(), "but n still works");
+    }
+
+    #[test]
+    fn typing_previews_incrementally_before_commit() {
+        let mut st = new_state_with("alpha\nbravo\ncharlie\n");
+        st.apply(&Action::SearchOpen(SearchDirection::Forward));
+        for c in "charlie".chars() {
+            st.apply(&Action::InsertChar(c));
+        }
+        // incsearch: the cursor has already moved, with nothing committed.
+        assert_eq!(st.cursor().line, 2, "preview moved the cursor");
+        assert!(st.search.pattern().is_none(), "but nothing is committed");
+    }
+
+    #[test]
+    fn backspace_corrects_the_prompt_and_reruns_the_preview() {
+        let mut st = new_state_with("alpha\nbravo\n");
+        st.apply(&Action::SearchOpen(SearchDirection::Forward));
+        for c in "bravox".chars() {
+            st.apply(&Action::InsertChar(c));
+        }
+        assert_eq!(st.search.prompt().unwrap().text, "bravox");
+        st.apply(&Action::PromptBackspace);
+        assert_eq!(st.search.prompt().unwrap().text, "bravo", "typo corrected");
+        assert_eq!(st.modal.minibuffer(), "bravo", "display stays in lockstep");
+        assert_eq!(st.cursor().line, 1, "preview re-ran and found it");
+    }
+
+    #[test]
+    fn backspacing_past_the_slash_closes_the_prompt() {
+        let mut st = new_state_with("alpha\n");
+        st.apply(&Action::SearchOpen(SearchDirection::Forward));
+        st.apply(&Action::InsertChar('a'));
+        st.apply(&Action::PromptBackspace);
+        st.apply(&Action::PromptBackspace);
+        assert!(!st.search.is_prompting(), "prompt closed");
+        assert_eq!(st.modal.mode(), Mode::Normal);
+    }
+
+    #[test]
+    fn noh_clears_highlights_and_keeps_the_pattern() {
+        let mut st = new_state_with("foo\nbar\nfoo\n");
+        type_search(&mut st, SearchDirection::Forward, "foo");
+        assert!(!st.search.highlights().is_empty());
+        st.run_command("noh", &[]);
+        assert!(st.search.highlights().is_empty(), ":noh turns them off");
+        assert!(st.search.pattern().is_some(), "but n still works");
+    }
+
+    #[test]
+    fn noh_accepts_the_vim_aliases() {
+        for name in ["noh", "nohl", "nohlsearch"] {
+            let mut st = new_state_with("foo\nfoo\n");
+            type_search(&mut st, SearchDirection::Forward, "foo");
+            st.run_command(name, &[]);
+            assert!(st.search.highlights().is_empty(), "{name} must clear");
+        }
+    }
+
+    #[test]
+    fn backspace_on_the_ex_line_does_not_touch_search_state() {
+        let mut st = new_state_with("foo\n");
+        st.apply(&Action::ChangeMode(Mode::Command));
+        st.apply(&Action::InsertChar('w'));
+        st.apply(&Action::InsertChar('q'));
+        st.apply(&Action::PromptBackspace);
+        assert_eq!(st.modal.minibuffer(), "w");
+        assert!(st.search.prompt().is_none(), "no search was involved");
     }
 
     fn new_state_with(text: &str) -> EditorState {
