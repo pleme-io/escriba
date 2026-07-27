@@ -141,7 +141,10 @@ impl RenderCallback for GpuRenderer {
             };
             let cur_gen = s.edit_gen();
             let rebuild = cur_gen != self.last_gen || self.cached_text.is_none();
-            let rebuild_input: Option<(String, String)> = if rebuild {
+            // (rendered text, path, search-match byte ranges INTO that text).
+            // The match ranges ride along with the text they index so the two
+            // cannot be computed against different frames.
+            let rebuild_input: Option<(String, String, Vec<(usize, usize)>)> = if rebuild {
                 // The open file's path drives hikari language resolution.
                 let path = buf
                     .path
@@ -158,6 +161,16 @@ impl RenderCallback for GpuRenderer {
                     .as_ref()
                     .map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
                 let mut out = String::new();
+                // Search matches are DOCUMENT char offsets; `out` is a
+                // RECONSTRUCTED string (each row trimmed of \r\n, char-sliced
+                // to the horizontal window, then \n-joined). There is
+                // therefore NO single base offset relating the two — the map
+                // has to be built per row, while we still know what each row
+                // corresponds to. Converting here, at the one place both
+                // coordinate systems are in scope, is what keeps byte/char
+                // confusion out of the painting code below.
+                let mut match_bytes: Vec<(usize, usize)> = Vec::new();
+                let hl = s.search.highlights();
                 for row in 0..visible_lines {
                     let ln = top_line + row;
                     if ln >= buf.line_count() {
@@ -174,11 +187,36 @@ impl RenderCallback for GpuRenderer {
                             .skip(left_column)
                             .take(visible_columns)
                             .collect();
+                        if !hl.is_empty() {
+                            let seg_byte0 = out.len();
+                            // Document char span this rendered segment covers.
+                            let doc0 = buf
+                                .position_to_char(escriba_core::Position::new(ln, 0))
+                                .unwrap_or(0)
+                                + left_column;
+                            let seg_chars = sliced.chars().count();
+                            // char index -> byte index within this segment.
+                            let bytes: Vec<usize> = sliced
+                                .char_indices()
+                                .map(|(b, _)| b)
+                                .chain(std::iter::once(sliced.len()))
+                                .collect();
+                            for m in hl {
+                                let a = m.start.max(doc0);
+                                let b = m.end.min(doc0 + seg_chars);
+                                if a < b {
+                                    match_bytes.push((
+                                        seg_byte0 + bytes[a - doc0],
+                                        seg_byte0 + bytes[b - doc0],
+                                    ));
+                                }
+                            }
+                        }
                         out.push_str(&sliced);
                         out.push('\n');
                     }
                 }
-                Some((out, path))
+                Some((out, path, match_bytes))
             } else {
                 None
             };
@@ -194,7 +232,7 @@ impl RenderCallback for GpuRenderer {
         let fg = chrome_glyph(palette.text);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
-        if let Some((text, path)) = rebuild_input {
+        if let Some((text, path, match_bytes)) = rebuild_input {
             let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
             buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
             // hikari: resolve the language, highlight the visible text, paint
@@ -218,12 +256,32 @@ impl RenderCallback for GpuRenderer {
                 .expect("highlighter set immediately above")
                 .1;
             let spans = hl.highlight(&text);
+            // Overlay search matches on the syntax partition. Each syntax
+            // span is cut at any match boundary crossing it and the matched
+            // piece is recoloured; the result is still coverage-complete,
+            // non-overlapping and sorted, which is what set_rich_text
+            // requires — splitting a partition preserves that, replacing it
+            // would not.
+            let search_color = chrome_glyph(self.chrome.warning);
             let runs: Vec<(&str, Attrs)> = spans
                 .iter()
-                .filter_map(|s| {
-                    text.get(s.span.range()).map(|slice| {
-                        (slice, base.clone().color(hl_to_glyph(self.theme.color(s.class))))
-                    })
+                .flat_map(|sp| {
+                    let syntax = base.clone().color(hl_to_glyph(self.theme.color(sp.class)));
+                    split_on_matches(sp.span.range(), &match_bytes)
+                        .into_iter()
+                        .filter_map(|(r, is_match)| {
+                            text.get(r).map(|slice| {
+                                (
+                                    slice,
+                                    if is_match {
+                                        base.clone().color(search_color)
+                                    } else {
+                                        syntax.clone()
+                                    },
+                                )
+                            })
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .collect();
             buffer.set_rich_text(&mut ctx.text.font_system, runs, &base, Shaping::Advanced, None);
@@ -420,6 +478,46 @@ fn ground_bg() -> wgpu::Color {
 
 /// ishou `Rgb` → glyphon `Color` (sRGB u8 RGBA, opaque). Theme-agnostic —
 /// was `vellum_glyph`, back when the paint path was hardwired to Vellum.
+/// Cut `range` wherever a match in `matches` starts or ends inside it.
+///
+/// Returns `(sub_range, is_match)` pieces that are contiguous, in order, and
+/// exactly cover `range` — the property `set_rich_text` depends on. `matches`
+/// are byte ranges into the SAME string `range` indexes.
+///
+/// Splitting the existing syntax partition (rather than building a second one)
+/// is what keeps the two colour sources composable: a match inside a string
+/// literal recolours only the matched bytes and the literal keeps its colour
+/// either side.
+fn split_on_matches(
+    range: std::ops::Range<usize>,
+    matches: &[(usize, usize)],
+) -> Vec<(std::ops::Range<usize>, bool)> {
+    let mut cuts: Vec<usize> = vec![range.start, range.end];
+    for &(a, b) in matches {
+        if a > range.start && a < range.end {
+            cuts.push(a);
+        }
+        if b > range.start && b < range.end {
+            cuts.push(b);
+        }
+    }
+    if cuts.len() == 2 {
+        // No boundary crosses this span — the common case, so avoid the
+        // sort/dedup entirely.
+        let hit = matches.iter().any(|&(a, b)| a <= range.start && b >= range.end);
+        return vec![(range, hit)];
+    }
+    cuts.sort_unstable();
+    cuts.dedup();
+    cuts.windows(2)
+        .map(|w| {
+            let (a, b) = (w[0], w[1]);
+            let hit = matches.iter().any(|&(ms, me)| ms <= a && me >= b);
+            (a..b, hit)
+        })
+        .collect()
+}
+
 fn chrome_glyph(c: Rgb) -> GlyphColor {
     GlyphColor::rgba(c.r, c.g, c.b, 0xFF)
 }
@@ -471,6 +569,97 @@ pub fn mode_glyph(sig: &EscribaSignals, mode: Mode) -> &ishou_tokens::Signal {
 
 #[cfg(test)]
 mod tests {
+
+    // ── search-highlight overlay ──────────────────────────────────────
+    //
+    // set_rich_text requires a coverage-complete, non-overlapping, sorted
+    // partition. Splitting the syntax partition preserves that; these pin it,
+    // because a violation shows up as garbled text rather than a panic.
+
+    /// The invariant, asserted directly: pieces are contiguous, ordered, and
+    /// exactly cover the input range.
+    fn assert_partition(range: std::ops::Range<usize>, out: &[(std::ops::Range<usize>, bool)]) {
+        assert!(!out.is_empty(), "a range must yield at least one piece");
+        assert_eq!(out[0].0.start, range.start, "starts at the range start");
+        assert_eq!(out[out.len() - 1].0.end, range.end, "ends at the range end");
+        for w in out.windows(2) {
+            assert_eq!(w[0].0.end, w[1].0.start, "pieces are contiguous, no gap or overlap");
+        }
+    }
+
+    #[test]
+    fn a_span_with_no_match_is_returned_whole() {
+        let out = split_on_matches(0..10, &[]);
+        assert_eq!(out.len(), 1, "no needless splitting");
+        assert!(!out[0].1);
+        assert_partition(0..10, &out);
+    }
+
+    #[test]
+    fn a_match_covering_the_whole_span_marks_it_without_splitting() {
+        let out = split_on_matches(4..8, &[(0, 20)]);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].1, "fully covered span is a match");
+        assert_partition(4..8, &out);
+    }
+
+    #[test]
+    fn a_match_starting_mid_span_splits_it_in_two() {
+        // Syntax span 0..10, match 5..10 -> [0..5 plain][5..10 match]
+        let out = split_on_matches(0..10, &[(5, 10)]);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], (0..5, false));
+        assert_eq!(out[1], (5..10, true));
+        assert_partition(0..10, &out);
+    }
+
+    #[test]
+    fn a_match_inside_a_span_splits_it_in_three() {
+        // This is the case that matters: a match inside a string literal must
+        // recolour only the matched bytes, leaving the literal coloured
+        // either side.
+        let out = split_on_matches(0..10, &[(3, 6)]);
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0], (0..3, false));
+        assert_eq!(out[1], (3..6, true));
+        assert_eq!(out[2], (6..10, false));
+        assert_partition(0..10, &out);
+    }
+
+    #[test]
+    fn two_matches_in_one_span_both_split() {
+        let out = split_on_matches(0..20, &[(2, 4), (10, 12)]);
+        assert_partition(0..20, &out);
+        let hits: Vec<_> = out.iter().filter(|(_, m)| *m).map(|(r, _)| r.clone()).collect();
+        assert_eq!(hits, vec![2..4, 10..12]);
+    }
+
+    #[test]
+    fn a_match_entirely_outside_the_span_changes_nothing() {
+        let out = split_on_matches(10..20, &[(0, 5)]);
+        assert_eq!(out.len(), 1);
+        assert!(!out[0].1);
+        assert_partition(10..20, &out);
+    }
+
+    #[test]
+    fn a_match_touching_the_span_edge_does_not_create_an_empty_piece() {
+        // Boundary exactly at the edge must not emit a zero-width run.
+        for m in [(0usize, 10usize), (10, 20)] {
+            let out = split_on_matches(10..20, &[m]);
+            assert_partition(10..20, &out);
+            assert!(out.iter().all(|(r, _)| r.start < r.end), "no empty piece for {m:?}");
+        }
+    }
+
+    #[test]
+    fn adjacent_matches_do_not_produce_duplicate_cuts() {
+        // Two matches meeting at 5 must yield one cut there, not two.
+        let out = split_on_matches(0..10, &[(0, 5), (5, 10)]);
+        assert_partition(0..10, &out);
+        assert!(out.iter().all(|(r, _)| r.start < r.end));
+        assert!(out.iter().all(|(_, m)| *m), "both halves are matches");
+    }
     use super::*;
     use escriba_buffer::BufferSet;
 
