@@ -2,6 +2,7 @@
 
 extern crate self as escriba_keymap;
 
+use escriba_search::Direction as SearchDirection;
 use std::collections::HashMap;
 
 use escriba_core::{Action, CountedAction, Mode, Motion, Operator};
@@ -212,6 +213,27 @@ impl Keymap {
             "abort",
         );
         m.bind(Mode::Command, Key::Enter, Action::SubmitCommand, "submit");
+
+        // ── search ────────────────────────────────────────────────────
+        // `/` and `?` open the prompt; `<CR>` is the existing SubmitCommand,
+        // which the runtime routes to the search when a search prompt is open.
+        // That routing is typed (Option<Prompt>), not a mode flag to forget.
+        nm(
+            &mut m,
+            Key::Char('/'),
+            Action::SearchOpen(SearchDirection::Forward),
+            "search forward",
+        );
+        nm(
+            &mut m,
+            Key::Char('?'),
+            Action::SearchOpen(SearchDirection::Backward),
+            "search backward",
+        );
+        nm(&mut m, Key::Char('n'), Action::SearchRepeat { reverse: false }, "next match");
+        nm(&mut m, Key::Char('N'), Action::SearchRepeat { reverse: true }, "previous match");
+        nm(&mut m, Key::Char('*'), Action::SearchWord { reverse: false }, "search word forward");
+        nm(&mut m, Key::Char('#'), Action::SearchWord { reverse: true }, "search word backward");
         m.bind(
             Mode::Visual,
             Key::Esc,

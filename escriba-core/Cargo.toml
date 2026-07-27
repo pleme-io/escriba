@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+escriba-search = { workspace = true }
 serde    = { workspace = true }
 thiserror = { workspace = true }
 schemars = { workspace = true }

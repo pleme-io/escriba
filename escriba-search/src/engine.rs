@@ -11,10 +11,11 @@
 //! a byte offset.
 
 use crate::pattern::SearchPattern;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Which way a search runs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
 pub enum Direction {
     /// `/` — toward the end of the buffer.
     #[default]
@@ -35,7 +36,7 @@ impl Direction {
 }
 
 /// One match, in **char** offsets, half-open `[start, end)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct SearchMatch {
     pub start: usize,
     pub end: usize,
