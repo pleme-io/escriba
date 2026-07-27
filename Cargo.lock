@@ -1023,6 +1023,7 @@ dependencies = [
  "escriba-keymap",
  "escriba-mode",
  "escriba-runtime",
+ "escriba-search",
  "escriba-ui",
  "ishou-tokens",
  "madori",
