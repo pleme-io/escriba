@@ -24,18 +24,42 @@ jobs:
         run: cargo fmt --all -- --check
       - name: cargo check
         run: cargo check --workspace
+      # escriba-render and escriba-tui are excluded because BOTH pull the
+      # full wgpu 25 + winit 0.30 stack -- escriba-tui transitively, via
+      # madori -- which needs the X11/wayland/xkbcommon dev headers a bare
+      # ubuntu-latest runner does not carry. That is a PLATFORM constraint,
+      # NOT a hidden failure: with no exclusions at all, both crates build
+      # and every test passes on macOS (verified 2026-07-27, 555 passed /
+      # 0 failed / 0 ignored).
+      # DESTINATION: install those system deps on the runner and drop both
+      # exclusions, so CI exercises the whole workspace instead of 19/21.
+      #
+      # --all-targets so a target that silently stops compiling cannot
+      # hide. It does NOT run doctests, hence the explicit --doc step.
       - name: cargo test
-        # GPU/render crates depend on system libraries (wgpu, wayland)
-        # absent on the runner; --lib + --tests over the non-render
-        # subset is what we can reliably exercise in CI today.
-        run: cargo test --workspace --exclude escriba-render --exclude escriba-tui
-        continue-on-error: true
+        run: cargo test --workspace --exclude escriba-render --exclude escriba-tui --all-targets
+      - name: cargo test (doctests)
+        run: cargo test --workspace --exclude escriba-render --exclude escriba-tui --doc
   nix-build:
-    name: nix-build (informational)
+    name: nix-build
     runs-on: macos-15
-    # Permitted to fail until crate2nix's garasu-name-collision is
-    # resolved upstream. Cargo CI is the canonical correctness gate.
-    continue-on-error: true
+    # This job was continue-on-error "until crate2nix's garasu-name-collision
+    # is resolved upstream". That justification is obsolete, not merely
+    # stale: the flake moved OFF crate2nix onto substrate's lockfile-builder
+    # in cebb9e6, and the only surviving mention of crate2nix in the whole
+    # repo was this comment. A local `nix build .#default` (2026-07-27,
+    # aarch64-darwin) built garasu -- the crate named in the collision -- and
+    # all 20 workspace members green, reaching the final root crate and
+    # failing only on a full local disk. No name collision exists.
+    #
+    # CAVEAT, stated rather than hidden: that local run never went fully
+    # green (disk exhaustion), so a clean end-to-end nix build is unproven.
+    # The first CI run is the remaining proof. Red here is a true signal.
+    #
+    # NOTE: `nix flake check` below is near-vacuous -- flake.nix exposes no
+    # `checks` output, so it asserts only structural sanity (isValidApp /
+    # isOverlay / isFunctionOrAttrs) and never escriba's correctness. The
+    # `nix build` step is the one with teeth.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
