@@ -1,6 +1,30 @@
 {
-  "schema_version": 1,
-  "cargo_lock_sha256": "73e759c27d0941817e2558424214d10d51385c4abaae28a73275fb4447ec2762",
+  "schema_version": 2,
+  "cargo_lock_sha256": "48290e804059aee083cf4cb818daf69e5bb0de44e0e4072371ae040a02ee638c",
+  "manifest_sha256": {
+    "Cargo.toml": "e6c742b59ff516ff968a3e892857f4f13ac19dacfe493016e9f5857742379ef6",
+    "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
+    "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
+    "escriba-command/Cargo.toml": "49ee7eb14847cc1915f9638cc17f5d3ecf3c199c34b53660111608a9323b5f69",
+    "escriba-config/Cargo.toml": "442402bc60f76afe6abed53fb6270408fa625c7740741f0bc2fd4004360cb430",
+    "escriba-core/Cargo.toml": "09f9027863019f1d89774358a29e4ab62ffd5bd652a7a962e99180236e219d21",
+    "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
+    "escriba-keymap/Cargo.toml": "b3d2c8fbcd6ac024ecb426d765ab727f2f76efc4bd20bae8169d4295b0ca451b",
+    "escriba-lisp/Cargo.toml": "4f19198e1b7c71c5856ce8fa02033df89893e8c1f5f8733f6d37450258838c93",
+    "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
+    "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
+    "escriba-mode/Cargo.toml": "eb959369e653d5be8127f3bfd2085ba08f6482f61401b5128fdacda9eca09907",
+    "escriba-plugin/Cargo.toml": "d4f7b0e3de62858e40f3397a0062b92deda6ab32fb8dc830babf10bb27c2282f",
+    "escriba-render/Cargo.toml": "d698281ccd087ac42ab0f4e677d13684fa86c8d21190cb9f3373a59230f34282",
+    "escriba-runtime/Cargo.toml": "1cd72d1c0e806a48338b27f85495afe4a5a3a85bddaf6afe1de3e24bc529bbc2",
+    "escriba-search/Cargo.toml": "a0ebe2a3b0e558bf85f4551216ff036c5991ed26775b09b159ece5b7b360a249",
+    "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
+    "escriba-ts/Cargo.toml": "95cdcedddba77884e2f39aeaa78c56f195d05e0591a38c114ff969924e20112b",
+    "escriba-tui/Cargo.toml": "864325147949ab99a5980dd2f73b14e9b4904c13291d0cfdeb56a9a7a415de92",
+    "escriba-ui/Cargo.toml": "673e749c2850c0101bec29a2656a55ec1818e906f38b5fd616becfcbb7fe02ac",
+    "escriba-vm/Cargo.toml": "20375ca6258a7f3655e97f214cd62e3a7fea2e890668a6788d4b25f0b8028567",
+    "escriba/Cargo.toml": "e462114acc7a1ca40c6c106a4970e87ab744fad06a2a32a409d22c9a35aa65dd"
+  },
   "target_resolves": {
     "base": {
       "aho-corasick-1.1.4": {
@@ -2605,7 +2629,7 @@
           },
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.4",
+            "package_key": "hikari-core-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2615,7 +2639,7 @@
           },
           {
             "name": "hikari_ts",
-            "package_key": "hikari-ts-0.1.6",
+            "package_key": "hikari-ts-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2899,7 +2923,7 @@
         "runtime_dependencies": [
           {
             "name": "hikari_ts",
-            "package_key": "hikari-ts-0.1.6",
+            "package_key": "hikari-ts-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4415,16 +4439,16 @@
         "build_dependencies": [],
         "features": []
       },
-      "hikari-core-0.1.4": {
+      "hikari-core-0.1.9": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
       },
-      "hikari-token-0.1.4": {
+      "hikari-token-0.1.9": {
         "runtime_dependencies": [
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.4",
+            "package_key": "hikari-core-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4448,11 +4472,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "hikari-ts-0.1.6": {
+      "hikari-ts-0.1.9": {
         "runtime_dependencies": [
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.4",
+            "package_key": "hikari-core-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4462,7 +4486,7 @@
           },
           {
             "name": "hikari_token",
-            "package_key": "hikari-token-0.1.4",
+            "package_key": "hikari-token-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4513,8 +4537,58 @@
             "tree": "target"
           },
           {
+            "name": "tree_sitter_c",
+            "package_key": "tree-sitter-c-0.21.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_cpp",
+            "package_key": "tree-sitter-cpp-0.22.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_css",
+            "package_key": "tree-sitter-css-0.21.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_go",
+            "package_key": "tree-sitter-go-0.21.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "tree_sitter_highlight",
             "package_key": "tree-sitter-highlight-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_html",
+            "package_key": "tree-sitter-html-0.20.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4535,6 +4609,16 @@
           {
             "name": "tree_sitter_python",
             "package_key": "tree-sitter-python-0.21.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tree_sitter_ruby",
+            "package_key": "tree-sitter-ruby-0.21.0",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -8516,6 +8600,114 @@
         ],
         "features": []
       },
+      "tree-sitter-c-0.21.4": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
+      "tree-sitter-cpp-0.22.3": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
+      "tree-sitter-css-0.21.1": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
+      "tree-sitter-go-0.21.2": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
       "tree-sitter-highlight-0.22.6": {
         "runtime_dependencies": [
           {
@@ -8562,6 +8754,33 @@
         "build_dependencies": [],
         "features": []
       },
+      "tree-sitter-html-0.20.4": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
       "tree-sitter-json-0.21.0": {
         "runtime_dependencies": [
           {
@@ -8590,6 +8809,33 @@
         "features": []
       },
       "tree-sitter-python-0.21.0": {
+        "runtime_dependencies": [
+          {
+            "name": "tree_sitter",
+            "package_key": "tree-sitter-0.22.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.2.62",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
+      "tree-sitter-ruby-0.21.0": {
         "runtime_dependencies": [
           {
             "name": "tree_sitter",
@@ -24978,13 +25224,13 @@
     "hexf-parse-0.2.1": {
       "edition": "2018"
     },
-    "hikari-core-0.1.4": {
+    "hikari-core-0.1.9": {
       "edition": "2024"
     },
-    "hikari-token-0.1.4": {
+    "hikari-token-0.1.9": {
       "edition": "2024"
     },
-    "hikari-ts-0.1.6": {
+    "hikari-ts-0.1.9": {
       "edition": "2024"
     },
     "iana-time-zone-0.1.65": {
@@ -25528,8 +25774,48 @@
         "path": "bindings/rust/lib.rs"
       }
     },
+    "tree-sitter-c-0.21.4": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_c",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
+    "tree-sitter-cpp-0.22.3": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_cpp",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
+    "tree-sitter-css-0.21.1": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_css",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
+    "tree-sitter-go-0.21.2": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_go",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
     "tree-sitter-highlight-0.22.6": {
       "edition": "2021"
+    },
+    "tree-sitter-html-0.20.4": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_html",
+        "path": "bindings/rust/lib.rs"
+      }
     },
     "tree-sitter-json-0.21.0": {
       "edition": "2021",
@@ -25544,6 +25830,14 @@
       "build_script": "bindings/rust/build.rs",
       "lib_target": {
         "name": "tree_sitter_python",
+        "path": "bindings/rust/lib.rs"
+      }
+    },
+    "tree-sitter-ruby-0.21.0": {
+      "edition": "2021",
+      "build_script": "bindings/rust/build.rs",
+      "lib_target": {
+        "name": "tree_sitter_ruby",
         "path": "bindings/rust/lib.rs"
       }
     },
