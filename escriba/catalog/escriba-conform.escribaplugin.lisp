@@ -48,15 +48,23 @@
 ;; a parse-time property: it parses, re-renders, compares bytes, and
 ;; refuses to yield an AST when they differ.
 ;;
-;; This gate is the EDITOR half of the same invariant, and it is
-;; deliberately `auto-fix` rather than `reject`: the language refuses to
-;; run non-canonical source, so an editor that merely complained would
-;; leave the operator to fix by hand what the formatter can fix exactly.
+;; This gate is the EDITOR half of the same invariant, and `auto-fix` is
+;; the RIGHT action here — not a concession. The two layers do different
+;; jobs: `parse_canonical` is the refusal (a non-canonical file does not
+;; run), and this gate is the repair (a save leaves the file canonical).
+;; An editor that only complained would leave the operator hand-fixing
+;; what the formatter fixes exactly, and a `reject` here would buy no
+;; extra safety — the language already refuses.
 ;;
-;; Measured 2026-07-30 across the 571-file fleet corpus: only 72 files
-;; are canonical today and 496 are not. Until that is inverted by a
-;; mass-format commit, a `reject` action here would block almost every
-;; save. `pending-tlisp-canonical: mass-format` tracks the flip.
+;; The fleet corpus is canonical as of the mass-format: 568 canonical,
+;; 0 non-canonical, 3 unparseable (a pre-existing unterminated-string
+;; lexer limit). Before that commit it was 72 / 496, which is why this
+;; gate could not have been `reject` even if that were desirable.
+;;
+;; STILL OPEN: `pleme-doc-gen` emits tatara-lisp by hand-building strings
+;; and depends on no caixa crate, so generated caixa.lisp files re-drift
+;; whenever it runs. This gate is what makes that drift LOUD instead of
+;; silent. `pending-tlisp-emitter: canonical-output`.
 (defgate :name       "tlisp-canonical"
          :on-event   "BufWritePre"
          :filetype   "tlisp"
