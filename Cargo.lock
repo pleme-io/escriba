@@ -662,7 +662,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -739,7 +739,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -829,7 +829,6 @@ dependencies = [
  "serde_json",
  "shikumi 0.1.1",
  "tatara-lisp",
- "tatara-lisp-derive",
  "thiserror 2.0.18",
 ]
 
@@ -939,7 +938,6 @@ dependencies = [
  "schemars",
  "serde",
  "tatara-lisp",
- "tatara-lisp-derive",
  "thiserror 2.0.18",
 ]
 
@@ -2076,7 +2074,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2838,7 +2836,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3288,8 +3286,9 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp"
-version = "0.2.4"
-source = "git+https://github.com/pleme-io/tatara-lisp?branch=main#92836e3723f0ff09c3cdd317cfe33005b4ecb582"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00a94c0c1d40aae6109b2450b8b2a15ccc79a01461836753351b4bfd3a50cec9"
 dependencies = [
  "blake3",
  "serde",
@@ -3300,8 +3299,9 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp-derive"
-version = "0.2.4"
-source = "git+https://github.com/pleme-io/tatara-lisp?branch=main#92836e3723f0ff09c3cdd317cfe33005b4ecb582"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdb05368da33f122fde05fd3f67a827022ef65ac4efbca6e27e0ea6e4f8036a9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3310,8 +3310,9 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp-eval"
-version = "0.2.4"
-source = "git+https://github.com/pleme-io/tatara-lisp?branch=main#92836e3723f0ff09c3cdd317cfe33005b4ecb582"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c29452035437cb3eafc8ba8cace34ece2e4e58d7e9f2eceae9d9425c7c27e75"
 dependencies = [
  "tatara-lisp",
  "thiserror 2.0.18",
@@ -3327,7 +3328,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4268,7 +4269,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

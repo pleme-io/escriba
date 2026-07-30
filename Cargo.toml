@@ -85,10 +85,6 @@ async-trait      = "0.1"
 # pleme-io sibling deps — git so CI works without checking out
 # every sibling. Local development overrides via
 # .cargo/config.toml [patch.<git-url>] sections.
-# Unified on the single canonical tatara-lisp lineage (pleme-io/tatara-lisp)
-# — the WASM/WASI-capable platform with the host-embeddable evaluator
-# (tatara-lisp-eval) + compiler_spec polyglot seam. See
-# docs/programmability-and-caixa-design.md §"lineage unification".
 #
 # Each carries BOTH `git` (build source) and `version` (publish source):
 # `cargo publish` strips the git spec and records the version req, so
@@ -97,9 +93,21 @@ async-trait      = "0.1"
 # release; without it crates.io rejects the publish ("all dependencies
 # must have a version requirement"). This is the ★★ AUTO-RELEASE
 # publish contract.
-tatara-lisp        = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main", version = "0.2" }
-tatara-lisp-derive = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main", version = "0.2" }
-tatara-lisp-eval   = { git = "https://github.com/pleme-io/tatara-lisp", branch = "main", version = "0.2" }
+#
+# tatara-lisp is the EXCEPTION, and deliberately so: the single canonical
+# lineage (pleme-io/tatara-lisp) publishes every workspace member to
+# crates.io, so it resolves straight from the registry — one source for
+# both build and publish, no git spec to strip. It is the WASM/WASI-capable
+# platform with the host-embeddable evaluator (tatara-lisp-eval) +
+# compiler_spec polyglot seam. See
+# docs/programmability-and-caixa-design.md §"lineage unification".
+#
+# `tatara-lisp-derive` is deliberately ABSENT: the lib re-exports the
+# macros RENAMED — `DeriveTataraDomain` / `DeriveKeywordSexp`, so they
+# coexist with the same-named traits — so naming the derive crate here
+# would be a phantom dependency. Derive via `tatara_lisp::Derive*`.
+tatara-lisp        = "0.3.3"
+tatara-lisp-eval   = "0.3.3"
 garasu             = { git = "https://github.com/pleme-io/garasu", branch = "main", version = "0.1" }
 madori             = { git = "https://github.com/pleme-io/madori", branch = "main", version = "0.1" }
 ishou-tokens       = { git = "https://github.com/pleme-io/ishou", branch = "main", features = ["wgpu"], version = "0.1" }
