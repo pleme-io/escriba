@@ -9,6 +9,7 @@
 extern crate self as escriba_render;
 
 pub mod gpu;
+pub mod langs;
 
 pub use gpu::{GpuRenderer, SharedState};
 

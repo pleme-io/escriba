@@ -82,3 +82,22 @@
         :command "marksman"
         :args ("server")
         :filetypes ("markdown"))
+
+;; ── blue — the pleme-io language ─────────────────────────────────────
+;;
+;; `blue lsp` is a SUBCOMMAND of the one blue binary, not a separate
+;; `blue-language-server` executable — blue-lang-lsp is a library and the
+;; `blue` CLI is its only front end. So this is `:command "blue" :args
+;; ("lsp")`, the same shape `taplo lsp stdio` and `terraform-ls serve`
+;; use above, and it resolves off `$PATH` like every other entry: the
+;; editor never links a blue crate, which is what keeps escriba's own
+;; crates.io publishing free of blue's (mostly unpublished) graph.
+;;
+;; The root marker is `Bluefile` — blue's manifest, which is itself a
+;; blue program. Reading one means EVALUATING it, so the server, not the
+;; editor, is the thing that decides to do that.
+(deflsp :name "blue"
+        :command "blue"
+        :args ("lsp")
+        :filetypes ("blue")
+        :root-markers ("Bluefile" ".git"))

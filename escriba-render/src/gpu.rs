@@ -423,7 +423,18 @@ impl RenderCallback for GpuRenderer {
 /// languages; the table backend is skipped for any language tree-sitter already
 /// covers (no duplicate). If the tree-sitter host fails to build, the table
 /// backend covers everything — never a panic, never an empty registry.
-fn build_ecosystem() -> Ecosystem {
+///
+/// A third tier registers last: [`crate::langs::escriba_local`], the languages
+/// escriba serves that the fleet spine does not ship yet (today: blue). Last
+/// means an upstream hikari backend for the same language always wins, so a
+/// local table retires itself the day hikari grows one — no edit here, and no
+/// window where the two disagree.
+///
+/// Public because the registry IS escriba's language surface: a test that asks
+/// "does the editor know this language?" must be able to ask the same object
+/// the renderer holds, not a reconstruction of it.
+#[must_use]
+pub fn build_ecosystem() -> Ecosystem {
     let mut eco = Ecosystem::new();
     let mut covered: Vec<Language> = Vec::new();
     if let Ok(host) = hikari_ts::TreeSitterHost::builtin() {
@@ -433,6 +444,12 @@ fn build_ecosystem() -> Ecosystem {
         }
     }
     for p in hikari_core::langs::builtins() {
+        if !covered.contains(&p.language()) {
+            covered.push(p.language());
+            eco.register(p);
+        }
+    }
+    for p in crate::langs::escriba_local() {
         if !covered.contains(&p.language()) {
             eco.register(p);
         }

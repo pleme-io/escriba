@@ -45,7 +45,11 @@ const DEFAULT_RC: &str = include_str!("../configs/blnvim-defaults.lisp");
 /// by default" — the editor boot path, `--commands`, `--list-rc`, and
 /// `plugin list` all build from here so they never drift. `no_defaults`
 /// yields an empty plan (the bare `--no-defaults` editor).
-fn default_plan(no_defaults: bool) -> Result<escriba_lisp::ApplyPlan> {
+///
+/// Public so a test can assert against the plan the editor ACTUALLY boots
+/// with, rather than re-composing baseline-plus-catalog itself — a second
+/// composition would be the thing most likely to drift from this one.
+pub fn default_plan(no_defaults: bool) -> Result<escriba_lisp::ApplyPlan> {
     if no_defaults {
         return Ok(escriba_lisp::ApplyPlan::default());
     }
