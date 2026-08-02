@@ -92,6 +92,16 @@
 (defmode :name "sh"         :extensions ("sh" "bash") :tree-sitter "bash"       :commentstring "# %s"  :indent 2)
 (defmode :name "terraform"  :extensions ("tf" "tfvars") :tree-sitter "hcl"      :commentstring "# %s"  :indent 2)
 
+;; blue — the pleme-io language (Ruby/Elixir surface, tatara-lisp AST,
+;; Rust runtime). No `:tree-sitter`, and that omission is the honest
+;; part: there is no tree-sitter-blue grammar anywhere, and naming one
+;; would make `apply_grammars` count `.b` as an extension skipped for an
+;; unknown language. `.b` highlighting is real and comes from the other
+;; direction — escriba-render registers a hikari table plugin for it
+;; (`escriba_render::langs`), which is where every non-tree-sitter
+;; language in this list is served from too.
+(defmode :name "blue"       :extensions ("b")         :commentstring "# %s"  :indent 2)
+
 ;; ═════ Highlights — base syntax + UI (vellum palette) ═════════════
 ;; Plugin-specific groups (Diagnostic*, GitSigns*, @comment.todo, …)
 ;; live in their catalog caixas; these are the language-agnostic base.

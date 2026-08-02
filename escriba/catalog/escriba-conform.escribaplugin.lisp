@@ -40,6 +40,19 @@
 ;; formatter table starts disagreeing with itself.
 (defformatter :filetype "tlisp"      :command "feira"    :args ("fmt" "$FILE"))
 
+;; ── blue ─────────────────────────────────────────────────────────────
+;;
+;; Same convention as tlisp above, and for the same reason: `blue fmt`
+;; takes a FILE, not stdin, so `$FILE` is passed rather than piping.
+;;
+;; `--write` is REQUIRED, not decoration. Bare `blue fmt FILE` is a
+;; filter — it prints the formatted document to stdout and leaves the
+;; file untouched — so without the flag this entry would format nothing
+;; and report success, the quietest possible failure. `--write` and
+;; `--check` both run `format_source_lossless`, so the rewrite preserves
+;; comments; the comment-stripping path is not reachable from the CLI.
+(defformatter :filetype "blue"       :command "blue"     :args ("fmt" "--write" "$FILE"))
+
 ;; ── The canonicality gate ────────────────────────────────────────────
 ;;
 ;; tatara-lisp has exactly ONE canonical rendering — the layout space is
@@ -72,3 +85,26 @@
          :action     "auto-fix"
          :auto-fix   "feira fmt $FILE"
          :message    "tatara-lisp has one canonical form and evaluation is gated on it — reformatted.")
+
+;; ── The same gate, for blue ──────────────────────────────────────────
+;;
+;; blue makes the identical promise tatara-lisp does — `blue fmt`'s own
+;; help calls it "the one formatting; this produces it", and the CLI has
+;; no width or style knob to disagree with. So the editor half is the
+;; same shape, and `auto-fix` is right here for the same reason: a
+;; `reject` would buy nothing, because the repair is exactly determined.
+;;
+;; It differs from the tlisp gate in one honest way. tlisp's refusal is
+;; at the LANGUAGE — `caixa_fmt::parse_canonical` will not yield an AST
+;; for a non-canonical file, so a drifted .tlisp does not run. blue has
+;; no such parse-time refusal: `blue run` happily executes an unformatted
+;; program. That makes this gate the ONLY thing holding the line for .b
+;; files, so it is a convention the editor keeps, not an invariant the
+;; language enforces — only-mitigated, and it should not be read as more.
+(defgate :name       "blue-canonical"
+         :on-event   "BufWritePre"
+         :filetype   "blue"
+         :command    "blue fmt --check $FILE"
+         :action     "auto-fix"
+         :auto-fix   "blue fmt --write $FILE"
+         :message    "blue has one formatting — reformatted.")
