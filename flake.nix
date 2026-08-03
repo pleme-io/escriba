@@ -16,35 +16,35 @@
     };
     tatara = {
       url = "github:pleme-io/tatara";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     shikumi = {
       url = "github:pleme-io/shikumi";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     garasu = {
       url = "github:pleme-io/garasu";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     madori = {
       url = "github:pleme-io/madori";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     awase = {
       url = "github:pleme-io/awase";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     hayai = {
       url = "github:pleme-io/hayai";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     irodori = {
       url = "github:pleme-io/irodori";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
     mojiban = {
       url = "github:pleme-io/mojiban";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.substrate.follows = "substrate";
     };
   };
 
