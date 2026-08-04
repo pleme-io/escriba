@@ -225,7 +225,6 @@ impl Action {
             | Self::Command { .. }
             | Self::SearchSubmitOperated { .. }
             | Self::RepeatLastChange
-            | Self::ApplyOperatorObject { .. }
             | Self::SubmitCommand => TextEffect::Mutates,
 
             Self::Move(_)
@@ -285,7 +284,6 @@ impl Action {
             | Self::PromptHistory { .. }
             | Self::PromptBackspace
             | Self::PromptCaret { .. }
-            | Self::SearchPreviewStep { .. }
             | Self::PromptDelete
             | Self::PromptDeleteWord
             | Self::PromptClearToStart

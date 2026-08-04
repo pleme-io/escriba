@@ -1,8 +1,20 @@
 # memori (目盛) — the positioning vocabulary
 
-**Status: M2 — all three axes typed, proven, and wired to real consumers.**
-Both architectural findings from M0 are resolved (§4). The remaining
-follow-ups are extensions, not gaps.
+**Status: M2 — three axes typed and proven; TWO of the three wired.**
+
+Corrected 2026-08-04 after an adversarial review measured the claim. The
+previous wording said "wired to real consumers" of all three axes, and a
+reviewer disproved it by deleting `Bytes, Chars, Offset, Ruler, Scale,
+Utf16Units` from `escriba-core`'s re-export and watching the workspace still
+compile clean. **`Bound` and `Anchored` have real consumers; the SCALE axis has
+none** — `escriba-search` still carries its own hand-rolled byte→char map
+(`engine.rs`) and `escriba-lsp-client`-style UTF-16 conversion lives in
+`analysis.rs`. Retrofitting those onto `Ruler` is follow-up #3 and is what
+would make the claim true.
+
+The axis is not vestigial — its laws are proven and its compile error is
+recorded below — but "proven" and "load-bearing" are different tiers and this
+file said the stronger one.
 
 `memori` is the graduation marks on a ruler. An offset is a count of marks, and
 the marks differ — which is the entire problem.
@@ -91,7 +103,7 @@ violation (`r.to_bytes(b)` where `b: Offset<Bytes>`):
 
 ```
 error[E0308]: mismatched types
-   --> escriba-core/src/memori.rs:514:28
+   --> escriba-memori/src/lib.rs (then escriba-core/src/memori.rs, pre-extraction)
     |
 514 |         let _ = r.to_bytes(b);
     |                   -------- ^ expected `Offset<Chars>`, found `Offset<Bytes>`
@@ -190,6 +202,7 @@ cautionary tale for what happens when it is not.
 2. ~~Text-revision counter in `escriba-buffer`.~~ **DONE** — `TextRev`.
 3. Retrofit `escriba-search::engine`'s `byte_to_char` map and
    `escriba-lsp-client`-style UTF-16 conversion onto `Ruler`, deleting the
-   hand-rolled copies.
+   hand-rolled copies. **This is what gives the Scale axis its first consumer**
+   — until then the status line above must keep saying two of three.
 4. `(defmemori …)` tatara-lisp surface + `#[derive(DeriveTataraDomain)]`.
    **Not shipped** — M0 is the typed Rust border only.

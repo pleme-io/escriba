@@ -658,12 +658,26 @@ impl EditorState {
         use escriba_core::TextObject as O;
         let at = self.cursor_char();
         let matches = self.search.matches();
-        let starts: Vec<usize> = matches.iter().map(|m| m.start).collect();
 
-        let idx = match object {
-            O::NextMatch => Bound::Inclusive.first_matching(&starts, at, true),
-            O::PrevMatch => Bound::Inclusive.first_matching(&starts, at, false),
-        }?;
+        // A match CONTAINING the cursor wins outright, whichever direction the
+        // object names.
+        //
+        // Comparing only against `m.start` — which is what a `starts`-vector
+        // plus `Bound::Inclusive` does — is right only when the cursor sits on
+        // a match's FIRST character. One column further in, `start < at` and
+        // the match is rejected, so `cgn` skipped the very instance the
+        // operator was standing in and the rename silently missed it. vim
+        // operates on the containing match from every interior column, and the
+        // `starts`-only comparison cannot express "contains" because it never
+        // looks at `m.end`.
+        let idx = matches.iter().position(|m| m.contains(at)).or_else(|| {
+            let starts: Vec<usize> = matches.iter().map(|m| m.start).collect();
+            match object {
+                O::NextMatch => Bound::Inclusive.first_matching(&starts, at, true),
+                O::PrevMatch => Bound::Inclusive.first_matching(&starts, at, false),
+            }
+        })?;
+
         let m = matches.get(idx)?;
         let buf = self.buffers.get(self.active)?;
         Some(Range {
@@ -874,6 +888,9 @@ impl EditorState {
         // Snapshot the scope inputs before the mutation so the resulting
         // Damage covers the changed region (the S3 seal — conservative widen).
         let lines_before = self.active_line_count();
+        // Snapshot for the dot register: the only reliable witness that this
+        // action changed text is that the buffer's revision moved.
+        let rev_before = self.text_rev();
         let cline_before = self.cursor().line;
         match action {
             Action::Move(m) => self.apply_motion(*m),
@@ -1094,12 +1111,24 @@ impl EditorState {
         self.damage = self.damage.join(d);
         // Remember this change for `.`.
         //
-        // ORDER MATTERS, and getting it wrong is silent: every `InsertChar` is
-        // itself `Mutates`, so testing that first made each typed character
-        // START A NEW change instead of extending the one in progress. `.`
-        // then replayed only the LAST character. An open insert session is
-        // therefore checked first — while one is running, typing is the rest
-        // of the change already being recorded, never a new one.
+        // Recorded from an OBSERVED MUTATION, not from the action's variant.
+        // `text_effect()` is the wrong predicate here even though it looks
+        // like the right one: it exists to decide cache invalidation, where
+        // OVER-reporting is the safe direction, and the dot register needs the
+        // opposite bias. Leaning on it meant `last_change` was set by actions
+        // that changed no text at all, with two measured consequences:
+        //
+        //   `iZ<Esc>` then `/a<CR>` then `.`  — did nothing; the register held
+        //       `SubmitCommand`, whose replay reads an already-cleared
+        //       minibuffer.
+        //   `iZ<Esc>` then `/q<Esc>` then `.` — TYPED `q` INTO THE BUFFER. An
+        //       abandoned prompt left the register holding `InsertChar('q')`,
+        //       and `.` in Normal mode routes that to the text. A corrupting
+        //       register, not merely a lost one.
+        //
+        // Comparing the buffer's `TextRev` across the action answers the only
+        // question that matters — did this actually change the text — and gets
+        // the failed-operator case (`dgn` with no pattern) right for free.
         if self.recording_insert {
             match action {
                 Action::InsertChar(c) => {
@@ -1111,15 +1140,12 @@ impl EditorState {
                 Action::ChangeMode(m) if *m != Mode::Insert => self.recording_insert = false,
                 _ => {}
             }
-        } else if action.text_effect() == TextEffect::Mutates
+        } else if self.text_rev() != rev_before
             && !matches!(
                 action,
                 Action::RepeatLastChange | Action::Undo | Action::Redo
             )
         {
-            // A change that opened Insert keeps recording: the text that
-            // follows is the rest of it. `cw` alone is not a change, it is the
-            // first half of one.
             self.last_change = Some(LastChange {
                 action: action.clone(),
                 count: 1,
