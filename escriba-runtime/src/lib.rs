@@ -142,31 +142,37 @@ enum SeqStep {
     Passthrough,
 }
 
-/// Keys whose repeat is a deliberate second press, never an OS key-repeat
-/// storm.
+/// Keys whose HELD repeat is a viewport storm, and which the repeat gate
+/// therefore exists to debounce.
 ///
-/// Each of these relocates the cursor somewhere far and specific, so a user
-/// pressing one twice quickly means it twice. Held `j`/`l` is the opposite:
-/// the repeats are the OS, and honouring all of them thrashes the viewport.
-const fn is_discrete_jump(key: &Key) -> bool {
+/// This is an ALLOW-LIST, and it used to be the complement — an exception list
+/// of "discrete" keys that grew three times (`n`/`N`/`*`/`#`, then `.`/`u`/
+/// `<C-r>`, then `/`/`?`/`:`), each time because a key had been silently
+/// swallowed and someone noticed. The third growth is the signal that the
+/// default was backwards: almost every key in a modal editor is a discrete,
+/// deliberate press, and only a handful are ones you HOLD.
+///
+/// Inverting it makes the failure mode safe. Forgetting to list a key here now
+/// means it is ungated — one extra keypress honoured — instead of silently
+/// dropped, and a dropped key is indistinguishable from a dead one.
+///
+/// Measured cost of the old direction: `/foo<CR>` then `/<CR>` (vim's
+/// reuse-the-previous-pattern) lost the second `/` outright, because the gate
+/// is keyed by KEY and the two presses fell inside one debounce window.
+const fn is_repeat_storm_candidate(key: &Key) -> bool {
     matches!(
         key,
-        Key::Char('n')
-            | Key::Char('N')
-            | Key::Char('*')
-            | Key::Char('#')
-            // `.` earned its place by measurement, not symmetry: `iZ<Esc>`
-            // then `..` produced `ZZ` instead of `ZZZ`, because the gate ate
-            // the second press. A silently-dropped repeat is indistinguishable
-            // from a dead key — the exact complaint the gate exists to prevent
-            // for other keys.
-            | Key::Char('.')
-            // Same class: a swallowed undo is worse than a stuttering
-            // viewport.
-            | Key::Char('u')
-            | Key::Ctrl('r')
-            | Key::Ctrl('o')
-            | Key::Ctrl('i')
+        // The four navigation keys a user actually holds down. `h`/`l` and
+        // `j`/`k` flood the motion path and thrash the viewport; everything
+        // else is pressed once and meant once.
+        Key::Char('h')
+            | Key::Char('j')
+            | Key::Char('k')
+            | Key::Char('l')
+            | Key::Left
+            | Key::Right
+            | Key::Up
+            | Key::Down
     )
 }
 
@@ -371,10 +377,10 @@ impl EditorState {
                 // jumps: two `n` presses 10 ms apart mean two matches, and
                 // swallowing the second is indistinguishable from a dead key —
                 // the exact symptom the gate was added to prevent elsewhere.
-                if is_discrete_jump(key) {
-                    return true;
+                if is_repeat_storm_candidate(key) {
+                    return self.repeat_gate.try_pass_at(*key, now);
                 }
-                self.repeat_gate.try_pass_at(*key, now)
+                true
             }
             Mode::Insert | Mode::Command => true,
         }

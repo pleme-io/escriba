@@ -309,8 +309,7 @@ impl SearchState {
         if p.text.is_empty() {
             // Bare `/<CR>`: repeat the previous pattern in the NEW direction.
             return if self.pattern.is_some() {
-                self.direction = direction;
-                self.refresh(text);
+                self.arm(direction, text);
                 Accepted::ReusedPrevious
             } else {
                 Accepted::NothingToRepeat
@@ -321,9 +320,7 @@ impl SearchState {
             Ok(pattern) => {
                 self.remember(&p.text);
                 self.pattern = Some(pattern);
-                self.direction = direction;
-                self.highlight = true;
-                self.refresh(text);
+                self.arm(direction, text);
                 Accepted::Committed
             }
             Err(e) => {
@@ -396,6 +393,23 @@ impl SearchState {
             .pattern
             .as_ref()
             .map_or_else(Vec::new, |p| find_all(text, p));
+    }
+
+    /// A search just became active: point `n` at it, light it, rescan.
+    ///
+    /// The ONE place that knows arming implies highlighting. Before this,
+    /// three sites assigned `direction` / `highlight` / `refresh` separately
+    /// and one of them — the bare `/<CR>` re-search — forgot the highlight, so
+    /// re-running the previous pattern after an auto-clear jumped correctly
+    /// and stayed dark.
+    ///
+    /// Patching that one branch would have left the shape intact: a fourth
+    /// arming path would still have to REMEMBER three assignments. Here a new
+    /// path either calls `arm` and is correct by default, or does not arm.
+    fn arm(&mut self, direction: Direction, text: &str) {
+        self.direction = direction;
+        self.highlight = true;
+        self.refresh(text);
     }
 
     /// Incremental preview for the current prompt text, without committing.
@@ -526,9 +540,7 @@ impl SearchState {
         let pattern = SearchPattern::whole_word(&word, self.case).ok()?;
         self.remember(pattern.raw());
         self.pattern = Some(pattern);
-        self.direction = direction;
-        self.highlight = true;
-        self.refresh(text);
+        self.arm(direction, text);
         self.repeat(cursor, false)
     }
 
