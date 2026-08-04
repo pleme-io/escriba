@@ -90,27 +90,21 @@ pub struct EffectSpec {
 
 /// Canonical effect kinds the runtime ships with. Plugins register
 /// more at runtime, so unknown kinds don't error — they pass through.
-pub const KNOWN_KINDS: &[&str] = &[
-    "cursor",
-    "screen",
-    "cursor-trail",
-    "underglow",
-    "custom",
-];
+pub const KNOWN_KINDS: &[&str] = &["cursor", "screen", "cursor-trail", "underglow", "custom"];
 
 /// Canonical effect names — each a built-in shader. Name collisions
 /// with a `:kind "custom"` spec resolve in favour of the user
 /// (custom wins — "be overridable").
 pub const CANONICAL_EFFECTS: &[(&str, &str)] = &[
-    ("cursor-glow",  "cursor"),
+    ("cursor-glow", "cursor"),
     ("cursor-pulse", "cursor"),
     ("cursor-trail", "cursor-trail"),
-    ("bloom",        "screen"),
-    ("scanlines",    "screen"),
-    ("film-grain",   "screen"),
-    ("crt-warp",     "screen"),
+    ("bloom", "screen"),
+    ("scanlines", "screen"),
+    ("film-grain", "screen"),
+    ("crt-warp", "screen"),
     ("chromatic-aberration", "screen"),
-    ("underglow",    "underglow"),
+    ("underglow", "underglow"),
 ];
 
 #[must_use]

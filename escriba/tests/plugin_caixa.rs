@@ -29,7 +29,10 @@ fn plugin_caixa_loads_and_applies_entry() {
         &root,
     )
     .expect("load example plugin caixa");
-    assert!(plugin.matches_filetype("lisp"), "paredit activates on lisp filetype");
+    assert!(
+        plugin.matches_filetype("lisp"),
+        "paredit activates on lisp filetype"
+    );
     assert!(!plugin.is_eager(), "a FileType-triggered plugin is lazy");
 
     // Activate: apply the plugin entry's def-forms to a fresh editor.

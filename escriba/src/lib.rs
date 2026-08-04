@@ -348,10 +348,7 @@ pub fn run() -> Result<()> {
     // for the user's ftdetect set.
     let mut grammar_registry = escriba_ts::GrammarRegistry::builtin()
         .context("building built-in tree-sitter grammar registry")?;
-    let known_langs: Vec<String> = grammar_registry
-        .languages()
-        .map(String::from)
-        .collect();
+    let known_langs: Vec<String> = grammar_registry.languages().map(String::from).collect();
     let ts_report = escriba_lisp::apply_plan_to_grammar_extensions(
         &plan,
         |name| known_langs.iter().any(|l| l == name),
@@ -359,9 +356,7 @@ pub fn run() -> Result<()> {
             grammar_registry.add_extension(lang, ext);
         },
     );
-    if ts_report.extensions_registered > 0
-        || ts_report.extensions_skipped_unknown_language > 0
-    {
+    if ts_report.extensions_registered > 0 || ts_report.extensions_skipped_unknown_language > 0 {
         tracing::info!(
             "ts apply: extensions_registered={} skipped_unknown_language={} unknown={:?}",
             ts_report.extensions_registered,
@@ -376,7 +371,10 @@ pub fn run() -> Result<()> {
     activate_user_plugins(&plan, &mut state);
 
     if args.dry_run {
-        let buf = state.buffers.get(active_id).context("active buffer missing")?;
+        let buf = state
+            .buffers
+            .get(active_id)
+            .context("active buffer missing")?;
         println!(
             "buffer {active_id}: {} line(s), {} chars",
             buf.line_count(),
@@ -540,9 +538,7 @@ fn plugin_triggers(spec: &escriba_lisp::PluginSpec) -> Vec<String> {
 /// Map an `escriba-plugin` activation trigger to the runtime's lazy
 /// trigger. `Startup` plugins have no lazy trigger (they activate
 /// eagerly), so they map to `None`.
-fn map_lazy_trigger(
-    t: &escriba_plugin::ActivationTrigger,
-) -> Option<escriba_runtime::LazyTrigger> {
+fn map_lazy_trigger(t: &escriba_plugin::ActivationTrigger) -> Option<escriba_runtime::LazyTrigger> {
     use escriba_plugin::ActivationTrigger as A;
     use escriba_runtime::LazyTrigger as L;
     match t {
@@ -575,19 +571,28 @@ fn activate_user_plugins(plan: &escriba_lisp::ApplyPlan, state: &mut EditorState
         }
         let triggers = plugin_triggers(spec);
         match escriba_plugin::PluginCaixa::load(&spec.name, "*", &triggers, &root) {
-            Ok(plugin) if plugin.is_eager() && !spec.lazy => match activate_plugin(&plugin, state) {
-                Ok(summary) => tracing::info!("plugin `{}` activated: {summary}", plugin.name),
-                Err(e) => tracing::warn!("plugin `{}` failed to activate: {e}", plugin.name),
-            },
+            Ok(plugin) if plugin.is_eager() && !spec.lazy => {
+                match activate_plugin(&plugin, state) {
+                    Ok(summary) => tracing::info!("plugin `{}` activated: {summary}", plugin.name),
+                    Err(e) => tracing::warn!("plugin `{}` failed to activate: {e}", plugin.name),
+                }
+            }
             Ok(plugin) => {
-                let lazy_triggers: Vec<_> =
-                    plugin.triggers.iter().filter_map(map_lazy_trigger).collect();
+                let lazy_triggers: Vec<_> = plugin
+                    .triggers
+                    .iter()
+                    .filter_map(map_lazy_trigger)
+                    .collect();
                 tracing::debug!(
                     "plugin `{}` is lazy — registered for {} trigger(s)",
                     plugin.name,
                     lazy_triggers.len(),
                 );
-                state.register_lazy_plugin(plugin.name.clone(), lazy_triggers, plugin.entry_src.clone());
+                state.register_lazy_plugin(
+                    plugin.name.clone(),
+                    lazy_triggers,
+                    plugin.entry_src.clone(),
+                );
             }
             Err(e) => tracing::warn!("plugin `{}`: {e}", spec.name),
         }
@@ -641,14 +646,17 @@ fn run_plugin_forge(args: &PluginForgeArgs) -> Result<()> {
         .with_context(|| format!("creating output dir {}", args.out.display()))?;
     let mut forged = 0usize;
     for (label, src) in &sources {
-        let (spec, artifacts) = escriba_plugin::forge_plugin(src)
-            .with_context(|| format!("forging {label}"))?;
+        let (spec, artifacts) =
+            escriba_plugin::forge_plugin(src).with_context(|| format!("forging {label}"))?;
         let root = escriba_plugin::write_plugin_caixa(&spec, &artifacts, &args.out)
             .with_context(|| format!("writing caixa for {}", spec.name))?;
         forged += 1;
         println!("  ✓ {:<32} → {}", spec.name, root.display());
     }
-    println!("forged {forged} plugin caixa(s) into {}", args.out.display());
+    println!(
+        "forged {forged} plugin caixa(s) into {}",
+        args.out.display()
+    );
     Ok(())
 }
 
@@ -666,7 +674,10 @@ fn run_plugin_install_bundled(args: &PluginInstallArgs) -> Result<()> {
             .with_context(|| format!("installing `{}`", b.name))?;
         n += 1;
     }
-    println!("installed {n} bundled plugin caixa(s) into {}", dir.display());
+    println!(
+        "installed {n} bundled plugin caixa(s) into {}",
+        dir.display()
+    );
     Ok(())
 }
 
@@ -709,7 +720,10 @@ fn run_plugin_list() -> Result<()> {
         println!("  ── user-installed (plugins dir) ──");
         for spec in dir_declared {
             let lazy = if spec.lazy { "lazy" } else { "eager" };
-            println!("  ✓ installed {:<30} [{:<11}] {lazy}", spec.name, spec.category);
+            println!(
+                "  ✓ installed {:<30} [{:<11}] {lazy}",
+                spec.name, spec.category
+            );
         }
     }
     Ok(())
@@ -730,7 +744,10 @@ fn run_plugin_load(path: &std::path::Path) -> Result<()> {
     let mut state = EditorState::new_with_buffer(buffers, active);
     let summary = activate_plugin(&plugin, &mut state)?;
 
-    println!("✓ loaded plugin caixa `{}` (v{})", plugin.name, plugin.version);
+    println!(
+        "✓ loaded plugin caixa `{}` (v{})",
+        plugin.name, plugin.version
+    );
     let triggers = if plugin.triggers.is_empty() {
         "eager".to_string()
     } else {
@@ -778,7 +795,9 @@ fn run_eval(args: &EvalArgs) -> Result<()> {
 /// Resolve the rc path (explicit `--rc` > env > xdg > home default) and
 /// load it if the file exists. Returns `Ok(None)` when no rc file is
 /// present anywhere — that's the default for a fresh install.
-fn load_rc_optional(explicit: Option<&std::path::Path>) -> Result<Option<(PathBuf, escriba_lisp::ApplyPlan)>> {
+fn load_rc_optional(
+    explicit: Option<&std::path::Path>,
+) -> Result<Option<(PathBuf, escriba_lisp::ApplyPlan)>> {
     let path: PathBuf = match explicit {
         Some(p) => p.to_path_buf(),
         None => escriba_lisp::default_rc_path(),
@@ -824,10 +843,17 @@ fn run_list_rc(explicit: Option<&std::path::Path>) -> Result<()> {
     // Defaults plan = baseline + bundled plugin catalog (always green
     // unless someone broke a bundled file).
     let defaults = default_plan(false)?;
-    println!("✦ escriba defaults (baseline + {} plugin caixas)", catalog_bundle::BUNDLED.len());
+    println!(
+        "✦ escriba defaults (baseline + {} plugin caixas)",
+        catalog_bundle::BUNDLED.len()
+    );
     println!("  {}", glyph_summary(&defaults));
     println!();
-    println!("{} plugins ({})", form_glyph("plugins"), defaults.plugins.len());
+    println!(
+        "{} plugins ({})",
+        form_glyph("plugins"),
+        defaults.plugins.len()
+    );
     let by_cat = group_plugins_by_category(&defaults);
     for (cat, names) in &by_cat {
         println!("  {} {:<11} {}", category_glyph(cat), cat, names.join(", "));
@@ -949,9 +975,7 @@ fn print_wiring_status(plan: &escriba_lisp::ApplyPlan) {
 
 /// Group the plan's plugins by category for the list-rc output so
 /// users see which blnvim groups are represented at a glance.
-fn group_plugins_by_category(
-    plan: &escriba_lisp::ApplyPlan,
-) -> Vec<(String, Vec<String>)> {
+fn group_plugins_by_category(plan: &escriba_lisp::ApplyPlan) -> Vec<(String, Vec<String>)> {
     use std::collections::BTreeMap;
     let mut by: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for p in &plan.plugins {
@@ -985,8 +1009,8 @@ mod theme_tests {
 
     #[test]
     fn bundled_vellum_rc_applies_and_selects_vellum() {
-        let plan = escriba_lisp::apply_source(VELLUM_RC)
-            .expect("bundled vellum.lisp must apply cleanly");
+        let plan =
+            escriba_lisp::apply_source(VELLUM_RC).expect("bundled vellum.lisp must apply cleanly");
         assert_eq!(
             plan.theme.as_ref().map(|t| t.preset.as_str()),
             Some("vellum"),

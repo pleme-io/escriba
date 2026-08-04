@@ -241,7 +241,8 @@ mod tests {
     fn message_emits_effect() {
         let mut vm = EscribaVm::new();
         let mut host = EscribaHost::new();
-        vm.eval(r#"(message "hello from lisp")"#, &mut host).unwrap();
+        vm.eval(r#"(message "hello from lisp")"#, &mut host)
+            .unwrap();
         assert_eq!(
             host.effects,
             vec![HostEffect::Message("hello from lisp".into())]
@@ -267,7 +268,8 @@ mod tests {
     fn set_option_and_insert_emit_effects() {
         let mut vm = EscribaVm::new();
         let mut host = EscribaHost::new();
-        vm.eval(r#"(set-option "number" "true")"#, &mut host).unwrap();
+        vm.eval(r#"(set-option "number" "true")"#, &mut host)
+            .unwrap();
         vm.eval(r#"(insert "hello")"#, &mut host).unwrap();
         assert_eq!(
             host.effects,

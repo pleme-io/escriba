@@ -388,7 +388,8 @@ mod tests {
             state: &mut state,
             quit_requested: &mut quit,
         };
-        r.run("pick", &mut ctx, &[]).expect("unknown action is inert");
+        r.run("pick", &mut ctx, &[])
+            .expect("unknown action is inert");
     }
 
     #[test]

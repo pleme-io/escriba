@@ -170,7 +170,10 @@ mod tests {
         };
         let v2 = v.scroll_to_contain(Position::new(2, 3), 2);
         assert!(v2.top_line <= 2, "must scroll up to reveal line 2: {v2:?}");
-        assert!(v2.left_column <= 3, "must scroll left to reveal col 3: {v2:?}");
+        assert!(
+            v2.left_column <= 3,
+            "must scroll left to reveal col 3: {v2:?}"
+        );
     }
 
     #[test]

@@ -214,7 +214,10 @@ mod tiered_tests {
         let bare = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Bare);
         let default = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Default);
         assert_eq!(bare, <EscribaConfig as TieredConfig>::bare());
-        assert_eq!(default, <EscribaConfig as TieredConfig>::prescribed_default());
+        assert_eq!(
+            default,
+            <EscribaConfig as TieredConfig>::prescribed_default()
+        );
         assert_eq!(default.tema.as_deref(), Some("vellum"));
     }
 

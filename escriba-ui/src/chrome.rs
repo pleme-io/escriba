@@ -145,15 +145,18 @@ impl Resolver {
         match self {
             Self::Pleme => {
                 let p = ColorPalette::pleme();
-                p.get(key).unwrap_or_else(|| p.get("snow_storm_2").unwrap_or(Rgb::new(0, 0, 0)))
+                p.get(key)
+                    .unwrap_or_else(|| p.get("snow_storm_2").unwrap_or(Rgb::new(0, 0, 0)))
             }
             Self::Vellum => {
                 let p = VellumPalette::vellum();
-                p.get(key).unwrap_or_else(|| p.get("snow1").unwrap_or(Rgb::new(0, 0, 0)))
+                p.get(key)
+                    .unwrap_or_else(|| p.get("snow1").unwrap_or(Rgb::new(0, 0, 0)))
             }
             Self::PolarVeil => {
                 let p = VellumPalette::polar_veil();
-                p.get(key).unwrap_or_else(|| p.get("snow1").unwrap_or(Rgb::new(0, 0, 0)))
+                p.get(key)
+                    .unwrap_or_else(|| p.get("snow1").unwrap_or(Rgb::new(0, 0, 0)))
             }
         }
     }
@@ -170,19 +173,28 @@ mod tests {
     fn prescribed_chrome_tracks_the_fleet_theme() {
         let prescribed = ChromePalette::prescribed().hex_tuple();
         let fleet = ChromePalette::for_theme(FleetTheme::prescribed_default()).hex_tuple();
-        assert_eq!(prescribed, fleet, "prescribed chrome must be the fleet theme's chrome");
+        assert_eq!(
+            prescribed, fleet,
+            "prescribed chrome must be the fleet theme's chrome"
+        );
     }
 
     /// Every theme must resolve to a legible palette — no role may collapse
     /// to the black fallback, which would mean a binding gap went unnoticed.
     #[test]
     fn every_theme_resolves_without_hitting_the_fallback() {
-        for theme in
-            [FleetTheme::PlemeDark, FleetTheme::Vellum, FleetTheme::PolarVeil, FleetTheme::Bare]
-        {
+        for theme in [
+            FleetTheme::PlemeDark,
+            FleetTheme::Vellum,
+            FleetTheme::PolarVeil,
+            FleetTheme::Bare,
+        ] {
             let black = Rgb::new(0, 0, 0).hex();
             for (name, v) in ChromePalette::for_theme(theme).hex_tuple() {
-                assert_ne!(v, black, "{theme:?}: role {name} fell through to the fallback");
+                assert_ne!(
+                    v, black,
+                    "{theme:?}: role {name} fell through to the fallback"
+                );
             }
         }
     }
@@ -192,8 +204,12 @@ mod tests {
     #[test]
     fn distinct_themes_paint_distinctly() {
         assert_ne!(
-            ChromePalette::for_theme(FleetTheme::PlemeDark).background.hex(),
-            ChromePalette::for_theme(FleetTheme::Vellum).background.hex(),
+            ChromePalette::for_theme(FleetTheme::PlemeDark)
+                .background
+                .hex(),
+            ChromePalette::for_theme(FleetTheme::Vellum)
+                .background
+                .hex(),
             "Nord and Vellum must not share a ground"
         );
     }

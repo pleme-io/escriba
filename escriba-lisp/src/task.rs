@@ -100,7 +100,10 @@ impl TaskSpec {
     pub fn env_pairs(&self) -> Vec<(String, String)> {
         self.env
             .iter()
-            .filter_map(|s| s.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
+            .filter_map(|s| {
+                s.split_once('=')
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+            })
             .collect()
     }
 

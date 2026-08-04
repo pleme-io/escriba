@@ -205,7 +205,8 @@ mod tests {
         assert_eq!(a, b, "hash must be deterministic");
         assert_eq!(a.len(), 32, "BLAKE3-128 hex is 32 chars");
         assert!(
-            a.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)),
+            a.bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)),
             "hash must be lowercase hex only",
         );
     }
@@ -219,15 +220,25 @@ mod tests {
 
     #[test]
     fn effective_kind_defaults_to_pin() {
-        let s = AttestSpec { id: "x".into(), ..Default::default() };
+        let s = AttestSpec {
+            id: "x".into(),
+            ..Default::default()
+        };
         assert_eq!(s.effective_kind(), "pin");
-        let s = AttestSpec { id: "x".into(), kind: "min".into(), ..Default::default() };
+        let s = AttestSpec {
+            id: "x".into(),
+            kind: "min".into(),
+            ..Default::default()
+        };
         assert_eq!(s.effective_kind(), "min");
     }
 
     #[test]
     fn effective_severity_defaults_to_error() {
-        let s = AttestSpec { id: "x".into(), ..Default::default() };
+        let s = AttestSpec {
+            id: "x".into(),
+            ..Default::default()
+        };
         assert_eq!(s.effective_severity(), "error");
         let s = AttestSpec {
             id: "x".into(),
@@ -285,7 +296,10 @@ mod tests {
         assert!(!s.has_valid_hash_format());
 
         // Empty — not "valid" but distinguishable via is_empty_hash.
-        let s = AttestSpec { id: "x".into(), ..Default::default() };
+        let s = AttestSpec {
+            id: "x".into(),
+            ..Default::default()
+        };
         assert!(!s.has_valid_hash_format());
         assert!(s.is_empty_hash());
     }
@@ -313,7 +327,10 @@ mod tests {
         }
 
         // Skipped: no hash pinned.
-        let s = AttestSpec { id: "x".into(), ..Default::default() };
+        let s = AttestSpec {
+            id: "x".into(),
+            ..Default::default()
+        };
         assert_eq!(s.evaluate("whatever"), AttestResult::Skipped);
     }
 }

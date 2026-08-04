@@ -95,8 +95,8 @@ mod plugin;
 mod ruler;
 mod schedule;
 mod session;
-mod snippet;
 mod sexp;
+mod snippet;
 mod statusline;
 mod strutil;
 mod task;
@@ -107,14 +107,13 @@ mod workflow;
 
 pub use abbrev::AbbrevSpec;
 pub use apply::{
-    ApplyReport, CommandApplyReport, GrammarApplyReport, OptionApplyReport,
-    apply_plan_to_commands, apply_plan_to_grammar_extensions, apply_plan_to_keymap,
-    apply_plan_to_options, parse_leader_key,
+    ApplyReport, CommandApplyReport, GrammarApplyReport, OptionApplyReport, apply_plan_to_commands,
+    apply_plan_to_grammar_extensions, apply_plan_to_keymap, apply_plan_to_options,
+    parse_leader_key,
 };
 pub use attest::{
-    AttestResult, AttestSpec, KNOWN_KINDS as ATTEST_KINDS,
-    KNOWN_SEVERITIES as ATTEST_SEVERITIES, compute_summary_hash,
-    is_known_kind as is_known_attest_kind,
+    AttestResult, AttestSpec, KNOWN_KINDS as ATTEST_KINDS, KNOWN_SEVERITIES as ATTEST_SEVERITIES,
+    compute_summary_hash, is_known_kind as is_known_attest_kind,
     is_known_severity as is_known_attest_severity,
 };
 pub use bufferline::BufferLineSpec;
@@ -125,8 +124,8 @@ pub use catalog::{
 pub use cmd::CmdSpec;
 pub use dap::{DapAdapterSpec, KNOWN_ADAPTERS, is_known_adapter};
 pub use effect::{
-    CANONICAL_EFFECTS, EffectSpec, KNOWN_KINDS as EFFECT_KINDS,
-    is_canonical_effect, is_known_kind as is_known_effect_kind,
+    CANONICAL_EFFECTS, EffectSpec, KNOWN_KINDS as EFFECT_KINDS, is_canonical_effect,
+    is_known_kind as is_known_effect_kind,
 };
 pub use filetype::FiletypeSpec;
 pub use fold::{FoldSpec, KNOWN_METHODS as FOLD_METHODS, is_known_method as is_known_fold_method};
@@ -141,10 +140,7 @@ pub use highlight::{CANONICAL_GROUPS, HighlightSpec, is_canonical_group};
 pub use hook::{HookSpec, KNOWN_EVENTS, is_known_event};
 pub use icon::IconSpec;
 pub use keybind::KeybindSpec;
-pub use kmacro::{
-    KNOWN_MODES as KMACRO_MODES, KmacroSpec,
-    is_known_mode as is_known_kmacro_mode,
-};
+pub use kmacro::{KNOWN_MODES as KMACRO_MODES, KmacroSpec, is_known_mode as is_known_kmacro_mode};
 pub use lsp::{KNOWN_SERVERS, LspServerSpec, is_known_server};
 pub use mark::{KNOWN_KINDS as MARK_KINDS, MarkSpec, is_known_kind as is_known_mark_kind};
 pub use mcp::McpToolSpec;
@@ -160,13 +156,11 @@ pub use snippet::{Resolution as SnippetResolution, SnippetSpec};
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
 pub use task::TaskSpec;
 pub use term::{
-    KNOWN_PLACEMENTS as TERM_PLACEMENTS, TermSpec,
-    is_known_placement as is_known_term_placement,
+    KNOWN_PLACEMENTS as TERM_PLACEMENTS, TermSpec, is_known_placement as is_known_term_placement,
 };
 pub use textobject::{
-    CANONICAL_NAMES as TEXTOBJECT_CANONICAL_NAMES,
-    KNOWN_SCOPES as TEXTOBJECT_SCOPES, TextObjectSpec,
-    is_canonical_short as is_canonical_textobject_short,
+    CANONICAL_NAMES as TEXTOBJECT_CANONICAL_NAMES, KNOWN_SCOPES as TEXTOBJECT_SCOPES,
+    TextObjectSpec, is_canonical_short as is_canonical_textobject_short,
     is_known_scope as is_known_textobject_scope,
 };
 pub use theme::{DEFAULT_PRESET, KNOWN_PRESETS, ThemeSpec, is_known_preset};
@@ -225,9 +219,7 @@ pub enum LispError {
     UnknownMode(String),
     #[error("unknown gate action: {0} (valid: {valid})", valid = GATE_ACTIONS.join(", "))]
     UnknownGateAction(String),
-    #[error(
-        "invalid gate shape on `{0}` — exactly one of `:command` / `:source` must be set"
-    )]
+    #[error("invalid gate shape on `{0}` — exactly one of `:command` / `:source` must be set")]
     InvalidGateShape(String),
     #[error(
         "unknown gate severity: {0} (valid: {valid})",
@@ -256,13 +248,9 @@ pub enum LispError {
         valid = MARK_KINDS.join(", ")
     )]
     UnknownMarkKind(String),
-    #[error(
-        "defsnippet `{0}` must set exactly one of `:body` / `:hash` — got neither or both"
-    )]
+    #[error("defsnippet `{0}` must set exactly one of `:body` / `:hash` — got neither or both")]
     InvalidSnippetShape(String),
-    #[error(
-        "defsnippet :hash `{0}` is not a 32-char lowercase BLAKE3-128 hex token"
-    )]
+    #[error("defsnippet :hash `{0}` is not a 32-char lowercase BLAKE3-128 hex token")]
     MalformedSnippetHash(String),
     #[error("deftask missing `:name` — each task spec needs a non-empty id")]
     EmptyTaskName,
@@ -291,9 +279,7 @@ pub enum LispError {
         valid = KNOWN_MODES.join(", ")
     )]
     UnknownKmacroMode { name: String, mode: String },
-    #[error(
-        "defkmacro `{0}` has malformed `:register` — expected a single a-z / A-Z / 0-9 char"
-    )]
+    #[error("defkmacro `{0}` has malformed `:register` — expected a single a-z / A-Z / 0-9 char")]
     MalformedKmacroRegister(String),
     #[error(
         "defattest `{name}` has unknown `:kind` `{kind}` (valid: {valid})",
@@ -319,9 +305,7 @@ pub enum LispError {
         valid = RULER_STYLES.join(", ")
     )]
     UnknownRulerStyle(String),
-    #[error(
-        "defruler `:color` `{0}` is malformed — expected `#rrggbb` or `#rrggbbaa`"
-    )]
+    #[error("defruler `:color` `{0}` is malformed — expected `#rrggbb` or `#rrggbbaa`")]
     MalformedRulerColor(String),
     #[error("defmcp `{0}` has empty `:server` — required MCP server alias")]
     EmptyMcpServer(String),
@@ -552,17 +536,14 @@ impl ApplyPlan {
 /// modes are rejected; unknown actions are accepted (forward-compat
 /// with new commands registered by plugins).
 pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
-    let keybinds: Vec<KeybindSpec> =
-        compile(src)?;
+    let keybinds: Vec<KeybindSpec> = compile(src)?;
     for k in &keybinds {
         validate_mode(&k.mode)?;
     }
 
-    let commands: Vec<CmdSpec> =
-        compile(src)?;
+    let commands: Vec<CmdSpec> = compile(src)?;
 
-    let options: Vec<OptionSpec> =
-        compile(src)?;
+    let options: Vec<OptionSpec> = compile(src)?;
 
     let themes: Vec<ThemeSpec> = compile_validated(src, |t: &ThemeSpec| {
         if !t.preset.is_empty() && !is_known_preset(&t.preset) {
@@ -580,11 +561,9 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
-    let filetypes: Vec<FiletypeSpec> =
-        compile(src)?;
+    let filetypes: Vec<FiletypeSpec> = compile(src)?;
 
-    let abbreviations: Vec<AbbrevSpec> =
-        compile(src)?;
+    let abbreviations: Vec<AbbrevSpec> = compile(src)?;
 
     let snippets: Vec<SnippetSpec> = compile_validated(src, |s: &SnippetSpec| {
         match s.resolution() {
@@ -602,38 +581,28 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
-    let major_modes: Vec<MajorModeSpec> =
-        compile(src)?;
+    let major_modes: Vec<MajorModeSpec> = compile(src)?;
 
-    let plugins: Vec<PluginSpec> =
-        compile(src)?;
+    let plugins: Vec<PluginSpec> = compile(src)?;
 
-    let highlights: Vec<HighlightSpec> =
-        compile(src)?;
+    let highlights: Vec<HighlightSpec> = compile(src)?;
 
-    let status_lines: Vec<StatusLineSpec> =
-        compile(src)?;
+    let status_lines: Vec<StatusLineSpec> = compile(src)?;
     // Last writer wins — matches theme semantics.
     let status_line = status_lines.into_iter().last();
 
-    let buffer_lines: Vec<BufferLineSpec> =
-        compile(src)?;
+    let buffer_lines: Vec<BufferLineSpec> = compile(src)?;
     let buffer_line = buffer_lines.into_iter().last();
 
-    let lsp_servers: Vec<LspServerSpec> =
-        compile(src)?;
+    let lsp_servers: Vec<LspServerSpec> = compile(src)?;
 
-    let formatters: Vec<FormatterSpec> =
-        compile(src)?;
+    let formatters: Vec<FormatterSpec> = compile(src)?;
 
-    let palettes: Vec<PaletteSpec> =
-        compile(src)?;
+    let palettes: Vec<PaletteSpec> = compile(src)?;
 
-    let icons: Vec<IconSpec> =
-        compile(src)?;
+    let icons: Vec<IconSpec> = compile(src)?;
 
-    let dap_adapters: Vec<DapAdapterSpec> =
-        compile(src)?;
+    let dap_adapters: Vec<DapAdapterSpec> = compile(src)?;
 
     // Strict validation on gates — ill-formed specs (unknown action /
     // neither command nor source / both set) fail fast so users
@@ -892,56 +861,56 @@ pub fn default_rc_path() -> PathBuf {
 /// Order matches [`ApplyPlan::counts`] — consumers that render a
 /// fixed-order banner can zip the two without sorting.
 pub const FORM_GLYPHS: &[(&str, &str)] = &[
-    ("keybinds",    "⌨️ "),
-    ("cmds",        "⚡"),
-    ("options",     "⚙️ "),
-    ("theme",       "🎨"),
-    ("hooks",       "🪝"),
-    ("filetypes",   "📄"),
-    ("abbrev",      "✏️ "),
-    ("snippets",    "✂️ "),
+    ("keybinds", "⌨️ "),
+    ("cmds", "⚡"),
+    ("options", "⚙️ "),
+    ("theme", "🎨"),
+    ("hooks", "🪝"),
+    ("filetypes", "📄"),
+    ("abbrev", "✏️ "),
+    ("snippets", "✂️ "),
     ("major_modes", "🎭"),
-    ("plugins",     "🧩"),
-    ("highlights",  "🌈"),
-    ("statusline",  "📊"),
-    ("bufferline",  "📑"),
-    ("lsp",         "💡"),
-    ("formatters",  "📐"),
-    ("palettes",    "🖌️ "),
-    ("icons",       "🏷️ "),
-    ("dap",         "🐛"),
-    ("gates",       "🛡️ "),
+    ("plugins", "🧩"),
+    ("highlights", "🌈"),
+    ("statusline", "📊"),
+    ("bufferline", "📑"),
+    ("lsp", "💡"),
+    ("formatters", "📐"),
+    ("palettes", "🖌️ "),
+    ("icons", "🏷️ "),
+    ("dap", "🐛"),
+    ("gates", "🛡️ "),
     ("textobjects", "🎯"),
-    ("workflows",   "🧵"),
-    ("sessions",    "🗂️ "),
-    ("effects",     "✨"),
-    ("terms",       "🪟"),
-    ("marks",       "📌"),
-    ("tasks",       "🏃"),
-    ("schedules",   "⏰"),
-    ("kmacros",     "🎬"),
-    ("attests",     "🔏"),
-    ("rulers",      "📏"),
-    ("mcp_tools",   "🔌"),
-    ("folds",       "🪗"),
+    ("workflows", "🧵"),
+    ("sessions", "🗂️ "),
+    ("effects", "✨"),
+    ("terms", "🪟"),
+    ("marks", "📌"),
+    ("tasks", "🏃"),
+    ("schedules", "⏰"),
+    ("kmacros", "🎬"),
+    ("attests", "🔏"),
+    ("rulers", "📏"),
+    ("mcp_tools", "🔌"),
+    ("folds", "🪗"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
 /// [`PluginSpec`](crate::PluginSpec) and [`KNOWN_CATEGORIES`]. Same
 /// contract as [`FORM_GLYPHS`].
 pub const CATEGORY_GLYPHS: &[(&str, &str)] = &[
-    ("common",      "📦"),
-    ("completion",  "🔤"),
-    ("formatting",  "📐"),
+    ("common", "📦"),
+    ("completion", "🔤"),
+    ("formatting", "📐"),
     ("keybindings", "⌨️ "),
-    ("lsp",         "💡"),
-    ("telescope",   "🔭"),
-    ("theming",     "🎨"),
-    ("tmux",        "⫽ "),
-    ("treesitter",  "🌳"),
-    ("files",       "📁"),
-    ("git",         "🌿"),
-    ("ai",          "🤖"),
+    ("lsp", "💡"),
+    ("telescope", "🔭"),
+    ("theming", "🎨"),
+    ("tmux", "⫽ "),
+    ("treesitter", "🌳"),
+    ("files", "📁"),
+    ("git", "🌿"),
+    ("ai", "🤖"),
 ];
 
 /// Canonical glyph for a def-form label. Labels come from
@@ -1090,10 +1059,8 @@ mod tests {
 
     #[test]
     fn rejects_unknown_hook_event() {
-        let err = apply_source(
-            r#"(defhook :event "UserFired" :command "zap")"#,
-        )
-        .expect_err("unknown event should error");
+        let err = apply_source(r#"(defhook :event "UserFired" :command "zap")"#)
+            .expect_err("unknown event should error");
         assert!(matches!(err, LispError::UnknownHook(_)));
     }
 
@@ -1383,10 +1350,7 @@ mod tests {
         assert!(!plan.major_modes[0].structural_lisp);
 
         assert_eq!(plan.major_modes[1].name, "lisp");
-        assert_eq!(
-            plan.major_modes[1].extensions,
-            vec!["lisp", "cl", "el"]
-        );
+        assert_eq!(plan.major_modes[1].extensions, vec!["lisp", "cl", "el"]);
         assert!(plan.major_modes[1].structural_lisp);
     }
 
@@ -1453,7 +1417,9 @@ mod tests {
             "#,
         )
         .unwrap();
-        let sl = plan.status_line.expect("defstatusline should produce a spec");
+        let sl = plan
+            .status_line
+            .expect("defstatusline should produce a spec");
         assert_eq!(sl.left.len(), 2);
         assert_eq!(sl.center.len(), 1);
         assert_eq!(sl.right.len(), 2);
@@ -1604,8 +1570,8 @@ mod tests {
 
     #[test]
     fn snippet_without_body_or_hash_rejected() {
-        let err = apply_source(r#"(defsnippet :trigger "oops")"#)
-            .expect_err("must have body or hash");
+        let err =
+            apply_source(r#"(defsnippet :trigger "oops")"#).expect_err("must have body or hash");
         assert!(matches!(err, LispError::InvalidSnippetShape(_)));
     }
 
@@ -1622,16 +1588,13 @@ mod tests {
 
     #[test]
     fn snippet_with_malformed_hash_rejected() {
-        let err = apply_source(
-            r#"(defsnippet :trigger "x" :hash "af42")"#,
-        )
-        .expect_err("hash must be 32-char hex");
+        let err = apply_source(r#"(defsnippet :trigger "x" :hash "af42")"#)
+            .expect_err("hash must be 32-char hex");
         assert!(matches!(err, LispError::MalformedSnippetHash(_)));
 
-        let err = apply_source(
-            r#"(defsnippet :trigger "x" :hash "AF42C0D18E9B3F4AA18B7C3EF1DE93A4")"#,
-        )
-        .expect_err("hash must be lowercase");
+        let err =
+            apply_source(r#"(defsnippet :trigger "x" :hash "AF42C0D18E9B3F4AA18B7C3EF1DE93A4")"#)
+                .expect_err("hash must be lowercase");
         assert!(matches!(err, LispError::MalformedSnippetHash(_)));
     }
 
@@ -1665,19 +1628,14 @@ mod tests {
 
     #[test]
     fn mark_with_unknown_kind_rejected() {
-        let err = apply_source(
-            r#"(defmark :name "'X" :kind "teleport")"#,
-        )
-        .expect_err("unknown kind should error");
+        let err = apply_source(r#"(defmark :name "'X" :kind "teleport")"#)
+            .expect_err("unknown kind should error");
         assert!(matches!(err, LispError::UnknownMarkKind(_)));
     }
 
     #[test]
     fn mark_empty_kind_resolves_to_jump() {
-        let plan = apply_source(
-            r#"(defmark :name "'X" :file "~/a.txt")"#,
-        )
-        .unwrap();
+        let plan = apply_source(r#"(defmark :name "'X" :file "~/a.txt")"#).unwrap();
         assert_eq!(plan.marks[0].effective_kind(), "jump");
     }
 
@@ -1708,10 +1666,8 @@ mod tests {
 
     #[test]
     fn term_with_unknown_placement_rejected() {
-        let err = apply_source(
-            r#"(defterm :name "x" :placement "zigzag")"#,
-        )
-        .expect_err("unknown placement should error");
+        let err = apply_source(r#"(defterm :name "x" :placement "zigzag")"#)
+            .expect_err("unknown placement should error");
         assert!(matches!(err, LispError::UnknownTermPlacement(_)));
     }
 
@@ -1727,7 +1683,16 @@ mod tests {
         )
         .unwrap();
         let payload = plan.terms[0].to_mcp_value();
-        for key in ["shell", "args", "cwd", "env", "title", "placement", "attach", "effects"] {
+        for key in [
+            "shell",
+            "args",
+            "cwd",
+            "env",
+            "title",
+            "placement",
+            "attach",
+            "effects",
+        ] {
             assert!(
                 payload.get(key).is_some(),
                 "mado-contract field `{key}` missing from MCP payload",
@@ -1792,10 +1757,8 @@ mod tests {
 
     #[test]
     fn effect_custom_without_shader_rejected() {
-        let err = apply_source(
-            r##"(defeffect :name "mine" :kind "custom" :enable #t)"##,
-        )
-        .expect_err("custom w/o shader should error");
+        let err = apply_source(r##"(defeffect :name "mine" :kind "custom" :enable #t)"##)
+            .expect_err("custom w/o shader should error");
         assert!(matches!(err, LispError::MalformedCustomEffect(_)));
     }
 
@@ -1826,28 +1789,20 @@ mod tests {
             plan.workflows[0].step_kinds(),
             vec!["gate", "shell", "action"]
         );
-        assert_eq!(
-            plan.workflows[1].step_kinds(),
-            vec!["cmd", "workflow"]
-        );
+        assert_eq!(plan.workflows[1].step_kinds(), vec!["cmd", "workflow"]);
         assert!(plan.workflows[0].all_steps_known());
     }
 
     #[test]
     fn workflow_with_unknown_failure_mode_rejected() {
-        let err = apply_source(
-            r#"(defworkflow :name "x" :steps () :on-failure "explode")"#,
-        )
-        .expect_err("unknown failure mode should error");
+        let err = apply_source(r#"(defworkflow :name "x" :steps () :on-failure "explode")"#)
+            .expect_err("unknown failure mode should error");
         assert!(matches!(err, LispError::UnknownWorkflowFailureMode(_)));
     }
 
     #[test]
     fn workflow_on_failure_empty_is_default_abort() {
-        let plan = apply_source(
-            r#"(defworkflow :name "x" :steps ("gate:g"))"#,
-        )
-        .unwrap();
+        let plan = apply_source(r#"(defworkflow :name "x" :steps ("gate:g"))"#).unwrap();
         assert_eq!(plan.workflows.len(), 1);
         assert_eq!(plan.workflows[0].on_failure, "");
     }
@@ -1881,10 +1836,8 @@ mod tests {
 
     #[test]
     fn textobject_with_unknown_scope_rejected() {
-        let err = apply_source(
-            r#"(deftextobject :name "f" :scope "around" :query "x")"#,
-        )
-        .expect_err("unknown scope should error");
+        let err = apply_source(r#"(deftextobject :name "f" :scope "around" :query "x")"#)
+            .expect_err("unknown scope should error");
         assert!(matches!(err, LispError::UnknownTextObjectScope(_)));
     }
 
@@ -1925,10 +1878,8 @@ mod tests {
 
     #[test]
     fn gate_with_neither_command_nor_source_rejected() {
-        let err = apply_source(
-            r#"(defgate :name "x" :on-event "BufWritePre" :action "reject")"#,
-        )
-        .expect_err("neither command nor source is invalid");
+        let err = apply_source(r#"(defgate :name "x" :on-event "BufWritePre" :action "reject")"#)
+            .expect_err("neither command nor source is invalid");
         assert!(matches!(err, LispError::InvalidGateShape(_)));
     }
 
@@ -1973,7 +1924,10 @@ mod tests {
         assert_eq!(plan.dap_adapters[0].filetypes, vec!["rust", "c", "cpp"]);
         assert_eq!(plan.dap_adapters[0].port, 0);
         assert_eq!(plan.dap_adapters[1].port, 38697);
-        assert_eq!(plan.dap_adapters[1].args, vec!["dap", "-l", "127.0.0.1:38697"]);
+        assert_eq!(
+            plan.dap_adapters[1].args,
+            vec!["dap", "-l", "127.0.0.1:38697"]
+        );
     }
 
     #[test]
@@ -2044,10 +1998,8 @@ mod tests {
 
     #[test]
     fn task_with_empty_command_rejected() {
-        let err = apply_source(
-            r#"(deftask :name "oops")"#,
-        )
-        .expect_err("empty command should error");
+        let err =
+            apply_source(r#"(deftask :name "oops")"#).expect_err("empty command should error");
         assert!(matches!(err, LispError::EmptyTaskCommand(_)));
     }
 
@@ -2055,10 +2007,8 @@ mod tests {
     fn task_with_empty_name_rejected() {
         // Tatara-lisp enforces `:name` at parse time, so the empty-name
         // path only triggers when the user writes `:name ""` explicitly.
-        let err = apply_source(
-            r#"(deftask :name "" :command "ls")"#,
-        )
-        .expect_err("empty name should error");
+        let err = apply_source(r#"(deftask :name "" :command "ls")"#)
+            .expect_err("empty name should error");
         assert!(matches!(err, LispError::EmptyTaskName));
     }
 
@@ -2066,10 +2016,8 @@ mod tests {
     fn task_without_name_at_all_is_parse_error() {
         // `:name` is a required key — tatara-lisp rejects the form
         // before our validator runs.
-        let err = apply_source(
-            r#"(deftask :command "ls")"#,
-        )
-        .expect_err("missing :name should parse-error");
+        let err = apply_source(r#"(deftask :command "ls")"#)
+            .expect_err("missing :name should parse-error");
         assert!(matches!(err, LispError::Parse(_)));
     }
 
@@ -2125,10 +2073,8 @@ mod tests {
 
     #[test]
     fn schedule_with_no_dispatch_rejected() {
-        let err = apply_source(
-            r#"(defschedule :name "x" :interval-seconds 60)"#,
-        )
-        .expect_err("missing dispatch should error");
+        let err = apply_source(r#"(defschedule :name "x" :interval-seconds 60)"#)
+            .expect_err("missing dispatch should error");
         assert!(matches!(err, LispError::InvalidScheduleDispatch(_)));
     }
 
@@ -2146,10 +2092,8 @@ mod tests {
 
     #[test]
     fn schedule_with_malformed_cron_rejected() {
-        let err = apply_source(
-            r#"(defschedule :name "x" :cron "garbage" :command "save")"#,
-        )
-        .expect_err("malformed cron should error");
+        let err = apply_source(r#"(defschedule :name "x" :cron "garbage" :command "save")"#)
+            .expect_err("malformed cron should error");
         assert!(matches!(err, LispError::MalformedScheduleCron(_)));
     }
 
@@ -2207,8 +2151,8 @@ mod tests {
 
     #[test]
     fn kmacro_without_keys_at_all_is_parse_error() {
-        let err = apply_source(r#"(defkmacro :name "no-keys")"#)
-            .expect_err("missing :keys should error");
+        let err =
+            apply_source(r#"(defkmacro :name "no-keys")"#).expect_err("missing :keys should error");
         // tatara-lisp handles missing fields; our validator handles
         // set-but-empty. The missing case falls through as an empty
         // string (default), so our validator fires.
@@ -2217,28 +2161,22 @@ mod tests {
 
     #[test]
     fn kmacro_with_unknown_mode_rejected() {
-        let err = apply_source(
-            r#"(defkmacro :name "m" :keys "x" :mode "superman")"#,
-        )
-        .expect_err("unknown mode should error");
+        let err = apply_source(r#"(defkmacro :name "m" :keys "x" :mode "superman")"#)
+            .expect_err("unknown mode should error");
         assert!(matches!(err, LispError::UnknownKmacroMode { .. }));
     }
 
     #[test]
     fn kmacro_with_multichar_register_rejected() {
-        let err = apply_source(
-            r#"(defkmacro :name "m" :keys "x" :register "aa")"#,
-        )
-        .expect_err("multi-char register should error");
+        let err = apply_source(r#"(defkmacro :name "m" :keys "x" :register "aa")"#)
+            .expect_err("multi-char register should error");
         assert!(matches!(err, LispError::MalformedKmacroRegister(_)));
     }
 
     #[test]
     fn kmacro_with_symbol_register_rejected() {
-        let err = apply_source(
-            r#"(defkmacro :name "m" :keys "x" :register "!")"#,
-        )
-        .expect_err("symbol register should error");
+        let err = apply_source(r#"(defkmacro :name "m" :keys "x" :register "!")"#)
+            .expect_err("symbol register should error");
         assert!(matches!(err, LispError::MalformedKmacroRegister(_)));
     }
 
@@ -2248,10 +2186,7 @@ mod tests {
         // canonical `KNOWN_MODES` must be the same `&'static [&str]`
         // — not just equal in content. Pin identity here so a future
         // accidental reintroduction of a parallel const gets caught.
-        assert!(std::ptr::eq(
-            KMACRO_MODES.as_ptr(),
-            KNOWN_MODES.as_ptr(),
-        ));
+        assert!(std::ptr::eq(KMACRO_MODES.as_ptr(), KNOWN_MODES.as_ptr(),));
         assert_eq!(KMACRO_MODES, KNOWN_MODES);
     }
 
@@ -2259,10 +2194,7 @@ mod tests {
     fn kmacro_with_empty_mode_is_valid() {
         // Empty mode = "replay in whatever mode is current". Nothing
         // should complain.
-        let plan = apply_source(
-            r#"(defkmacro :name "m" :keys "x")"#,
-        )
-        .unwrap();
+        let plan = apply_source(r#"(defkmacro :name "m" :keys "x")"#).unwrap();
         assert_eq!(plan.kmacros.len(), 1);
         assert_eq!(plan.kmacros[0].mode, "");
     }
@@ -2294,9 +2226,11 @@ mod tests {
     #[test]
     fn summary_hash_diverges_when_plan_shape_changes() {
         let a = apply_source(r#"(defkeybind :mode "normal" :key "g" :action "x")"#).unwrap();
-        let b = apply_source(r#"(defkeybind :mode "normal" :key "g" :action "x")
-                                 (defkeybind :mode "insert" :key "jk" :action "escape")"#)
-            .unwrap();
+        let b = apply_source(
+            r#"(defkeybind :mode "normal" :key "g" :action "x")
+                                 (defkeybind :mode "insert" :key "jk" :action "escape")"#,
+        )
+        .unwrap();
         assert_ne!(a.summary_hash(), b.summary_hash());
     }
 
@@ -2330,36 +2264,29 @@ mod tests {
 
     #[test]
     fn attest_unknown_kind_rejected() {
-        let err = apply_source(
-            r#"(defattest :id "x" :kind "strict")"#,
-        )
-        .expect_err("unknown kind should error");
+        let err = apply_source(r#"(defattest :id "x" :kind "strict")"#)
+            .expect_err("unknown kind should error");
         assert!(matches!(err, LispError::UnknownAttestKind { .. }));
     }
 
     #[test]
     fn attest_unknown_severity_rejected() {
-        let err = apply_source(
-            r#"(defattest :id "x" :severity "critical")"#,
-        )
-        .expect_err("unknown severity should error");
+        let err = apply_source(r#"(defattest :id "x" :severity "critical")"#)
+            .expect_err("unknown severity should error");
         assert!(matches!(err, LispError::UnknownAttestSeverity { .. }));
     }
 
     #[test]
     fn attest_malformed_hash_rejected() {
         // Uppercase rejected — matches the defsnippet :hash rule.
-        let err = apply_source(
-            r#"(defattest :id "x" :counts-hash "AF42C0D18E9B3F4AA18B7C3EF1DE93A4")"#,
-        )
-        .expect_err("uppercase hash should error");
+        let err =
+            apply_source(r#"(defattest :id "x" :counts-hash "AF42C0D18E9B3F4AA18B7C3EF1DE93A4")"#)
+                .expect_err("uppercase hash should error");
         assert!(matches!(err, LispError::MalformedAttestHash(_)));
 
         // Wrong length.
-        let err = apply_source(
-            r#"(defattest :id "x" :counts-hash "af42")"#,
-        )
-        .expect_err("short hash should error");
+        let err = apply_source(r#"(defattest :id "x" :counts-hash "af42")"#)
+            .expect_err("short hash should error");
         assert!(matches!(err, LispError::MalformedAttestHash(_)));
     }
 
@@ -2488,8 +2415,8 @@ mod tests {
 
     #[test]
     fn ruler_with_empty_columns_rejected() {
-        let err = apply_source(r#"(defruler :columns ())"#)
-            .expect_err("empty columns should error");
+        let err =
+            apply_source(r#"(defruler :columns ())"#).expect_err("empty columns should error");
         assert!(matches!(err, LispError::EmptyRulerColumns));
     }
 
@@ -2503,27 +2430,21 @@ mod tests {
 
     #[test]
     fn ruler_with_unknown_style_rejected() {
-        let err = apply_source(
-            r#"(defruler :columns (80) :style "bold")"#,
-        )
-        .expect_err("unknown style should error");
+        let err = apply_source(r#"(defruler :columns (80) :style "bold")"#)
+            .expect_err("unknown style should error");
         assert!(matches!(err, LispError::UnknownRulerStyle(_)));
     }
 
     #[test]
     fn ruler_with_malformed_color_rejected() {
         // Named colors aren't accepted — users must use hex.
-        let err = apply_source(
-            r#"(defruler :columns (80) :color "blue")"#,
-        )
-        .expect_err("named color should error");
+        let err = apply_source(r#"(defruler :columns (80) :color "blue")"#)
+            .expect_err("named color should error");
         assert!(matches!(err, LispError::MalformedRulerColor(_)));
 
         // Short-hex rejected (we require #rrggbb / #rrggbbaa).
-        let err = apply_source(
-            r##"(defruler :columns (80) :color "#fff")"##,
-        )
-        .expect_err("short hex should error");
+        let err = apply_source(r##"(defruler :columns (80) :color "#fff")"##)
+            .expect_err("short hex should error");
         assert!(matches!(err, LispError::MalformedRulerColor(_)));
     }
 
@@ -2538,20 +2459,14 @@ mod tests {
         let uppercase = "AF42C0D18E9B3F4AA18B7C3EF1DE93A4";
 
         // Both specs accept the valid lowercase.
-        apply_source(&format!(
-            r#"(defsnippet :trigger "x" :hash "{valid}")"#
-        ))
-        .expect("valid lowercase hash should parse for defsnippet");
-        apply_source(&format!(
-            r#"(defattest :id "x" :counts-hash "{valid}")"#
-        ))
-        .expect("valid lowercase hash should parse for defattest");
+        apply_source(&format!(r#"(defsnippet :trigger "x" :hash "{valid}")"#))
+            .expect("valid lowercase hash should parse for defsnippet");
+        apply_source(&format!(r#"(defattest :id "x" :counts-hash "{valid}")"#))
+            .expect("valid lowercase hash should parse for defattest");
 
         // Both specs reject the uppercase form.
         assert!(matches!(
-            apply_source(&format!(
-                r#"(defsnippet :trigger "x" :hash "{uppercase}")"#
-            )),
+            apply_source(&format!(r#"(defsnippet :trigger "x" :hash "{uppercase}")"#)),
             Err(LispError::MalformedSnippetHash(_)),
         ));
         assert!(matches!(
@@ -2584,10 +2499,7 @@ mod tests {
     fn ruler_with_empty_color_uses_theme_default() {
         // Empty color means "fall back to theme" — not a malformed
         // value. Parse should succeed.
-        let plan = apply_source(
-            r#"(defruler :columns (80) :style "soft")"#,
-        )
-        .unwrap();
+        let plan = apply_source(r#"(defruler :columns (80) :style "soft")"#).unwrap();
         assert_eq!(plan.rulers.len(), 1);
         assert!(plan.rulers[0].color.is_empty());
     }
@@ -2625,19 +2537,15 @@ mod tests {
 
     #[test]
     fn mcp_with_empty_server_rejected() {
-        let err = apply_source(
-            r#"(defmcp :name "x" :tool "clipboard_get")"#,
-        )
-        .expect_err("empty server should error");
+        let err = apply_source(r#"(defmcp :name "x" :tool "clipboard_get")"#)
+            .expect_err("empty server should error");
         assert!(matches!(err, LispError::EmptyMcpServer(_)));
     }
 
     #[test]
     fn mcp_with_empty_tool_rejected() {
-        let err = apply_source(
-            r#"(defmcp :name "x" :server "mado")"#,
-        )
-        .expect_err("empty tool should error");
+        let err = apply_source(r#"(defmcp :name "x" :server "mado")"#)
+            .expect_err("empty tool should error");
         assert!(matches!(err, LispError::EmptyMcpTool(_)));
     }
 
@@ -2706,52 +2614,40 @@ mod tests {
 
     #[test]
     fn fold_without_filetype_rejected() {
-        let err = apply_source(
-            r#"(deffold :method "indent")"#,
-        )
-        .expect_err("missing filetype should error");
+        let err = apply_source(r#"(deffold :method "indent")"#)
+            .expect_err("missing filetype should error");
         assert!(matches!(err, LispError::EmptyFoldFiletype));
     }
 
     #[test]
     fn fold_with_unknown_method_rejected() {
-        let err = apply_source(
-            r#"(deffold :filetype "rust" :method "origami")"#,
-        )
-        .expect_err("unknown method should error");
+        let err = apply_source(r#"(deffold :filetype "rust" :method "origami")"#)
+            .expect_err("unknown method should error");
         assert!(matches!(err, LispError::UnknownFoldMethod { .. }));
     }
 
     #[test]
     fn fold_treesitter_without_queries_rejected() {
-        let err = apply_source(
-            r#"(deffold :filetype "rust" :method "treesitter")"#,
-        )
-        .expect_err("treesitter without queries should error");
+        let err = apply_source(r#"(deffold :filetype "rust" :method "treesitter")"#)
+            .expect_err("treesitter without queries should error");
         assert!(matches!(err, LispError::EmptyFoldQueries(_)));
 
         // Empty :method defaults to treesitter — same check fires.
-        let err = apply_source(
-            r#"(deffold :filetype "rust")"#,
-        )
-        .expect_err("empty method (defaults to treesitter) without queries should error");
+        let err = apply_source(r#"(deffold :filetype "rust")"#)
+            .expect_err("empty method (defaults to treesitter) without queries should error");
         assert!(matches!(err, LispError::EmptyFoldQueries(_)));
     }
 
     #[test]
     fn fold_marker_requires_both_marker_fields() {
         // Only start — reject.
-        let err = apply_source(
-            r#"(deffold :filetype "vim" :method "marker" :marker-start "{{{")"#,
-        )
-        .expect_err("marker without end should error");
+        let err = apply_source(r#"(deffold :filetype "vim" :method "marker" :marker-start "{{{")"#)
+            .expect_err("marker without end should error");
         assert!(matches!(err, LispError::IncompleteFoldMarker(_)));
 
         // Only end — reject.
-        let err = apply_source(
-            r#"(deffold :filetype "vim" :method "marker" :marker-end "}}}")"#,
-        )
-        .expect_err("marker without start should error");
+        let err = apply_source(r#"(deffold :filetype "vim" :method "marker" :marker-end "}}}")"#)
+            .expect_err("marker without start should error");
         assert!(matches!(err, LispError::IncompleteFoldMarker(_)));
     }
 

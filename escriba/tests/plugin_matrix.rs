@@ -95,8 +95,7 @@ fn every_catalog_plugin_forges_and_applies() {
 #[test]
 fn catalog_dir_and_bundled_table_are_a_bijection() {
     let on_disk: BTreeSet<String> = catalog_files().into_iter().map(|(s, _)| s).collect();
-    let in_table: BTreeSet<String> =
-        BUNDLED.iter().map(|b| b.name.to_string()).collect();
+    let in_table: BTreeSet<String> = BUNDLED.iter().map(|b| b.name.to_string()).collect();
 
     let missing_row: Vec<_> = on_disk.difference(&in_table).cloned().collect();
     let missing_file: Vec<_> = in_table.difference(&on_disk).cloned().collect();
@@ -179,15 +178,39 @@ fn bundled_composite_preserves_full_capability() {
     // bundled plan must still carry the full LSP / formatter / text-object
     // surface the old defaults had.
     let plan = escriba::catalog_bundle::bundled_plan().expect("bundled plan builds");
-    assert!(plan.lsp_servers.len() >= 11, "lsp servers: {}", plan.lsp_servers.len());
-    assert!(plan.formatters.len() >= 11, "formatters: {}", plan.formatters.len());
-    assert!(plan.text_objects.len() >= 17, "text objects: {}", plan.text_objects.len());
-    assert!(plan.dap_adapters.len() >= 5, "dap adapters: {}", plan.dap_adapters.len());
+    assert!(
+        plan.lsp_servers.len() >= 11,
+        "lsp servers: {}",
+        plan.lsp_servers.len()
+    );
+    assert!(
+        plan.formatters.len() >= 11,
+        "formatters: {}",
+        plan.formatters.len()
+    );
+    assert!(
+        plan.text_objects.len() >= 17,
+        "text objects: {}",
+        plan.text_objects.len()
+    );
+    assert!(
+        plan.dap_adapters.len() >= 5,
+        "dap adapters: {}",
+        plan.dap_adapters.len()
+    );
     assert!(plan.folds.len() >= 5, "folds: {}", plan.folds.len());
     assert!(plan.icons.len() >= 20, "icons: {}", plan.icons.len());
-    assert!(plan.mcp_tools.len() >= 5, "mcp tools: {}", plan.mcp_tools.len());
+    assert!(
+        plan.mcp_tools.len() >= 5,
+        "mcp tools: {}",
+        plan.mcp_tools.len()
+    );
     // A defplugin descriptor per bundled plugin.
-    assert_eq!(plan.plugins.len(), BUNDLED.len(), "one descriptor per plugin");
+    assert_eq!(
+        plan.plugins.len(),
+        BUNDLED.len(),
+        "one descriptor per plugin"
+    );
 }
 
 /// Every icon must actually carry a glyph.

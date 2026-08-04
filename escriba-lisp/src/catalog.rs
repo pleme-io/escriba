@@ -108,10 +108,9 @@ impl EscribaPluginSpec {
     #[must_use]
     pub fn is_eager(&self) -> bool {
         self.ativar_em.is_empty()
-            || self
-                .ativar_em
-                .iter()
-                .any(|t| t.trim().eq_ignore_ascii_case("startup") || t.trim().eq_ignore_ascii_case("eager"))
+            || self.ativar_em.iter().any(|t| {
+                t.trim().eq_ignore_ascii_case("startup") || t.trim().eq_ignore_ascii_case("eager")
+            })
     }
 
     /// The caixa `:etiquetas` set: always `"escriba-plugin"`, then the
@@ -250,7 +249,10 @@ impl std::fmt::Display for CatalogError {
                 f.write_str("catalog source has no (defescribaplugin …) manifest form")
             }
             CatalogError::MultipleMeta(n) => {
-                write!(f, "catalog source has {n} (defescribaplugin …) forms — expected exactly 1")
+                write!(
+                    f,
+                    "catalog source has {n} (defescribaplugin …) forms — expected exactly 1"
+                )
             }
             CatalogError::EmptyName => f.write_str("(defescribaplugin …) has empty :name"),
             CatalogError::InvalidName(n) => write!(

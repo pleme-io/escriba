@@ -89,13 +89,13 @@ pub struct SessionSpec {
 /// Canonical layout identifiers the runtime guarantees. Plugins
 /// register more at runtime — unknown values warn but still apply.
 pub const KNOWN_LAYOUTS: &[&str] = &[
-    "single",       // one buffer, no splits.
-    "horizontal",   // buffers stacked top→bottom.
-    "vertical",     // buffers side-by-side left→right.
-    "grid-2x2",     // 2×2 grid (first 4 buffers).
-    "grid-3x3",     // 3×3 grid (first 9 buffers).
-    "main-side",    // one big left pane, remaining stacked right.
-    "tabs",         // each buffer is a tab, no splits.
+    "single",     // one buffer, no splits.
+    "horizontal", // buffers stacked top→bottom.
+    "vertical",   // buffers side-by-side left→right.
+    "grid-2x2",   // 2×2 grid (first 4 buffers).
+    "grid-3x3",   // 3×3 grid (first 9 buffers).
+    "main-side",  // one big left pane, remaining stacked right.
+    "tabs",       // each buffer is a tab, no splits.
 ];
 
 #[must_use]
