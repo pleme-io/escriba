@@ -23,8 +23,8 @@ use escriba_buffer::BufferSet;
 use escriba_buffer::TextRev;
 use escriba_command::{CommandRegistry, EditContext};
 use escriba_core::{
-    Action, Anchored, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList, Mode,
-    Motion, Operator, Position, Range, TextEffect, WindowId,
+    Action, Anchored, Bound, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList,
+    Mode, Motion, Operator, Position, Range, TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -66,6 +66,17 @@ pub struct EditorState {
     /// Reading through `Anchored::get(current_rev)` makes that a `None`, so
     /// forgetting to clear is no longer a thing that can be forgotten.
     search_at: Option<Anchored<usize, TextRev>>,
+    /// The last text change, for `.`.
+    ///
+    /// An action plus whatever was typed while it held Insert open. Both
+    /// halves are needed: `cw` alone is not a change, it is the FIRST HALF of
+    /// one — the text that followed is the rest, and replaying without it
+    /// would delete a word and leave the buffer in Insert.
+    last_change: Option<LastChange>,
+    /// True while an insert session belonging to `last_change` is open, so
+    /// typed characters are appended to it. Cleared on leaving Insert.
+    recording_insert: bool,
+
     /// Where the cursor was before each far jump — `<C-o>` / `<C-i>`.
     /// Search commits, `n`/`N` and `*`/`#` all record into it, which is what
     /// makes a search a place you can come back from.
@@ -144,9 +155,30 @@ const fn is_discrete_jump(key: &Key) -> bool {
             | Key::Char('N')
             | Key::Char('*')
             | Key::Char('#')
+            // `.` earned its place by measurement, not symmetry: `iZ<Esc>`
+            // then `..` produced `ZZ` instead of `ZZZ`, because the gate ate
+            // the second press. A silently-dropped repeat is indistinguishable
+            // from a dead key — the exact complaint the gate exists to prevent
+            // for other keys.
+            | Key::Char('.')
+            // Same class: a swallowed undo is worse than a stuttering
+            // viewport.
+            | Key::Char('u')
+            | Key::Ctrl('r')
             | Key::Ctrl('o')
             | Key::Ctrl('i')
     )
+}
+
+/// A replayable text change.
+#[derive(Debug, Clone)]
+struct LastChange {
+    /// The action that began the change.
+    action: Action,
+    /// How many times it ran.
+    count: u32,
+    /// Characters typed while the change held Insert mode open.
+    inserted: String,
 }
 
 impl EditorState {
@@ -173,6 +205,8 @@ impl EditorState {
             modal: ModalState::new(),
             search: SearchState::new(escriba_search::CaseMode::Smart),
             search_at: None,
+            last_change: None,
+            recording_insert: false,
             jumps: JumpList::new(),
             keymap: Keymap::default_vim(),
             commands: CommandRegistry::default_set(),
@@ -583,6 +617,61 @@ impl EditorState {
         )
     }
 
+    /// `.` — replay the last change at the cursor.
+    ///
+    /// Two steps, because a change can be two: run the action, then re-type
+    /// whatever followed it. `cgn` + `.` is exactly this — change the next
+    /// match, then repeat that whole gesture on the one after.
+    fn repeat_last_change(&mut self) {
+        let Some(change) = self.last_change.clone() else {
+            self.messages
+                .push("E32: No previous change to repeat".to_string());
+            return;
+        };
+
+        for _ in 0..change.count.max(1) {
+            self.apply_resolved(&change.action);
+        }
+        for c in change.inserted.chars() {
+            self.apply_resolved(&Action::InsertChar(c));
+        }
+        if self.modal.mode() == Mode::Insert {
+            // A replayed change must not leave the editor in Insert — the
+            // original ended with an Esc the recording deliberately does not
+            // store, since it is punctuation rather than part of the change.
+            self.apply_resolved(&Action::ChangeMode(Mode::Normal));
+        }
+        // The replay wrote through `apply_resolved`, which re-records
+        // `last_change` from the inner action. Put the ORIGINAL back so a
+        // second `.` repeats the same change rather than a fragment of it.
+        self.last_change = Some(change);
+        self.recording_insert = false;
+    }
+
+    /// Resolve a text object to the range it names.
+    ///
+    /// `gn` uses the INCLUSIVE step, so a cursor already sitting inside a
+    /// match operates on THAT match rather than skipping to the next — which
+    /// is what makes `cgn` then `.` walk matches one at a time instead of
+    /// every other one.
+    fn resolve_object(&self, object: escriba_core::TextObject) -> Option<Range> {
+        use escriba_core::TextObject as O;
+        let at = self.cursor_char();
+        let matches = self.search.matches();
+        let starts: Vec<usize> = matches.iter().map(|m| m.start).collect();
+
+        let idx = match object {
+            O::NextMatch => Bound::Inclusive.first_matching(&starts, at, true),
+            O::PrevMatch => Bound::Inclusive.first_matching(&starts, at, false),
+        }?;
+        let m = matches.get(idx)?;
+        let buf = self.buffers.get(self.active)?;
+        Some(Range {
+            start: buf.char_to_position(m.start),
+            end: buf.char_to_position(m.end),
+        })
+    }
+
     fn land_on(&mut self, step: escriba_search::Step) {
         if let Some(buf) = self.buffers.get(self.active) {
             let pos = buf.char_to_position(step.target.start);
@@ -808,6 +897,24 @@ impl EditorState {
             }
             Action::ClearSearchHighlight => self.search.clear_highlight(),
             Action::SearchSubmitOperated { op } => self.submit_search_operated(*op),
+            Action::TextObject(object) => {
+                // Bare `gn` moves onto the match. vim additionally starts a
+                // Visual selection of it; escriba's Visual plumbing does not
+                // carry a selection an operator can consume yet, so this
+                // stops at the jump rather than faking a selection that
+                // nothing would honour.
+                if let Some(range) = self.resolve_object(*object) {
+                    self.jumps.push(self.cursor());
+                    self.set_cursor(range.start);
+                } else {
+                    self.report_pattern_not_found();
+                }
+            }
+            Action::ApplyOperatorObject { op, object } => match self.resolve_object(*object) {
+                Some(range) => self.apply_operator_over(*op, range),
+                None => self.report_pattern_not_found(),
+            },
+            Action::RepeatLastChange => self.repeat_last_change(),
             Action::JumpBack => {
                 let here = self.cursor();
                 if let Some(pos) = self.jumps.back(here) {
@@ -941,6 +1048,11 @@ impl EditorState {
             | Action::SearchWord { .. }
             | Action::ClearSearchHighlight
             | Action::SearchSubmitOperated { .. }
+            // A replayed change can edit anywhere the original could, and a
+            // match object can be anywhere in the document.
+            | Action::RepeatLastChange
+            | Action::TextObject(_)
+            | Action::ApplyOperatorObject { .. }
             // A jump can land anywhere, so the viewport may scroll wholesale.
             | Action::JumpBack
             | Action::JumpForward => Damage::Full,
@@ -964,6 +1076,42 @@ impl EditorState {
             Action::Quit | Action::Operator(_) | Action::Pending => Damage::None,
         };
         self.damage = self.damage.join(d);
+        // Remember this change for `.`.
+        //
+        // ORDER MATTERS, and getting it wrong is silent: every `InsertChar` is
+        // itself `Mutates`, so testing that first made each typed character
+        // START A NEW change instead of extending the one in progress. `.`
+        // then replayed only the LAST character. An open insert session is
+        // therefore checked first — while one is running, typing is the rest
+        // of the change already being recorded, never a new one.
+        if self.recording_insert {
+            match action {
+                Action::InsertChar(c) => {
+                    if let Some(lc) = self.last_change.as_mut() {
+                        lc.inserted.push(*c);
+                    }
+                }
+                // Leaving Insert ends the session; the change is now whole.
+                Action::ChangeMode(m) if *m != Mode::Insert => self.recording_insert = false,
+                _ => {}
+            }
+        } else if action.text_effect() == TextEffect::Mutates
+            && !matches!(
+                action,
+                Action::RepeatLastChange | Action::Undo | Action::Redo
+            )
+        {
+            // A change that opened Insert keeps recording: the text that
+            // follows is the rest of it. `cw` alone is not a change, it is the
+            // first half of one.
+            self.last_change = Some(LastChange {
+                action: action.clone(),
+                count: 1,
+                inserted: String::new(),
+            });
+            self.recording_insert = self.modal.mode() == Mode::Insert;
+        }
+
         // The search is over the moment you move on or edit — clear the
         // highlight rather than leaving the buffer as confetti until an
         // explicit `:noh`, which is the remap nearly every vimrc carries.
@@ -1106,11 +1254,23 @@ impl EditorState {
     /// is how the two would drift.
     fn apply_operator_to(&mut self, op: Operator, to: Position) {
         let from = self.cursor();
-        let range = Range {
-            start: from,
-            end: to,
-        }
-        .normalized();
+        self.apply_operator_over(
+            op,
+            Range {
+                start: from,
+                end: to,
+            },
+        );
+    }
+
+    /// Apply `op` over an explicit range.
+    ///
+    /// The object path needs this: `gn`'s extent need not begin at the cursor,
+    /// so it cannot go through the `[cursor, target)` shape the motion path
+    /// uses. One implementation of the delete/yank/register logic, reached two
+    /// ways.
+    fn apply_operator_over(&mut self, op: Operator, range: Range) {
+        let range = range.normalized();
         if range.is_empty() {
             return;
         }

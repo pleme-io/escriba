@@ -42,7 +42,7 @@ pub use jumplist::{JUMPLIST_LIMIT, JumpList};
 // code in core and above reads naturally without naming a second crate.
 pub use escriba_memori::{Anchored, Bound, Bytes, Chars, Offset, Ruler, Scale, Utf16Units};
 pub use mode::{CursorShape, Mode, ModeTransition};
-pub use motion::{Motion, Operator};
+pub use motion::{Motion, Operator, TextObject};
 pub use position::Position;
 pub use range::Range;
 pub use selection::{Cursor, Cursors, Selection};

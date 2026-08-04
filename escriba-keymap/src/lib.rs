@@ -5,7 +5,7 @@ extern crate self as escriba_keymap;
 use escriba_search::{CaretMove, Direction as SearchDirection};
 use std::collections::HashMap;
 
-use escriba_core::{Action, CountedAction, Mode, Motion, Operator};
+use escriba_core::{Action, CountedAction, Mode, Motion, Operator, TextObject};
 use escriba_mode::ModalState;
 use serde::{Deserialize, Serialize};
 
@@ -198,6 +198,12 @@ impl Keymap {
             "command",
         );
         nm(&mut m, Key::Char('u'), Action::Undo, "undo");
+        nm(
+            &mut m,
+            Key::Char('.'),
+            Action::RepeatLastChange,
+            "repeat last change",
+        );
         nm(&mut m, Key::Ctrl('r'), Action::Redo, "redo");
         // Insert → Normal on Esc.
         m.bind(
@@ -310,6 +316,21 @@ impl Keymap {
             Key::Char('N'),
             Action::Move(Motion::SearchPrev),
             "previous match",
+        );
+
+        // `gn` / `gN` — the match as an OBJECT, so `cgn` changes the whole
+        // match and `.` repeats that on the next one.
+        m.bind_sequence(
+            Mode::Normal,
+            vec![Key::Char('g'), Key::Char('n')],
+            Action::TextObject(TextObject::NextMatch),
+            "next match (object)",
+        );
+        m.bind_sequence(
+            Mode::Normal,
+            vec![Key::Char('g'), Key::Char('N')],
+            Action::TextObject(TextObject::PrevMatch),
+            "previous match (object)",
         );
 
         // ── jumplist ──────────────────────────────────────────────────

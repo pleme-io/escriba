@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::edit::Edit;
 use crate::mode::Mode;
+use crate::motion::TextObject;
 use crate::motion::{Motion, Operator};
 
 /// A fully-resolved editor action — what the keymap emits, what the buffer
@@ -79,6 +80,32 @@ pub enum Action {
     SearchSubmitOperated {
         op: Operator,
     },
+
+    /// `gn` / `gN` — the next/previous match AS AN OBJECT.
+    ///
+    /// Not a motion. A motion resolves to a POINT and an operator acts over
+    /// `[cursor, point)`; `gn` names an EXTENT that need not start at the
+    /// cursor, so `dgn` deletes the whole match wherever it is. That
+    /// distinction is why this is its own action rather than a `Motion`
+    /// variant — folding it into `Motion` would silently give
+    /// `[cursor, match.start)`, which deletes the text BEFORE the match.
+    TextObject(TextObject),
+
+    /// `{operator}gn` — apply `op` over a text object's extent.
+    ///
+    /// Emitted only by the operator-pending machine.
+    ApplyOperatorObject {
+        op: Operator,
+        object: TextObject,
+    },
+
+    /// `.` — repeat the last text change.
+    ///
+    /// Vim's most-used key, and the half that makes `cgn` a workflow rather
+    /// than a curiosity: `cgn` changes the next match, then `.` changes the
+    /// one after it, giving a per-instance confirmable rename with no
+    /// multi-cursor machinery.
+    RepeatLastChange,
 
     /// `<C-o>` — walk back to where the last far jump was taken from.
     ///
@@ -178,14 +205,18 @@ impl Action {
             Self::Edit(_)
             | Self::InsertChar(_)
             | Self::ApplyOperator { .. }
+            | Self::ApplyOperatorObject { .. }
             | Self::Undo
             | Self::Redo
             | Self::PromptBackspace
             | Self::PromptDelete
             | Self::PromptDeleteWord
             | Self::PromptClearToStart
+            | Self::TextObject(_)
             | Self::Command { .. }
             | Self::SearchSubmitOperated { .. }
+            | Self::RepeatLastChange
+            | Self::ApplyOperatorObject { .. }
             | Self::SubmitCommand => TextEffect::Mutates,
 
             Self::Move(_)
@@ -239,6 +270,7 @@ impl Action {
             | Self::SearchWord { .. }
             | Self::SearchSubmitOperated { .. }
             | Self::ClearSearchHighlight
+            | Self::TextObject(_)
             | Self::PromptHistory { .. }
             | Self::PromptBackspace
             | Self::PromptCaret { .. }
@@ -273,6 +305,8 @@ impl Action {
 
             // Moving on, or changing the text: the search is over.
             Self::ApplyOperator { .. }
+            | Self::ApplyOperatorObject { .. }
+            | Self::RepeatLastChange
             | Self::Edit(_)
             | Self::ChangeMode(_)
             | Self::Command { .. }
