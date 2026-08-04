@@ -107,3 +107,59 @@ impl CountedAction {
         }
     }
 }
+
+/// Whether an action can change buffer TEXT.
+///
+/// This exists so that anything cached against the buffer's contents — today
+/// the search-match set, tomorrow anything else derived from it — is
+/// invalidated by construction rather than by remembering to. Search
+/// highlights were stale after every edit precisely because that invalidation
+/// was a thing to remember: `SearchState::refresh` existed and had zero
+/// callers, so inserting four characters repainted the highlight four columns
+/// off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextEffect {
+    /// May edit the active buffer. Derived state must be recomputed.
+    Mutates,
+    /// Cannot edit the active buffer.
+    Preserves,
+}
+
+impl Action {
+    /// Classify this action's effect on buffer text.
+    ///
+    /// **Total over `Action` — no wildcard arm.** A new variant fails to
+    /// compile here rather than silently defaulting to "preserves", which is
+    /// the direction that produces a stale-cache bug rather than a slow one.
+    ///
+    /// Deliberately CONSERVATIVE where a variant's reach is open-ended:
+    /// `Command`/`SubmitCommand` can run an ex-command that edits, and the
+    /// keymap's `PromptBackspace` doubles as the buffer Backspace outside a
+    /// prompt. Over-reporting costs one extra scan; under-reporting paints
+    /// the wrong columns, so the asymmetry decides the doubtful cases.
+    #[must_use]
+    pub const fn text_effect(&self) -> TextEffect {
+        match self {
+            Self::Edit(_)
+            | Self::InsertChar(_)
+            | Self::ApplyOperator { .. }
+            | Self::Undo
+            | Self::Redo
+            | Self::PromptBackspace
+            | Self::Command { .. }
+            | Self::SubmitCommand => TextEffect::Mutates,
+
+            Self::Move(_)
+            | Self::Operator(_)
+            | Self::ChangeMode(_)
+            | Self::Save
+            | Self::Quit
+            | Self::SearchOpen(_)
+            | Self::SearchRepeat { .. }
+            | Self::SearchWord { .. }
+            | Self::ClearSearchHighlight
+            | Self::PromptHistory { .. }
+            | Self::Pending => TextEffect::Preserves,
+        }
+    }
+}

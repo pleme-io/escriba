@@ -131,7 +131,7 @@ impl RenderCallback for GpuRenderer {
         //    just mode/cursor for the status line and reuses the cached shaped
         //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
         //    is Some((text, path)) exactly when the generation moved.
-        let (rebuild_input, mode, cursor_line, cursor_col, cur_gen) = {
+        let (rebuild_input, mode, status_core, cur_gen) = {
             let s = self
                 .state
                 .lock()
@@ -220,7 +220,7 @@ impl RenderCallback for GpuRenderer {
             } else {
                 None
             };
-            (rebuild_input, s.modal.mode(), s.cursor().line, s.cursor().column, cur_gen)
+            (rebuild_input, s.modal.mode(), s.status_model().render(), cur_gen)
         };
 
         // ── 2. Rebuild the shaped main-text buffer ONLY on a generation
@@ -298,14 +298,22 @@ impl RenderCallback for GpuRenderer {
         // BORN fleet mode glyph (`ishou_tokens::EscribaSignals`) + escriba's
         // canonical uppercase mode label.
         let signals = EscribaSignals::prescribed();
-        let status = format!(
-            " {} {}  {}:{}  escriba v{} ",
-            mode_glyph(&signals, mode).render(SignalMode::Glyph),
-            mode.as_str(),
-            cursor_line + 1,
-            cursor_col + 1,
-            env!("CARGO_PKG_VERSION")
-        );
+        // Built from `EditorState::status_model()` — the ONE model the
+        // ratatui face renders too, so the two can differ only in styling.
+        // This replaces a fixed `format!()` that carried mode/line/col/version
+        // and read neither the prompt nor any message: typing `/foo` on this
+        // face moved the cursor with nothing on screen to show for it, which
+        // is why search looked absent on escriba's default renderer.
+        //
+        // `push_str`, not `format!` — ★★ TYPED EMISSION.
+        let mut status = String::with_capacity(status_core.len() + 24);
+        status.push(' ');
+        status.push_str(mode_glyph(&signals, mode).render(SignalMode::Glyph));
+        status.push(' ');
+        status.push_str(&status_core);
+        status.push_str("  escriba v");
+        status.push_str(env!("CARGO_PKG_VERSION"));
+        status.push(' ');
         let mut status_buf = Buffer::new(&mut ctx.text.font_system, self.metrics);
         status_buf.set_size(
             &mut ctx.text.font_system,

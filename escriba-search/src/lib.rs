@@ -43,7 +43,10 @@ pub mod engine;
 pub mod pattern;
 pub mod state;
 
-pub use engine::{Direction, SearchMatch, Step, Wrapped, find_all, step, step_inclusive, word_at};
+pub use engine::{
+    Direction, MAX_COUNT, MatchCount, SearchMatch, Step, Wrapped, find_all, step, step_inclusive,
+    word_at,
+};
 pub use pattern::{CaseMode, PatternError, SearchPattern};
 pub use state::{Accepted, HISTORY_LIMIT, Prompt, SearchState};
 

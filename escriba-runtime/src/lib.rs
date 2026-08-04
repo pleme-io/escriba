@@ -11,23 +11,26 @@ mod plugin_host;
 pub use plugin_host::{LazyTrigger, PluginHost};
 
 mod operator_pending;
+pub mod status;
+
 pub use operator_pending::{OpState, OperatorPending};
+pub use status::{PromptKind, StatusModel};
 
 use std::collections::HashMap;
 
+use awase::KeyRepeatGate;
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
-use escriba_search::{Direction as SearchDirection, SearchState};
 use escriba_core::{
     Action, BufferId, Cursors, Damage, Edit, EditGen, Mode, Motion, Operator, Position, Range,
-    WindowId,
+    TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
 use escriba_mode::ModalState;
+use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
 use escriba_ui::{Layout, Rect, Viewport, Window};
 use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, HostEffect, VmError};
-use awase::KeyRepeatGate;
 use madori::AppEvent;
 use std::time::Instant;
 
@@ -53,6 +56,10 @@ pub struct EditorState {
     /// Messages surfaced to the user (status line / `:messages`) — the
     /// sink for the tatara-lisp `(message …)` effect and other feedback.
     pub messages: Vec<String>,
+    /// Which match the cursor last landed on (0-based) — the `[3/17]`
+    /// numerator. `None` when no search has landed, or after an edit
+    /// invalidated the match set. The denominator is `search.matches().len()`.
+    search_at: Option<usize>,
     /// Generic editor option store (name → value). Written by the
     /// tatara-lisp `(set-option …)` effect and the declarative
     /// `defoption` apply path; typed accessors layer on top later.
@@ -137,6 +144,7 @@ impl EditorState {
             buffers: initial,
             modal: ModalState::new(),
             search: SearchState::new(escriba_search::CaseMode::Smart),
+            search_at: None,
             keymap: Keymap::default_vim(),
             commands: CommandRegistry::default_set(),
             layout: Layout::single(window),
@@ -373,9 +381,7 @@ impl EditorState {
             self.pending_keys.clear();
         }
         let start = [key.clone()];
-        if self.keymap.is_sequence_prefix(mode, &start)
-            && self.keymap.lookup(mode, key).is_none()
-        {
+        if self.keymap.is_sequence_prefix(mode, &start) && self.keymap.lookup(mode, key).is_none() {
             self.pending_keys = start.to_vec();
             return SeqStep::Pending;
         }
@@ -441,7 +447,10 @@ impl EditorState {
 
     /// The active buffer's text. Search is a pure function of it.
     fn active_text(&self) -> String {
-        self.buffers.get(self.active).map(escriba_buffer::Buffer::to_string).unwrap_or_default()
+        self.buffers
+            .get(self.active)
+            .map(escriba_buffer::Buffer::to_string)
+            .unwrap_or_default()
     }
 
     /// The cursor as a char offset — the coordinate search speaks.
@@ -453,11 +462,79 @@ impl EditorState {
     }
 
     /// Move the cursor onto a match and report a wrap the way vim does.
+    /// The status line as data — what every face draws.
+    ///
+    /// One model, so the two faces can only disagree about styling. Before
+    /// this existed the GPU face built its own line from a fixed `format!()`
+    /// and drew neither the prompt nor any message, which made a fully
+    /// working `/` look like a dead key on escriba's default renderer.
+    #[must_use]
+    pub fn status_model(&self) -> StatusModel<'_> {
+        let cursor = self.cursor();
+        let prompt = self.search.prompt();
+
+        let kind = match prompt.map(|p| p.direction) {
+            Some(escriba_search::Direction::Forward) => PromptKind::SearchForward,
+            Some(escriba_search::Direction::Backward) => PromptKind::SearchBackward,
+            // Command mode with no search prompt open is an ex-command; the
+            // typed `Option<Prompt>` is the discriminator, never a mode flag.
+            None if self.modal.mode() == Mode::Command => PromptKind::Ex,
+            None => PromptKind::None,
+        };
+
+        StatusModel {
+            mode: self.modal.mode(),
+            line: cursor.line.saturating_add(1) as usize,
+            column: cursor.column.saturating_add(1) as usize,
+            prompt: kind,
+            prompt_text: prompt.map_or_else(|| self.modal.minibuffer(), |p| p.text.as_str()),
+            count: self.match_count(),
+            message: self.messages.last().map(String::as_str),
+        }
+    }
+
+    /// `[3/17]` for the current pattern.
+    ///
+    /// While a prompt is open the count describes the PREVIEW — the answer to
+    /// "what would Enter do", which is the question being asked mid-typing.
+    /// Once committed it describes where the cursor actually is.
+    #[must_use]
+    fn match_count(&self) -> MatchCount {
+        if self.search.is_prompting() {
+            let text = self.active_text();
+            let total = self.search.preview_total(&text);
+            return match self.search.preview(&text) {
+                Some(step) => MatchCount::new(step.index, total),
+                // A pattern that is mid-typing (`a[`) has nothing to report;
+                // one that compiles and finds nothing reports `[0/0]`, which
+                // is the useful half — it says so BEFORE Enter.
+                None if total == 0 && !self.search.prompt_is_empty() => MatchCount::None,
+                None => MatchCount::Idle,
+            };
+        }
+        if self.search.pattern().is_none() {
+            return MatchCount::Idle;
+        }
+        let total = self.search.matches().len();
+        self.search_at.map_or(
+            if total == 0 {
+                MatchCount::None
+            } else {
+                MatchCount::Idle
+            },
+            |i| MatchCount::new(i, total),
+        )
+    }
+
     fn land_on(&mut self, step: escriba_search::Step) {
         if let Some(buf) = self.buffers.get(self.active) {
             let pos = buf.char_to_position(step.target.start);
             self.set_cursor(pos);
         }
+        // The `[3/17]` numerator. `Step` has carried this index since the
+        // engine was written — `engine.rs` even names the counter as the
+        // reason it exists — and every consumer discarded it until now.
+        self.search_at = Some(step.index);
         if let Some(msg) = step.wrapped.message() {
             self.messages.push(msg.to_string());
         }
@@ -503,13 +580,30 @@ impl EditorState {
     /// Commit the `/` prompt: compile, search, jump, and report like vim.
     fn submit_search(&mut self) {
         let text = self.active_text();
-        let at = self.cursor_char();
+        // Step from the prompt's ORIGIN, never from the live cursor.
+        //
+        // Incremental preview has already parked the cursor on the previewed
+        // match, so stepping from `cursor_char()` searches from the answer
+        // rather than from the question. Two measured consequences of that:
+        // `/foo<CR>` committed to the match AFTER the one the preview showed
+        // (the exclusive step skipped past it), and `?foo` previewed one match
+        // and committed to a different one. Anchoring to the origin makes
+        // "what the preview showed is where I land" true by construction —
+        // which is the entire promise of incremental search.
+        //
+        // `commit_step` then uses the INCLUSIVE step, the same one the
+        // preview uses, so a match sitting on the origin is included rather
+        // than stepped past.
+        let at = self
+            .search
+            .prompt()
+            .map_or_else(|| self.cursor_char(), |p| p.origin);
         let outcome = self.search.accept(&text);
         match outcome {
             escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
                 self.modal.clear_minibuffer();
                 self.modal.enter(Mode::Normal);
-                match self.search.repeat(at.saturating_sub(1), false) {
+                match self.search.commit_step(at) {
                     Some(step) => self.land_on(step),
                     None => {
                         let mut m = String::from("E486: Pattern not found");
@@ -524,7 +618,8 @@ impl EditorState {
             escriba_search::Accepted::NothingToRepeat => {
                 self.modal.clear_minibuffer();
                 self.modal.enter(Mode::Normal);
-                self.messages.push("E35: No previous regular expression".to_string());
+                self.messages
+                    .push("E35: No previous regular expression".to_string());
             }
             // The prompt stays OPEN so the typed pattern is not lost; the user
             // fixes the regex instead of retyping it.
@@ -553,14 +648,19 @@ impl EditorState {
             }
             Action::SearchRepeat { reverse } => self.jump_search(*reverse),
             Action::SearchWord { reverse } => {
-                let dir =
-                    if *reverse { SearchDirection::Backward } else { SearchDirection::Forward };
+                let dir = if *reverse {
+                    SearchDirection::Backward
+                } else {
+                    SearchDirection::Forward
+                };
                 let (text, at) = (self.active_text(), self.cursor_char());
                 match self.search.search_word(&text, at, dir) {
                     Some(step) => self.land_on(step),
                     // vim beeps and stays put when there is no word under the
                     // cursor; a silent no-op would look like a broken key.
-                    None => self.messages.push("E348: No string under cursor".to_string()),
+                    None => self
+                        .messages
+                        .push("E348: No string under cursor".to_string()),
                 }
             }
             Action::ClearSearchHighlight => self.search.clear_highlight(),
@@ -673,6 +773,25 @@ impl EditorState {
             Action::Quit | Action::Operator(_) | Action::Pending => Damage::None,
         };
         self.damage = self.damage.join(d);
+        // Text changed ⇒ every match offset cached against the old text is
+        // wrong. `SearchState::refresh` existed for exactly this and had ZERO
+        // callers, so inserting four characters left both renderers painting
+        // the highlight four columns off.
+        //
+        // Gated on the typed classifier rather than on `bump_gen` (which fires
+        // for pure cursor moves too): re-scanning the document on every `j`
+        // would be a per-keystroke full pass for no reason.
+        if action.text_effect() == TextEffect::Mutates && self.search.pattern().is_some() {
+            let text = self.active_text();
+            self.search.refresh(&text);
+            // The ordinal indexed the OLD match set, which just changed
+            // underneath it. Re-derive it from where the cursor actually is
+            // rather than clearing: after a commit the cursor IS on its match,
+            // so the count survives; after an unrelated edit it honestly
+            // becomes `None`.
+            let at = self.cursor_char();
+            self.search_at = self.search.matches().iter().position(|m| m.contains(at));
+        }
         // An action reached the executor ⇒ visible state may have changed.
         // Advance the refresh generation so the renderer repaints (and
         // re-highlights) exactly once. A gated-out key never reaches here, so
@@ -699,7 +818,9 @@ impl EditorState {
             // never a silent move to 0, which would delete to the file start.
             Motion::SearchNext | Motion::SearchPrev => {
                 let at = buf.position_to_char(pos).ok()?;
-                let step = self.search.repeat(at, matches!(motion, Motion::SearchPrev))?;
+                let step = self
+                    .search
+                    .repeat(at, matches!(motion, Motion::SearchPrev))?;
                 buf.char_to_position(step.target.start)
             }
             Motion::Left => Position::new(pos.line, pos.column.saturating_sub(1)),
@@ -756,7 +877,11 @@ impl EditorState {
         let Some(to) = self.resolve_motion(from, motion) else {
             return;
         };
-        let range = Range { start: from, end: to }.normalized();
+        let range = Range {
+            start: from,
+            end: to,
+        }
+        .normalized();
         if range.is_empty() {
             return;
         }
@@ -1129,8 +1254,16 @@ mod tests {
         st.apply(&Action::ChangeMode(Mode::Normal));
 
         assert!(!st.search.is_prompting(), "prompt gone");
-        assert_eq!(st.search.pattern().unwrap().raw(), "foo", "old pattern survives");
-        assert_eq!(st.search.matches().len(), matches_before, "old highlights survive");
+        assert_eq!(
+            st.search.pattern().unwrap().raw(),
+            "foo",
+            "old pattern survives"
+        );
+        assert_eq!(
+            st.search.matches().len(),
+            matches_before,
+            "old highlights survive"
+        );
     }
 
     #[test]
@@ -1140,7 +1273,10 @@ mod tests {
         st.apply(&Action::ChangeMode(Mode::Command));
         assert!(!st.search.is_prompting(), "`:` must not open a search");
         st.apply(&Action::InsertChar('w'));
-        assert!(st.search.prompt().is_none(), "typed char went to the ex line");
+        assert!(
+            st.search.prompt().is_none(),
+            "typed char went to the ex line"
+        );
     }
 
     #[test]
@@ -1160,7 +1296,11 @@ mod tests {
         let before = st.cursor();
         st.apply(&Action::SearchRepeat { reverse: false });
         assert_eq!(st.cursor(), before, "cursor must not move");
-        assert!(st.messages.iter().any(|m| m.contains("E35")), "got {:?}", st.messages);
+        assert!(
+            st.messages.iter().any(|m| m.contains("E35")),
+            "got {:?}",
+            st.messages
+        );
     }
 
     #[test]
@@ -1179,7 +1319,10 @@ mod tests {
         // A silent fallback to offset 0 would make `d` + search delete to the
         // start of the file — the worst possible failure for an operator.
         let st = new_state_with("alpha bravo\n");
-        assert!(st.resolve_motion(Position::new(0, 5), Motion::SearchNext).is_none());
+        assert!(
+            st.resolve_motion(Position::new(0, 5), Motion::SearchNext)
+                .is_none()
+        );
     }
 
     #[test]
@@ -1279,7 +1422,11 @@ mod tests {
         st.apply(&Action::PromptHistory { back: true });
         assert_eq!(st.search.prompt().unwrap().text, "bravo");
         st.apply(&Action::PromptHistory { back: false });
-        assert_eq!(st.search.prompt().unwrap().text, "a", "the draft comes back");
+        assert_eq!(
+            st.search.prompt().unwrap().text,
+            "a",
+            "the draft comes back"
+        );
         assert_eq!(st.modal.minibuffer(), "a");
     }
 
@@ -1403,17 +1550,34 @@ mod tests {
     #[test]
     fn delete_to_line_end_clears_line_and_fills_register() {
         let mut s = new_state_with("hello world");
-        s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::LineEnd });
+        s.apply(&Action::ApplyOperator {
+            op: Operator::Delete,
+            motion: Motion::LineEnd,
+        });
         assert_eq!(line0_len(&s), 0, "d$ deletes to end of line");
-        assert_eq!(s.register(), Some("hello world"), "delete fills the register");
-        assert_eq!(s.cursor(), Position::ZERO, "cursor lands at the range start");
+        assert_eq!(
+            s.register(),
+            Some("hello world"),
+            "delete fills the register"
+        );
+        assert_eq!(
+            s.cursor(),
+            Position::ZERO,
+            "cursor lands at the range start"
+        );
     }
 
     #[test]
     fn delete_over_right_motion_removes_one_char() {
         let mut s = new_state_with("abc");
-        s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::Right });
-        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("bc"));
+        s.apply(&Action::ApplyOperator {
+            op: Operator::Delete,
+            motion: Motion::Right,
+        });
+        assert_eq!(
+            s.buffers.get(s.active).unwrap().line(0).as_deref(),
+            Some("bc")
+        );
         assert_eq!(s.register(), Some("a"));
     }
 
@@ -1421,16 +1585,30 @@ mod tests {
     fn change_to_line_end_deletes_and_enters_insert() {
         let mut s = new_state_with("hello world");
         assert_eq!(s.modal.mode(), Mode::Normal);
-        s.apply(&Action::ApplyOperator { op: Operator::Change, motion: Motion::LineEnd });
+        s.apply(&Action::ApplyOperator {
+            op: Operator::Change,
+            motion: Motion::LineEnd,
+        });
         assert_eq!(line0_len(&s), 0, "c$ deletes the range");
-        assert_eq!(s.modal.mode(), Mode::Insert, "change enters Insert to type the replacement");
-        assert_eq!(s.register(), Some("hello world"), "change fills the register");
+        assert_eq!(
+            s.modal.mode(),
+            Mode::Insert,
+            "change enters Insert to type the replacement"
+        );
+        assert_eq!(
+            s.register(),
+            Some("hello world"),
+            "change fills the register"
+        );
     }
 
     #[test]
     fn yank_to_line_end_fills_register_without_mutating() {
         let mut s = new_state_with("hello world");
-        s.apply(&Action::ApplyOperator { op: Operator::Yank, motion: Motion::LineEnd });
+        s.apply(&Action::ApplyOperator {
+            op: Operator::Yank,
+            motion: Motion::LineEnd,
+        });
         assert_eq!(line0_len(&s), 11, "yank does not mutate the buffer");
         assert_eq!(s.register(), Some("hello world"), "yank fills the register");
         assert_eq!(s.modal.mode(), Mode::Normal, "yank stays in Normal");
@@ -1445,7 +1623,11 @@ mod tests {
         let target = s.resolve_motion(Position::ZERO, Motion::LineEnd).unwrap();
         assert_eq!(target, Position::new(0, 11));
         s.apply_motion(Motion::LineEnd);
-        assert_eq!(s.cursor(), target, "the move path resolves the same target the operator uses");
+        assert_eq!(
+            s.cursor(),
+            target,
+            "the move path resolves the same target the operator uses"
+        );
     }
 
     #[test]
@@ -1453,8 +1635,14 @@ mod tests {
         // An operator over a zero-width motion (cursor already at line start)
         // mutates nothing and leaves the register untouched.
         let mut s = new_state_with("abc");
-        s.apply(&Action::ApplyOperator { op: Operator::Delete, motion: Motion::LineStart });
-        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("abc"));
+        s.apply(&Action::ApplyOperator {
+            op: Operator::Delete,
+            motion: Motion::LineStart,
+        });
+        assert_eq!(
+            s.buffers.get(s.active).unwrap().line(0).as_deref(),
+            Some("abc")
+        );
         assert_eq!(s.register(), None);
     }
 
@@ -1467,7 +1655,11 @@ mod tests {
         s.apply(&Action::Operator(Operator::Delete));
         assert_eq!(line0_len(&s), 11, "the operator key alone mutates nothing");
         s.apply(&Action::Move(Motion::LineEnd));
-        assert_eq!(line0_len(&s), 0, "d then $ composes d$ and deletes the line");
+        assert_eq!(
+            line0_len(&s),
+            0,
+            "d then $ composes d$ and deletes the line"
+        );
         assert_eq!(s.register(), Some("hello world"));
     }
 
@@ -1497,7 +1689,10 @@ mod tests {
         s.apply_counted(&Action::Operator(Operator::Delete), 3);
         assert_eq!(line0_len(&s), 6, "the operator key alone mutates nothing");
         s.apply(&Action::Move(Motion::Right));
-        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("def"));
+        assert_eq!(
+            s.buffers.get(s.active).unwrap().line(0).as_deref(),
+            Some("def")
+        );
     }
 
     #[test]
@@ -1506,7 +1701,10 @@ mod tests {
         let mut s = new_state_with("abcdefgh");
         s.apply_counted(&Action::Operator(Operator::Delete), 2);
         s.apply_counted(&Action::Move(Motion::Right), 3);
-        assert_eq!(s.buffers.get(s.active).unwrap().line(0).as_deref(), Some("gh"));
+        assert_eq!(
+            s.buffers.get(s.active).unwrap().line(0).as_deref(),
+            Some("gh")
+        );
     }
 
     #[test]
@@ -1746,7 +1944,10 @@ mod tests {
                (defcmd :name "LazyGo" :description "noop" :action "editor.noop")"#,
         );
         assert_eq!(s.plugin_host.pending(), 1);
-        assert!(s.options.get("lazy-loaded").is_none(), "entry not applied yet");
+        assert!(
+            s.options.get("lazy-loaded").is_none(),
+            "entry not applied yet"
+        );
 
         // Drive the command through the public imperative path.
         s.run_lisp(r#"(run-command "LazyGo")"#).unwrap();
@@ -1778,7 +1979,10 @@ mod tests {
     fn cached_vm_serves_multiple_run_lisp_calls() {
         let mut s = new_state_with("");
         s.run_lisp(r#"(message "one")"#).unwrap();
-        assert!(s.lisp_vm.is_some(), "VM should be cached after first run_lisp");
+        assert!(
+            s.lisp_vm.is_some(),
+            "VM should be cached after first run_lisp"
+        );
         s.run_lisp(r#"(message "two")"#).unwrap();
         assert_eq!(s.messages, vec!["one".to_string(), "two".to_string()]);
     }
@@ -1811,10 +2015,8 @@ mod tests {
         );
         // After the first call the cursor advanced to column 2; the next
         // call's snapshot reflects it.
-        s.run_lisp(
-            r#"(set-option "col2" (if (= (cursor-column) 2) "live-two" "other"))"#,
-        )
-        .unwrap();
+        s.run_lisp(r#"(set-option "col2" (if (= (cursor-column) 2) "live-two" "other"))"#)
+            .unwrap();
         assert_eq!(
             s.options.get("col2").map(String::as_str),
             Some("live-two"),
@@ -1844,7 +2046,11 @@ mod tests {
         assert_eq!(s.pending_keys, vec![Key::Char('g')]);
         s.on_key(&Key::Char('e'));
         assert!(s.pending_keys.is_empty());
-        assert_eq!(s.cursor().column, 3, "ge resolved to doc-end in visual mode");
+        assert_eq!(
+            s.cursor().column,
+            3,
+            "ge resolved to doc-end in visual mode"
+        );
     }
 
     #[test]
@@ -1863,7 +2069,8 @@ mod tests {
         s.on_key(&Key::Char('l'));
         assert!(s.pending_keys.is_empty());
         assert_eq!(
-            s.cursor().column, 1,
+            s.cursor().column,
+            1,
             "the breaking key l should re-dispatch as move-right",
         );
     }
@@ -1948,7 +2155,11 @@ mod tests {
         s.tick(&press(KeyCode::Char('d')));
         let buf = s.buffers.get(s.active).unwrap();
         let clamped = buf.clamp(s.cursor());
-        assert_eq!(s.cursor(), clamped, "cursor must be clamped in-bounds at EOF");
+        assert_eq!(
+            s.cursor(),
+            clamped,
+            "cursor must be clamped in-bounds at EOF"
+        );
         assert_cursor_in_viewport(&s, "insert at eof");
     }
 
@@ -2026,10 +2237,16 @@ mod tests {
         let t = std::time::Instant::now();
         s.tick_at(&press(KeyCode::Char('j')), t);
         // `j` again within the window is dropped…
-        s.tick_at(&press(KeyCode::Char('j')), t + std::time::Duration::from_millis(10));
+        s.tick_at(
+            &press(KeyCode::Char('j')),
+            t + std::time::Duration::from_millis(10),
+        );
         assert_eq!(s.cursor().line, 1, "second `j` within window dropped");
         // …but `l` at the same instant passes (its own clock).
-        s.tick_at(&press(KeyCode::Char('l')), t + std::time::Duration::from_millis(10));
+        s.tick_at(
+            &press(KeyCode::Char('l')),
+            t + std::time::Duration::from_millis(10),
+        );
         assert_eq!(s.cursor().column, 1, "`l` is not blocked by `j`'s clock");
     }
 
