@@ -1084,3 +1084,86 @@ fn stepping_the_preview_updates_the_count() {
         other => panic!("expected a count, got {other:?}"),
     }
 }
+
+// ── the operator must survive EVERY prompt key ───────────────────────────
+
+#[test]
+fn caret_keys_do_not_disarm_a_pending_operator() {
+    // Regression: `AwaitingSearch` listed its pass-through actions inline, so
+    // the prompt actions added later (caret, delete, delete-word, clear,
+    // preview-step) fell through to "any other key disarms" — pressing `←`
+    // midway through `d/foo` silently cancelled the `d`.
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "charlieX");
+    press(&mut st, KeyCode::Left); // <- used to disarm the operator
+    press(&mut st, KeyCode::Right);
+    press(&mut st, KeyCode::Backspace); // now `charlie`
+    press(&mut st, KeyCode::Enter);
+
+    let after = text_of(&st);
+    assert_ne!(
+        after, before,
+        "the operator must have survived the caret keys"
+    );
+    assert!(after.starts_with("charlie"), "got {after:?}");
+}
+
+#[test]
+fn preview_stepping_does_not_disarm_a_pending_operator() {
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    ctrl(&mut st, 'g'); // <- used to disarm the operator
+    press(&mut st, KeyCode::Enter);
+
+    assert_ne!(
+        text_of(&st),
+        before,
+        "`d/alpha` + <C-g> + CR must still delete"
+    );
+}
+
+#[test]
+fn ctrl_w_and_ctrl_u_do_not_disarm_a_pending_operator() {
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "wrong pattern");
+    ctrl(&mut st, 'u'); // clear it
+    type_str(&mut st, "charlie");
+    press(&mut st, KeyCode::Enter);
+
+    let after = text_of(&st);
+    assert_ne!(after, before);
+    assert!(after.starts_with("charlie"), "got {after:?}");
+}
+
+#[test]
+fn an_operated_search_lands_where_its_stepped_preview_showed() {
+    // The bare path honoured `<C-g>` at commit; the OPERATED path did not, so
+    // `d/alpha` + <C-g> + CR deleted to the FIRST match rather than the one on
+    // screen. The two paths must agree.
+    let mut st = state();
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    ctrl(&mut st, 'g'); // preview now on the SECOND `alpha` (line 2)
+    press(&mut st, KeyCode::Enter);
+
+    let after = text_of(&st);
+    // Deleting origin..second-match removes lines 0-1 entirely.
+    assert!(
+        after.starts_with("alpha echo"),
+        "must delete up to the SECOND match, got {after:?}",
+    );
+}

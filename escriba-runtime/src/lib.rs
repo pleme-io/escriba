@@ -751,7 +751,8 @@ impl EditorState {
     /// with a zero-width range.
     fn submit_search_operated(&mut self, op: Operator) {
         let text = self.active_text();
-        let Some(origin) = self.search.prompt().map(|p| p.origin) else {
+        let Some((origin, skip)) = self.search.prompt().map(|p| (p.origin, p.preview_skip()))
+        else {
             return;
         };
 
@@ -759,7 +760,7 @@ impl EditorState {
             escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
                 self.modal.clear_minibuffer();
                 self.modal.enter(Mode::Normal);
-                match self.search.commit_step(origin) {
+                match self.search.commit_step_skipping(origin, skip) {
                     Some(step) => {
                         // Operating over a search is itself a far jump.
                         if let Some(buf) = self.buffers.get(self.active) {
