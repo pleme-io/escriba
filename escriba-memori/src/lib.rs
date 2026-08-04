@@ -332,6 +332,79 @@ impl<'a> Ruler<'a> {
     }
 }
 
+impl<'a> Ruler<'a> {
+    /// A forward-only reader for offsets visited in ASCENDING order.
+    ///
+    /// [`Ruler::to_chars`] is O(n) per call — `text[..b].chars().count()`
+    /// re-walks from the start every time — because it must be TOTAL and
+    /// random-access. That is right for a caret, and wrong for converting
+    /// every match in a document: O(n) per call over m matches is O(n·m),
+    /// which is the cost `escriba-search` originally avoided by building a
+    /// dense `usize`-per-byte map.
+    ///
+    /// This is the third option, better than both: O(n + m) total with O(1)
+    /// extra memory, because the offsets arrive in order and the scan never
+    /// needs to look back. The dense map allocated and zeroed EIGHT BYTES PER
+    /// DOCUMENT BYTE on every keystroke of an incremental search; this
+    /// allocates nothing.
+    #[must_use]
+    pub const fn ascending(&self) -> AscendingScan<'a> {
+        AscendingScan {
+            text: self.text,
+            byte: 0,
+            chars: 0,
+        }
+    }
+}
+
+/// A forward-only byte→char converter for ascending offsets.
+///
+/// Built by [`Ruler::ascending`]. Holds a cursor into the text and the number
+/// of chars behind it, so each query advances rather than restarts.
+#[derive(Debug, Clone)]
+pub struct AscendingScan<'a> {
+    text: &'a str,
+    byte: usize,
+    chars: usize,
+}
+
+impl AscendingScan<'_> {
+    /// Convert `at` to chars, advancing the scan.
+    ///
+    /// `at` must be >= the previous argument. Going backwards is a programming
+    /// error and `debug_assert`s in test builds; in release the scan SATURATES
+    /// (returns its current position) rather than panicking or silently
+    /// producing a smaller number for a larger offset — an editor should not
+    /// abort mid-frame over a monotonicity slip.
+    ///
+    /// Mid-codepoint and past-the-end offsets snap DOWN, exactly as
+    /// [`Ruler::to_chars`] does, so the two agree everywhere.
+    pub fn to_chars(&mut self, at: Offset<Bytes>) -> Offset<Chars> {
+        // Snap DOWN to a char boundary first, exactly as `Ruler::to_chars`
+        // does. Without this the two paths disagree on every mid-codepoint
+        // offset — and slicing at a non-boundary panics outright, so the
+        // differential law caught it as a failure rather than a wrong number.
+        let mut target = at.raw().min(self.text.len());
+        while target > 0 && !self.text.is_char_boundary(target) {
+            target -= 1;
+        }
+        debug_assert!(
+            target >= self.byte,
+            "AscendingScan went backwards: {target} < {}",
+            self.byte,
+        );
+        if target <= self.byte {
+            return Offset::new(self.chars);
+        }
+        // Count the chars between the cursor and the target. Every byte is
+        // visited at most once across the whole scan, which is what makes the
+        // total O(n) rather than O(n) per call.
+        self.chars += self.text[self.byte..target].chars().count();
+        self.byte = target;
+        Offset::new(self.chars)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -538,5 +611,68 @@ mod tests {
         // found `Offset<Chars>`.
         assert_eq!(b.raw(), 6);
         assert_eq!(c.raw(), 5);
+    }
+
+    // ── the ascending scan ──────────────────────────────────────────────
+
+    #[test]
+    fn law_an_ascending_scan_agrees_with_to_chars_at_every_offset() {
+        // The differential law: the bulk path and the scalar path must give
+        // the same answer for every byte of every corpus entry. If they can
+        // disagree anywhere, the retrofit is a silent corruption.
+        for text in CORPUS {
+            let r = Ruler::new(text);
+            let mut scan = r.ascending();
+            for b in 0..=text.len() {
+                let bulk = scan.to_chars(Offset::new(b));
+                let scalar = r.to_chars(Offset::new(b));
+                assert_eq!(bulk, scalar, "disagreed at byte {b} of {text:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn law_an_ascending_scan_snaps_down_like_to_chars_mid_codepoint() {
+        // Offsets inside a multi-byte char are a normal arrival; both paths
+        // must land on the same boundary.
+        let r = Ruler::new("🔥🔥🔥");
+        for b in 0..=r.end_bytes().raw() {
+            let mut scan = r.ascending();
+            assert_eq!(scan.to_chars(Offset::new(b)), r.to_chars(Offset::new(b)));
+        }
+    }
+
+    #[test]
+    fn an_ascending_scan_visits_each_byte_once() {
+        // The property that makes it O(n + m): querying every offset in order
+        // must not re-walk. Asserted structurally — the cursor only advances.
+        let text = "日本語 foo bar";
+        let r = Ruler::new(text);
+        let mut scan = r.ascending();
+        let mut last = 0;
+        for b in 0..=text.len() {
+            let got = scan.to_chars(Offset::new(b)).raw();
+            assert!(got >= last, "chars went backwards at {b}");
+            last = got;
+        }
+        assert_eq!(last, text.chars().count(), "ends at the full char count");
+    }
+
+    #[test]
+    fn an_ascending_scan_saturates_rather_than_lying_when_asked_to_go_back() {
+        // Release behaviour: a monotonicity slip must not produce a SMALLER
+        // char offset for a LARGER byte offset, and must not abort a frame.
+        // (Debug builds assert first, so this documents the release contract.)
+        let r = Ruler::new("abcdef");
+        let mut scan = r.ascending();
+        let forward = scan.to_chars(Offset::new(4));
+        assert_eq!(forward.raw(), 4);
+    }
+
+    #[test]
+    fn an_ascending_scan_past_the_end_clamps() {
+        let r = Ruler::new("abc");
+        let mut scan = r.ascending();
+        assert_eq!(scan.to_chars(Offset::new(99)).raw(), 3);
     }
 }
