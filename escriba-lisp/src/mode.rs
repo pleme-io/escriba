@@ -16,13 +16,7 @@
 /// The canonical mode vocabulary. Order is the same order the
 /// picker + error messages render them, so keep it user-facing-
 /// stable: most-common-first.
-pub const KNOWN_MODES: &[&str] = &[
-    "normal",
-    "insert",
-    "visual",
-    "visual-line",
-    "command",
-];
+pub const KNOWN_MODES: &[&str] = &["normal", "insert", "visual", "visual-line", "command"];
 
 /// True when `mode` is a recognized modal-state name.
 #[must_use]

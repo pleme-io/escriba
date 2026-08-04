@@ -92,12 +92,7 @@ pub struct TermSpec {
 /// Placement values mirroring `mado::term_spec::KNOWN_PLACEMENTS`.
 /// Keeping them in sync is a cross-repo contract enforced by
 /// explicit test assertions on both sides.
-pub const KNOWN_PLACEMENTS: &[&str] = &[
-    "tab",
-    "split-horizontal",
-    "split-vertical",
-    "window",
-];
+pub const KNOWN_PLACEMENTS: &[&str] = &["tab", "split-horizontal", "split-vertical", "window"];
 
 #[must_use]
 pub fn is_known_placement(name: &str) -> bool {
@@ -113,7 +108,8 @@ impl TermSpec {
         self.env
             .iter()
             .filter_map(|s| {
-                s.split_once('=').map(|(k, v)| (k.to_string(), v.to_string()))
+                s.split_once('=')
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
             })
             .collect()
     }

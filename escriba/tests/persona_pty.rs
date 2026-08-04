@@ -41,9 +41,9 @@ use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
-use nix::sys::signal::{kill, Signal};
-use nix::sys::termios::{tcgetattr, LocalFlags};
-use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
+use nix::sys::signal::{Signal, kill};
+use nix::sys::termios::{LocalFlags, tcgetattr};
+use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 
 /// crossterm 0.28's `EnterAlternateScreen` / `LeaveAlternateScreen` wire
 /// bytes — the mode-restore observables.
@@ -399,7 +399,8 @@ fn healthy_persona_renders_and_quits() {
         return;
     };
     assert!(
-        o.alt_entered_at.is_some_and(|at| at <= Duration::from_secs(3)),
+        o.alt_entered_at
+            .is_some_and(|at| at <= Duration::from_secs(3)),
         "TUI must claim the alt screen within 3s of spawn: alt_entered_at={:?} cpr={} tail={:?}",
         o.alt_entered_at,
         o.cpr_queries,

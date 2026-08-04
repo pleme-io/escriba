@@ -68,7 +68,8 @@ impl ActivationTrigger {
 
 /// The conventional relative paths (priority order) where a plugin
 /// caixa keeps its escriba entry. First existing wins.
-pub const ENTRY_CANDIDATES: &[&str] = &["escriba/plugin.lisp", "escriba.lisp", "plugin/escriba.lisp"];
+pub const ENTRY_CANDIDATES: &[&str] =
+    &["escriba/plugin.lisp", "escriba.lisp", "plugin/escriba.lisp"];
 
 /// A loaded plugin caixa: identity + the tatara-lisp entry source +
 /// parsed activation triggers + on-disk root.
@@ -186,8 +187,14 @@ mod tests {
 
     #[test]
     fn parse_trigger_shapes() {
-        assert_eq!(ActivationTrigger::parse("Startup"), Some(ActivationTrigger::Startup));
-        assert_eq!(ActivationTrigger::parse("eager"), Some(ActivationTrigger::Startup));
+        assert_eq!(
+            ActivationTrigger::parse("Startup"),
+            Some(ActivationTrigger::Startup)
+        );
+        assert_eq!(
+            ActivationTrigger::parse("eager"),
+            Some(ActivationTrigger::Startup)
+        );
         assert_eq!(
             ActivationTrigger::parse("FileType: lisp"),
             Some(ActivationTrigger::FileType("lisp".into())),
@@ -219,9 +226,7 @@ mod tests {
         }
         std::fs::write(
             root.join("caixa.lisp"),
-            format!(
-                "(defcaixa :nome \"{slug}\" :versao \"0.1.0\" :kind Biblioteca)\n"
-            ),
+            format!("(defcaixa :nome \"{slug}\" :versao \"0.1.0\" :kind Biblioteca)\n"),
         )
         .unwrap();
         std::fs::write(root.join(entry_rel), entry_src).unwrap();
@@ -254,7 +259,11 @@ mod tests {
 
     #[test]
     fn no_triggers_is_eager() {
-        let root = scratch_plugin("eagerplug", "escriba.lisp", "(defoption :name \"x\" :value \"1\")");
+        let root = scratch_plugin(
+            "eagerplug",
+            "escriba.lisp",
+            "(defoption :name \"x\" :value \"1\")",
+        );
         let p = PluginCaixa::load("eagerplug", "0.1", &[], &root).unwrap();
         let _ = std::fs::remove_dir_all(&root);
         assert!(p.is_eager());

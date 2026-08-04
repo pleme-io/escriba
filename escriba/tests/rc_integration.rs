@@ -52,9 +52,8 @@ fn sample_rc_fixture_parses_and_applies() {
 fn applied_keybind_overrides_default_vim() {
     // The sample rc rebinds normal-mode `h` to `move-right` — prove
     // the override took, not just that the parse succeeded.
-    let (state, _report) = load_and_apply(
-        r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#,
-    );
+    let (state, _report) =
+        load_and_apply(r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#);
     let binding = state
         .keymap
         .lookup(Mode::Normal, &Key::Char('h'))
@@ -71,9 +70,8 @@ fn unknown_action_defers_to_command_registry() {
     // Bindings with action strings not in the curated set should
     // still take effect — they register as `Action::Command` so the
     // runtime dispatcher can resolve them via the command registry.
-    let (state, report) = load_and_apply(
-        r#"(defkeybind :mode "normal" :key "<C-p>" :action "picker.files")"#,
-    );
+    let (state, report) =
+        load_and_apply(r#"(defkeybind :mode "normal" :key "<C-p>" :action "picker.files")"#);
     assert_eq!(report.keybinds_deferred_to_commands, 1);
     let binding = state
         .keymap
@@ -89,9 +87,8 @@ fn unknown_action_defers_to_command_registry() {
 fn apply_leaves_unrelated_defaults_intact() {
     // Binding `h` shouldn't wipe the whole default_vim keymap. `j`,
     // which isn't touched by the rc, should still move down.
-    let (state, _report) = load_and_apply(
-        r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#,
-    );
+    let (state, _report) =
+        load_and_apply(r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#);
     let j_binding = state
         .keymap
         .lookup(Mode::Normal, &Key::Char('j'))
@@ -104,9 +101,8 @@ fn multi_key_sequence_warns_without_crashing() {
     // Multi-key sequences like `gh` need pending-stroke machinery
     // that isn't wired yet — they must surface as a warning, not a
     // crash or silent drop.
-    let (_state, report) = load_and_apply(
-        r#"(defkeybind :mode "normal" :key "gh" :action "doc-start")"#,
-    );
+    let (_state, report) =
+        load_and_apply(r#"(defkeybind :mode "normal" :key "gh" :action "doc-start")"#);
     assert!(report.keybinds_applied == 0 || report.warnings.is_empty());
     if report.warnings.is_empty() {
         // If someone wires pending-stroke support, the gh binding
@@ -170,9 +166,8 @@ fn keybind_to_unregistered_command_defers_without_panic() {
     // Negative path: a keybind whose action names no registered command
     // still binds (deferred), and pressing it misses the registry
     // gracefully — swallowed NotFound, no panic, editor stays alive.
-    let (mut state, report) = load_and_apply(
-        r#"(defkeybind :mode "normal" :key "W" :action "no.such.command")"#,
-    );
+    let (mut state, report) =
+        load_and_apply(r#"(defkeybind :mode "normal" :key "W" :action "no.such.command")"#);
     assert_eq!(report.keybinds_deferred_to_commands, 1);
     assert!(!state.commands.contains("no.such.command"));
     state.on_key(&Key::Char('W'));
@@ -249,7 +244,10 @@ fn leader_sequence_dispatches_command_end_to_end() {
     .expect("parse rc");
     let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
     let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
-    assert_eq!(report.keybinds_sequences, 1, "<leader>w binds as a sequence");
+    assert_eq!(
+        report.keybinds_sequences, 1,
+        "<leader>w binds as a sequence"
+    );
 
     // Drive the leader sequence: ',' (held) then 'w' (resolves).
     state.on_key(&Key::Char(','));
@@ -280,7 +278,10 @@ fn defoption_applies_to_editor_option_store() {
     )
     .expect("parse rc");
     escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
-    assert_eq!(state.options.get("number").map(String::as_str), Some("true"));
+    assert_eq!(
+        state.options.get("number").map(String::as_str),
+        Some("true")
+    );
     assert_eq!(state.options.get("tabstop").map(String::as_str), Some("4"));
 }
 
@@ -296,7 +297,10 @@ fn declarative_and_imperative_option_tiers_share_one_store() {
     let plan =
         escriba_lisp::apply_source(r#"(defoption :name "number" :value "true")"#).expect("parse");
     escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
-    assert_eq!(state.options.get("number").map(String::as_str), Some("true"));
+    assert_eq!(
+        state.options.get("number").map(String::as_str),
+        Some("true")
+    );
 
     state.run_lisp(r#"(set-option "number" "false")"#).unwrap();
     assert_eq!(

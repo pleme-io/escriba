@@ -70,7 +70,9 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
         // Search matches are DOCUMENT char offsets; the renderer paints
         // COLUMNS. Translate once per line via the line's own start offset,
         // so no offset arithmetic leaks into the span builder.
-        let line_start = buf.position_to_char(escriba_core::Position::new(ln, 0)).unwrap_or(0);
+        let line_start = buf
+            .position_to_char(escriba_core::Position::new(ln, 0))
+            .unwrap_or(0);
         let line_len = text.chars().count();
         let hl: Vec<(usize, usize)> = state
             .search
@@ -141,8 +143,8 @@ fn line_with_gutter(
 
     // The cursor wins over a highlight on its own cell — you must always be
     // able to see where you are, even sitting on a match.
-    let cursor_here =
-        (ln == cursor.line && cursor.column as usize >= left).then(|| cursor.column as usize - left);
+    let cursor_here = (ln == cursor.line && cursor.column as usize >= left)
+        .then(|| cursor.column as usize - left);
 
     if let Some(rel) = cursor_here {
         if rel >= visible.len() {
@@ -228,19 +230,19 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     let path_span = Span::styled(format!(" {path}{modified_indicator} "), status_style());
     let minibuffer = if state.modal.mode() == escriba_core::Mode::Command {
         {
-        // Command mode hosts BOTH the ex-line and the search prompt (vim's
-        // cmdline does the same), so the prefix must report which prompt is
-        // actually open — a hardcoded ':' rendered a `/foo` search as `:foo`.
-        //
-        // The prefix used to be decided here, by a second copy of that
-        // reasoning. It now comes from `EditorState::status_model()`, the same
-        // model the GPU face renders, so the two faces cannot drift — which
-        // they had: the GPU face drew no prompt at all.
-        let model = state.status_model();
-        let mut line = String::from(" ");
-        model.render_prompt_into(&mut line);
-        Span::styled(line, cmd_style())
-    }
+            // Command mode hosts BOTH the ex-line and the search prompt (vim's
+            // cmdline does the same), so the prefix must report which prompt is
+            // actually open — a hardcoded ':' rendered a `/foo` search as `:foo`.
+            //
+            // The prefix used to be decided here, by a second copy of that
+            // reasoning. It now comes from `EditorState::status_model()`, the same
+            // model the GPU face renders, so the two faces cannot drift — which
+            // they had: the GPU face drew no prompt at all.
+            let model = state.status_model();
+            let mut line = String::from(" ");
+            model.render_prompt_into(&mut line);
+            Span::styled(line, cmd_style())
+        }
     } else {
         Span::raw("")
     };
@@ -263,7 +265,10 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     // Layout: [mode] [path+modified] … (flex) … [count] [minibuffer] [pos]
     let available = usize::from(area.width);
     let left = format!("{}{}", mode_span.content, path_span.content,);
-    let right = format!("{}{}{}", count_span.content, minibuffer.content, pos_span.content);
+    let right = format!(
+        "{}{}{}",
+        count_span.content, minibuffer.content, pos_span.content
+    );
     let pad = available.saturating_sub(left.chars().count() + right.chars().count());
 
     let line = Line::from(vec![
@@ -318,7 +323,9 @@ fn cursor_block_style() -> Style {
 /// colored in the cursor accent.
 fn cursor_bar_style() -> Style {
     let c = ChromePalette::prescribed();
-    Style::default().fg(rgb(c.cursor)).add_modifier(Modifier::BOLD)
+    Style::default()
+        .fg(rgb(c.cursor))
+        .add_modifier(Modifier::BOLD)
 }
 
 /// Underline cursor (Visual) — the glyph kept legible with an underline in
@@ -353,7 +360,10 @@ fn status_style() -> Style {
 
 fn cmd_style() -> Style {
     let c = ChromePalette::prescribed();
-    Style::default().fg(rgb(c.warning)).bg(rgb(c.surface)).add_modifier(Modifier::BOLD)
+    Style::default()
+        .fg(rgb(c.warning))
+        .bg(rgb(c.surface))
+        .add_modifier(Modifier::BOLD)
 }
 
 fn error_style() -> Style {
@@ -389,7 +399,10 @@ fn mode_style_for(mode: escriba_core::Mode) -> Style {
         escriba_core::Mode::Visual | escriba_core::Mode::VisualLine => c.accent,
         escriba_core::Mode::Command => c.warning,
     };
-    Style::default().fg(rgb(c.background)).bg(rgb(bg)).add_modifier(Modifier::BOLD)
+    Style::default()
+        .fg(rgb(c.background))
+        .bg(rgb(bg))
+        .add_modifier(Modifier::BOLD)
 }
 
 #[cfg(test)]
@@ -402,7 +415,12 @@ mod tests {
         // pin the palette, which is a theming concern, not a layout one.
         spans
             .iter()
-            .map(|sp| (sp.content.to_string(), sp.style.bg == search_match_style().bg))
+            .map(|sp| {
+                (
+                    sp.content.to_string(),
+                    sp.style.bg == search_match_style().bg,
+                )
+            })
             .collect()
     }
 
@@ -445,7 +463,11 @@ mod tests {
             .filter(|(_, hl)| *hl)
             .map(|(t, _)| t)
             .collect();
-        assert_eq!(painted, vec!["world".to_string()], "exactly the match is lit");
+        assert_eq!(
+            painted,
+            vec!["world".to_string()],
+            "exactly the match is lit"
+        );
     }
 
     #[test]
@@ -483,7 +505,10 @@ mod tests {
             &[(0, 3)],
         );
         let texts: Vec<String> = line.spans.iter().map(|s| s.content.to_string()).collect();
-        assert!(texts.contains(&"o".to_string()), "cursor cell rendered alone: {texts:?}");
+        assert!(
+            texts.contains(&"o".to_string()),
+            "cursor cell rendered alone: {texts:?}"
+        );
     }
 
     #[test]
@@ -503,7 +528,11 @@ mod tests {
             .filter(|(_, hl)| *hl)
             .map(|(t, _)| t)
             .collect();
-        assert_eq!(painted, vec!["world".to_string()], "still exactly the match");
+        assert_eq!(
+            painted,
+            vec!["world".to_string()],
+            "still exactly the match"
+        );
     }
 
     #[test]
@@ -517,7 +546,10 @@ mod tests {
             CursorShape::Block,
             &[],
         );
-        assert!(styles_of(&line.spans).iter().all(|(_, hl)| !hl), "nothing lit");
+        assert!(
+            styles_of(&line.spans).iter().all(|(_, hl)| !hl),
+            "nothing lit"
+        );
     }
     use super::*;
     use escriba_core::Mode;
@@ -527,9 +559,18 @@ mod tests {
     #[test]
     fn mode_glyphs_are_fleet_signals() {
         let sig = EscribaSignals::prescribed();
-        assert_eq!(mode_signal(&sig, Mode::Normal).render(SignalMode::Glyph), "◆");
-        assert_eq!(mode_signal(&sig, Mode::Insert).render(SignalMode::Glyph), "▸");
-        assert_eq!(mode_signal(&sig, Mode::Visual).render(SignalMode::Glyph), "▮");
+        assert_eq!(
+            mode_signal(&sig, Mode::Normal).render(SignalMode::Glyph),
+            "◆"
+        );
+        assert_eq!(
+            mode_signal(&sig, Mode::Insert).render(SignalMode::Glyph),
+            "▸"
+        );
+        assert_eq!(
+            mode_signal(&sig, Mode::Visual).render(SignalMode::Glyph),
+            "▮"
+        );
         assert_eq!(
             mode_signal(&sig, Mode::VisualLine).render(SignalMode::Glyph),
             "▮"
@@ -560,7 +601,10 @@ mod tests {
         // The cursor ROLE, not a theme's own token — this assertion used to
         // name `VellumPalette::vellum().green_bright`, which pinned the test
         // to one theme and would have had to change on every theme move.
-        assert_eq!(block[0].style.bg, Some(rgb(ChromePalette::prescribed().cursor)));
+        assert_eq!(
+            block[0].style.bg,
+            Some(rgb(ChromePalette::prescribed().cursor))
+        );
 
         // Bar: a thin caret span BEFORE the (unstyled) glyph.
         let bar = cursor_spans('a', CursorShape::Bar);
@@ -600,7 +644,9 @@ mod tests {
     fn escriba_tui_chrome_converges_with_fleet() {
         use ishou_tokens::{FleetTheme, convergence::Guard};
         let chrome_theme = FleetTheme::prescribed_default();
-        Guard::for_app("escriba-tui").expect_theme(chrome_theme).run();
+        Guard::for_app("escriba-tui")
+            .expect_theme(chrome_theme)
+            .run();
     }
 
     /// The chrome helpers must actually paint the fleet theme — not merely

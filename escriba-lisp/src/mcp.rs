@@ -136,8 +136,7 @@ impl McpToolSpec {
     /// Valid known on-result prefix tokens — the same three surfaces
     /// [`WorkflowSpec`](crate::WorkflowSpec) step-kinds accept. Kept
     /// as a `const` so error messages can enumerate the vocabulary.
-    pub const ON_RESULT_PREFIXES: &'static [&'static str] =
-        &["action:", "command:", "workflow:"];
+    pub const ON_RESULT_PREFIXES: &'static [&'static str] = &["action:", "command:", "workflow:"];
 }
 
 #[cfg(test)]
@@ -167,7 +166,11 @@ mod tests {
 
     #[test]
     fn on_result_accepts_each_prefix_kind() {
-        for prefix in ["action:save", "command:buffer.write-all", "workflow:ship-rust"] {
+        for prefix in [
+            "action:save",
+            "command:buffer.write-all",
+            "workflow:ship-rust",
+        ] {
             let s = McpToolSpec {
                 name: "x".into(),
                 on_result: prefix.into(),

@@ -18,8 +18,8 @@ use std::sync::{Arc, Mutex};
 
 use escriba_core::{EditGen, Mode};
 use escriba_runtime::EditorState;
-use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
 use escriba_ui::chrome::ChromePalette;
+use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, TextArea, TextBounds};
 use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb};
 use madori::{RenderCallback, RenderContext};
 // hikari (光) — the fleet syntax-highlighting spine. path→Box<dyn Highlighter>,
@@ -220,7 +220,12 @@ impl RenderCallback for GpuRenderer {
             } else {
                 None
             };
-            (rebuild_input, s.modal.mode(), s.status_model().render(), cur_gen)
+            (
+                rebuild_input,
+                s.modal.mode(),
+                s.status_model().render(),
+                cur_gen,
+            )
         };
 
         // ── 2. Rebuild the shaped main-text buffer ONLY on a generation
@@ -247,8 +252,10 @@ impl RenderCallback for GpuRenderer {
             // scroll re-lexes the newly-visible window (graceful degrade). This
             // is byte-identical to the one-shot highlighter it replaces.
             if self.highlighter.as_ref().is_none_or(|(p, _)| p != &path) {
-                self.highlighter =
-                    Some((path.clone(), self.eco.incremental_highlighter_for_path(&path)));
+                self.highlighter = Some((
+                    path.clone(),
+                    self.eco.incremental_highlighter_for_path(&path),
+                ));
             }
             let hl = &mut self
                 .highlighter
@@ -284,7 +291,13 @@ impl RenderCallback for GpuRenderer {
                         .collect::<Vec<_>>()
                 })
                 .collect();
-            buffer.set_rich_text(&mut ctx.text.font_system, runs, &base, Shaping::Advanced, None);
+            buffer.set_rich_text(
+                &mut ctx.text.font_system,
+                runs,
+                &base,
+                Shaping::Advanced,
+                None,
+            );
             buffer.shape_until_scroll(&mut ctx.text.font_system, false);
             self.cached_text = Some(buffer);
             self.last_gen = cur_gen;
@@ -529,7 +542,9 @@ fn split_on_matches(
     if cuts.len() == 2 {
         // No boundary crosses this span — the common case, so avoid the
         // sort/dedup entirely.
-        let hit = matches.iter().any(|&(a, b)| a <= range.start && b >= range.end);
+        let hit = matches
+            .iter()
+            .any(|&(a, b)| a <= range.start && b >= range.end);
         return vec![(range, hit)];
     }
     cuts.sort_unstable();
@@ -608,7 +623,10 @@ mod tests {
         assert_eq!(out[0].0.start, range.start, "starts at the range start");
         assert_eq!(out[out.len() - 1].0.end, range.end, "ends at the range end");
         for w in out.windows(2) {
-            assert_eq!(w[0].0.end, w[1].0.start, "pieces are contiguous, no gap or overlap");
+            assert_eq!(
+                w[0].0.end, w[1].0.start,
+                "pieces are contiguous, no gap or overlap"
+            );
         }
     }
 
@@ -655,7 +673,11 @@ mod tests {
     fn two_matches_in_one_span_both_split() {
         let out = split_on_matches(0..20, &[(2, 4), (10, 12)]);
         assert_partition(0..20, &out);
-        let hits: Vec<_> = out.iter().filter(|(_, m)| *m).map(|(r, _)| r.clone()).collect();
+        let hits: Vec<_> = out
+            .iter()
+            .filter(|(_, m)| *m)
+            .map(|(r, _)| r.clone())
+            .collect();
         assert_eq!(hits, vec![2..4, 10..12]);
     }
 
@@ -673,7 +695,10 @@ mod tests {
         for m in [(0usize, 10usize), (10, 20)] {
             let out = split_on_matches(10..20, &[m]);
             assert_partition(10..20, &out);
-            assert!(out.iter().all(|(r, _)| r.start < r.end), "no empty piece for {m:?}");
+            assert!(
+                out.iter().all(|(r, _)| r.start < r.end),
+                "no empty piece for {m:?}"
+            );
         }
     }
 
@@ -707,7 +732,10 @@ mod tests {
         assert_eq!(bg.a, 1.0);
         // Dark ground: an editor background must stay well below mid-grey in
         // linear space whatever the theme.
-        assert!(bg.r < 0.1 && bg.g < 0.1 && bg.b < 0.1, "ground is not dark: {bg:?}");
+        assert!(
+            bg.r < 0.1 && bg.g < 0.1 && bg.b < 0.1,
+            "ground is not dark: {bg:?}"
+        );
     }
 
     #[test]
@@ -772,16 +800,35 @@ mod tests {
     #[test]
     fn mode_colors_are_role_pills() {
         let c = ChromePalette::prescribed();
-        assert_eq!(mode_color(Mode::Normal).hex(), c.info.hex(), "Normal = info");
-        assert_eq!(mode_color(Mode::Insert).hex(), c.success.hex(), "Insert = success");
-        assert_eq!(mode_color(Mode::Visual).hex(), c.accent.hex(), "Visual = accent");
-        assert_eq!(mode_color(Mode::Command).hex(), c.warning.hex(), "Command = warning");
+        assert_eq!(
+            mode_color(Mode::Normal).hex(),
+            c.info.hex(),
+            "Normal = info"
+        );
+        assert_eq!(
+            mode_color(Mode::Insert).hex(),
+            c.success.hex(),
+            "Insert = success"
+        );
+        assert_eq!(
+            mode_color(Mode::Visual).hex(),
+            c.accent.hex(),
+            "Visual = accent"
+        );
+        assert_eq!(
+            mode_color(Mode::Command).hex(),
+            c.warning.hex(),
+            "Command = warning"
+        );
 
         // The four pills must be mutually distinct, or the mode is not
         // glance-readable regardless of which theme is active.
         let mut seen = std::collections::BTreeSet::new();
         for m in [Mode::Normal, Mode::Insert, Mode::Visual, Mode::Command] {
-            assert!(seen.insert(mode_color(m).hex()), "{m:?} duplicates another pill");
+            assert!(
+                seen.insert(mode_color(m).hex()),
+                "{m:?} duplicates another pill"
+            );
         }
     }
 
@@ -792,9 +839,18 @@ mod tests {
     #[test]
     fn mode_glyphs_are_fleet_signals() {
         let sig = EscribaSignals::prescribed();
-        assert_eq!(mode_glyph(&sig, Mode::Normal).render(SignalMode::Glyph), "◆");
-        assert_eq!(mode_glyph(&sig, Mode::Insert).render(SignalMode::Glyph), "▸");
-        assert_eq!(mode_glyph(&sig, Mode::Visual).render(SignalMode::Glyph), "▮");
+        assert_eq!(
+            mode_glyph(&sig, Mode::Normal).render(SignalMode::Glyph),
+            "◆"
+        );
+        assert_eq!(
+            mode_glyph(&sig, Mode::Insert).render(SignalMode::Glyph),
+            "▸"
+        );
+        assert_eq!(
+            mode_glyph(&sig, Mode::Visual).render(SignalMode::Glyph),
+            "▮"
+        );
         assert_eq!(
             mode_glyph(&sig, Mode::VisualLine).render(SignalMode::Glyph),
             "▮"
@@ -860,6 +916,8 @@ mod tests {
     fn escriba_gpu_chrome_converges_with_fleet() {
         use ishou_tokens::{FleetTheme, convergence::Guard};
         let chrome_theme = FleetTheme::prescribed_default();
-        Guard::for_app("escriba-render").expect_theme(chrome_theme).run();
+        Guard::for_app("escriba-render")
+            .expect_theme(chrome_theme)
+            .run();
     }
 }

@@ -50,7 +50,9 @@ fn default_preset() -> String {
 impl Default for ThemeSpec {
     /// The default theme is the fleet default — `nord`.
     fn default() -> Self {
-        Self { preset: DEFAULT_PRESET.to_string() }
+        Self {
+            preset: DEFAULT_PRESET.to_string(),
+        }
     }
 }
 
@@ -70,8 +72,14 @@ impl ThemeSpec {
 /// Known preset names, aligned with `irodzuki`. `nord` (the fleet default)
 /// leads; extend freely — unknown presets in a spec are ignored rather than
 /// erroring, so adding a preset here is purely additive.
-pub const KNOWN_PRESETS: &[&str] =
-    &["nord", "vellum", "polar-veil", "gruvbox-dark", "tokyo-night", "catppuccin-mocha"];
+pub const KNOWN_PRESETS: &[&str] = &[
+    "nord",
+    "vellum",
+    "polar-veil",
+    "gruvbox-dark",
+    "tokyo-night",
+    "catppuccin-mocha",
+];
 
 impl ThemeSpec {
     /// Resolve this spec to a typed [`ishou_tokens::FleetTheme`] — the ONE
@@ -129,8 +137,14 @@ mod tests {
 
     #[test]
     fn nord_and_vellum_are_both_known_presets() {
-        assert!(is_known_preset("nord"), "the fleet default must be authorable");
-        assert!(is_known_preset("vellum"), "vellum stays selectable (retired, not removed)");
+        assert!(
+            is_known_preset("nord"),
+            "the fleet default must be authorable"
+        );
+        assert!(
+            is_known_preset("vellum"),
+            "vellum stays selectable (retired, not removed)"
+        );
     }
 
     #[test]
@@ -141,7 +155,9 @@ mod tests {
 
     #[test]
     fn empty_preset_resolves_to_nord() {
-        let t = ThemeSpec { preset: String::new() };
+        let t = ThemeSpec {
+            preset: String::new(),
+        };
         assert_eq!(t.effective_preset(), "nord");
     }
 
@@ -164,15 +180,28 @@ mod tests {
     /// `:preset "nord"` parsed, validated, and changed nothing on screen.
     #[test]
     fn deftheme_resolves_to_a_real_fleet_theme() {
-        let of = |p: &str| ThemeSpec { preset: p.to_string() }.resolve();
+        let of = |p: &str| {
+            ThemeSpec {
+                preset: p.to_string(),
+            }
+            .resolve()
+        };
         assert_eq!(of("nord"), FleetTheme::PlemeDark);
         assert_eq!(of("vellum"), FleetTheme::Vellum);
         assert_eq!(of("polar-veil"), FleetTheme::PolarVeil);
         assert_eq!(of("bare"), FleetTheme::Bare);
         // `nord` is the preset spelling of the palette whose serde wire name
         // is `pleme_dark`; both spellings must land on one theme.
-        assert_eq!(of("pleme_dark"), of("nord"), "wire and preset spellings agree");
-        assert_eq!(of("polar_veil"), of("polar-veil"), "underscore and dash agree");
+        assert_eq!(
+            of("pleme_dark"),
+            of("nord"),
+            "wire and preset spellings agree"
+        );
+        assert_eq!(
+            of("polar_veil"),
+            of("polar-veil"),
+            "underscore and dash agree"
+        );
     }
 
     /// The default path resolves to Nord, and it resolves to the SAME theme
@@ -180,10 +209,16 @@ mod tests {
     /// frostmourne without anyone hand-matching a hex.
     #[test]
     fn the_default_resolves_to_the_same_theme_the_fleet_prescribes() {
-        assert_eq!(ThemeSpec::default().resolve(), FleetTheme::prescribed_default());
+        assert_eq!(
+            ThemeSpec::default().resolve(),
+            FleetTheme::prescribed_default()
+        );
         assert_eq!(ThemeSpec::default().resolve(), FleetTheme::PlemeDark);
         // And it really is Nord Polar Night on screen, by hex.
-        assert_eq!(ThemeSpec::default().resolve().resolve().background, "#2E3440");
+        assert_eq!(
+            ThemeSpec::default().resolve().resolve().background,
+            "#2E3440"
+        );
     }
 
     /// An unknown preset must fall back to the FLEET default, never to a
@@ -191,14 +226,19 @@ mod tests {
     /// second place the fleet look is decided.
     #[test]
     fn an_unknown_preset_falls_back_to_the_fleet_default() {
-        let t = ThemeSpec { preset: "no-such-theme-42".to_string() };
+        let t = ThemeSpec {
+            preset: "no-such-theme-42".to_string(),
+        };
         assert_eq!(t.resolve(), FleetTheme::prescribed_default());
         // Presets we accept for authoring but ishou has no palette for yet
         // behave the same way — deliberately, not accidentally.
         for p in ["gruvbox-dark", "tokyo-night", "catppuccin-mocha"] {
             assert!(is_known_preset(p), "{p} stays authorable");
             assert_eq!(
-                ThemeSpec { preset: p.to_string() }.resolve(),
+                ThemeSpec {
+                    preset: p.to_string()
+                }
+                .resolve(),
                 FleetTheme::prescribed_default(),
                 "{p} has no ishou palette yet — falls back, never renders arbitrary colour"
             );

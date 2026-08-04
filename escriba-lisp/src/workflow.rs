@@ -116,8 +116,7 @@ pub const KNOWN_FAILURE_MODES: &[&str] = &["abort", "continue", "prompt"];
 /// - `mcp:<server>.<tool>` — invoke an MCP tool (cross-process).
 ///   The apply layer cross-validates that every `mcp:…` step
 ///   references a tool defined by a `defmcp` somewhere in the plan.
-pub const KNOWN_STEP_KINDS: &[&str] =
-    &["gate", "action", "workflow", "shell", "cmd", "mcp"];
+pub const KNOWN_STEP_KINDS: &[&str] = &["gate", "action", "workflow", "shell", "cmd", "mcp"];
 
 #[must_use]
 pub fn is_known_failure_mode(name: &str) -> bool {

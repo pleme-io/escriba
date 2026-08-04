@@ -137,18 +137,27 @@ mod tests {
         let s = RulerSpec::default();
         assert_eq!(s.effective_style(), "soft");
 
-        let s = RulerSpec { style: "hard".into(), ..Default::default() };
+        let s = RulerSpec {
+            style: "hard".into(),
+            ..Default::default()
+        };
         assert_eq!(s.effective_style(), "hard");
     }
 
     #[test]
     fn all_columns_positive_catches_zero_entries() {
-        let s = RulerSpec { columns: vec![80, 120], ..Default::default() };
+        let s = RulerSpec {
+            columns: vec![80, 120],
+            ..Default::default()
+        };
         assert!(s.all_columns_positive());
 
         // Zero in the list should disqualify — "column 0" is
         // semantically meaningless (columns are 1-based).
-        let s = RulerSpec { columns: vec![80, 0, 120], ..Default::default() };
+        let s = RulerSpec {
+            columns: vec![80, 0, 120],
+            ..Default::default()
+        };
         assert!(!s.all_columns_positive());
 
         // Empty vector passes this check (caught separately by the
@@ -160,7 +169,10 @@ mod tests {
     #[test]
     fn color_format_accepts_rgb_and_rgba_hex() {
         for ok in ["#000000", "#ffffff", "#4c566a", "#112233aa", "#AABBCC"] {
-            let s = RulerSpec { color: ok.into(), ..Default::default() };
+            let s = RulerSpec {
+                color: ok.into(),
+                ..Default::default()
+            };
             assert!(s.has_valid_color_format(), "should accept {ok:?}");
         }
     }
@@ -168,7 +180,10 @@ mod tests {
     #[test]
     fn color_format_rejects_named_or_malformed() {
         for bad in ["blue", "#fff", "#123456789", "rgb(0,0,0)", "#zzzzzz", "fff"] {
-            let s = RulerSpec { color: bad.into(), ..Default::default() };
+            let s = RulerSpec {
+                color: bad.into(),
+                ..Default::default()
+            };
             assert!(!s.has_valid_color_format(), "should reject {bad:?}");
         }
     }

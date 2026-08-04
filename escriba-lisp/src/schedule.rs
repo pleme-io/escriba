@@ -234,7 +234,10 @@ mod tests {
     use super::*;
 
     fn bare(name: &str) -> ScheduleSpec {
-        ScheduleSpec { name: name.into(), ..Default::default() }
+        ScheduleSpec {
+            name: name.into(),
+            ..Default::default()
+        }
     }
 
     #[test]

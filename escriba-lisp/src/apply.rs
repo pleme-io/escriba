@@ -308,7 +308,10 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
     // Modifier+char form: `C-r`, `A-f`, `M-f`, `S-h`. Dash-separated.
     // The operand is a single char OR a named key that denotes a
     // printable char (`<C-Space>` -> Ctrl(' ')) — see `modifier_operand`.
-    if let Some(rest) = inner.strip_prefix("C-").or_else(|| inner.strip_prefix("c-")) {
+    if let Some(rest) = inner
+        .strip_prefix("C-")
+        .or_else(|| inner.strip_prefix("c-"))
+    {
         return modifier_operand(rest).map(Key::Ctrl);
     }
     if let Some(rest) = inner
@@ -324,7 +327,10 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
     // `<S-h>` IS `H` (the vim convention this catalog is written in).
     // Modelling it as a distinct modifier would make `<S-h>` and a typed
     // `H` two different bindings for one physical keystroke.
-    if let Some(rest) = inner.strip_prefix("S-").or_else(|| inner.strip_prefix("s-")) {
+    if let Some(rest) = inner
+        .strip_prefix("S-")
+        .or_else(|| inner.strip_prefix("s-"))
+    {
         return modifier_operand(rest).map(|c| Key::Char(c.to_ascii_uppercase()));
     }
 
@@ -387,7 +393,11 @@ fn modifier_operand(s: &str) -> Option<char> {
 fn single_char(s: &str) -> Option<char> {
     let mut chars = s.chars();
     let c = chars.next()?;
-    if chars.next().is_none() { Some(c) } else { None }
+    if chars.next().is_none() {
+        Some(c)
+    } else {
+        None
+    }
 }
 
 /// Resolve an action string into an [`Action`]. Known strings map to
@@ -542,7 +552,10 @@ pub fn apply_plan_to_options(
 ) -> OptionApplyReport {
     let mut report = OptionApplyReport::default();
     for opt in &plan.options {
-        if options.insert(opt.name.clone(), opt.value.clone()).is_some() {
+        if options
+            .insert(opt.name.clone(), opt.value.clone())
+            .is_some()
+        {
             report.overridden += 1;
         } else {
             report.set += 1;
@@ -627,7 +640,10 @@ mod tests {
             parse_key_sequence("<C-w>h", &comma).unwrap(),
             vec![Key::Ctrl('w'), Key::Char('h')],
         );
-        assert_eq!(parse_key_sequence("x", &comma).unwrap(), vec![Key::Char('x')]);
+        assert_eq!(
+            parse_key_sequence("x", &comma).unwrap(),
+            vec![Key::Char('x')]
+        );
         // Malformed: unterminated bracket + unknown token.
         assert!(parse_key_sequence("<leader", &comma).is_err());
         assert!(parse_key_sequence("<Nope>", &comma).is_err());
@@ -693,10 +709,9 @@ mod tests {
         // under the comma default.
         let mut km = Keymap::new();
         km.set_leader(Key::Char(' '));
-        let plan = apply_source(
-            r#"(defkeybind :mode "normal" :key "<leader>ff" :action "picker.files")"#,
-        )
-        .unwrap();
+        let plan =
+            apply_source(r#"(defkeybind :mode "normal" :key "<leader>ff" :action "picker.files")"#)
+                .unwrap();
         apply_plan_to_keymap(&plan, &mut km);
         let space_seq = vec![Key::Char(' '), Key::Char('f'), Key::Char('f')];
         assert!(
@@ -797,8 +812,8 @@ mod tests {
 
     #[test]
     fn apply_still_warns_on_truly_unrecognised_keys() {
-        let plan =
-            apply_source(r#"(defkeybind :mode "normal" :key "<Galactus>" :action "home")"#).unwrap();
+        let plan = apply_source(r#"(defkeybind :mode "normal" :key "<Galactus>" :action "home")"#)
+            .unwrap();
         let mut km = Keymap::new();
         let report = apply_plan_to_keymap(&plan, &mut km);
         assert_eq!(report.keybinds_applied, 0);
@@ -830,9 +845,10 @@ mod tests {
         // A `defcmd :name "save"` shadows the built-in `save` — the
         // mechanism by which a user upgrades a built-in to a richer
         // Lisp-authored behavior. The override is tallied, not silent.
-        let plan =
-            apply_source(r#"(defcmd :name "save" :description "Save, formatted" :action "buffer.write")"#)
-                .unwrap();
+        let plan = apply_source(
+            r#"(defcmd :name "save" :description "Save, formatted" :action "buffer.write")"#,
+        )
+        .unwrap();
         let mut registry = CommandRegistry::default_set();
         let report = apply_plan_to_commands(&plan, &mut registry);
         assert_eq!(report.registered, 0);
