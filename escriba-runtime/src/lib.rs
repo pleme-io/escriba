@@ -626,7 +626,8 @@ impl EditorState {
             line: cursor.line.saturating_add(1) as usize,
             column: cursor.column.saturating_add(1) as usize,
             prompt: kind,
-            prompt_text: prompt.map_or_else(|| self.modal.minibuffer(), |p| p.text.as_str()),
+            prompt_text: prompt
+                .map_or_else(|| self.modal.minibuffer(), escriba_search::Prompt::text),
             prompt_caret: prompt.map_or_else(
                 || self.modal.minibuffer_caret(),
                 escriba_search::Prompt::caret,
@@ -1861,9 +1862,13 @@ mod tests {
         for c in "bravox".chars() {
             st.apply(&Action::InsertChar(c));
         }
-        assert_eq!(st.search.prompt().unwrap().text, "bravox");
+        assert_eq!(st.search.prompt().unwrap().text(), "bravox");
         st.apply(&Action::PromptBackspace);
-        assert_eq!(st.search.prompt().unwrap().text, "bravo", "typo corrected");
+        assert_eq!(
+            st.search.prompt().unwrap().text(),
+            "bravo",
+            "typo corrected"
+        );
         assert_eq!(
             st.status_model().prompt_text,
             "bravo",
@@ -1920,7 +1925,7 @@ mod tests {
         type_search(&mut st, SearchDirection::Forward, "bravo");
         st.apply(&Action::SearchOpen(SearchDirection::Forward));
         st.apply(&Action::PromptHistory { back: true });
-        assert_eq!(st.search.prompt().unwrap().text, "bravo");
+        assert_eq!(st.search.prompt().unwrap().text(), "bravo");
         assert_eq!(
             st.status_model().prompt_text,
             "bravo",
@@ -1935,10 +1940,10 @@ mod tests {
         st.apply(&Action::SearchOpen(SearchDirection::Forward));
         st.apply(&Action::InsertChar('a'));
         st.apply(&Action::PromptHistory { back: true });
-        assert_eq!(st.search.prompt().unwrap().text, "bravo");
+        assert_eq!(st.search.prompt().unwrap().text(), "bravo");
         st.apply(&Action::PromptHistory { back: false });
         assert_eq!(
-            st.search.prompt().unwrap().text,
+            st.search.prompt().unwrap().text(),
             "a",
             "the draft comes back"
         );
