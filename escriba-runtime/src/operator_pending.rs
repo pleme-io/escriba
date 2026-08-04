@@ -116,12 +116,13 @@ impl zenmai::Machine for OperatorPending {
                 vec![(Action::SearchOpen(dir), 1)],
             ),
 
-            // Prompt editing passes through untouched while the operator waits.
-            (
-                OpState::AwaitingSearch { .. },
-                a
-                @ (Action::InsertChar(_) | Action::PromptBackspace | Action::PromptHistory { .. }),
-            ) => (*state, vec![(a, 1)]),
+            // Prompt editing passes through untouched while the operator
+            // waits. Classified by `Action::edits_prompt`, which is TOTAL over
+            // `Action`, rather than by a list here — the list is how this
+            // broke once already: five prompt actions were added later and
+            // none reached it, so `←` or `<C-g>` midway through `d/foo`
+            // silently disarmed the operator.
+            (OpState::AwaitingSearch { .. }, a) if a.edits_prompt() => (*state, vec![(a, 1)]),
 
             // `<CR>` resolves the operand. Emitted as ONE action rather than
             // "commit, then operate": committing MOVES the cursor, which would

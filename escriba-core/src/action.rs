@@ -327,3 +327,57 @@ impl Action {
         }
     }
 }
+
+impl Action {
+    /// Does this action edit or navigate an OPEN PROMPT, rather than doing
+    /// something to the buffer?
+    ///
+    /// The operator-pending machine needs this: during `d/foo` the operator
+    /// must survive every keystroke that is part of composing the pattern, and
+    /// disarm on anything that is not.
+    ///
+    /// **Total over `Action` — no wildcard arm**, and that totality is the
+    /// whole point. The machine originally listed the prompt actions inline;
+    /// when `PromptCaret`, `PromptDelete`, `PromptDeleteWord`,
+    /// `PromptClearToStart` and `SearchPreviewStep` were added later, none was
+    /// added to that list, so pressing `←` or `<C-g>` midway through `d/foo`
+    /// silently disarmed the operator — reintroducing exactly the defect the
+    /// `AwaitingSearch` state had been created to fix. A new prompt action now
+    /// cannot be added without deciding here.
+    #[must_use]
+    pub const fn edits_prompt(&self) -> bool {
+        match self {
+            Self::InsertChar(_)
+            | Self::PromptBackspace
+            | Self::PromptHistory { .. }
+            | Self::PromptCaret { .. }
+            | Self::PromptDelete
+            | Self::PromptDeleteWord
+            | Self::PromptClearToStart
+            | Self::SearchPreviewStep { .. } => true,
+
+            Self::Move(_)
+            | Self::Operator(_)
+            | Self::ApplyOperator { .. }
+            | Self::ApplyOperatorObject { .. }
+            | Self::TextObject(_)
+            | Self::Edit(_)
+            | Self::ChangeMode(_)
+            | Self::Command { .. }
+            | Self::SubmitCommand
+            | Self::Undo
+            | Self::Redo
+            | Self::Save
+            | Self::Quit
+            | Self::SearchOpen(_)
+            | Self::SearchRepeat { .. }
+            | Self::SearchWord { .. }
+            | Self::SearchSubmitOperated { .. }
+            | Self::ClearSearchHighlight
+            | Self::RepeatLastChange
+            | Self::JumpBack
+            | Self::JumpForward
+            | Self::Pending => false,
+        }
+    }
+}
