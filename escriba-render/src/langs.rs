@@ -55,6 +55,19 @@ pub const BLUE: Language = Language("blue");
 /// `SURFACE_KEYWORDS` (the eleven form heads) plus the four block-structure
 /// words `is_reserved_word` adds on top of it.
 ///
+/// **Diff this against ONE upstream symbol, not two** (blue @ `d276578`,
+/// 2026-08-04): that union is now public as `blue_lang_syntax::is_reserved_word`,
+/// with its non-`SURFACE_KEYWORDS` half exported as `BLOCK_KEYWORDS`. It went
+/// public *because* of this transcription — when the union was reachable only
+/// from inside blue's parser, checking this list meant reconstructing what a
+/// private function added, which is the step a reader skips. The three
+/// deliberate omissions below mean the two lists are not equal, so the check
+/// is `BLUE_RESERVED_WORDS ∪ {true, false, nil} == is_reserved_word`'s set.
+///
+/// The reasons above for not *depending* on the crate are unchanged — a
+/// `0.0.x` pin does not follow blue, and a `git =` would freeze escriba's own
+/// publishing. This only makes the manual check cheap and exact.
+///
 /// `true` / `false` / `nil` are the other three words upstream reserves and are
 /// **deliberately absent**: hikari's table lexer already classifies them as
 /// [`HlClass::Boolean`](hikari_core::HlClass::Boolean), and listing them here
