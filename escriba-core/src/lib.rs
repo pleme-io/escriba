@@ -30,7 +30,7 @@ pub mod position;
 pub mod range;
 pub mod selection;
 
-pub use action::{Action, CountedAction};
+pub use action::{Action, CountedAction, TextEffect};
 pub use damage::{Damage, LineDelta};
 pub use edit::{Edit, EditKind};
 pub use r#gen::EditGen;

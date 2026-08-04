@@ -228,19 +228,17 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     let path_span = Span::styled(format!(" {path}{modified_indicator} "), status_style());
     let minibuffer = if state.modal.mode() == escriba_core::Mode::Command {
         {
-        // Command mode now hosts BOTH the ex-line and the search prompt (vim's
-        // cmdline does the same). Showing a hardcoded ':' made a `/foo` search
-        // render as `:foo` — the prefix must report which prompt is actually
-        // open, and `search.prompt()` is the same typed discriminator the
-        // runtime routes <CR> with, so the two cannot disagree.
-        let prefix = match state.search.prompt().map(|p| p.direction) {
-            Some(escriba_search::Direction::Forward) => '/',
-            Some(escriba_search::Direction::Backward) => '?',
-            None => ':',
-        };
+        // Command mode hosts BOTH the ex-line and the search prompt (vim's
+        // cmdline does the same), so the prefix must report which prompt is
+        // actually open — a hardcoded ':' rendered a `/foo` search as `:foo`.
+        //
+        // The prefix used to be decided here, by a second copy of that
+        // reasoning. It now comes from `EditorState::status_model()`, the same
+        // model the GPU face renders, so the two faces cannot drift — which
+        // they had: the GPU face drew no prompt at all.
+        let model = state.status_model();
         let mut line = String::from(" ");
-        line.push(prefix);
-        line.push_str(state.modal.minibuffer());
+        model.render_prompt_into(&mut line);
         Span::styled(line, cmd_style())
     }
     } else {
@@ -248,16 +246,31 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     };
     let pos_span = Span::styled(format!(" {pos} "), status_style());
 
-    // Layout: [mode] [path+modified] … (flex) … [minibuffer] [pos]
+    // `[3/17]`. Both halves were already computed by the engine and both were
+    // discarded; the denominator is what turns "press n until it looks right"
+    // into a decision — `[1/1]` says a rename is safe, `[1/240]` says narrow
+    // the pattern first. Silent when there is nothing to count.
+    let count = state.status_model().count;
+    let count_span = if count.is_idle() {
+        Span::raw("")
+    } else {
+        let mut c = String::from(" ");
+        count.render_into(&mut c);
+        c.push(' ');
+        Span::styled(c, status_style())
+    };
+
+    // Layout: [mode] [path+modified] … (flex) … [count] [minibuffer] [pos]
     let available = usize::from(area.width);
     let left = format!("{}{}", mode_span.content, path_span.content,);
-    let right = format!("{}{}", minibuffer.content, pos_span.content);
+    let right = format!("{}{}{}", count_span.content, minibuffer.content, pos_span.content);
     let pad = available.saturating_sub(left.chars().count() + right.chars().count());
 
     let line = Line::from(vec![
         mode_span,
         path_span,
         Span::raw(" ".repeat(pad)),
+        count_span,
         minibuffer,
         pos_span,
     ]);

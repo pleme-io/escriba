@@ -128,7 +128,10 @@ pub fn find_all(text: &str, pattern: &SearchPattern) -> Vec<SearchMatch> {
     pattern
         .regex()
         .find_iter(text)
-        .map(|m| SearchMatch { start: byte_to_char[m.start()], end: byte_to_char[m.end()] })
+        .map(|m| SearchMatch {
+            start: byte_to_char[m.start()],
+            end: byte_to_char[m.end()],
+        })
         .collect()
 }
 
@@ -150,15 +153,31 @@ pub fn step(matches: &[SearchMatch], from: usize, direction: Direction) -> Optio
         Direction::Forward => matches
             .iter()
             .position(|m| m.start > from)
-            .map(|i| Step { target: matches[i], index: i, wrapped: Wrapped::No })
-            .or(Some(Step { target: matches[0], index: 0, wrapped: Wrapped::AtBottom })),
+            .map(|i| Step {
+                target: matches[i],
+                index: i,
+                wrapped: Wrapped::No,
+            })
+            .or(Some(Step {
+                target: matches[0],
+                index: 0,
+                wrapped: Wrapped::AtBottom,
+            })),
         Direction::Backward => matches
             .iter()
             .rposition(|m| m.start < from)
-            .map(|i| Step { target: matches[i], index: i, wrapped: Wrapped::No })
+            .map(|i| Step {
+                target: matches[i],
+                index: i,
+                wrapped: Wrapped::No,
+            })
             .or_else(|| {
                 let i = matches.len() - 1;
-                Some(Step { target: matches[i], index: i, wrapped: Wrapped::AtTop })
+                Some(Step {
+                    target: matches[i],
+                    index: i,
+                    wrapped: Wrapped::AtTop,
+                })
             }),
     }
 }
@@ -183,15 +202,31 @@ pub fn step_inclusive(matches: &[SearchMatch], from: usize, direction: Direction
         Direction::Forward => matches
             .iter()
             .position(|m| m.start >= from)
-            .map(|i| Step { target: matches[i], index: i, wrapped: Wrapped::No })
-            .or(Some(Step { target: matches[0], index: 0, wrapped: Wrapped::AtBottom })),
+            .map(|i| Step {
+                target: matches[i],
+                index: i,
+                wrapped: Wrapped::No,
+            })
+            .or(Some(Step {
+                target: matches[0],
+                index: 0,
+                wrapped: Wrapped::AtBottom,
+            })),
         Direction::Backward => matches
             .iter()
             .rposition(|m| m.start <= from)
-            .map(|i| Step { target: matches[i], index: i, wrapped: Wrapped::No })
+            .map(|i| Step {
+                target: matches[i],
+                index: i,
+                wrapped: Wrapped::No,
+            })
             .or_else(|| {
                 let i = matches.len() - 1;
-                Some(Step { target: matches[i], index: i, wrapped: Wrapped::AtTop })
+                Some(Step {
+                    target: matches[i],
+                    index: i,
+                    wrapped: Wrapped::AtTop,
+                })
             }),
     }
 }
@@ -230,6 +265,102 @@ pub fn word_at(text: &str, cursor: usize) -> Option<String> {
         end += 1;
     }
     Some(chars[start..end].iter().collect())
+}
+
+/// Vim's default `maxcount`. Counting is bounded so one keystroke on a large
+/// buffer cannot become a full scan the user waits on.
+pub const MAX_COUNT: usize = 99;
+
+/// A match-count display — vim's `[3/17]`.
+///
+/// Both halves were already computed and both were thrown away: the numerator
+/// is [`Step::index`], the denominator is the length of [`find_all`]'s result.
+/// This type is what finally carries them to a status line.
+///
+/// The denominator is the load-bearing half. `[1/1]` says a rename is safe;
+/// `[1/240]` says narrow the pattern first. Without it the only way to learn
+/// how many matches exist is to press `n` until the view looks familiar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchCount {
+    /// No pattern armed and no prompt previewing — render nothing.
+    Idle,
+    /// A pattern exists but matches nothing. Renders `[0/0]`, which reports a
+    /// bad pattern while it is still being typed rather than after Enter.
+    None,
+    /// `[current/total]`, both exact. `current` is 1-based for display.
+    Exact { current: usize, total: usize },
+    /// More matches than [`MAX_COUNT`]; the ordinal is still exact.
+    Capped { current: usize },
+}
+
+impl MatchCount {
+    /// Build a count from a 0-based match index and a total.
+    ///
+    /// `index` is [`Step::index`]; `total` is `matches.len()`. An out-of-range
+    /// index yields [`MatchCount::None`] rather than a wrong ordinal — a count
+    /// that lies is worse than one that declines to answer.
+    #[must_use]
+    pub const fn new(index: usize, total: usize) -> Self {
+        if total == 0 || index >= total {
+            return Self::None;
+        }
+        if total > MAX_COUNT {
+            return Self::Capped { current: index + 1 };
+        }
+        Self::Exact {
+            current: index + 1,
+            total,
+        }
+    }
+
+    /// Is there anything to draw?
+    #[must_use]
+    pub const fn is_idle(self) -> bool {
+        matches!(self, Self::Idle)
+    }
+
+    /// Append the display form to `out`.
+    ///
+    /// Written with `push_str` rather than `format!` — the fleet's ★★ TYPED
+    /// EMISSION rule, and the same reason `pattern.rs::format_word_boundary`
+    /// is hand-built.
+    pub fn render_into(self, out: &mut String) {
+        match self {
+            Self::Idle => {}
+            Self::None => out.push_str("[0/0]"),
+            Self::Exact { current, total } => {
+                out.push('[');
+                push_usize(out, current);
+                out.push('/');
+                push_usize(out, total);
+                out.push(']');
+            }
+            Self::Capped { current } => {
+                out.push('[');
+                push_usize(out, current);
+                out.push_str("/>");
+                push_usize(out, MAX_COUNT);
+                out.push(']');
+            }
+        }
+    }
+}
+
+/// Decimal-append a `usize` without `format!`.
+fn push_usize(out: &mut String, mut n: usize) {
+    if n == 0 {
+        out.push('0');
+        return;
+    }
+    let mut buf = [0u8; 20];
+    let mut i = buf.len();
+    while n > 0 {
+        i -= 1;
+        buf[i] = b'0' + u8::try_from(n % 10).unwrap_or(0);
+        n /= 10;
+    }
+    // Every byte written is an ASCII digit, so this slice is valid UTF-8.
+    out.push_str(core::str::from_utf8(&buf[i..]).unwrap_or("?"));
 }
 
 #[cfg(test)]
@@ -321,7 +452,10 @@ mod tests {
         assert_eq!(m.len(), 1);
         for dir in [Direction::Forward, Direction::Backward] {
             let s = step(&m, m[0].start, dir).unwrap();
-            assert_eq!(s.target, m[0], "single match must resolve to itself ({dir:?})");
+            assert_eq!(
+                s.target, m[0],
+                "single match must resolve to itself ({dir:?})"
+            );
             assert_ne!(s.wrapped, Wrapped::No, "and must report the wrap");
         }
     }
@@ -333,7 +467,13 @@ mod tests {
         // the cursor (correct for `n`), inclusive keeps it (correct for
         // incremental search).
         assert_eq!(step(&m, 0, Direction::Forward).unwrap().target.start, 4);
-        assert_eq!(step_inclusive(&m, 0, Direction::Forward).unwrap().target.start, 0);
+        assert_eq!(
+            step_inclusive(&m, 0, Direction::Forward)
+                .unwrap()
+                .target
+                .start,
+            0
+        );
     }
 
     #[test]
@@ -344,14 +484,24 @@ mod tests {
         let m = find_all("foo bar", &pat("foo"));
         let s = step_inclusive(&m, 0, Direction::Forward).unwrap();
         assert_eq!(s.target.start, 0);
-        assert_eq!(s.wrapped, Wrapped::No, "reaching it must not count as a wrap");
+        assert_eq!(
+            s.wrapped,
+            Wrapped::No,
+            "reaching it must not count as a wrap"
+        );
     }
 
     #[test]
     fn step_inclusive_backward_also_accepts_the_cursor_position() {
         let m = find_all("foo foo foo", &pat("foo"));
         assert_eq!(step(&m, 8, Direction::Backward).unwrap().target.start, 4);
-        assert_eq!(step_inclusive(&m, 8, Direction::Backward).unwrap().target.start, 8);
+        assert_eq!(
+            step_inclusive(&m, 8, Direction::Backward)
+                .unwrap()
+                .target
+                .start,
+            8
+        );
     }
 
     #[test]

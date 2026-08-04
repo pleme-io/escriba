@@ -78,7 +78,11 @@ pub struct SearchState {
 impl SearchState {
     #[must_use]
     pub fn new(case: CaseMode) -> Self {
-        Self { case, highlight: true, ..Self::default() }
+        Self {
+            case,
+            highlight: true,
+            ..Self::default()
+        }
     }
 
     // ── prompt lifecycle ────────────────────────────────────────────────
@@ -117,7 +121,9 @@ impl SearchState {
     /// Backspace. Returns `true` if the prompt closed because it was already
     /// empty (vim closes the prompt when you backspace past the `/`).
     pub fn backspace(&mut self) -> bool {
-        let Some(p) = self.prompt.as_mut() else { return false };
+        let Some(p) = self.prompt.as_mut() else {
+            return false;
+        };
         p.history_index = None;
         if p.text.pop().is_none() {
             self.prompt = None;
@@ -191,7 +197,9 @@ impl SearchState {
             return;
         }
         let len = self.history.len();
-        let Some(p) = self.prompt.as_mut() else { return };
+        let Some(p) = self.prompt.as_mut() else {
+            return;
+        };
         match (p.history_index, back) {
             // Enter history: stash what is being typed so it can come back.
             (None, true) => {
@@ -221,7 +229,10 @@ impl SearchState {
     /// Recompute matches against `text`. Call after an edit, or after the
     /// buffer changes under a live highlight.
     pub fn refresh(&mut self, text: &str) {
-        self.matches = self.pattern.as_ref().map_or_else(Vec::new, |p| find_all(text, p));
+        self.matches = self
+            .pattern
+            .as_ref()
+            .map_or_else(Vec::new, |p| find_all(text, p));
     }
 
     /// Incremental preview for the current prompt text, without committing.
@@ -239,10 +250,64 @@ impl SearchState {
         step_inclusive(&matches, p.origin, p.direction)
     }
 
+    /// How many matches the CURRENT PROMPT text would find.
+    ///
+    /// The denominator of `[3/17]` while typing — the half that makes the
+    /// count a safety measurement rather than a curiosity: `[1/1]` says a
+    /// rename is safe, `[1/240]` says narrow the pattern first, and both
+    /// answers arrive before Enter.
+    ///
+    /// `0` covers all three "nothing to count" cases — no prompt, empty
+    /// prompt, uncompilable pattern — because a caller showing a count cannot
+    /// act on the difference; [`Self::prompt_is_empty`] separates them when it
+    /// matters.
+    #[must_use]
+    pub fn preview_total(&self, text: &str) -> usize {
+        let Some(p) = self.prompt.as_ref() else {
+            return 0;
+        };
+        if p.text.is_empty() {
+            return 0;
+        }
+        SearchPattern::compile(&p.text, self.case)
+            .ok()
+            .map_or(0, |pattern| find_all(text, &pattern).len())
+    }
+
+    /// Is a prompt open with nothing typed into it yet?
+    ///
+    /// Distinguishes "you have not typed a pattern" from "your pattern matches
+    /// nothing" — the first should stay silent, the second should say `[0/0]`.
+    #[must_use]
+    pub fn prompt_is_empty(&self) -> bool {
+        self.prompt.as_ref().is_none_or(|p| p.text.is_empty())
+    }
+
+    /// Where committing the prompt should land, given the prompt's origin.
+    ///
+    /// **Uses `step_inclusive`, exactly as [`Self::preview`] does** — that is
+    /// the entire contract: what the preview showed is where Enter lands.
+    ///
+    /// `repeat(origin - 1)` is NOT a substitute, and the difference is not
+    /// theoretical. `repeat` is exclusive, so it needs the caller to back up
+    /// one to include a match sitting on the origin; `saturating_sub` cannot
+    /// back up past 0, so a match at offset 0 — the first word of the file —
+    /// became unreachable and the commit silently jumped to the *second*
+    /// match. `engine.rs` documents this saturation trap on `step_inclusive`
+    /// itself; this method is why that type exists.
+    #[must_use]
+    pub fn commit_step(&self, origin: usize) -> Option<Step> {
+        step_inclusive(&self.matches, origin, self.direction)
+    }
+
     /// `n` (`reverse = false`) / `N` (`reverse = true`).
     #[must_use]
     pub fn repeat(&self, from: usize, reverse: bool) -> Option<Step> {
-        let dir = if reverse { self.direction.reversed() } else { self.direction };
+        let dir = if reverse {
+            self.direction.reversed()
+        } else {
+            self.direction
+        };
         step(&self.matches, from, dir)
     }
 
@@ -430,7 +495,11 @@ mod tests {
         for c in "foo".chars() {
             s.push(c);
         }
-        assert_eq!(s.preview(TEXT).unwrap().target.start, 0, "must light the one under the cursor");
+        assert_eq!(
+            s.preview(TEXT).unwrap().target.start,
+            0,
+            "must light the one under the cursor"
+        );
     }
 
     #[test]

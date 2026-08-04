@@ -1,0 +1,321 @@
+//! Search, driven by KEYSTROKES.
+//!
+//! Every pre-existing search test in the runtime calls
+//! `st.apply(&Action::SearchOpen(..))` directly. Those tests are good, but
+//! their own comment claimed they "prove the WIRING: that keys reach it" —
+//! and they cannot, because `apply` is downstream of the part that decides
+//! whether a key becomes that action at all. Deleting the `/` binding from
+//! `escriba-keymap` left every one of them green.
+//!
+//! Everything here goes through `tick`, so it exercises the real path:
+//!
+//! ```text
+//! AppEvent → translate_app_event → KeyRepeatGate → Keymap::dispatch → apply
+//! ```
+//!
+//! That is four opportunities for a search to be unreachable that a direct
+//! `apply` skips entirely.
+
+use escriba_buffer::BufferSet;
+use escriba_core::Mode;
+use escriba_runtime::{EditorState, PromptKind};
+use madori::event::{AppEvent, KeyCode, KeyEvent, Modifiers};
+
+const DOC: &str = "alpha bravo\ncharlie delta\nalpha echo\nfoxtrot alpha\n";
+
+fn state() -> EditorState {
+    let mut bufs = BufferSet::new();
+    let id = bufs.scratch(DOC);
+    EditorState::new_with_buffer(bufs, id)
+}
+
+fn key(code: KeyCode) -> AppEvent {
+    AppEvent::Key(KeyEvent {
+        key: code,
+        pressed: true,
+        modifiers: Modifiers::default(),
+        text: None,
+    })
+}
+
+/// Press one key through the full input path.
+fn press(st: &mut EditorState, code: KeyCode) {
+    st.tick(&key(code));
+}
+
+/// Type a literal string, one key at a time.
+fn type_str(st: &mut EditorState, s: &str) {
+    for c in s.chars() {
+        press(st, KeyCode::Char(c));
+    }
+}
+
+/// `/pattern<CR>` — entirely through keystrokes.
+fn search(st: &mut EditorState, pattern: &str) {
+    press(st, KeyCode::Char('/'));
+    type_str(st, pattern);
+    press(st, KeyCode::Enter);
+}
+
+// ── reachability: the bindings exist and produce a search ────────────────
+
+#[test]
+fn slash_opens_a_search_prompt() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+
+    assert_eq!(st.modal.mode(), Mode::Command, "`/` must enter the cmdline");
+    assert!(
+        st.search.is_prompting(),
+        "`/` must open a SEARCH prompt, not an ex-line"
+    );
+    assert_eq!(st.status_model().prompt, PromptKind::SearchForward);
+}
+
+#[test]
+fn question_mark_opens_a_backward_search_prompt() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('?'));
+
+    assert!(st.search.is_prompting());
+    assert_eq!(st.status_model().prompt, PromptKind::SearchBackward);
+}
+
+#[test]
+fn typed_characters_reach_the_prompt_and_are_visible() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "brav");
+
+    let model = st.status_model();
+    assert_eq!(
+        model.prompt_text, "brav",
+        "the pattern must reach the prompt"
+    );
+
+    // The whole point of the status model: a face can SEE it.
+    let rendered = model.render();
+    assert!(
+        rendered.contains("/brav"),
+        "prompt absent from status line: {rendered:?}"
+    );
+}
+
+#[test]
+fn slash_search_moves_the_cursor_through_real_keys() {
+    let mut st = state();
+    search(&mut st, "charlie");
+
+    assert_eq!(st.cursor().line, 1, "landed on the matching line");
+    assert_eq!(st.modal.mode(), Mode::Normal, "prompt closed on <CR>");
+}
+
+#[test]
+fn n_and_shift_n_walk_the_matches() {
+    let mut st = state();
+    search(&mut st, "alpha"); // matches on lines 0, 2, 3
+
+    let first = st.cursor().line;
+    press(&mut st, KeyCode::Char('n'));
+    let second = st.cursor().line;
+    assert_ne!(first, second, "`n` must advance");
+
+    press(&mut st, KeyCode::Char('N'));
+    assert_eq!(st.cursor().line, first, "`N` must come back");
+}
+
+#[test]
+fn star_searches_the_word_under_the_cursor() {
+    let mut st = state();
+    // Cursor starts at 0:0, on `alpha`.
+    press(&mut st, KeyCode::Char('*'));
+
+    assert!(st.search.pattern().is_some(), "`*` must arm a pattern");
+    assert_ne!(st.cursor().line, 0, "`*` must jump to another occurrence");
+}
+
+// ── the preview/commit contract (T0.1) ───────────────────────────────────
+
+#[test]
+fn commit_lands_where_the_preview_showed() {
+    // The regression: `submit_search` stepped from the LIVE cursor, which
+    // incremental preview had already moved onto the match — so the exclusive
+    // step skipped past it and committed to the NEXT match.
+    let mut st = state();
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    let previewed = st.cursor().line;
+
+    press(&mut st, KeyCode::Enter);
+    assert_eq!(
+        st.cursor().line,
+        previewed,
+        "committing must land on the match the preview was showing",
+    );
+}
+
+#[test]
+fn a_backward_search_commits_where_it_previewed() {
+    let mut st = state();
+    // Move down so a backward search has somewhere to go.
+    for _ in 0..3 {
+        press(&mut st, KeyCode::Char('j'));
+    }
+
+    press(&mut st, KeyCode::Char('?'));
+    type_str(&mut st, "alpha");
+    let previewed = st.cursor().line;
+
+    press(&mut st, KeyCode::Enter);
+    assert_eq!(
+        st.cursor().line,
+        previewed,
+        "backward commit must not drift"
+    );
+}
+
+#[test]
+fn escape_abandons_the_prompt_and_restores_the_cursor() {
+    let mut st = state();
+    let origin = st.cursor().line;
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "foxtrot");
+    assert_ne!(st.cursor().line, origin, "preview moved the cursor");
+
+    press(&mut st, KeyCode::Escape);
+    assert_eq!(
+        st.cursor().line,
+        origin,
+        "Escape must return to where I searched from"
+    );
+    assert!(!st.search.is_prompting());
+    assert_eq!(st.modal.mode(), Mode::Normal);
+}
+
+// ── the match count (T1.1) ───────────────────────────────────────────────
+
+#[test]
+fn the_count_reports_position_and_total() {
+    use escriba_search::MatchCount;
+
+    let mut st = state();
+    search(&mut st, "alpha"); // three matches
+
+    match st.status_model().count {
+        MatchCount::Exact { current, total } => {
+            assert_eq!(total, 3, "three `alpha`s in the fixture");
+            assert_eq!(current, 1, "landed on the first");
+        }
+        other => panic!("expected an exact count, got {other:?}"),
+    }
+
+    press(&mut st, KeyCode::Char('n'));
+    match st.status_model().count {
+        MatchCount::Exact { current, .. } => assert_eq!(current, 2, "`n` advances the ordinal"),
+        other => panic!("expected an exact count, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_pattern_that_matches_nothing_says_so_before_enter() {
+    use escriba_search::MatchCount;
+
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "zzzz");
+
+    assert_eq!(
+        st.status_model().count,
+        MatchCount::None,
+        "`[0/0]` must appear while typing, not after committing",
+    );
+}
+
+#[test]
+fn an_empty_prompt_counts_nothing_rather_than_zero() {
+    use escriba_search::MatchCount;
+
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+
+    assert_eq!(
+        st.status_model().count,
+        MatchCount::Idle,
+        "an untyped prompt has nothing to report — [0/0] would be a false claim",
+    );
+}
+
+#[test]
+fn a_failed_search_reports_a_message_the_status_line_can_show() {
+    let mut st = state();
+    search(&mut st, "zzzz");
+
+    let model = st.status_model();
+    let msg = model.message.expect("a failed search must say so");
+    assert!(msg.contains("E486"), "expected vim's E486, got {msg:?}");
+    assert!(
+        model.render().contains("E486"),
+        "the message must reach the line"
+    );
+}
+
+// ── highlights track the buffer (T0.2) ───────────────────────────────────
+
+#[test]
+fn editing_the_buffer_refreshes_the_match_offsets() {
+    // The regression: `SearchState::refresh` had zero callers, so inserting
+    // text left every highlight pointing at pre-edit offsets.
+    let mut st = state();
+    search(&mut st, "alpha");
+    let before: Vec<_> = st.search.matches().to_vec();
+    assert!(!before.is_empty());
+
+    // Insert four characters at the very start of the document. The cursor
+    // is already at 0:0, so no multi-key motion is needed — this test is
+    // about the refresh, not about `gg`.
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "XXXX");
+    press(&mut st, KeyCode::Escape);
+
+    let after: Vec<_> = st.search.matches().to_vec();
+    assert_eq!(after.len(), before.len(), "the same words still match");
+    assert_ne!(
+        after.first().map(|m| m.start),
+        before.first().map(|m| m.start),
+        "offsets must move with the text, or the highlight paints the wrong columns",
+    );
+}
+
+// ── prompt editing ───────────────────────────────────────────────────────
+
+#[test]
+fn backspace_edits_the_prompt_rather_than_the_buffer() {
+    let mut st = state();
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "charlieX");
+    press(&mut st, KeyCode::Backspace);
+
+    assert_eq!(st.status_model().prompt_text, "charlie");
+
+    press(&mut st, KeyCode::Enter);
+    assert_eq!(
+        st.cursor().line,
+        1,
+        "the corrected pattern is what committed"
+    );
+    // If Backspace had edited the BUFFER instead of the prompt, the fixture
+    // would no longer contain this line intact.
+    assert!(st.search.matches().len() == 1);
+}
+
+#[test]
+fn an_ex_command_is_not_mistaken_for_a_search() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+
+    assert!(!st.search.is_prompting(), "`:` is not a search");
+    assert_eq!(st.status_model().prompt, PromptKind::Ex);
+}
