@@ -131,6 +131,57 @@ impl Prompt {
     }
 }
 
+/// What the in-progress pattern would do, computed in ONE pass.
+///
+/// Replaces `Option<Step>` plus a separate `preview_total`, which between them
+/// scanned the whole document TWICE per status line — each call recompiling
+/// the regex and re-running `find_all`. The committed path had always read a
+/// cached match set; the prompting path doing two full scans was an oversight,
+/// not a trade.
+///
+/// The variants also separate two states `Option<Step>` conflated. `None` meant
+/// both "you have typed `a[`, which is not a pattern yet" and "your pattern
+/// compiles and finds nothing", so the status line rendered `[0/0]` for both —
+/// telling a user mid-character-class that their pattern matches nothing.
+/// Those are different answers and now have different variants.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Preview {
+    /// No prompt open, or nothing typed into it. Report nothing.
+    Idle,
+    /// The pattern does not compile YET — mid-typing a character class.
+    /// Reports nothing: an error per keystroke is unusable.
+    Incomplete,
+    /// Compiles, matches nothing. This is the one that earns `[0/0]`.
+    NoMatch,
+    /// Where the cursor would land, and how many matches there are.
+    Landed { step: Step, total: usize },
+}
+
+impl Preview {
+    /// The landing step, if the pattern found one.
+    ///
+    /// Lets a caller that only cares "did it land" keep reading naturally
+    /// without matching all four arms. The arms still exist for callers that
+    /// must distinguish `Incomplete` from `NoMatch` — which is the whole
+    /// reason the enum replaced `Option<Step>`.
+    #[must_use]
+    pub fn step(&self) -> Option<&Step> {
+        match self {
+            Self::Landed { step, .. } => Some(step),
+            Self::Idle | Self::Incomplete | Self::NoMatch => None,
+        }
+    }
+
+    /// How many matches the in-progress pattern finds. `0` unless it landed.
+    #[must_use]
+    pub const fn total(&self) -> usize {
+        match self {
+            Self::Landed { total, .. } => *total,
+            Self::Idle | Self::Incomplete | Self::NoMatch => 0,
+        }
+    }
+}
+
 /// The result of committing a prompt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Accepted {
@@ -423,23 +474,40 @@ impl SearchState {
     /// Incremental preview for the current prompt text, without committing.
     /// Returns where the cursor would land.
     #[must_use]
-    pub fn preview(&self, text: &str) -> Option<Step> {
-        let p = self.prompt.as_ref()?;
+    pub fn preview(&self, text: &str) -> Preview {
+        let Some(p) = self.prompt.as_ref() else {
+            return Preview::Idle;
+        };
         if p.text.is_empty() {
-            return None;
+            return Preview::Idle;
         }
-        let pattern = SearchPattern::compile(&p.text, self.case).ok()?;
+        let Ok(pattern) = SearchPattern::compile(&p.text, self.case) else {
+            return Preview::Incomplete;
+        };
+
+        // ONE scan. The total and the landing come from the same match set, so
+        // they cannot disagree and cannot cost twice.
         let matches = find_all(text, &pattern);
+        let total = matches.len();
+
         // Inclusive: typing `/foo` while sitting ON a `foo` must light up that
         // one. `n` deliberately uses the exclusive `step` instead.
-        let mut landed = step_inclusive(&matches, p.origin, p.direction)?;
+        let Some(mut landed) = step_inclusive(&matches, p.origin, p.direction) else {
+            return Preview::NoMatch;
+        };
         // Then walk forward however far `<C-g>` has taken us. Exclusive from
         // here, so each press advances by exactly one match, and wrapping
         // falls out of `step` rather than needing its own arithmetic.
         for _ in 0..p.preview_skip {
-            landed = step(&matches, landed.target.start, p.direction)?;
+            let Some(next) = step(&matches, landed.target.start, p.direction) else {
+                return Preview::NoMatch;
+            };
+            landed = next;
         }
-        Some(landed)
+        Preview::Landed {
+            step: landed,
+            total,
+        }
     }
 
     /// `<C-g>` / `<C-t>` — walk the preview to the next/previous match without
@@ -461,30 +529,6 @@ impl SearchState {
                 p.preview_skip.saturating_sub(1)
             };
         }
-    }
-
-    /// How many matches the CURRENT PROMPT text would find.
-    ///
-    /// The denominator of `[3/17]` while typing — the half that makes the
-    /// count a safety measurement rather than a curiosity: `[1/1]` says a
-    /// rename is safe, `[1/240]` says narrow the pattern first, and both
-    /// answers arrive before Enter.
-    ///
-    /// `0` covers all three "nothing to count" cases — no prompt, empty
-    /// prompt, uncompilable pattern — because a caller showing a count cannot
-    /// act on the difference; [`Self::prompt_is_empty`] separates them when it
-    /// matters.
-    #[must_use]
-    pub fn preview_total(&self, text: &str) -> usize {
-        let Some(p) = self.prompt.as_ref() else {
-            return 0;
-        };
-        if p.text.is_empty() {
-            return 0;
-        }
-        SearchPattern::compile(&p.text, self.case)
-            .ok()
-            .map_or(0, |pattern| find_all(text, &pattern).len())
     }
 
     /// Why the open prompt's pattern would fail to compile, if it would.
@@ -734,7 +778,7 @@ mod tests {
         for c in "baz".chars() {
             s.push(c);
         }
-        assert!(s.preview(TEXT).is_some(), "preview finds it");
+        assert!(s.preview(TEXT).step().is_some(), "preview finds it");
         assert!(s.pattern().is_none(), "but nothing is committed yet");
         assert!(s.matches().is_empty());
     }
@@ -747,7 +791,7 @@ mod tests {
             s.push(c);
         }
         assert_eq!(
-            s.preview(TEXT).unwrap().target.start,
+            s.preview(TEXT).step().copied().unwrap().target.start,
             0,
             "must light the one under the cursor"
         );
@@ -760,7 +804,7 @@ mod tests {
         for c in "a[b".chars() {
             s.push(c);
         }
-        assert!(s.preview(TEXT).is_none());
+        assert!(s.preview(TEXT).step().is_none());
     }
 
     #[test]
@@ -1101,7 +1145,15 @@ mod tests {
     #[test]
     fn preview_starts_on_the_first_match() {
         let st = previewing("aa");
-        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 0);
+        assert_eq!(
+            st.preview(HAYSTACK)
+                .step()
+                .copied()
+                .expect("a match")
+                .target
+                .start,
+            0
+        );
         assert_eq!(st.prompt().expect("open").preview_skip(), 0);
     }
 
@@ -1109,9 +1161,25 @@ mod tests {
     fn ctrl_g_walks_the_preview_forward_one_match_at_a_time() {
         let mut st = previewing("aa");
         st.preview_step(true);
-        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 6);
+        assert_eq!(
+            st.preview(HAYSTACK)
+                .step()
+                .copied()
+                .expect("a match")
+                .target
+                .start,
+            6
+        );
         st.preview_step(true);
-        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 12);
+        assert_eq!(
+            st.preview(HAYSTACK)
+                .step()
+                .copied()
+                .expect("a match")
+                .target
+                .start,
+            12
+        );
     }
 
     #[test]
@@ -1120,7 +1188,15 @@ mod tests {
         st.preview_step(true);
         st.preview_step(true);
         st.preview_step(false);
-        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 6);
+        assert_eq!(
+            st.preview(HAYSTACK)
+                .step()
+                .copied()
+                .expect("a match")
+                .target
+                .start,
+            6
+        );
     }
 
     #[test]
@@ -1132,7 +1208,15 @@ mod tests {
             st.preview_step(false);
         }
         assert_eq!(st.prompt().expect("open").preview_skip(), 0);
-        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 0);
+        assert_eq!(
+            st.preview(HAYSTACK)
+                .step()
+                .copied()
+                .expect("a match")
+                .target
+                .start,
+            0
+        );
     }
 
     #[test]
@@ -1144,7 +1228,12 @@ mod tests {
             st.preview_step(true);
         }
         assert_eq!(
-            st.preview(HAYSTACK).expect("a match").target.start,
+            st.preview(HAYSTACK)
+                .step()
+                .copied()
+                .expect("a match")
+                .target
+                .start,
             0,
             "three steps past three matches comes back to the first",
         );
@@ -1207,7 +1296,13 @@ mod tests {
         // Enter gives you.
         let mut st = previewing("aa");
         st.preview_step(true);
-        let previewed = st.preview(HAYSTACK).expect("a match").target.start;
+        let previewed = st
+            .preview(HAYSTACK)
+            .step()
+            .copied()
+            .expect("a match")
+            .target
+            .start;
 
         let prompt = st.prompt().expect("open");
         let (origin, skip) = (prompt.origin, prompt.preview_skip());
