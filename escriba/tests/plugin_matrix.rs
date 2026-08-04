@@ -189,3 +189,59 @@ fn bundled_composite_preserves_full_capability() {
     // A defplugin descriptor per bundled plugin.
     assert_eq!(plan.plugins.len(), BUNDLED.len(), "one descriptor per plugin");
 }
+
+/// Every icon must actually carry a glyph.
+///
+/// This exists because the count above could not catch what happened: the
+/// catalog shipped 23 `(deficon …)` forms whose `:glyph` was the EMPTY
+/// STRING, so `plan.icons.len() >= 20` passed while every icon rendered
+/// nothing. A capability *count* is not a capability — an arity assertion is
+/// blind to content by construction, and the surviving `:fg` colours made the
+/// file look intact on inspection.
+///
+/// A nerd-font glyph lives in a private-use area: U+E000–U+F8FF (BMP) or
+/// plane 15/16 (U+F0000+, where the Material Design icons live — Dockerfile's
+/// is U+F0868). Anything outside those is either an accidental ASCII
+/// placeholder or a plain unicode char that will not render as an icon, so
+/// the range is asserted too rather than just non-emptiness.
+#[test]
+fn every_bundled_icon_has_a_real_nerd_font_glyph() {
+    fn private_use(c: char) -> bool {
+        matches!(c as u32, 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x100000..=0x10FFFD)
+    }
+
+    let plan = escriba::catalog_bundle::bundled_plan().expect("bundled plan builds");
+    let mut failures: Vec<String> = Vec::new();
+
+    for icon in &plan.icons {
+        let key = if icon.is_pattern() {
+            format!("pattern {}", icon.pattern)
+        } else {
+            format!("filetype {}", icon.filetype)
+        };
+
+        match icon.glyph.chars().next() {
+            None => failures.push(format!("{key}: empty :glyph")),
+            Some(c) if !private_use(c) => failures.push(format!(
+                "{key}: :glyph U+{:04X} is outside the nerd-font private-use areas",
+                c as u32
+            )),
+            Some(_) => {}
+        }
+
+        if icon.glyph.chars().count() > 1 {
+            failures.push(format!(
+                "{key}: :glyph is {} chars — an icon is exactly one codepoint",
+                icon.glyph.chars().count()
+            ));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "{} of {} bundled icons are not renderable:\n  - {}",
+        failures.len(),
+        plan.icons.len(),
+        failures.join("\n  - "),
+    );
+}
