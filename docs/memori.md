@@ -23,18 +23,27 @@ So, stated at the tier each half actually earns:
   implementation `step`/`step_inclusive` delegate to.
 - **`Anchored`** — load-bearing. `EditorState::search_at` is
   `Anchored<usize, TextRev>` and the manual invalidation was deleted.
-- **`Chars`/`Bytes`/`Ruler`** — **two consumers, one of them the hot path.**
-  `CaretLine::byte_of_caret` (chars→bytes, now serving BOTH the search prompt
-  and the ex-line — see `CaretLine` below) and
-  `engine::find_all` (every match offset, bytes→chars, via
-  `Ruler::ascending`). Verified for each by reverting the call site and
-  watching the imports die. Captured for the third, 2026-08-04:
+- **`Chars`/`Bytes`/`Ruler`** — **ONE consumer outside memori, plus one
+  inside.** Outside: `engine::find_all` (every match offset, bytes→chars, via
+  `Ruler::ascending`) — the hot path, and the only file in the workspace that
+  names `Ruler` or `Offset` at all. Inside: `CaretLine::byte_of_caret`, which
+  now serves both prompts.
+
+  **This is a DOWNGRADE from what this section said hours earlier**, and the
+  cause is worth stating because it inverts the usual reading. It said *three*
+  consumers; consolidating the duplicated caret-line logic into `CaretLine`
+  deleted two of those three call sites, because they were two copies of one
+  conversion. So the axis now serves MORE code through FEWER consumers. A
+  consumer count is a proxy for reach and it moves the wrong way when
+  duplication is removed — count it, but do not read it as progress or
+  regression on its own.
+
+  Falsification, re-run 2026-08-04 against the one external consumer (revert
+  `find_all` to a hand-rolled map):
 
   ```
-  warning: unused imports: `Chars`, `Offset`, and `Ruler`
-    --> escriba-mode/src/lib.rs:36:33
-     |
-  36 | use escriba_memori::{CaretMove, Chars, Offset, Ruler};
+  warning: unused imports: `Offset` and `Ruler`
+    --> escriba-search/src/engine.rs:14:29
   ```
 - **`CaretLine`** — load-bearing, and the sharpest instance of what this crate
   is FOR. A line of text plus the caret editing it, private fields, invariant
