@@ -33,7 +33,7 @@
 extern crate self as escriba_mode;
 
 use escriba_core::{Mode, Operator};
-use escriba_memori::CaretMove;
+use escriba_memori::{CaretMove, Chars, Offset, Ruler};
 use serde::{Deserialize, Serialize};
 
 /// Pending operator-pending state — only meaningful in [`ModalState::Normal`].
@@ -66,14 +66,8 @@ pub enum ModalState {
     Visual,
     VisualLine,
     Command {
-        minibuffer: String,
-        /// Where the next typed character goes, in CHARS from the start.
-        ///
-        /// Chars, never bytes — the ex-line is text a human edits, and a byte
-        /// caret lands mid-codepoint the first time someone types `:e héllo`.
-        /// Same reasoning, and same invariant, as the search prompt's caret.
-        #[serde(default)]
-        caret: usize,
+        #[serde(flatten)]
+        line: ExLine,
     },
 }
 
@@ -85,14 +79,156 @@ impl Default for ModalState {
     }
 }
 
-/// A char caret as a BYTE index into `text`.
+/// The `:` line — its text and the caret editing it, as ONE value.
 ///
-/// The one place the ex-line turns chars into bytes, so no edit op does its
-/// own index arithmetic and lands mid-codepoint.
-fn byte_of_caret(text: &str, caret: usize) -> usize {
-    text.char_indices()
-        .nth(caret)
-        .map_or(text.len(), |(b, _)| b)
+/// They are one value because they have an invariant *between* them —
+/// `caret <= text.chars().count()` — and a struct with private fields is the
+/// only place an invariant like that can be maintained once rather than at
+/// every mutation site.
+///
+/// That is not a hypothetical. The first version of the ex-line caret kept
+/// the two as sibling fields of the enum variant, and `clear_minibuffer`
+/// emptied the text while leaving the caret where it was. No test could see
+/// it, because a caret past the end is silently clamped by `Ruler` instead of
+/// panicking — the only report was `warning: unused variable: caret`, which
+/// is the compiler saying "you destructured the invariant's other half and
+/// did nothing with it".
+///
+/// # Wire shape
+///
+/// `#[serde(flatten)]`ed into `ModalState::Command`, and `text` is renamed to
+/// `minibuffer`, so the published schema is unchanged by this refactor:
+/// `{"mode": "Command", "minibuffer": "wq", "caret": 2}`. `escriba-api`
+/// publishes it, so the encapsulation is internal only.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(from = "ExLineWire")]
+pub struct ExLine {
+    #[serde(rename = "minibuffer")]
+    text: String,
+    /// Where the next typed character goes, in CHARS from the start.
+    ///
+    /// Chars, never bytes — the ex-line is text a human edits, and a byte
+    /// caret lands mid-codepoint the first time someone types `:e héllo`.
+    /// Same reasoning, and same invariant, as the search prompt's caret.
+    #[serde(default)]
+    caret: usize,
+}
+
+/// The deserialization shadow of [`ExLine`].
+///
+/// Private fields stop *code* from breaking the invariant; they do nothing
+/// about a JSON document that simply asserts `caret: 99` on an empty line.
+/// Routing `Deserialize` through this shadow clamps at the parse boundary, so
+/// an `ExLine` that exists is an `ExLine` that holds — regardless of where it
+/// came from.
+#[derive(Deserialize, schemars::JsonSchema)]
+struct ExLineWire {
+    #[serde(default)]
+    minibuffer: String,
+    #[serde(default)]
+    caret: usize,
+}
+
+impl From<ExLineWire> for ExLine {
+    fn from(w: ExLineWire) -> Self {
+        let caret = w.caret.min(w.minibuffer.chars().count());
+        Self {
+            text: w.minibuffer,
+            caret,
+        }
+    }
+}
+
+impl ExLine {
+    /// The text typed so far, without the leading `:`.
+    #[must_use]
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// The caret, in chars from the start.
+    #[must_use]
+    pub const fn caret(&self) -> usize {
+        self.caret
+    }
+
+    /// Length in chars — the caret's upper bound.
+    #[must_use]
+    pub fn len_chars(&self) -> usize {
+        self.text.chars().count()
+    }
+
+    /// The caret as a BYTE index, for string surgery.
+    ///
+    /// The one place the ex-line turns chars into bytes, and it delegates to
+    /// `Ruler` rather than a local `char_indices().nth()` — which is what it
+    /// was for exactly one commit. That local version was the FOURTH
+    /// hand-rolled copy of this conversion in the workspace, written inside
+    /// the crate that had just taken a dependency on the vocabulary built to
+    /// hold it.
+    fn byte_of_caret(&self) -> usize {
+        Ruler::new(&self.text)
+            .to_bytes(Offset::<Chars>::new(self.caret))
+            .raw()
+    }
+
+    /// Insert a char AT the caret and step past it.
+    pub fn insert(&mut self, ch: char) {
+        let at = self.byte_of_caret();
+        self.text.insert(at, ch);
+        self.caret += 1;
+    }
+
+    /// Append a raw fragment and park the caret at the end.
+    ///
+    /// Appends rather than inserting on purpose: its caller is the command
+    /// registry's `__quit__` sentinel handshake, which is writing a fragment
+    /// the user did not type.
+    pub fn push_str(&mut self, s: &str) {
+        self.text.push_str(s);
+        self.caret = self.len_chars();
+    }
+
+    /// Move the caret.
+    pub fn move_caret(&mut self, to: CaretMove) {
+        self.caret = to.resolve(self.caret, self.len_chars());
+    }
+
+    /// Delete the char AT the caret (`<Del>`). No-op at the end of the line.
+    pub fn delete(&mut self) {
+        let at = self.byte_of_caret();
+        if at < self.text.len() {
+            self.text.remove(at);
+        }
+    }
+
+    /// Delete the char BEFORE the caret (`<BS>`), returning it.
+    ///
+    /// Deleting before the caret and deleting the tail are the same operation
+    /// only while the caret sits at the end — exactly the assumption that made
+    /// the search prompt's shadow diverge from the typed prompt.
+    pub fn backspace(&mut self) -> Option<char> {
+        if self.caret == 0 {
+            return None;
+        }
+        let at = self.byte_of_caret();
+        let prev = self.text[..at]
+            .char_indices()
+            .next_back()
+            .map_or(0, |(i, _)| i);
+        let ch = self.text.remove(prev);
+        self.caret -= 1;
+        Some(ch)
+    }
+
+    /// Empty the line AND return the caret home.
+    ///
+    /// Both halves, because they are one value. The version of this that
+    /// cleared only the text is what motivated the type.
+    pub fn clear(&mut self) {
+        self.text.clear();
+        self.caret = 0;
+    }
 }
 
 impl ModalState {
@@ -147,8 +283,7 @@ impl ModalState {
     /// Enter [`Mode::Command`] with an empty minibuffer.
     pub fn enter_command(&mut self) {
         *self = Self::Command {
-            minibuffer: String::new(),
-            caret: 0,
+            line: ExLine::default(),
         };
     }
 
@@ -247,42 +382,37 @@ impl ModalState {
     #[must_use]
     pub fn minibuffer(&self) -> &str {
         match self {
-            Self::Command { minibuffer, .. } => minibuffer,
+            Self::Command { line } => line.text(),
             _ => "",
         }
     }
 
     /// Push a char onto the minibuffer. No-op unless in [`Mode::Command`].
     pub fn push_minibuffer(&mut self, ch: char) {
-        if let Self::Command { minibuffer, caret } = self {
-            let at = byte_of_caret(minibuffer, *caret);
-            minibuffer.insert(at, ch);
-            *caret += 1;
+        if let Self::Command { line } = self {
+            line.insert(ch);
         }
     }
 
     /// Move the ex-line caret. No-op outside [`Mode::Command`].
     pub fn move_minibuffer_caret(&mut self, to: CaretMove) {
-        if let Self::Command { minibuffer, caret } = self {
-            *caret = to.resolve(*caret, minibuffer.chars().count());
+        if let Self::Command { line } = self {
+            line.move_caret(to);
         }
     }
 
     /// Delete the character AT the caret. No-op at the end of the line.
     pub fn delete_minibuffer_at_caret(&mut self) {
-        if let Self::Command { minibuffer, caret } = self {
-            let at = byte_of_caret(minibuffer, *caret);
-            if at < minibuffer.len() {
-                minibuffer.remove(at);
-            }
+        if let Self::Command { line } = self {
+            line.delete();
         }
     }
 
     /// The ex-line caret, in chars. `0` outside [`Mode::Command`].
     #[must_use]
-    pub const fn minibuffer_caret(&self) -> usize {
+    pub fn minibuffer_caret(&self) -> usize {
         match self {
-            Self::Command { caret, .. } => *caret,
+            Self::Command { line } => line.caret(),
             _ => 0,
         }
     }
@@ -290,22 +420,7 @@ impl ModalState {
     /// Pop a char off the minibuffer. `None` unless in [`Mode::Command`].
     pub fn pop_minibuffer(&mut self) -> Option<char> {
         match self {
-            // Deletes the char BEFORE the caret, not the tail — the two are
-            // the same only while the caret sits at the end, which is exactly
-            // the assumption that made the search prompt's shadow diverge.
-            Self::Command { minibuffer, caret } => {
-                if *caret == 0 {
-                    return None;
-                }
-                let at = byte_of_caret(minibuffer, *caret);
-                let prev = minibuffer[..at]
-                    .char_indices()
-                    .next_back()
-                    .map_or(0, |(i, _)| i);
-                let ch = minibuffer.remove(prev);
-                *caret -= 1;
-                Some(ch)
-            }
+            Self::Command { line } => line.backspace(),
             _ => None,
         }
     }
@@ -314,16 +429,15 @@ impl ModalState {
     /// registry's `__quit__` sentinel handshake). No-op outside
     /// [`Mode::Command`].
     pub fn push_minibuffer_str(&mut self, s: &str) {
-        if let Self::Command { minibuffer, caret } = self {
-            minibuffer.push_str(s);
-            *caret = minibuffer.chars().count();
+        if let Self::Command { line } = self {
+            line.push_str(s);
         }
     }
 
     /// Clear the minibuffer in place. No-op outside [`Mode::Command`].
     pub fn clear_minibuffer(&mut self) {
-        if let Self::Command { minibuffer, caret } = self {
-            minibuffer.clear();
+        if let Self::Command { line } = self {
+            line.clear();
         }
     }
 }
@@ -503,5 +617,83 @@ mod tests {
             let back: ModalState = serde_json::from_str(&json).unwrap();
             assert_eq!(s, back);
         }
+    }
+}
+
+#[cfg(test)]
+mod ex_line_tests {
+    use super::*;
+
+    #[test]
+    fn clearing_the_ex_line_brings_the_caret_home() {
+        // The defect that motivated `ExLine`: the text was emptied and the
+        // caret left behind, so the next insert built a line whose caret
+        // claimed a position the line did not have.
+        let mut s = ModalState::new();
+        s.enter_command();
+        for ch in "foo".chars() {
+            s.push_minibuffer(ch);
+        }
+        assert_eq!(s.minibuffer_caret(), 3);
+
+        s.clear_minibuffer();
+        assert_eq!(s.minibuffer(), "");
+        assert_eq!(s.minibuffer_caret(), 0, "the caret is half of the value");
+
+        s.push_minibuffer('x');
+        assert_eq!(s.minibuffer(), "x");
+        assert_eq!(
+            s.minibuffer_caret(),
+            1,
+            "and one char in means caret 1, not 4"
+        );
+    }
+
+    #[test]
+    fn the_caret_never_exceeds_the_line_it_indexes() {
+        // The invariant, exercised across every mutation the type offers.
+        let mut line = ExLine::default();
+        for ch in "héllo".chars() {
+            line.insert(ch);
+        }
+        line.move_caret(CaretMove::Start);
+        line.delete();
+        line.backspace();
+        line.move_caret(CaretMove::End);
+        line.push_str("!");
+        line.clear();
+        line.insert('a');
+        assert!(line.caret() <= line.len_chars());
+        assert_eq!(line.text(), "a");
+    }
+
+    #[test]
+    fn the_published_wire_shape_survives_the_extraction() {
+        // `escriba-api` publishes `ModalState`'s schema, so folding two fields
+        // into a struct must not be visible on the wire. This test is what
+        // makes `#[serde(flatten)]` + the `minibuffer` rename load-bearing
+        // rather than decorative.
+        let mut s = ModalState::new();
+        s.enter_command();
+        s.push_minibuffer('w');
+        s.push_minibuffer('q');
+        s.move_minibuffer_caret(CaretMove::Left);
+
+        let v: serde_json::Value = serde_json::to_value(&s).unwrap();
+        assert_eq!(v["mode"], "Command");
+        assert_eq!(v["minibuffer"], "wq", "NOT nested under a `line` key");
+        assert_eq!(v["caret"], 1);
+        assert_eq!(serde_json::from_value::<ModalState>(v).unwrap(), s);
+    }
+
+    #[test]
+    fn a_caret_past_the_end_is_clamped_at_the_parse_boundary() {
+        // Private fields stop code from breaking the invariant. They say
+        // nothing about a document that simply asserts a bad caret, which is
+        // what the deserialization shadow is for.
+        let s: ModalState =
+            serde_json::from_str(r#"{"mode":"Command","minibuffer":"ab","caret":99}"#).unwrap();
+        assert_eq!(s.minibuffer(), "ab");
+        assert_eq!(s.minibuffer_caret(), 2);
     }
 }

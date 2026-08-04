@@ -11,7 +11,7 @@
 //! a byte offset.
 
 use crate::pattern::SearchPattern;
-use escriba_memori::{Bound, Bytes, Offset, Ruler};
+use escriba_memori::{Bound, Offset, Ruler};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
