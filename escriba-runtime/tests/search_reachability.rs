@@ -1386,3 +1386,74 @@ fn holding_j_is_still_debounced() {
         st.cursor().line,
     );
 }
+
+// ── the prompt has ONE store, and <Del> reaches it ───────────────────────
+
+#[test]
+fn a_mid_pattern_insert_leaves_the_search_prompt_as_the_only_store() {
+    // The pattern lived in two stores that insert differently — `search.push`
+    // at the caret, `push_minibuffer` always at the end — so `/fo<Left>X` left
+    // them reading `fXo` and `foX`. Four more verbs (caret moves,
+    // forward-delete, delete-word, clear-to-start) never touched the shadow at
+    // all. The shadow is the EX-LINE's store; nothing reads it during a
+    // search, so the write is gone rather than duplicated more carefully.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "fo");
+    press(&mut st, KeyCode::Left);
+    type_str(&mut st, "X");
+
+    assert_eq!(
+        st.status_model().prompt_text,
+        "fXo",
+        "the caret decides where it lands"
+    );
+    assert!(
+        st.modal.minibuffer().is_empty(),
+        "the ex-line minibuffer must not shadow an open search prompt, got {:?}",
+        st.modal.minibuffer(),
+    );
+}
+
+#[test]
+fn an_ex_command_still_uses_the_minibuffer() {
+    // The other half: deleting the search write must not break the ex-line,
+    // which is the shadow's real owner.
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+    type_str(&mut st, "w");
+    assert_eq!(
+        st.modal.minibuffer(),
+        "w",
+        "the ex-line still stores its text"
+    );
+    assert_eq!(st.status_model().prompt_text, "w", "and the model reads it");
+}
+
+#[test]
+fn the_delete_key_removes_the_character_at_the_prompt_caret() {
+    // `<Del>` was documented on `Action::PromptDelete` and implemented in the
+    // runtime, but `escriba-input` dropped `KeyCode::Delete` in the same arm as
+    // `F(_)` and `Unknown`, and there was no `Key::Delete` to translate into —
+    // so the action was unreachable from any key.
+    //
+    // Caret 0 is what makes this a test of PromptDelete rather than of
+    // Backspace: at caret 0 backspace is a no-op by design, so only a working
+    // forward-delete can turn `charlie` into `harlie`.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "charlie");
+    press(&mut st, KeyCode::Home);
+    press(&mut st, KeyCode::Delete);
+
+    assert_eq!(st.status_model().prompt_text, "harlie");
+    assert_eq!(
+        st.status_model().prompt_caret,
+        0,
+        "forward-delete does not move the caret"
+    );
+    assert!(
+        st.search.is_prompting(),
+        "forward-delete never closes the prompt"
+    );
+}
