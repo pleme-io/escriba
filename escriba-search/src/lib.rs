@@ -48,7 +48,7 @@ pub use engine::{
     word_at,
 };
 pub use pattern::{CaseMode, PatternError, SearchPattern};
-pub use state::{Accepted, CaretMove, HISTORY_LIMIT, Prompt, SearchState};
+pub use state::{Accepted, CaretMove, HISTORY_LIMIT, Preview, Prompt, SearchState};
 
 #[cfg(test)]
 mod integration {
@@ -69,7 +69,7 @@ mod integration {
             s.push(c);
         }
         // Live preview lights the first hit before committing.
-        assert!(s.preview(DOC).is_some());
+        assert!(s.preview(DOC).step().is_some());
         assert!(s.pattern().is_none(), "preview must not commit");
 
         // <CR>

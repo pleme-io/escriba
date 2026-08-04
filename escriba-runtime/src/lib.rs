@@ -176,6 +176,33 @@ const fn is_repeat_storm_candidate(key: &Key) -> bool {
     )
 }
 
+/// What committing the open search prompt did.
+///
+/// The two commit paths — bare `/` and operated `d/` — used to own private
+/// copies of the whole sequence (read origin+skip, `accept`, three-arm
+/// match, `commit_step_skipping`), and they drifted: the operated one
+/// never reported the wrap, so `d/foo<CR>` that wrapped the file was
+/// silent where `/foo<CR>` printed "search hit BOTTOM, continuing at TOP".
+///
+/// Total, and matched exhaustively at BOTH call sites, so a new outcome is
+/// a compile error in two places rather than a case one path quietly
+/// forgets. It does not make divergence impossible — the two paths
+/// genuinely differ at the landing step — it makes FORGETTING A CASE
+/// impossible, which is the failure that actually happened.
+enum CommitOutcome {
+    /// The prompt committed and a match was found.
+    Landed {
+        origin: usize,
+        step: escriba_search::Step,
+    },
+    /// Committed, but nothing matched. E486 already reported.
+    NotFound,
+    /// Nothing typed and no previous pattern. E35 already reported.
+    NoPrevious,
+    /// No prompt was open.
+    NoPrompt,
+}
+
 /// A replayable text change.
 #[derive(Debug, Clone)]
 struct LastChange {
@@ -622,14 +649,18 @@ impl EditorState {
     fn match_count(&self) -> MatchCount {
         if self.search.is_prompting() {
             let text = self.active_text();
-            let total = self.search.preview_total(&text);
+            // ONE scan, four outcomes. `Incomplete` and `NoMatch` used to be
+            // the same `None`, so a half-typed character class reported
+            // `[0/0]` — telling the user their pattern matches nothing while
+            // they are still writing it.
             return match self.search.preview(&text) {
-                Some(step) => MatchCount::new(step.index, total),
-                // A pattern that is mid-typing (`a[`) has nothing to report;
-                // one that compiles and finds nothing reports `[0/0]`, which
-                // is the useful half — it says so BEFORE Enter.
-                None if total == 0 && !self.search.prompt_is_empty() => MatchCount::None,
-                None => MatchCount::Idle,
+                escriba_search::Preview::Landed { step, total } => {
+                    MatchCount::new(step.index, total)
+                }
+                escriba_search::Preview::NoMatch => MatchCount::None,
+                escriba_search::Preview::Incomplete | escriba_search::Preview::Idle => {
+                    MatchCount::Idle
+                }
             };
         }
         if self.search.pattern().is_none() {
@@ -727,6 +758,14 @@ impl EditorState {
         // engine was written — `engine.rs` even names the counter as the
         // reason it exists — and every consumer discarded it until now.
         self.search_at = Some(Anchored::new(step.index, self.text_rev()));
+    }
+
+    /// vim's "search hit BOTTOM, continuing at TOP".
+    ///
+    /// One reporter, called by the two places a search can wrap: the shared
+    /// commit and `n`/`N`. `land_on` deliberately does NOT report, or the bare
+    /// commit would say it twice.
+    fn report_wrap(&mut self, step: &escriba_search::Step) {
         if let Some(msg) = step.wrapped.message() {
             self.messages.push(msg.to_string());
         }
@@ -743,7 +782,11 @@ impl EditorState {
         self.jumps.push(self.cursor());
         let at = self.cursor_char();
         match self.search.repeat(at, reverse) {
-            Some(step) => self.land_on(step),
+            Some(step) => {
+                // `n` wrapping the file says so, same as a commit does.
+                self.report_wrap(&step);
+                self.land_on(step);
+            }
             None => {
                 let msg = self.search.pattern().map_or_else(
                     || "E35: No previous regular expression".to_string(),
@@ -769,10 +812,15 @@ impl EditorState {
         let Some(origin) = self.search.prompt().map(|p| p.origin) else {
             return;
         };
-        let target = self
-            .search
-            .preview(&text)
-            .map_or(origin, |s| s.target.start);
+        let target = match self.search.preview(&text) {
+            escriba_search::Preview::Landed { step, .. } => step.target.start,
+            // Nothing to show: back to where the search started. Covers a
+            // half-typed pattern and a pattern that finds nothing alike —
+            // both mean "there is no match to preview".
+            escriba_search::Preview::Idle
+            | escriba_search::Preview::Incomplete
+            | escriba_search::Preview::NoMatch => origin,
+        };
         // A pattern that STOPS matching returns the cursor to the origin.
         //
         // Preview used to only ever move forward, so typing `ch` (a match) and
@@ -795,11 +843,17 @@ impl EditorState {
     /// to the match, and an operated `/` must NOT — the cursor is the
     /// operator's start point, and moving it first would leave the operator
     /// with a zero-width range.
-    fn submit_search_operated(&mut self, op: Operator) {
+    /// Commit the open search prompt. The ONE copy of the sequence.
+    ///
+    /// Reports its own failures (E486 / E35) so neither caller has to carry a
+    /// third copy of the message strings. `Accepted::Invalid` cannot reach
+    /// here — `apply_counted` rejects an uncompilable pattern at the dispatch
+    /// boundary before the FSM or this method ever sees the submit.
+    fn commit_search_prompt(&mut self) -> CommitOutcome {
         let text = self.active_text();
         let Some((origin, skip)) = self.search.prompt().map(|p| (p.origin, p.preview_skip()))
         else {
-            return;
+            return CommitOutcome::NoPrompt;
         };
 
         match self.search.accept(&text) {
@@ -808,17 +862,18 @@ impl EditorState {
                 self.modal.enter(Mode::Normal);
                 match self.search.commit_step_skipping(origin, skip) {
                     Some(step) => {
-                        // Operating over a search is itself a far jump.
-                        if let Some(buf) = self.buffers.get(self.active) {
-                            let from = buf.char_to_position(origin);
-                            self.jumps.push(from);
-                            let target = buf.char_to_position(step.target.start);
-                            self.set_cursor(from);
-                            self.search_at = Some(Anchored::new(step.index, self.text_rev()));
-                            self.apply_operator_to(op, target);
-                        }
+                        // The wrap notice belongs HERE, once, for both commit
+                        // paths. Reporting it in each caller is what let the
+                        // operated path lose it in the first place — and my
+                        // first attempt at this refactor duplicated it again
+                        // rather than moving it, which the red proof caught.
+                        self.report_wrap(&step);
+                        CommitOutcome::Landed { origin, step }
                     }
-                    None => self.report_pattern_not_found(),
+                    None => {
+                        self.report_pattern_not_found();
+                        CommitOutcome::NotFound
+                    }
                 }
             }
             escriba_search::Accepted::NothingToRepeat => {
@@ -826,17 +881,23 @@ impl EditorState {
                 self.modal.enter(Mode::Normal);
                 self.messages
                     .push("E35: No previous regular expression".to_string());
+                CommitOutcome::NoPrevious
             }
+            // Unreachable: the boundary guard in `apply_counted` returns early
+            // on an uncompilable pattern, leaving the prompt open. Reported
+            // rather than `unreachable!()` — a panic in the editor's commit
+            // path is a worse failure than a duplicate message.
             escriba_search::Accepted::Invalid(e) => {
                 let mut m = String::from("E383: Invalid search string: ");
                 m.push_str(&e.to_string());
                 self.messages.push(m);
+                CommitOutcome::NoPrompt
             }
         }
     }
 
-    /// vim's E486, with the pattern named. One place, so both the bare and the
-    /// operated search paths report identically.
+    /// vim's E486, with the pattern named. One place, so every path that fails
+    /// to find reports identically.
     fn report_pattern_not_found(&mut self) {
         let mut m = String::from("E486: Pattern not found");
         if let Some(p) = self.search.pattern() {
@@ -846,73 +907,42 @@ impl EditorState {
         self.messages.push(m);
     }
 
-    /// Commit the `/` prompt: compile, search, jump, and report like vim.
+    /// Bare `/foo<CR>` — commit and MOVE the cursor to the match.
+    ///
+    /// The only difference from the operated path is that this one lands;
+    /// everything else lives in `commit_search_prompt`.
     fn submit_search(&mut self) {
-        let text = self.active_text();
-        // Step from the prompt's ORIGIN, never from the live cursor.
-        //
-        // Incremental preview has already parked the cursor on the previewed
-        // match, so stepping from `cursor_char()` searches from the answer
-        // rather than from the question. Two measured consequences of that:
-        // `/foo<CR>` committed to the match AFTER the one the preview showed
-        // (the exclusive step skipped past it), and `?foo` previewed one match
-        // and committed to a different one. Anchoring to the origin makes
-        // "what the preview showed is where I land" true by construction —
-        // which is the entire promise of incremental search.
-        //
-        // `commit_step` then uses the INCLUSIVE step, the same one the
-        // preview uses, so a match sitting on the origin is included rather
-        // than stepped past.
-        let at = self
-            .search
-            .prompt()
-            .map_or_else(|| self.cursor_char(), |p| p.origin);
-        // Read the preview step BEFORE `accept` consumes the prompt: Enter has
-        // to land on the match `<C-g>` walked to, not back on the first.
-        // Without this, stepping the preview and committing would break the
-        // very contract the commit anchor was fixed to establish.
-        let skip = self
-            .search
-            .prompt()
-            .map_or(0, escriba_search::Prompt::preview_skip);
-        let outcome = self.search.accept(&text);
-        match outcome {
-            escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
-                self.modal.clear_minibuffer();
-                self.modal.enter(Mode::Normal);
-                // Record the jump from the PROMPT ORIGIN, not the live cursor:
-                // preview has already moved the cursor onto the match, so
-                // `<C-o>` would otherwise return you to the match you jumped
-                // to rather than the place you searched from.
+        match self.commit_search_prompt() {
+            CommitOutcome::Landed { origin, step } => {
                 if let Some(buf) = self.buffers.get(self.active) {
-                    let origin = buf.char_to_position(at);
-                    self.jumps.push(origin);
+                    let from = buf.char_to_position(origin);
+                    self.jumps.push(from);
                 }
-                match self.search.commit_step_skipping(at, skip) {
-                    Some(step) => self.land_on(step),
-                    None => {
-                        let mut m = String::from("E486: Pattern not found");
-                        if let Some(p) = self.search.pattern() {
-                            m.push_str(": ");
-                            m.push_str(p.raw());
-                        }
-                        self.messages.push(m);
-                    }
+                self.land_on(step);
+            }
+            CommitOutcome::NotFound | CommitOutcome::NoPrevious | CommitOutcome::NoPrompt => {}
+        }
+    }
+
+    /// `d/foo<CR>` — commit, then operate from the prompt's origin to where the
+    /// search lands, as ONE action.
+    ///
+    /// The cursor must NOT move to the match first: it is the operator's start
+    /// point. That is the whole reason this differs from the bare path, and
+    /// now the only reason.
+    fn submit_search_operated(&mut self, op: Operator) {
+        match self.commit_search_prompt() {
+            CommitOutcome::Landed { origin, step } => {
+                if let Some(buf) = self.buffers.get(self.active) {
+                    let from = buf.char_to_position(origin);
+                    let target = buf.char_to_position(step.target.start);
+                    // Operating over a search is itself a far jump.
+                    self.jumps.push(from);
+                    self.set_cursor(from);
+                    self.apply_operator_to(op, target);
                 }
             }
-            escriba_search::Accepted::NothingToRepeat => {
-                self.modal.clear_minibuffer();
-                self.modal.enter(Mode::Normal);
-                self.messages
-                    .push("E35: No previous regular expression".to_string());
-            }
-            // The prompt stays OPEN so the typed pattern is not lost; the user
-            // fixes the regex instead of retyping it.
-            escriba_search::Accepted::Invalid(e) => {
-                let mut m = String::from("E383: Invalid search string: ");
-                m.push_str(&e.to_string());
-                self.messages.push(m);
-            }
+            CommitOutcome::NotFound | CommitOutcome::NoPrevious | CommitOutcome::NoPrompt => {}
         }
     }
 

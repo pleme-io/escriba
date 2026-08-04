@@ -818,7 +818,10 @@ fn the_preview_is_always_on_a_real_match_or_at_the_origin() {
     for c in "charlie".chars() {
         press(&mut st, KeyCode::Char(c));
         let line = st.cursor().line;
-        let on_match = !st.search.preview_total(&DOC.to_string()).eq(&0);
+        let on_match = matches!(
+            st.search.preview(&DOC.to_string()),
+            escriba_search::Preview::Landed { .. }
+        );
         assert!(
             line == origin || on_match,
             "cursor at {line} with no match to justify it",
@@ -1526,5 +1529,55 @@ fn the_invalid_pattern_guard_does_not_break_the_ex_line() {
             .message
             .is_some_and(|m| m.contains("E383")),
         "an ex-command is not a search pattern",
+    );
+}
+
+// ── the two commit paths are one implementation ──────────────────────────
+
+#[test]
+fn an_operated_search_that_wraps_reports_the_wrap_like_the_bare_one_does() {
+    // The two paths were copy-paste and had already drifted: the operated one
+    // never reported the wrap, so `d/foo<CR>` that wrapped the file was silent
+    // where `/foo<CR>` printed "search hit BOTTOM, continuing at TOP".
+    let mut st = state();
+    // `G`, not three rapid `j`s — `j` is in the repeat-storm allow-list and a
+    // burst of them is (correctly) debounced, so the setup would not move.
+    press(&mut st, KeyCode::Char('G'));
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "charlie"); // only match is ABOVE us -> wraps
+    press(&mut st, KeyCode::Enter);
+
+    assert!(
+        st.messages.iter().any(|m| m.contains("search hit BOTTOM")),
+        "the operated path dropped the wrap notice, got {:?}",
+        st.messages,
+    );
+}
+
+#[test]
+fn both_commit_paths_report_the_identical_not_found_message() {
+    // Pins `report_pattern_not_found` as the single copy.
+    let mut bare = state();
+    search(&mut bare, "zzzz");
+
+    let mut operated = state();
+    press(&mut operated, KeyCode::Char('d'));
+    press(&mut operated, KeyCode::Char('/'));
+    type_str(&mut operated, "zzzz");
+    press(&mut operated, KeyCode::Enter);
+
+    assert_eq!(
+        bare.messages.last(),
+        operated.messages.last(),
+        "one E486 producer, so the two paths cannot word it differently",
+    );
+    // Assert the CONTENT too, not only that the two agree: comparing the paths
+    // to each other cannot detect a change that affects both, which is exactly
+    // what the red proof for this test showed.
+    assert_eq!(
+        bare.messages.last().map(String::as_str),
+        Some("E486: Pattern not found: zzzz"),
+        "the message must name the pattern, not just carry the code",
     );
 }
