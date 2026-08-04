@@ -47,8 +47,9 @@ pub use engine::{
     Direction, MAX_COUNT, MatchCount, SearchMatch, Step, Wrapped, find_all, step, step_inclusive,
     word_at,
 };
+pub use escriba_memori::CaretMove;
 pub use pattern::{CaseMode, PatternError, SearchPattern};
-pub use state::{Accepted, CaretMove, HISTORY_LIMIT, Preview, Prompt, SearchState};
+pub use state::{Accepted, HISTORY_LIMIT, Preview, Prompt, SearchState};
 
 #[cfg(test)]
 mod integration {

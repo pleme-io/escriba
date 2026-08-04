@@ -22,7 +22,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use escriba_memori::{Chars, Offset, Ruler};
+use escriba_memori::{CaretMove, Chars, Offset, Ruler};
 
 use crate::engine::{Direction, SearchMatch, Step, find_all, step, step_inclusive};
 use crate::pattern::{CaseMode, PatternError, SearchPattern};
@@ -63,39 +63,6 @@ pub struct Prompt {
     /// The in-progress text stashed when history browsing began, so arrowing
     /// back down past the newest entry restores what the user actually typed.
     stashed: Option<String>,
-}
-
-/// Where a caret movement lands.
-///
-/// A closed set, so "move the caret" cannot mean an unhandled direction. Each
-/// resolves against the CURRENT length, so none can leave the caret out of
-/// bounds — the clamping is in one place rather than at each call site.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
-pub enum CaretMove {
-    #[default]
-    Left,
-    Right,
-    Start,
-    End,
-}
-
-impl CaretMove {
-    /// Total, and saturating at both ends.
-    #[must_use]
-    pub const fn resolve(self, caret: usize, len: usize) -> usize {
-        match self {
-            Self::Left => caret.saturating_sub(1),
-            Self::Right => {
-                if caret < len {
-                    caret + 1
-                } else {
-                    len
-                }
-            }
-            Self::Start => 0,
-            Self::End => len,
-        }
-    }
 }
 
 impl Prompt {

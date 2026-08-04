@@ -8,9 +8,16 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
-# DELIBERATELY EMPTY. memori sits BELOW escriba-core and escriba-search, both of
-# which manipulate positions, so it can depend on neither. That constraint is
-# the reason this is its own crate rather than a module in core: core imports
+# NO INTERNAL DEPENDENCIES, deliberately — that is the constraint, not "zero
+# dependencies". memori sits BELOW escriba-core and escriba-search, both of
+# which manipulate positions, so it can depend on neither. That is the reason
+# this is its own crate rather than a module in core: core imports
 # `escriba_search::Direction`, so a primitive living there is invisible to the
 # search engine whose `step`/`step_inclusive` twins this vocabulary replaces.
+#
+# External leaf crates are fine and create no cycle. `CaretMove` travels inside
+# `Action`, which is serialised and published in the OpenAPI spec, so it needs
+# the same derives every other wire type here carries.
 [dependencies]
+serde    = { workspace = true }
+schemars = { workspace = true }

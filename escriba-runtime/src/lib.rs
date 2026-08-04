@@ -627,12 +627,8 @@ impl EditorState {
             column: cursor.column.saturating_add(1) as usize,
             prompt: kind,
             prompt_text: prompt.map_or_else(|| self.modal.minibuffer(), |p| p.text.as_str()),
-            // The ex-line has no caret of its own yet, so it reports the end —
-            // which is where an append-only line's caret always is. Stated
-            // rather than defaulted silently: giving the ex-line real caret
-            // editing is the same change applied to `ModalState`.
             prompt_caret: prompt.map_or_else(
-                || self.modal.minibuffer().chars().count(),
+                || self.modal.minibuffer_caret(),
                 escriba_search::Prompt::caret,
             ),
             count: self.match_count(),
@@ -1069,8 +1065,11 @@ impl EditorState {
             // they never reach the executor. Defensive no-op for exhaustiveness.
             Action::Operator(_) => {}
             Action::PromptCaret { to } => {
+                // Both prompts have a caret now, and the same keys move it.
                 if self.search.is_prompting() {
                     self.search.move_caret(*to);
+                } else {
+                    self.modal.move_minibuffer_caret(*to);
                 }
             }
             Action::SearchPreviewStep { forward } => {
@@ -1083,6 +1082,8 @@ impl EditorState {
                 if self.search.is_prompting() {
                     self.search.delete_at_caret();
                     self.preview_search();
+                } else {
+                    self.modal.delete_minibuffer_at_caret();
                 }
             }
             Action::PromptDeleteWord => {
