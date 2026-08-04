@@ -20,10 +20,11 @@ use std::collections::HashMap;
 
 use awase::KeyRepeatGate;
 use escriba_buffer::BufferSet;
+use escriba_buffer::TextRev;
 use escriba_command::{CommandRegistry, EditContext};
 use escriba_core::{
-    Action, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList, Mode, Motion,
-    Operator, Position, Range, TextEffect, WindowId,
+    Action, Anchored, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList, Mode,
+    Motion, Operator, Position, Range, TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -57,9 +58,14 @@ pub struct EditorState {
     /// sink for the tatara-lisp `(message …)` effect and other feedback.
     pub messages: Vec<String>,
     /// Which match the cursor last landed on (0-based) — the `[3/17]`
-    /// numerator. `None` when no search has landed, or after an edit
-    /// invalidated the match set. The denominator is `search.matches().len()`.
-    search_at: Option<usize>,
+    /// numerator, ANCHORED to the text revision it was computed against.
+    ///
+    /// The anchor is what removes the manual invalidation this field used to
+    /// need. An ordinal indexes a match set; when the text changes the set
+    /// changes underneath it and the number silently means something else.
+    /// Reading through `Anchored::get(current_rev)` makes that a `None`, so
+    /// forgetting to clear is no longer a thing that can be forgotten.
+    search_at: Option<Anchored<usize, TextRev>>,
     /// Where the cursor was before each far jump — `<C-o>` / `<C-i>`.
     /// Search commits, `n`/`N` and `*`/`#` all record into it, which is what
     /// makes a search a place you can come back from.
@@ -477,6 +483,15 @@ impl EditorState {
     }
 
     /// The active buffer's text. Search is a pure function of it.
+    /// The active buffer's text revision — the token an offset measured
+    /// against it should carry.
+    #[must_use]
+    fn text_rev(&self) -> TextRev {
+        self.buffers
+            .get(self.active)
+            .map_or_else(TextRev::default, escriba_buffer::Buffer::text_rev)
+    }
+
     fn active_text(&self) -> String {
         self.buffers
             .get(self.active)
@@ -547,13 +562,16 @@ impl EditorState {
             return MatchCount::Idle;
         }
         let total = self.search.matches().len();
-        self.search_at.map_or(
+        // Read THROUGH the anchor: an ordinal computed against text that has
+        // since changed reads as absent, so a stale count cannot be displayed.
+        let rev = self.text_rev();
+        self.search_at.as_ref().and_then(|a| a.get(rev)).map_or(
             if total == 0 {
                 MatchCount::None
             } else {
                 MatchCount::Idle
             },
-            |i| MatchCount::new(i, total),
+            |&i| MatchCount::new(i, total),
         )
     }
 
@@ -565,7 +583,7 @@ impl EditorState {
         // The `[3/17]` numerator. `Step` has carried this index since the
         // engine was written — `engine.rs` even names the counter as the
         // reason it exists — and every consumer discarded it until now.
-        self.search_at = Some(step.index);
+        self.search_at = Some(Anchored::new(step.index, self.text_rev()));
         if let Some(msg) = step.wrapped.message() {
             self.messages.push(msg.to_string());
         }
@@ -639,7 +657,7 @@ impl EditorState {
                             self.jumps.push(from);
                             let target = buf.char_to_position(step.target.start);
                             self.set_cursor(from);
-                            self.search_at = Some(step.index);
+                            self.search_at = Some(Anchored::new(step.index, self.text_rev()));
                             self.apply_operator_to(op, target);
                         }
                     }
@@ -916,13 +934,10 @@ impl EditorState {
         if action.text_effect() == TextEffect::Mutates && self.search.pattern().is_some() {
             let text = self.active_text();
             self.search.refresh(&text);
-            // The ordinal indexed the OLD match set, which just changed
-            // underneath it. Re-derive it from where the cursor actually is
-            // rather than clearing: after a commit the cursor IS on its match,
-            // so the count survives; after an unrelated edit it honestly
-            // becomes `None`.
-            let at = self.cursor_char();
-            self.search_at = self.search.matches().iter().position(|m| m.contains(at));
+            // NO manual invalidation of `search_at` here, deliberately. It is
+            // `Anchored` to the text revision, so an ordinal computed against
+            // the old text now reads as `None` on its own. This is the line
+            // that used to have to be remembered.
         }
         // An action reached the executor ⇒ visible state may have changed.
         // Advance the refresh generation so the renderer repaints (and

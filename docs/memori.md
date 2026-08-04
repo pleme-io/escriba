@@ -1,8 +1,8 @@
 # memori (目盛) — the positioning vocabulary
 
-**Status: M1 — typed border, laws proven, and the search engine's endpoint
-rule folded onto it.** One architectural finding remains open (§4.2); read it
-before citing freshness as solved.
+**Status: M2 — all three axes typed, proven, and wired to real consumers.**
+Both architectural findings from M0 are resolved (§4). The remaining
+follow-ups are extensions, not gaps.
 
 `memori` is the graduation marks on a ruler. An offset is a count of marks, and
 the marks differ — which is the entire problem.
@@ -82,7 +82,7 @@ stale read sneaks back in.
 | a scale conversion done without the text | `Ruler` has no constructor that omits `&str` | truly-unrep |
 | a mid-codepoint or past-the-end byte offset | `Ruler::snap` is total and idempotent; every conversion snaps first | parse-time-rejected |
 | an inclusive search spelled as `step(from - 1)`, hiding a match at 0 | `Bound` is a value and `first_matching` contains no subtraction | parse-time-rejected |
-| reading an offset computed against older text | `Anchored::get(now)` returns `None` on a generation mismatch | parse-time-rejected |
+| reading an ordinal computed against older text | `Anchored<usize, TextRev>` — `get(current_rev)` returns `None`; the manual invalidation was DELETED | parse-time-rejected |
 | a `Ruler` built for the WRONG text | nothing prevents it — the text is a plain `&str` argument | only-mitigated (C1: no text identity exists to bind a Ruler to) |
 | `escriba-search`'s `step`/`step_inclusive` drifting apart | CLOSED — both are one-line delegations to `step_bounded`, which asks `Bound`; there is one implementation to drift | parse-time-rejected |
 
@@ -153,31 +153,41 @@ existing engine tests red — `forward_advances_past_a_match_the_cursor_sits_on`
 `step_inclusive_backward_also_accepts_the_cursor_position` — so the fold is
 load-bearing rather than cosmetic.
 
-### 4.2 `EditGen` is a REFRESH generation, not a TEXT generation
+### 4.2 RESOLVED — `TextRev`, distinct from `EditGen`
 
-`Anchored` wants to key on "has the text changed". escriba's only generation
-counter, `EditGen`, is bumped by `apply_resolved` on **every action** —
-including pure cursor moves — because its job is telling the renderer when to
-repaint.
+`Anchored` needs to key on "has the TEXT changed". escriba's only counter,
+`EditGen`, is bumped by `apply_resolved` on **every action** including pure
+cursor moves, because its job is telling the renderer when to repaint. Keying
+staleness on it would blank every cached offset after any keypress — noise, not
+staleness.
 
-Keying `Anchored` on it would mark every offset stale after any keypress,
-which is not staleness but noise. So `EditorState::search_at` still uses manual
-invalidation (re-derived from the cursor after a text-mutating action) rather
-than `Anchored`.
+`escriba_buffer::TextRev` is the missing primitive: a private field on
+`Buffer`, bumped **if and only if the rope changed**. Private so it can only
+advance through a real mutation — a settable revision is a revision that lies —
+and bumped after the fallible prelude, so a REJECTED edit does not invalidate
+offsets that are still correct (`a_rejected_edit_does_not_advance_the_revision`).
 
-**The missing primitive is a text-revision counter on the buffer**, distinct
-from the refresh generation. That is `escriba-buffer`'s to own, and once it
-exists `Anchored<Offset<Chars>>` replaces the manual clear and the
-`refresh`-had-no-callers class closes by construction rather than by a
-classifier that a future action could still forget.
+`EditorState::search_at` is now `Option<Anchored<usize, TextRev>>`, and **the
+manual invalidation line was deleted**. That line is the whole point: it was a
+thing that had to be remembered, and `SearchState::refresh` — which existed for
+exactly this purpose and had zero callers for its entire life — is the
+cautionary tale for what happens when it is not.
+
+**Proven 2026-08-04, both directions:**
+
+- freezing `text_rev()` so it never changes turns
+  `an_edit_expires_the_match_ordinal_without_anyone_clearing_it` red — the
+  anchor is doing the work, not a leftover clear;
+- `a_pure_cursor_move_does_not_expire_the_ordinal` pins the distinction that
+  makes it useful rather than noisy, and would fail immediately if anyone
+  re-keyed it on `EditGen`.
 
 ---
 
 ## 5. Named follow-ups
 
 1. ~~Extract to `escriba-memori` → fold the twins.~~ **DONE.**
-2. Text-revision counter in `escriba-buffer` → `Anchored` becomes usable for
-   real, replacing manual invalidation. Closes the C1-adjacent staleness class.
+2. ~~Text-revision counter in `escriba-buffer`.~~ **DONE** — `TextRev`.
 3. Retrofit `escriba-search::engine`'s `byte_to_char` map and
    `escriba-lsp-client`-style UTF-16 conversion onto `Ruler`, deleting the
    hand-rolled copies.

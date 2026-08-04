@@ -610,3 +610,49 @@ fn the_override_is_kept_in_the_pattern_text_the_user_sees() {
         "the prompt and history show what was typed, vim-style",
     );
 }
+
+// ── staleness is now a TYPE, not a discipline (memori::Anchored) ─────────
+
+#[test]
+fn an_edit_expires_the_match_ordinal_without_anyone_clearing_it() {
+    use escriba_search::MatchCount;
+
+    let mut st = state();
+    search(&mut st, "alpha");
+    assert!(
+        matches!(st.status_model().count, MatchCount::Exact { .. }),
+        "a landed search reports its ordinal",
+    );
+
+    // Change the text. NOTHING in the runtime clears `search_at` any more —
+    // the ordinal is Anchored to the buffer's text revision, so it expires on
+    // its own. Before this, an explicit invalidation line had to be
+    // remembered, and `SearchState::refresh` is the cautionary tale: it
+    // existed for exactly this purpose and had zero callers.
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "ZZZZ");
+    press(&mut st, KeyCode::Escape);
+
+    assert!(
+        !matches!(st.status_model().count, MatchCount::Exact { .. }),
+        "an ordinal into the OLD match set must not be displayed as current",
+    );
+}
+
+#[test]
+fn a_pure_cursor_move_does_not_expire_the_ordinal() {
+    use escriba_search::MatchCount;
+
+    // The distinction that makes the anchor useful rather than noisy: the
+    // buffer's TEXT revision, not the refresh generation. `EditGen` bumps on
+    // every action including this one, and keying on it would blank the count
+    // after any keypress.
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('l'));
+
+    assert!(
+        matches!(st.status_model().count, MatchCount::Exact { .. }),
+        "moving the cursor changed no text, so the ordinal is still true",
+    );
+}

@@ -11,6 +11,27 @@ use crate::line_ending::LineEnding;
 use crate::undo::{UndoEntry, UndoTree};
 
 /// A single open text buffer.
+/// A monotonic counter of TEXT changes to one buffer.
+///
+/// Deliberately distinct from `escriba-core`'s `EditGen`, which is a REFRESH
+/// generation: that one bumps on every action, including pure cursor moves,
+/// because its job is telling the renderer when to repaint. Keying staleness
+/// on it would mark every cached offset stale after any keypress — noise, not
+/// staleness.
+///
+/// This one bumps if and only if the rope changed, which is the question an
+/// offset actually needs answered: "is the text I was measured against still
+/// the text?"
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct TextRev(pub u64);
+
+impl TextRev {
+    #[must_use]
+    pub const fn next(self) -> Self {
+        Self(self.0.wrapping_add(1))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Buffer {
     pub id: BufferId,
@@ -20,6 +41,10 @@ pub struct Buffer {
     pub encoding: Encoding,
     pub line_ending: LineEnding,
     pub undo: UndoTree,
+    /// Bumped by every successful [`Buffer::apply`]. Private so it can only
+    /// advance through a real mutation — a settable revision is a revision
+    /// that lies.
+    text_rev: TextRev,
 }
 
 impl Buffer {
@@ -33,7 +58,15 @@ impl Buffer {
             encoding: Encoding::default(),
             line_ending: LineEnding::default(),
             undo: UndoTree::new(),
+            text_rev: TextRev::default(),
         }
+    }
+
+    /// This buffer's current text revision — the token an offset measured
+    /// against it should carry.
+    #[must_use]
+    pub const fn text_rev(&self) -> TextRev {
+        self.text_rev
     }
 
     #[must_use]
@@ -47,6 +80,7 @@ impl Buffer {
             encoding: Encoding::default(),
             line_ending,
             undo: UndoTree::new(),
+            text_rev: TextRev::default(),
         }
     }
 
@@ -66,6 +100,7 @@ impl Buffer {
             encoding: Encoding::default(),
             line_ending,
             undo: UndoTree::new(),
+            text_rev: TextRev::default(),
         })
     }
 
@@ -173,6 +208,11 @@ impl Buffer {
         let start_char = self.position_to_char(range.start)?;
         let end_char = self.position_to_char(range.end)?;
         let previous_text = self.rope.slice(start_char..end_char).to_string();
+
+        // The rope is about to change, so every offset measured against the
+        // old text expires here. Bumping AFTER the fallible prelude means a
+        // rejected edit does not invalidate anything.
+        self.text_rev = self.text_rev.next();
 
         let (inserted_len_chars, reverse_kind) = match &edit.kind {
             EditKind::Insert { text } => {
@@ -423,5 +463,74 @@ mod tests {
         assert_ne!(a, b);
         assert_eq!(set.ids().len(), 2);
         assert_eq!(set.get(a).unwrap().to_string(), "one");
+    }
+}
+
+#[cfg(test)]
+mod text_rev_tests {
+    use super::*;
+    use escriba_core::{Edit, Position, Range};
+
+    fn buf(src: &str) -> Buffer {
+        Buffer::from_str(BufferId(0), src)
+    }
+
+    #[test]
+    fn a_fresh_buffer_starts_at_revision_zero() {
+        assert_eq!(buf("hello").text_rev(), TextRev(0));
+    }
+
+    #[test]
+    fn an_applied_edit_advances_the_revision() {
+        let mut b = buf("hello");
+        let before = b.text_rev();
+        b.apply(&Edit::insert(Position::new(0, 0), "X".to_string()))
+            .expect("insert applies");
+        assert_ne!(
+            b.text_rev(),
+            before,
+            "a text change must expire old offsets"
+        );
+    }
+
+    #[test]
+    fn each_edit_advances_it_again() {
+        let mut b = buf("hello");
+        let mut seen = vec![b.text_rev()];
+        for _ in 0..3 {
+            b.apply(&Edit::insert(Position::new(0, 0), "X".to_string()))
+                .expect("insert applies");
+            let now = b.text_rev();
+            assert!(!seen.contains(&now), "revisions must not repeat: {now:?}");
+            seen.push(now);
+        }
+    }
+
+    #[test]
+    fn a_rejected_edit_does_not_advance_the_revision() {
+        // The property that makes this usable for staleness: an edit that never
+        // touched the rope must not invalidate offsets that are still correct.
+        let mut b = buf("hello");
+        let before = b.text_rev();
+        let out_of_range = Range {
+            start: Position::new(99, 0),
+            end: Position::new(99, 1),
+        };
+        assert!(
+            b.apply(&Edit::delete(out_of_range)).is_err(),
+            "the edit must fail"
+        );
+        assert_eq!(b.text_rev(), before, "a failed edit changed no text");
+    }
+
+    #[test]
+    fn reading_the_buffer_does_not_advance_the_revision() {
+        // Contrast with `EditGen`, which bumps on every action. If merely
+        // looking moved this counter it would be a refresh generation again.
+        let b = buf("hello");
+        let before = b.text_rev();
+        let _ = b.to_string();
+        let _ = b.text_rev();
+        assert_eq!(b.text_rev(), before);
     }
 }
