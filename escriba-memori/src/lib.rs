@@ -726,3 +726,250 @@ mod tests {
         assert_eq!(scan.to_chars(Offset::new(99)).raw(), 3);
     }
 }
+
+/// A line of text plus the caret editing it, as ONE value.
+///
+/// They are one value because the invariant lives *between* them —
+/// `caret <= text.chars().count()` — and a struct with private fields is the
+/// only place such an invariant can be maintained once rather than at every
+/// mutation site.
+///
+/// # Why this is in memori rather than in either editor crate
+///
+/// It was written twice. `escriba-search`'s `Prompt` held `text` + `caret` as
+/// sibling fields and paired them correctly at six mutation sites by
+/// convention; `escriba-mode`'s ex-line held the same two fields and got it
+/// wrong at the seventh — `clear()` emptied the text and stranded the caret
+/// past the end, reported by nothing louder than `warning: unused variable:
+/// caret`. Neither crate can see the other, so the shared primitive has
+/// exactly one legal home: beneath both, next to the offsets and the ruler it
+/// is made of.
+///
+/// Deliberately carries no serde: a wire name like `minibuffer` is a
+/// consumer's business, and a positioning primitive should not know it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CaretLine {
+    text: String,
+    /// Where the next typed character goes, in CHARS from the start.
+    ///
+    /// Chars, never bytes — this is text a human edits, and a byte caret lands
+    /// mid-codepoint the first time someone types `héllo`.
+    caret: usize,
+}
+
+impl CaretLine {
+    /// Build from parts, clamping the caret into range.
+    ///
+    /// The one constructor that takes a caret from outside, so a deserializer
+    /// or a test cannot introduce a value the methods would then preserve.
+    #[must_use]
+    pub fn new(text: String, caret: usize) -> Self {
+        let caret = caret.min(text.chars().count());
+        Self { text, caret }
+    }
+
+    /// The text typed so far, without the leading `:`.
+    #[must_use]
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// The caret, in chars from the start.
+    #[must_use]
+    pub const fn caret(&self) -> usize {
+        self.caret
+    }
+
+    /// Length in chars — the caret's upper bound.
+    #[must_use]
+    pub fn len_chars(&self) -> usize {
+        self.text.chars().count()
+    }
+
+    /// The caret as a BYTE index, for string surgery.
+    ///
+    /// The one place the ex-line turns chars into bytes, and it delegates to
+    /// `Ruler` rather than a local `char_indices().nth()` — which is what it
+    /// was for exactly one commit. That local version was the FOURTH
+    /// hand-rolled copy of this conversion in the workspace, written inside
+    /// the crate that had just taken a dependency on the vocabulary built to
+    /// hold it.
+    fn byte_of_caret(&self) -> usize {
+        Ruler::new(&self.text)
+            .to_bytes(Offset::<Chars>::new(self.caret))
+            .raw()
+    }
+
+    /// Insert a char AT the caret and step past it.
+    pub fn insert(&mut self, ch: char) {
+        let at = self.byte_of_caret();
+        self.text.insert(at, ch);
+        self.caret += 1;
+    }
+
+    /// Append a raw fragment and park the caret at the end.
+    ///
+    /// Appends rather than inserting on purpose: its caller is the command
+    /// registry's `__quit__` sentinel handshake, which is writing a fragment
+    /// the user did not type.
+    pub fn push_str(&mut self, s: &str) {
+        self.text.push_str(s);
+        self.caret = self.len_chars();
+    }
+
+    /// Move the caret.
+    pub fn move_caret(&mut self, to: CaretMove) {
+        self.caret = to.resolve(self.caret, self.len_chars());
+    }
+
+    /// Delete the char AT the caret (`<Del>`). No-op at the end of the line.
+    pub fn delete(&mut self) {
+        let at = self.byte_of_caret();
+        if at < self.text.len() {
+            self.text.remove(at);
+        }
+    }
+
+    /// Delete the char BEFORE the caret (`<BS>`), returning it.
+    ///
+    /// Deleting before the caret and deleting the tail are the same operation
+    /// only while the caret sits at the end — exactly the assumption that made
+    /// the search prompt's shadow diverge from the typed prompt.
+    pub fn backspace(&mut self) -> Option<char> {
+        if self.caret == 0 {
+            return None;
+        }
+        let at = self.byte_of_caret();
+        let prev = self.text[..at]
+            .char_indices()
+            .next_back()
+            .map_or(0, |(i, _)| i);
+        let ch = self.text.remove(prev);
+        self.caret -= 1;
+        Some(ch)
+    }
+
+    /// Empty the line AND return the caret home.
+    ///
+    /// Both halves, because they are one value. The version of this that
+    /// cleared only the text is what motivated the type.
+    pub fn clear(&mut self) {
+        self.text.clear();
+        self.caret = 0;
+    }
+
+    /// Replace the whole line, parking the caret at its end.
+    ///
+    /// For text that arrives whole rather than a character at a time — a
+    /// recalled history entry, a restored stash. The caret goes to the end
+    /// because that is where a user continues typing.
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
+        self.caret = self.len_chars();
+    }
+
+    /// `<C-w>` — delete the word before the caret.
+    ///
+    /// Trailing whitespace goes first, then the run of non-whitespace, which
+    /// is what makes a second `<C-w>` eat a whole second word rather than
+    /// only the gap between them.
+    pub fn delete_word_before(&mut self) {
+        let chars: Vec<char> = self.text.chars().collect();
+        let mut i = self.caret;
+        while i > 0 && chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        while i > 0 && !chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        self.text = chars[..i]
+            .iter()
+            .chain(chars[self.caret..].iter())
+            .collect();
+        self.caret = i;
+    }
+
+    /// `<C-u>` — delete from the caret back to the start of the line.
+    pub fn clear_before_caret(&mut self) {
+        let at = self.byte_of_caret();
+        self.text.drain(..at);
+        self.caret = 0;
+    }
+}
+
+#[cfg(test)]
+mod caret_line_tests {
+    use super::*;
+
+    #[test]
+    fn law_the_caret_byte_offset_agrees_with_the_hand_rolled_conversion() {
+        // `CaretLine::byte_of_caret` routes through `Ruler` rather than its own
+        // `char_indices().nth()`. This differential test pins the two as equal
+        // over multibyte text — the only place a byte/char confusion shows up.
+        //
+        // It lives here rather than in `escriba-search` because the conversion
+        // does: it was duplicated in the search prompt and (briefly) in the
+        // ex-line, and the test followed the code down.
+        for text in ["", "abc", "héllo", "日本語 foo", "🔥x🔥"] {
+            for caret in 0..=text.chars().count() {
+                let line = CaretLine::new(text.to_owned(), caret);
+                let by_hand = text
+                    .char_indices()
+                    .nth(caret)
+                    .map_or(text.len(), |(b, _)| b);
+                assert_eq!(
+                    line.byte_of_caret(),
+                    by_hand,
+                    "caret {caret} in {text:?}: Ruler disagreed with the hand-rolled map",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn law_every_mutation_preserves_the_caret_bound() {
+        // The invariant the type exists for, across the whole surface, on text
+        // where a byte caret would land mid-codepoint.
+        let mut line = CaretLine::new("héllo 日本語".to_owned(), 3);
+        let check = |l: &CaretLine| assert!(l.caret() <= l.len_chars(), "{l:?}");
+
+        line.insert('x');
+        check(&line);
+        line.move_caret(CaretMove::Start);
+        check(&line);
+        line.delete();
+        check(&line);
+        line.move_caret(CaretMove::End);
+        check(&line);
+        line.backspace();
+        check(&line);
+        line.delete_word_before();
+        check(&line);
+        line.clear_before_caret();
+        check(&line);
+        line.set_text("🔥🔥🔥".to_owned());
+        check(&line);
+        assert_eq!(line.caret(), 3, "set_text parks the caret at the end");
+        line.clear();
+        check(&line);
+        assert_eq!(line.caret(), 0, "and clear brings it home");
+    }
+
+    #[test]
+    fn law_a_caret_past_the_end_is_clamped_by_the_constructor() {
+        // The one door a caret enters through from outside.
+        assert_eq!(CaretLine::new("ab".to_owned(), 99).caret(), 2);
+        assert_eq!(CaretLine::new(String::new(), 7).caret(), 0);
+    }
+
+    #[test]
+    fn law_a_second_word_delete_eats_a_whole_word_not_just_the_gap() {
+        // The behaviour that makes `<C-w>` usable, and why the whitespace run
+        // is consumed before the word run.
+        let mut line = CaretLine::new("foo bar baz".to_owned(), 11);
+        line.delete_word_before();
+        assert_eq!(line.text(), "foo bar ");
+        line.delete_word_before();
+        assert_eq!(line.text(), "foo ");
+    }
+}

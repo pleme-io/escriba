@@ -19,7 +19,7 @@
 //! which is exactly vim's behaviour and falls out of the shape rather than
 //! being restored by hand.
 
-use escriba_memori::{CaretMove, Chars, Offset, Ruler};
+use escriba_memori::{CaretLine, CaretMove};
 
 use crate::engine::{Direction, SearchMatch, Step, find_all, step, step_inclusive};
 use crate::pattern::{CaseMode, PatternError, SearchPattern};
@@ -32,20 +32,19 @@ pub const HISTORY_LIMIT: usize = 50;
 pub struct Prompt {
     /// Which key opened it, and therefore which way `<CR>` will search.
     pub direction: Direction,
-    /// What has been typed so far (without the leading `/` or `?`).
-    pub text: String,
+    /// What has been typed so far (without the leading `/` or `?`), and the
+    /// caret editing it.
+    ///
+    /// ONE value, not two fields. The invariant `caret <= text.chars().count()`
+    /// lives BETWEEN them, and the six mutation sites below each used to
+    /// maintain it by convention. `escriba-mode`'s ex-line had the identical
+    /// two fields and got it wrong at the seventh — which is why `CaretLine`
+    /// exists, and why this is the same type rather than a second copy of it.
+    line: CaretLine,
     /// Where the cursor was when the prompt opened. Incremental search
     /// previews from here, and Escape returns here — so it must be captured at
     /// open time, not read live.
     pub origin: usize,
-    /// Where the next typed character goes, in CHARS from the start of
-    /// `text` — never bytes.
-    ///
-    /// Chars because a pattern is text a human is editing, and a byte caret
-    /// lands mid-codepoint the first time someone searches for `héllo`. The
-    /// invariant `caret <= text.chars().count()` holds at every mutation
-    /// below; `caret == len` is the ordinary "typing at the end" state.
-    caret: usize,
     /// How many matches past the first the preview has been stepped, via
     /// `<C-g>` / `<C-t>`.
     ///
@@ -73,25 +72,13 @@ impl Prompt {
     /// the end", which is the common case.
     #[must_use]
     pub const fn caret(&self) -> usize {
-        self.caret
+        self.line.caret()
     }
 
-    /// The caret as a BYTE index into `text`, for string surgery.
-    ///
-    /// The one place chars become bytes, so a mid-codepoint index cannot be
-    /// constructed by an edit op doing its own arithmetic.
+    /// What has been typed so far, without the leading `/` or `?`.
     #[must_use]
-    fn byte_of_caret(&self) -> usize {
-        // Routed through memori rather than hand-rolled: this is the one place
-        // in the prompt where CHARS become BYTES, which is exactly the
-        // conversion `Ruler` exists to own. `Ruler::to_bytes` runs the same
-        // `char_indices().nth()` this used to, on a minibuffer-length string,
-        // so there is no cost question — and it makes `Offset<Chars>` a type
-        // the workspace actually depends on rather than one that merely
-        // compiles.
-        Ruler::new(&self.text)
-            .to_bytes(Offset::<Chars>::new(self.caret))
-            .raw()
+    pub fn text(&self) -> &str {
+        self.line.text()
     }
 }
 
@@ -194,9 +181,8 @@ impl SearchState {
     pub fn open(&mut self, direction: Direction, origin: usize) {
         self.prompt = Some(Prompt {
             direction,
-            text: String::new(),
+            line: CaretLine::default(),
             origin,
-            caret: 0,
             preview_skip: 0,
             history_index: None,
             stashed: None,
@@ -216,9 +202,7 @@ impl SearchState {
     /// Type a character into the prompt. No-op when no prompt is open.
     pub fn push(&mut self, ch: char) {
         if let Some(p) = self.prompt.as_mut() {
-            let at = p.byte_of_caret();
-            p.text.insert(at, ch);
-            p.caret += 1;
+            p.line.insert(ch);
             // Editing ends history browsing — the text is the user's now.
             p.history_index = None;
             p.preview_skip = 0;
@@ -229,7 +213,7 @@ impl SearchState {
     /// that wraps from the start to the end deletes the wrong character next.
     pub fn move_caret(&mut self, to: CaretMove) {
         if let Some(p) = self.prompt.as_mut() {
-            p.caret = to.resolve(p.caret, p.text.chars().count());
+            p.line.move_caret(to);
         }
     }
 
@@ -241,9 +225,8 @@ impl SearchState {
     /// gesture that means "I changed my mind".
     pub fn delete_at_caret(&mut self) {
         if let Some(p) = self.prompt.as_mut() {
-            let at = p.byte_of_caret();
-            if at < p.text.len() {
-                p.text.remove(at);
+            if p.line.caret() < p.line.len_chars() {
+                p.line.delete();
                 p.history_index = None;
                 p.preview_skip = 0;
             }
@@ -259,17 +242,7 @@ impl SearchState {
         let Some(p) = self.prompt.as_mut() else {
             return;
         };
-        let chars: Vec<char> = p.text.chars().collect();
-        let mut i = p.caret;
-        while i > 0 && chars[i - 1].is_whitespace() {
-            i -= 1;
-        }
-        while i > 0 && !chars[i - 1].is_whitespace() {
-            i -= 1;
-        }
-        let kept: String = chars[..i].iter().chain(chars[p.caret..].iter()).collect();
-        p.text = kept;
-        p.caret = i;
+        p.line.delete_word_before();
         p.history_index = None;
         p.preview_skip = 0;
     }
@@ -277,9 +250,7 @@ impl SearchState {
     /// `<C-u>` — delete from the caret back to the start.
     pub fn clear_before_caret(&mut self) {
         if let Some(p) = self.prompt.as_mut() {
-            let at = p.byte_of_caret();
-            p.text.drain(..at);
-            p.caret = 0;
+            p.line.clear_before_caret();
             p.history_index = None;
             p.preview_skip = 0;
         }
@@ -293,24 +264,18 @@ impl SearchState {
         };
         p.history_index = None;
         p.preview_skip = 0;
-        if p.caret == 0 {
+        if p.line.caret() == 0 {
             // Backspacing past the `/` closes the prompt — but only when there
             // is nothing to the left. With text ahead of the caret this is a
             // no-op, not a cancel: losing a pattern because the caret happened
             // to be at the start would be the worst kind of surprise.
-            if p.text.is_empty() {
+            if p.line.text().is_empty() {
                 self.prompt = None;
                 return true;
             }
             return false;
         }
-        let at = p.byte_of_caret();
-        let prev = p.text[..at]
-            .char_indices()
-            .next_back()
-            .map_or(0, |(i, _)| i);
-        p.text.remove(prev);
-        p.caret -= 1;
+        p.line.backspace();
         false
     }
 
@@ -329,7 +294,7 @@ impl SearchState {
         };
         let direction = p.direction;
 
-        if p.text.is_empty() {
+        if p.line.text().is_empty() {
             // Bare `/<CR>`: repeat the previous pattern in the NEW direction.
             return if self.pattern.is_some() {
                 self.arm(direction, text);
@@ -339,9 +304,9 @@ impl SearchState {
             };
         }
 
-        match SearchPattern::compile(&p.text, self.case) {
+        match SearchPattern::compile(p.line.text(), self.case) {
             Ok(pattern) => {
-                self.remember(&p.text);
+                self.remember(p.line.text());
                 self.pattern = Some(pattern);
                 self.arm(direction, text);
                 Accepted::Committed
@@ -382,28 +347,28 @@ impl SearchState {
         match (p.history_index, back) {
             // Enter history: stash what is being typed so it can come back.
             (None, true) => {
-                p.stashed = Some(p.text.clone());
+                p.stashed = Some(p.line.text().to_owned());
                 p.history_index = Some(len - 1);
-                p.text.clone_from(&self.history[len - 1]);
+                p.line.set_text(self.history[len - 1].clone());
             }
             (Some(i), true) if i > 0 => {
                 p.history_index = Some(i - 1);
-                p.text.clone_from(&self.history[i - 1]);
+                p.line.set_text(self.history[i - 1].clone());
             }
             (Some(i), false) if i + 1 < len => {
                 p.history_index = Some(i + 1);
-                p.text.clone_from(&self.history[i + 1]);
+                p.line.set_text(self.history[i + 1].clone());
             }
             // Stepping forward past the newest entry restores the stash.
             (Some(_), false) => {
                 p.history_index = None;
-                p.text = p.stashed.take().unwrap_or_default();
+                p.line.set_text(p.stashed.take().unwrap_or_default());
             }
             _ => {}
         }
         // A recalled pattern arrives whole; the caret belongs at its end,
         // which is where a user expects to continue typing.
-        p.caret = p.text.chars().count();
+        p.line.move_caret(CaretMove::End);
         p.preview_skip = 0;
     }
 
@@ -442,10 +407,10 @@ impl SearchState {
         let Some(p) = self.prompt.as_ref() else {
             return Preview::Idle;
         };
-        if p.text.is_empty() {
+        if p.line.text().is_empty() {
             return Preview::Idle;
         }
-        let Ok(pattern) = SearchPattern::compile(&p.text, self.case) else {
+        let Ok(pattern) = SearchPattern::compile(p.line.text(), self.case) else {
             return Preview::Incomplete;
         };
 
@@ -503,10 +468,10 @@ impl SearchState {
     #[must_use]
     pub fn prompt_error(&self) -> Option<PatternError> {
         let p = self.prompt.as_ref()?;
-        if p.text.is_empty() {
+        if p.line.text().is_empty() {
             return None;
         }
-        SearchPattern::compile(&p.text, self.case).err()
+        SearchPattern::compile(p.line.text(), self.case).err()
     }
 
     /// Is a prompt open with nothing typed into it yet?
@@ -515,7 +480,9 @@ impl SearchState {
     /// nothing" — the first should stay silent, the second should say `[0/0]`.
     #[must_use]
     pub fn prompt_is_empty(&self) -> bool {
-        self.prompt.as_ref().is_none_or(|p| p.text.is_empty())
+        self.prompt
+            .as_ref()
+            .is_none_or(|p| p.line.text().is_empty())
     }
 
     /// Where committing the prompt should land, given the prompt's origin.
@@ -682,7 +649,7 @@ mod tests {
         }
         assert!(matches!(s.accept(TEXT), Accepted::Invalid(_)));
         assert!(s.is_prompting(), "prompt must stay open");
-        assert_eq!(s.prompt().unwrap().text, "a[b", "text must survive");
+        assert_eq!(s.prompt().unwrap().text(), "a[b", "text must survive");
     }
 
     #[test]
@@ -809,11 +776,11 @@ mod tests {
         }
         s.open(Direction::Forward, 0);
         s.history_step(true);
-        assert_eq!(s.prompt().unwrap().text, "two");
+        assert_eq!(s.prompt().unwrap().text(), "two");
         s.history_step(true);
-        assert_eq!(s.prompt().unwrap().text, "one");
+        assert_eq!(s.prompt().unwrap().text(), "one");
         s.history_step(false);
-        assert_eq!(s.prompt().unwrap().text, "two");
+        assert_eq!(s.prompt().unwrap().text(), "two");
     }
 
     #[test]
@@ -830,9 +797,9 @@ mod tests {
             s.push(c);
         }
         s.history_step(true);
-        assert_eq!(s.prompt().unwrap().text, "old");
+        assert_eq!(s.prompt().unwrap().text(), "old");
         s.history_step(false);
-        assert_eq!(s.prompt().unwrap().text, "typ", "the stash comes back");
+        assert_eq!(s.prompt().unwrap().text(), "typ", "the stash comes back");
     }
 
     #[test]
@@ -876,12 +843,12 @@ mod tests {
         s.accept(TEXT);
         s.open(Direction::Forward, 0);
         s.history_step(true);
-        assert_eq!(s.prompt().unwrap().text, "old");
+        assert_eq!(s.prompt().unwrap().text(), "old");
         s.push('x');
-        assert_eq!(s.prompt().unwrap().text, "oldx");
+        assert_eq!(s.prompt().unwrap().text(), "oldx");
         // Arrowing down now restores nothing (we are editing, not browsing).
         s.history_step(false);
-        assert_eq!(s.prompt().unwrap().text, "oldx");
+        assert_eq!(s.prompt().unwrap().text(), "oldx");
     }
 
     #[test]
@@ -914,7 +881,7 @@ mod tests {
 
     fn shown(st: &SearchState) -> (String, usize) {
         let p = st.prompt().expect("prompting");
-        (p.text.clone(), p.caret())
+        (p.line.text().to_owned(), p.caret())
     }
 
     #[test]
@@ -1283,34 +1250,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn the_caret_byte_offset_agrees_with_the_hand_rolled_conversion() {
-        // `byte_of_caret` now routes through `memori::Ruler` instead of its own
-        // `char_indices().nth()`. This is the differential test that pins the
-        // two as equal — over multibyte text, where a byte/char confusion is
-        // the ONLY place the difference shows up.
-        for text in ["", "abc", "héllo", "日本語 foo", "🔥x🔥"] {
-            let mut st = SearchState::new(CaseMode::Smart);
-            st.open(Direction::Forward, 0);
-            for c in text.chars() {
-                st.push(c);
-            }
-            let p = st.prompt().expect("prompting");
-
-            for caret in 0..=text.chars().count() {
-                let by_hand = p
-                    .text
-                    .char_indices()
-                    .nth(caret)
-                    .map_or(p.text.len(), |(b, _)| b);
-                let via_ruler = Ruler::new(&p.text)
-                    .to_bytes(Offset::<Chars>::new(caret))
-                    .raw();
-                assert_eq!(
-                    via_ruler, by_hand,
-                    "caret {caret} in {text:?}: memori disagreed with the hand-rolled map",
-                );
-            }
-        }
-    }
+    // The byte_of_caret ↔ Ruler differential test moved to `escriba-memori`
+    // (`law_the_caret_byte_offset_agrees_with_the_hand_rolled_conversion`)
+    // along with the conversion itself. It was pinning `Prompt`'s private
+    // copy; there is no longer a copy to pin.
 }
