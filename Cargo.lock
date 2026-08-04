@@ -920,12 +920,17 @@ dependencies = [
 [[package]]
 name = "escriba-memori"
 version = "0.1.31"
+dependencies = [
+ "schemars",
+ "serde",
+]
 
 [[package]]
 name = "escriba-mode"
 version = "0.1.31"
 dependencies = [
  "escriba-core",
+ "escriba-memori",
  "pretty_assertions",
  "schemars",
  "serde",

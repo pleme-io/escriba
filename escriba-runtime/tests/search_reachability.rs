@@ -1581,3 +1581,58 @@ fn both_commit_paths_report_the_identical_not_found_message() {
         "the message must name the pattern, not just carry the code",
     );
 }
+
+// ── the ex-line has a caret too ──────────────────────────────────────────
+
+#[test]
+fn a_typo_can_be_fixed_in_the_middle_of_an_ex_command() {
+    // The minibuffer was append-only, so `:` commands could only be corrected
+    // by deleting back to the mistake — the same gap the search prompt had.
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+    type_str(&mut st, "wq");
+    press(&mut st, KeyCode::Left);
+    type_str(&mut st, "X");
+
+    assert_eq!(st.modal.minibuffer(), "wXq", "inserted AT the caret");
+    assert_eq!(
+        st.status_model().prompt_text,
+        "wXq",
+        "and the model reads it"
+    );
+    assert_eq!(st.status_model().prompt_caret, 2);
+}
+
+#[test]
+fn ex_line_backspace_deletes_before_the_caret_not_the_tail() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+    type_str(&mut st, "abc");
+    press(&mut st, KeyCode::Left);
+    press(&mut st, KeyCode::Backspace);
+
+    assert_eq!(st.modal.minibuffer(), "ac", "deleted `b`, not `c`");
+}
+
+#[test]
+fn the_delete_key_works_on_the_ex_line_too() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+    type_str(&mut st, "abc");
+    press(&mut st, KeyCode::Home);
+    press(&mut st, KeyCode::Delete);
+
+    assert_eq!(st.modal.minibuffer(), "bc");
+}
+
+#[test]
+fn an_ex_line_caret_counts_chars_not_bytes() {
+    // A byte caret lands mid-codepoint and `String::insert` panics.
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+    type_str(&mut st, "e héllo");
+    press(&mut st, KeyCode::Home);
+    press(&mut st, KeyCode::Delete);
+
+    assert_eq!(st.modal.minibuffer(), " héllo");
+}

@@ -9,7 +9,8 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-escriba-core = { workspace = true }
+escriba-core   = { workspace = true }
+escriba-memori = { workspace = true }
 serde        = { workspace = true }
 schemars     = { workspace = true }
 

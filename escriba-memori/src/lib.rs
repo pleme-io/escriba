@@ -206,6 +206,56 @@ impl Bound {
     }
 }
 
+/// Where a caret movement lands.
+///
+/// Lives in memori because it is a POSITIONING concept, not a search one: the
+/// search prompt and the ex-line both have a caret and both need the same
+/// closed set of moves. It started in `escriba-search`, which meant
+/// `escriba-mode` could not reach it without depending on the search engine to
+/// move a cursor in a text box.
+///
+/// A closed set, so "move the caret" cannot mean an unhandled direction. Each
+/// resolves against the CURRENT length, so none can leave the caret out of
+/// bounds — the clamping is in one place rather than at each call site.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+pub enum CaretMove {
+    #[default]
+    Left,
+    Right,
+    Start,
+    End,
+}
+
+impl CaretMove {
+    /// Total, and saturating at both ends.
+    #[must_use]
+    pub const fn resolve(self, caret: usize, len: usize) -> usize {
+        match self {
+            Self::Left => caret.saturating_sub(1),
+            Self::Right => {
+                if caret < len {
+                    caret + 1
+                } else {
+                    len
+                }
+            }
+            Self::Start => 0,
+            Self::End => len,
+        }
+    }
+}
+
 // ── freshness ────────────────────────────────────────────────────────────
 
 /// A value computed against a specific edit generation.

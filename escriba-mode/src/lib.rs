@@ -33,6 +33,7 @@
 extern crate self as escriba_mode;
 
 use escriba_core::{Mode, Operator};
+use escriba_memori::CaretMove;
 use serde::{Deserialize, Serialize};
 
 /// Pending operator-pending state — only meaningful in [`ModalState::Normal`].
@@ -58,11 +59,22 @@ pub struct PendingOp {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "mode")]
 pub enum ModalState {
-    Normal { pending: PendingOp },
+    Normal {
+        pending: PendingOp,
+    },
     Insert,
     Visual,
     VisualLine,
-    Command { minibuffer: String },
+    Command {
+        minibuffer: String,
+        /// Where the next typed character goes, in CHARS from the start.
+        ///
+        /// Chars, never bytes — the ex-line is text a human edits, and a byte
+        /// caret lands mid-codepoint the first time someone types `:e héllo`.
+        /// Same reasoning, and same invariant, as the search prompt's caret.
+        #[serde(default)]
+        caret: usize,
+    },
 }
 
 impl Default for ModalState {
@@ -71,6 +83,16 @@ impl Default for ModalState {
             pending: PendingOp::default(),
         }
     }
+}
+
+/// A char caret as a BYTE index into `text`.
+///
+/// The one place the ex-line turns chars into bytes, so no edit op does its
+/// own index arithmetic and lands mid-codepoint.
+fn byte_of_caret(text: &str, caret: usize) -> usize {
+    text.char_indices()
+        .nth(caret)
+        .map_or(text.len(), |(b, _)| b)
 }
 
 impl ModalState {
@@ -126,6 +148,7 @@ impl ModalState {
     pub fn enter_command(&mut self) {
         *self = Self::Command {
             minibuffer: String::new(),
+            caret: 0,
         };
     }
 
@@ -224,22 +247,65 @@ impl ModalState {
     #[must_use]
     pub fn minibuffer(&self) -> &str {
         match self {
-            Self::Command { minibuffer } => minibuffer,
+            Self::Command { minibuffer, .. } => minibuffer,
             _ => "",
         }
     }
 
     /// Push a char onto the minibuffer. No-op unless in [`Mode::Command`].
     pub fn push_minibuffer(&mut self, ch: char) {
-        if let Self::Command { minibuffer } = self {
-            minibuffer.push(ch);
+        if let Self::Command { minibuffer, caret } = self {
+            let at = byte_of_caret(minibuffer, *caret);
+            minibuffer.insert(at, ch);
+            *caret += 1;
+        }
+    }
+
+    /// Move the ex-line caret. No-op outside [`Mode::Command`].
+    pub fn move_minibuffer_caret(&mut self, to: CaretMove) {
+        if let Self::Command { minibuffer, caret } = self {
+            *caret = to.resolve(*caret, minibuffer.chars().count());
+        }
+    }
+
+    /// Delete the character AT the caret. No-op at the end of the line.
+    pub fn delete_minibuffer_at_caret(&mut self) {
+        if let Self::Command { minibuffer, caret } = self {
+            let at = byte_of_caret(minibuffer, *caret);
+            if at < minibuffer.len() {
+                minibuffer.remove(at);
+            }
+        }
+    }
+
+    /// The ex-line caret, in chars. `0` outside [`Mode::Command`].
+    #[must_use]
+    pub const fn minibuffer_caret(&self) -> usize {
+        match self {
+            Self::Command { caret, .. } => *caret,
+            _ => 0,
         }
     }
 
     /// Pop a char off the minibuffer. `None` unless in [`Mode::Command`].
     pub fn pop_minibuffer(&mut self) -> Option<char> {
         match self {
-            Self::Command { minibuffer } => minibuffer.pop(),
+            // Deletes the char BEFORE the caret, not the tail — the two are
+            // the same only while the caret sits at the end, which is exactly
+            // the assumption that made the search prompt's shadow diverge.
+            Self::Command { minibuffer, caret } => {
+                if *caret == 0 {
+                    return None;
+                }
+                let at = byte_of_caret(minibuffer, *caret);
+                let prev = minibuffer[..at]
+                    .char_indices()
+                    .next_back()
+                    .map_or(0, |(i, _)| i);
+                let ch = minibuffer.remove(prev);
+                *caret -= 1;
+                Some(ch)
+            }
             _ => None,
         }
     }
@@ -248,14 +314,15 @@ impl ModalState {
     /// registry's `__quit__` sentinel handshake). No-op outside
     /// [`Mode::Command`].
     pub fn push_minibuffer_str(&mut self, s: &str) {
-        if let Self::Command { minibuffer } = self {
+        if let Self::Command { minibuffer, caret } = self {
             minibuffer.push_str(s);
+            *caret = minibuffer.chars().count();
         }
     }
 
     /// Clear the minibuffer in place. No-op outside [`Mode::Command`].
     pub fn clear_minibuffer(&mut self) {
-        if let Self::Command { minibuffer } = self {
+        if let Self::Command { minibuffer, caret } = self {
             minibuffer.clear();
         }
     }
