@@ -1457,3 +1457,74 @@ fn the_delete_key_removes_the_character_at_the_prompt_caret() {
         "forward-delete never closes the prompt"
     );
 }
+
+#[test]
+fn an_invalid_pattern_keeps_the_operator_armed_so_the_correction_still_deletes() {
+    // `accept` puts the prompt back on a compile error so the typed text is
+    // not lost — but the FSM had already left `AwaitingSearch`, so the prompt
+    // survived and the `d` did not, silently. The corrected pattern then ran
+    // as a bare search: cursor moved, nothing deleted, nothing said.
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "c["); // unclosed character class
+    press(&mut st, KeyCode::Enter);
+
+    assert!(
+        st.search.is_prompting(),
+        "an invalid pattern must not close the prompt"
+    );
+    assert!(
+        st.status_model()
+            .message
+            .is_some_and(|m| m.contains("E383")),
+        "the user must be told the pattern is invalid, got {:?}",
+        st.status_model().message,
+    );
+    assert_eq!(text_of(&st), before, "nothing deleted yet");
+
+    press(&mut st, KeyCode::Backspace); // drop the `[`
+    type_str(&mut st, "harlie");
+    press(&mut st, KeyCode::Enter);
+
+    assert!(
+        text_of(&st).starts_with("charlie"),
+        "the `d` must have survived the invalid pattern, got {:?}",
+        text_of(&st),
+    );
+}
+
+#[test]
+fn an_invalid_pattern_on_a_bare_search_still_reports_and_keeps_the_prompt() {
+    // The guard runs for every SubmitCommand, so pin the non-operator path too.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "a[");
+    press(&mut st, KeyCode::Enter);
+
+    assert!(st.search.is_prompting(), "the typed pattern is not lost");
+    assert!(
+        st.status_model()
+            .message
+            .is_some_and(|m| m.contains("E383"))
+    );
+}
+
+#[test]
+fn the_invalid_pattern_guard_does_not_break_the_ex_line() {
+    // `prompt_error` must return None when there is no SEARCH prompt, or every
+    // ex-command would start erroring.
+    let mut st = state();
+    press(&mut st, KeyCode::Char(':'));
+    type_str(&mut st, "w");
+    press(&mut st, KeyCode::Enter);
+
+    assert!(
+        !st.status_model()
+            .message
+            .is_some_and(|m| m.contains("E383")),
+        "an ex-command is not a search pattern",
+    );
+}

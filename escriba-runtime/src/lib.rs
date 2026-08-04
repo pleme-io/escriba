@@ -512,6 +512,32 @@ impl EditorState {
     /// [`Action::ApplyOperator`] (so `3dw` deletes 3 words). The FSM owns count
     /// composition — there is no naive outer repeat loop.
     fn apply_counted(&mut self, action: &Action, count: u32) {
+        // An uncompilable pattern must not reach the operator machine.
+        //
+        // `SearchState::accept` puts the prompt BACK on a compile error so the
+        // typed text is not lost — but the FSM had already transitioned out of
+        // `AwaitingSearch` on the way in, so the prompt survived and the
+        // OPERATOR did not, with nothing said about it. The `d` was simply
+        // gone, and the corrected pattern then ran as a bare search.
+        //
+        // The machine is a pure `(State, Event) -> (State, effects)` and
+        // cannot observe the result of an effect, so it cannot decide this
+        // itself. The fix is to stop handing it an event it has no business
+        // deciding: the runtime classifies the submit first, from state it
+        // already holds. `prompt_error` returns `None` for an EMPTY prompt, so
+        // the bare-`/<CR>` reuse path is untouched.
+        //
+        // Tier-honest: parse-rejected at the boundary, not
+        // truly-unrepresentable.
+        if matches!(action, Action::SubmitCommand) {
+            if let Some(e) = self.search.prompt_error() {
+                let mut m = String::from("E383: Invalid search string: ");
+                m.push_str(&e.to_string());
+                self.messages.push(m);
+                return;
+            }
+        }
+
         for (resolved, times) in self.op_pending.dispatch((action.clone(), count)) {
             for _ in 0..times {
                 self.apply_resolved(&resolved);

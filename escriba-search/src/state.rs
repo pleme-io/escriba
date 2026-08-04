@@ -487,6 +487,20 @@ impl SearchState {
             .map_or(0, |pattern| find_all(text, &pattern).len())
     }
 
+    /// Why the open prompt's pattern would fail to compile, if it would.
+    ///
+    /// `None` when there is no prompt, when the prompt is EMPTY (that is the
+    /// legitimate bare-`/<CR>` reuse-previous path, not an error), or when the
+    /// pattern compiles. Lets a caller classify a submit BEFORE acting on it.
+    #[must_use]
+    pub fn prompt_error(&self) -> Option<PatternError> {
+        let p = self.prompt.as_ref()?;
+        if p.text.is_empty() {
+            return None;
+        }
+        SearchPattern::compile(&p.text, self.case).err()
+    }
+
     /// Is a prompt open with nothing typed into it yet?
     ///
     /// Distinguishes "you have not typed a pattern" from "your pattern matches
