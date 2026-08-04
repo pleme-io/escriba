@@ -54,6 +54,36 @@ Known limits, so nobody reads more into it: string interpolation
 not a symbol and paints as identifier-plus-punctuation (the symbol form
 `:name` *is* covered).
 
+### Upstream now paints blue too — and the two will have to agree
+
+**2026-08-04, blue @ `d276578`:** `blue lsp` gained a `semanticTokensProvider`
+(`blue-lang-lsp/src/tokens.rs`), classifying the token stream from
+`blue_lang_syntax::lex` — the same lexer the compiler runs. blue took that
+path rather than a tree-sitter grammar for the reason its own
+`docs/NATURALIZE-TREESITTER.md` §2 gives: a second definition of blue's syntax
+drifts invisibly from the first.
+
+Nothing in escriba changes today, because escriba spawns no language server
+for any language. It matters for **when the LSP wave lands**, and it is worth
+writing down now rather than rediscovering it then:
+
+- escriba will then have **two** sources of colour for `.b` — this table, and
+  the server's tokens — where every other language has one. They must agree, or
+  a buffer repaints differently the moment the server attaches. The table is
+  the fallback that works with no `blue` on `$PATH`; the server's is the more
+  precise one (it knows `def foo` declares a function, and it fixes the `name:`
+  label limit noted above, which a table lexer structurally cannot).
+- So the wave's blue-specific question is *precedence*, not *capability*:
+  server tokens over table when a server is attached, table otherwise.
+- This does **not** change the tier line above. The `(deflsp :name "blue")` leg
+  is still a declaration with no consumer, and blue is still level with rust.
+  What changed is upstream: the thing that leg will eventually spawn now has
+  something more to say.
+
+blnvim reached the same conclusion from the other side and needed no wiring at
+all — nvim requests semantic tokens from any server advertising them, so blue
+buffers there went from monochrome to coloured with no edit in that repo.
+
 ### Why no blue crate dependency
 
 The keyword table is transcribed from `blue_lang_syntax::parse`
