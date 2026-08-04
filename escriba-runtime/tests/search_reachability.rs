@@ -656,3 +656,172 @@ fn a_pure_cursor_move_does_not_expire_the_ordinal() {
         "moving the cursor changed no text, so the ordinal is still true",
     );
 }
+
+// ── prompt caret editing, through real keys ──────────────────────────────
+
+#[test]
+fn arrow_keys_move_the_prompt_caret() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "abc");
+    assert_eq!(st.status_model().prompt_caret, 3);
+
+    press(&mut st, KeyCode::Left);
+    press(&mut st, KeyCode::Left);
+    assert_eq!(st.status_model().prompt_caret, 1);
+
+    press(&mut st, KeyCode::Right);
+    assert_eq!(st.status_model().prompt_caret, 2);
+}
+
+#[test]
+fn a_typo_can_be_fixed_in_the_middle_of_a_pattern() {
+    // The whole point. Type `chrlie`, go back, insert the missing `a`.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "chrlie");
+    for _ in 0..4 {
+        press(&mut st, KeyCode::Left); // between `ch` and `rlie`
+    }
+    type_str(&mut st, "a");
+
+    assert_eq!(st.status_model().prompt_text, "charlie");
+    press(&mut st, KeyCode::Enter);
+    assert_eq!(
+        st.cursor().line,
+        1,
+        "the corrected pattern is what searched"
+    );
+}
+
+#[test]
+fn home_and_end_jump_the_caret() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "hello");
+
+    press(&mut st, KeyCode::Home);
+    assert_eq!(st.status_model().prompt_caret, 0);
+    press(&mut st, KeyCode::End);
+    assert_eq!(st.status_model().prompt_caret, 5);
+}
+
+#[test]
+fn backspace_at_the_caret_start_does_not_lose_the_pattern() {
+    // Regression: closing the prompt here would discard typed text.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    press(&mut st, KeyCode::Home);
+    press(&mut st, KeyCode::Backspace);
+
+    assert!(st.search.is_prompting(), "prompt must survive");
+    assert_eq!(st.status_model().prompt_text, "alpha", "text untouched");
+}
+
+#[test]
+fn ctrl_w_deletes_a_word_of_the_pattern() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "foo bar");
+    ctrl(&mut st, 'w');
+
+    assert_eq!(st.status_model().prompt_text, "foo ");
+}
+
+#[test]
+fn ctrl_u_clears_the_pattern_back_to_the_start() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "something long");
+    ctrl(&mut st, 'u');
+
+    assert_eq!(st.status_model().prompt_text, "");
+    assert!(st.search.is_prompting(), "clearing is not cancelling");
+}
+
+#[test]
+fn caret_edits_re_preview_so_the_cursor_tracks_the_edited_pattern() {
+    // Incremental search must follow a mid-pattern edit, not just appends.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    // A typo'd pattern matches nothing, so preview leaves the cursor at the
+    // origin. Fixing the typo IN THE MIDDLE must move it.
+    type_str(&mut st, "chzrlie");
+    let stuck = st.cursor().line;
+    assert_eq!(stuck, 0, "a non-matching pattern parks at the origin");
+
+    for _ in 0..4 {
+        press(&mut st, KeyCode::Left); // caret just after the `z`
+    }
+    press(&mut st, KeyCode::Backspace); // drop the `z`
+    type_str(&mut st, "a"); // -> `charlie`
+
+    assert_eq!(st.status_model().prompt_text, "charlie");
+    assert_ne!(
+        st.cursor().line,
+        stuck,
+        "preview must re-run after a mid-pattern edit"
+    );
+    assert_eq!(st.cursor().line, 1);
+}
+
+#[test]
+fn a_multibyte_pattern_edits_without_panicking() {
+    // A byte caret would land mid-codepoint and `String::insert` would panic.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("héllo wörld\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "héllo");
+    press(&mut st, KeyCode::Left);
+    press(&mut st, KeyCode::Left);
+    press(&mut st, KeyCode::Backspace); // remove the `l` before the caret
+
+    assert_eq!(st.status_model().prompt_text, "héllo".replace("ll", "l"));
+}
+
+#[test]
+fn a_pattern_that_stops_matching_returns_the_cursor_to_the_origin() {
+    // Preview used to only ever move FORWARD, so a prefix that matched left
+    // the cursor parked on that match even after the pattern stopped matching
+    // — a preview showing a position the pattern no longer justifies, beside a
+    // count reading [0/0].
+    let mut st = state();
+    let origin = st.cursor().line;
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "ch"); // matches `charlie` on line 1
+    assert_eq!(st.cursor().line, 1, "a matching prefix previews");
+
+    type_str(&mut st, "z"); // `chz` matches nothing
+    assert_eq!(
+        st.cursor().line,
+        origin,
+        "no match must return to where the search started",
+    );
+
+    // And correcting it moves back onto a match.
+    press(&mut st, KeyCode::Backspace);
+    type_str(&mut st, "arlie");
+    assert_eq!(st.cursor().line, 1, "a corrected pattern previews again");
+}
+
+#[test]
+fn the_preview_is_always_on_a_real_match_or_at_the_origin() {
+    // The invariant the fix establishes, walked character by character.
+    let mut st = state();
+    let origin = st.cursor().line;
+    press(&mut st, KeyCode::Char('/'));
+
+    for c in "charlie".chars() {
+        press(&mut st, KeyCode::Char(c));
+        let line = st.cursor().line;
+        let on_match = !st.search.preview_total(&DOC.to_string()).eq(&0);
+        assert!(
+            line == origin || on_match,
+            "cursor at {line} with no match to justify it",
+        );
+    }
+}

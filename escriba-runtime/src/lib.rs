@@ -534,6 +534,14 @@ impl EditorState {
             column: cursor.column.saturating_add(1) as usize,
             prompt: kind,
             prompt_text: prompt.map_or_else(|| self.modal.minibuffer(), |p| p.text.as_str()),
+            // The ex-line has no caret of its own yet, so it reports the end —
+            // which is where an append-only line's caret always is. Stated
+            // rather than defaulted silently: giving the ex-line real caret
+            // editing is the same change applied to `ModalState`.
+            prompt_caret: prompt.map_or_else(
+                || self.modal.minibuffer().chars().count(),
+                escriba_search::Prompt::caret,
+            ),
             count: self.match_count(),
             message: self.messages.last().map(String::as_str),
         }
@@ -623,11 +631,24 @@ impl EditorState {
     /// character class would be unusable.
     fn preview_search(&mut self) {
         let text = self.active_text();
-        if let Some(step) = self.search.preview(&text) {
-            if let Some(buf) = self.buffers.get(self.active) {
-                let pos = buf.char_to_position(step.target.start);
-                self.set_cursor(pos);
-            }
+        let Some(origin) = self.search.prompt().map(|p| p.origin) else {
+            return;
+        };
+        let target = self
+            .search
+            .preview(&text)
+            .map_or(origin, |s| s.target.start);
+        // A pattern that STOPS matching returns the cursor to the origin.
+        //
+        // Preview used to only ever move forward, so typing `ch` (a match) and
+        // then `chz` (none) left the cursor parked on the `ch` match — a
+        // preview showing a position the pattern no longer justifies, while
+        // the count beside it read `[0/0]`. Restoring is also what makes
+        // Escape's promise legible: at every keystroke the cursor is either on
+        // a real match or back where you started, never on a stale one.
+        if let Some(buf) = self.buffers.get(self.active) {
+            let pos = buf.char_to_position(target);
+            self.set_cursor(pos);
         }
     }
 
@@ -852,6 +873,29 @@ impl EditorState {
             // The operator-pending FSM consumes Operator keys (begins pending);
             // they never reach the executor. Defensive no-op for exhaustiveness.
             Action::Operator(_) => {}
+            Action::PromptCaret { to } => {
+                if self.search.is_prompting() {
+                    self.search.move_caret(*to);
+                }
+            }
+            Action::PromptDelete => {
+                if self.search.is_prompting() {
+                    self.search.delete_at_caret();
+                    self.preview_search();
+                }
+            }
+            Action::PromptDeleteWord => {
+                if self.search.is_prompting() {
+                    self.search.delete_word_before_caret();
+                    self.preview_search();
+                }
+            }
+            Action::PromptClearToStart => {
+                if self.search.is_prompting() {
+                    self.search.clear_before_caret();
+                    self.preview_search();
+                }
+            }
             Action::PromptBackspace => {
                 self.prompt_backspace();
                 // Shortening the pattern changes which matches exist, so the
@@ -889,6 +933,10 @@ impl EditorState {
             Action::SearchOpen(_)
             | Action::PromptHistory { .. }
             | Action::PromptBackspace
+            | Action::PromptCaret { .. }
+            | Action::PromptDelete
+            | Action::PromptDeleteWord
+            | Action::PromptClearToStart
             | Action::SearchRepeat { .. }
             | Action::SearchWord { .. }
             | Action::ClearSearchHighlight

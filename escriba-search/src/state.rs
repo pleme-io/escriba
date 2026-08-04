@@ -19,6 +19,9 @@
 //! which is exactly vim's behaviour and falls out of the shape rather than
 //! being restored by hand.
 
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
 use crate::engine::{Direction, SearchMatch, Step, find_all, step, step_inclusive};
 use crate::pattern::{CaseMode, PatternError, SearchPattern};
 
@@ -36,12 +39,74 @@ pub struct Prompt {
     /// previews from here, and Escape returns here — so it must be captured at
     /// open time, not read live.
     pub origin: usize,
+    /// Where the next typed character goes, in CHARS from the start of
+    /// `text` — never bytes.
+    ///
+    /// Chars because a pattern is text a human is editing, and a byte caret
+    /// lands mid-codepoint the first time someone searches for `héllo`. The
+    /// invariant `caret <= text.chars().count()` holds at every mutation
+    /// below; `caret == len` is the ordinary "typing at the end" state.
+    caret: usize,
     /// Position in history while arrowing through it; `None` = editing fresh
     /// text rather than browsing.
     history_index: Option<usize>,
     /// The in-progress text stashed when history browsing began, so arrowing
     /// back down past the newest entry restores what the user actually typed.
     stashed: Option<String>,
+}
+
+/// Where a caret movement lands.
+///
+/// A closed set, so "move the caret" cannot mean an unhandled direction. Each
+/// resolves against the CURRENT length, so none can leave the caret out of
+/// bounds — the clamping is in one place rather than at each call site.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
+pub enum CaretMove {
+    #[default]
+    Left,
+    Right,
+    Start,
+    End,
+}
+
+impl CaretMove {
+    /// Total, and saturating at both ends.
+    #[must_use]
+    pub const fn resolve(self, caret: usize, len: usize) -> usize {
+        match self {
+            Self::Left => caret.saturating_sub(1),
+            Self::Right => {
+                if caret < len {
+                    caret + 1
+                } else {
+                    len
+                }
+            }
+            Self::Start => 0,
+            Self::End => len,
+        }
+    }
+}
+
+impl Prompt {
+    /// The caret as a char index. `caret == text.chars().count()` means "at
+    /// the end", which is the common case.
+    #[must_use]
+    pub const fn caret(&self) -> usize {
+        self.caret
+    }
+
+    /// The caret as a BYTE index into `text`, for string surgery.
+    ///
+    /// The one place chars become bytes, so a mid-codepoint index cannot be
+    /// constructed by an edit op doing its own arithmetic.
+    #[must_use]
+    fn byte_of_caret(&self) -> usize {
+        self.text
+            .char_indices()
+            .nth(self.caret)
+            .map_or(self.text.len(), |(b, _)| b)
+    }
 }
 
 /// The result of committing a prompt.
@@ -94,6 +159,7 @@ impl SearchState {
             direction,
             text: String::new(),
             origin,
+            caret: 0,
             history_index: None,
             stashed: None,
         });
@@ -112,8 +178,67 @@ impl SearchState {
     /// Type a character into the prompt. No-op when no prompt is open.
     pub fn push(&mut self, ch: char) {
         if let Some(p) = self.prompt.as_mut() {
-            p.text.push(ch);
+            let at = p.byte_of_caret();
+            p.text.insert(at, ch);
+            p.caret += 1;
             // Editing ends history browsing — the text is the user's now.
+            p.history_index = None;
+        }
+    }
+
+    /// Move the caret. Saturates at both ends rather than wrapping — a caret
+    /// that wraps from the start to the end deletes the wrong character next.
+    pub fn move_caret(&mut self, to: CaretMove) {
+        if let Some(p) = self.prompt.as_mut() {
+            p.caret = to.resolve(p.caret, p.text.chars().count());
+        }
+    }
+
+    /// Delete the character AT the caret (`<Del>`). No-op at the end.
+    ///
+    /// Distinct from [`Self::backspace`], which deletes the one before it and
+    /// can close the prompt. Forward-delete never closes the prompt: emptying
+    /// the text by deleting rightwards is not the "backspaced past the `/`"
+    /// gesture that means "I changed my mind".
+    pub fn delete_at_caret(&mut self) {
+        if let Some(p) = self.prompt.as_mut() {
+            let at = p.byte_of_caret();
+            if at < p.text.len() {
+                p.text.remove(at);
+                p.history_index = None;
+            }
+        }
+    }
+
+    /// `<C-w>` — delete the word before the caret.
+    ///
+    /// Trailing whitespace goes first, then the run of non-whitespace, which
+    /// is what makes a second `<C-w>` delete a whole second word rather than
+    /// only the gap.
+    pub fn delete_word_before_caret(&mut self) {
+        let Some(p) = self.prompt.as_mut() else {
+            return;
+        };
+        let chars: Vec<char> = p.text.chars().collect();
+        let mut i = p.caret;
+        while i > 0 && chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        while i > 0 && !chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        let kept: String = chars[..i].iter().chain(chars[p.caret..].iter()).collect();
+        p.text = kept;
+        p.caret = i;
+        p.history_index = None;
+    }
+
+    /// `<C-u>` — delete from the caret back to the start.
+    pub fn clear_before_caret(&mut self) {
+        if let Some(p) = self.prompt.as_mut() {
+            let at = p.byte_of_caret();
+            p.text.drain(..at);
+            p.caret = 0;
             p.history_index = None;
         }
     }
@@ -125,10 +250,24 @@ impl SearchState {
             return false;
         };
         p.history_index = None;
-        if p.text.pop().is_none() {
-            self.prompt = None;
-            return true;
+        if p.caret == 0 {
+            // Backspacing past the `/` closes the prompt — but only when there
+            // is nothing to the left. With text ahead of the caret this is a
+            // no-op, not a cancel: losing a pattern because the caret happened
+            // to be at the start would be the worst kind of surprise.
+            if p.text.is_empty() {
+                self.prompt = None;
+                return true;
+            }
+            return false;
         }
+        let at = p.byte_of_caret();
+        let prev = p.text[..at]
+            .char_indices()
+            .next_back()
+            .map_or(0, |(i, _)| i);
+        p.text.remove(prev);
+        p.caret -= 1;
         false
     }
 
@@ -222,6 +361,9 @@ impl SearchState {
             }
             _ => {}
         }
+        // A recalled pattern arrives whole; the caret belongs at its end,
+        // which is where a user expects to continue typing.
+        p.caret = p.text.chars().count();
     }
 
     // ── searching ───────────────────────────────────────────────────────
@@ -649,5 +791,197 @@ mod tests {
         assert!(!s.is_prompting());
         assert!(!s.backspace());
         assert_eq!(s.cancel(), None);
+    }
+
+    // ── caret editing ───────────────────────────────────────────────────
+
+    fn prompting(text: &str) -> SearchState {
+        let mut st = SearchState::new(CaseMode::Smart);
+        st.open(Direction::Forward, 0);
+        for c in text.chars() {
+            st.push(c);
+        }
+        st
+    }
+
+    fn shown(st: &SearchState) -> (String, usize) {
+        let p = st.prompt().expect("prompting");
+        (p.text.clone(), p.caret())
+    }
+
+    #[test]
+    fn typing_appends_and_the_caret_follows() {
+        let st = prompting("foo");
+        assert_eq!(shown(&st), ("foo".to_string(), 3));
+    }
+
+    #[test]
+    fn a_character_typed_mid_pattern_lands_at_the_caret() {
+        // The complaint this exists for: fixing a typo in the middle.
+        let mut st = prompting("fo");
+        st.move_caret(CaretMove::Left);
+        st.push('X');
+        assert_eq!(shown(&st), ("fXo".to_string(), 2), "inserted AT the caret");
+    }
+
+    #[test]
+    fn backspace_deletes_before_the_caret_not_at_the_end() {
+        let mut st = prompting("abc");
+        st.move_caret(CaretMove::Left); // between b and c
+        assert!(!st.backspace());
+        assert_eq!(shown(&st), ("ac".to_string(), 1), "deleted `b`, not `c`");
+    }
+
+    #[test]
+    fn delete_at_caret_removes_the_character_ahead() {
+        let mut st = prompting("abc");
+        st.move_caret(CaretMove::Start);
+        st.delete_at_caret();
+        assert_eq!(shown(&st), ("bc".to_string(), 0));
+    }
+
+    #[test]
+    fn forward_delete_never_closes_the_prompt() {
+        // Emptying the text rightwards is not the "backspaced past the /"
+        // gesture, so the prompt must survive it.
+        let mut st = prompting("a");
+        st.move_caret(CaretMove::Start);
+        st.delete_at_caret();
+        assert!(st.is_prompting(), "prompt must stay open");
+        assert_eq!(shown(&st), (String::new(), 0));
+    }
+
+    #[test]
+    fn backspace_at_the_start_with_text_ahead_is_a_no_op_not_a_cancel() {
+        // Losing a typed pattern because the caret happened to be at column 0
+        // would be the worst kind of surprise.
+        let mut st = prompting("abc");
+        st.move_caret(CaretMove::Start);
+        assert!(!st.backspace(), "must not report a close");
+        assert!(st.is_prompting(), "prompt survives");
+        assert_eq!(shown(&st), ("abc".to_string(), 0), "text untouched");
+    }
+
+    #[test]
+    fn backspace_on_an_empty_prompt_still_closes_it() {
+        // The vim gesture must keep working.
+        let mut st = prompting("");
+        assert!(st.backspace(), "empty + backspace closes");
+        assert!(!st.is_prompting());
+    }
+
+    #[test]
+    fn caret_movement_saturates_at_both_ends() {
+        let mut st = prompting("ab");
+        for _ in 0..5 {
+            st.move_caret(CaretMove::Left);
+        }
+        assert_eq!(shown(&st).1, 0, "cannot go left of the start");
+        for _ in 0..5 {
+            st.move_caret(CaretMove::Right);
+        }
+        assert_eq!(shown(&st).1, 2, "cannot go right of the end");
+    }
+
+    #[test]
+    fn start_and_end_jump_the_caret() {
+        let mut st = prompting("hello");
+        st.move_caret(CaretMove::Start);
+        assert_eq!(shown(&st).1, 0);
+        st.move_caret(CaretMove::End);
+        assert_eq!(shown(&st).1, 5);
+    }
+
+    #[test]
+    fn the_caret_counts_CHARS_not_bytes() {
+        // A byte caret lands mid-codepoint the first time anyone searches for
+        // an accented word, and `String::insert` then panics.
+        let mut st = prompting("héllo");
+        st.move_caret(CaretMove::Start);
+        st.move_caret(CaretMove::Right);
+        st.move_caret(CaretMove::Right); // after `é`
+        st.push('X');
+        assert_eq!(shown(&st), ("héXllo".to_string(), 3));
+    }
+
+    #[test]
+    fn editing_multibyte_text_backwards_does_not_panic() {
+        let mut st = prompting("🔥é日");
+        st.move_caret(CaretMove::End);
+        assert!(!st.backspace());
+        assert!(!st.backspace());
+        assert_eq!(shown(&st), ("🔥".to_string(), 1));
+    }
+
+    #[test]
+    fn ctrl_w_deletes_the_word_before_the_caret() {
+        let mut st = prompting("foo bar");
+        st.delete_word_before_caret();
+        assert_eq!(shown(&st), ("foo ".to_string(), 4));
+    }
+
+    #[test]
+    fn a_second_ctrl_w_eats_the_gap_and_the_next_word() {
+        // Whitespace first, then the word — otherwise the second press only
+        // removes the space and feels broken.
+        let mut st = prompting("foo bar");
+        st.delete_word_before_caret();
+        st.delete_word_before_caret();
+        assert_eq!(shown(&st), (String::new(), 0));
+    }
+
+    #[test]
+    fn ctrl_w_keeps_what_is_ahead_of_the_caret() {
+        let mut st = prompting("foo bar");
+        st.move_caret(CaretMove::Start);
+        st.move_caret(CaretMove::Right);
+        st.move_caret(CaretMove::Right);
+        st.move_caret(CaretMove::Right); // after "foo"
+        st.delete_word_before_caret();
+        assert_eq!(shown(&st), (" bar".to_string(), 0));
+    }
+
+    #[test]
+    fn ctrl_u_clears_back_to_the_start_only() {
+        let mut st = prompting("abcdef");
+        st.move_caret(CaretMove::Start);
+        for _ in 0..3 {
+            st.move_caret(CaretMove::Right);
+        }
+        st.clear_before_caret();
+        assert_eq!(shown(&st), ("def".to_string(), 0));
+    }
+
+    #[test]
+    fn history_recall_parks_the_caret_at_the_end() {
+        let mut st = SearchState::new(CaseMode::Smart);
+        st.open(Direction::Forward, 0);
+        for c in "alpha".chars() {
+            st.push(c);
+        }
+        let _ = st.accept("alpha beta");
+
+        st.open(Direction::Forward, 0);
+        st.history_step(true);
+        let (text, caret) = shown(&st);
+        assert_eq!(caret, text.chars().count(), "continue typing at the end");
+    }
+
+    #[test]
+    fn the_caret_never_exceeds_the_text_length() {
+        // The standing invariant, exercised across a mixed edit sequence.
+        let mut st = prompting("hello");
+        let ops: &[CaretMove] = &[
+            CaretMove::End,
+            CaretMove::Left,
+            CaretMove::Start,
+            CaretMove::Right,
+        ];
+        for op in ops {
+            st.move_caret(*op);
+            st.delete_at_caret();
+            let (t, c) = shown(&st);
+            assert!(c <= t.chars().count(), "caret {c} past {t:?}");
+        }
     }
 }

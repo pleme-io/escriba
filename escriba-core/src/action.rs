@@ -95,6 +95,20 @@ pub enum Action {
     /// One action serves both prompts; the runtime routes it by whether a
     /// search prompt is open.
     PromptBackspace,
+
+    /// Move the caret inside an open prompt (`←` `→` `Home` `End`).
+    ///
+    /// The prompt was append-only until this existed, so a typo in the middle
+    /// of a pattern could only be fixed by deleting back to it.
+    PromptCaret {
+        to: escriba_search::CaretMove,
+    },
+    /// `<Del>` — delete the character AT the prompt caret.
+    PromptDelete,
+    /// `<C-w>` — delete the word before the prompt caret.
+    PromptDeleteWord,
+    /// `<C-u>` — delete from the prompt caret back to the start.
+    PromptClearToStart,
     /// Up/Down inside a prompt — walk search history.
     ///
     /// `back = true` is older. Stepping forward past the newest entry restores
@@ -167,6 +181,9 @@ impl Action {
             | Self::Undo
             | Self::Redo
             | Self::PromptBackspace
+            | Self::PromptDelete
+            | Self::PromptDeleteWord
+            | Self::PromptClearToStart
             | Self::Command { .. }
             | Self::SearchSubmitOperated { .. }
             | Self::SubmitCommand => TextEffect::Mutates,
@@ -182,6 +199,7 @@ impl Action {
             | Self::ClearSearchHighlight
             | Self::JumpBack
             | Self::JumpForward
+            | Self::PromptCaret { .. }
             | Self::PromptHistory { .. }
             | Self::Pending => TextEffect::Preserves,
         }
@@ -223,6 +241,10 @@ impl Action {
             | Self::ClearSearchHighlight
             | Self::PromptHistory { .. }
             | Self::PromptBackspace
+            | Self::PromptCaret { .. }
+            | Self::PromptDelete
+            | Self::PromptDeleteWord
+            | Self::PromptClearToStart
             | Self::InsertChar(_)
             | Self::SubmitCommand
             | Self::Pending

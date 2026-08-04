@@ -77,6 +77,12 @@ pub struct StatusModel<'a> {
     pub prompt: PromptKind,
     /// What has been typed into the prompt, without the sigil.
     pub prompt_text: &'a str,
+    /// Where the caret sits inside `prompt_text`, in CHARS.
+    ///
+    /// Chars, not bytes, because a face positions a cursor by column and a
+    /// byte index is the wrong number the moment the pattern contains `é`.
+    /// A face draws its cursor at `sigil_width + prompt_caret`.
+    pub prompt_caret: usize,
     /// `[3/17]`. [`MatchCount::Idle`] when there is nothing to say.
     pub count: MatchCount,
     /// The newest message — vim's `E486` and friends. These were written to
@@ -162,6 +168,7 @@ mod tests {
             column: 1,
             prompt,
             prompt_text: text,
+            prompt_caret: text.chars().count(),
             count,
             message: msg,
         }
@@ -260,6 +267,7 @@ mod tests {
             column: 678,
             prompt: PromptKind::None,
             prompt_text: "",
+            prompt_caret: 0,
             count: MatchCount::Exact {
                 current: 10,
                 total: 99,
