@@ -82,6 +82,23 @@ impl zenmai::Machine for OperatorPending {
                 )],
             ),
 
+            // Awaiting + a text OBJECT composes over its extent, not over a
+            // range ending at the cursor. `dgn` deletes the match wherever it
+            // is; a motion-shaped composition would delete up to it instead.
+            (
+                OpState::Awaiting {
+                    op,
+                    count: op_count,
+                },
+                Action::TextObject(object),
+            ) => (
+                OpState::Resting,
+                vec![(
+                    Action::ApplyOperatorObject { op: *op, object },
+                    op_count.saturating_mul(count).max(1),
+                )],
+            ),
+
             // Awaiting + `/` or `?`: open the prompt and STAY ARMED. This arm
             // is the whole fix — it used to fall into the catch-all below,
             // which disarmed the operator and dropped the key.

@@ -825,3 +825,163 @@ fn the_preview_is_always_on_a_real_match_or_at_the_origin() {
         );
     }
 }
+
+// ── dot-repeat and gn / cgn ──────────────────────────────────────────────
+
+#[test]
+fn dot_repeats_the_last_change() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "XY");
+    press(&mut st, KeyCode::Escape);
+    let once = text_of(&st);
+
+    press(&mut st, KeyCode::Char('.'));
+    let twice = text_of(&st);
+
+    assert_ne!(twice, once, "`.` must replay the insert");
+    assert!(
+        twice.starts_with("XYXY") || twice.contains("XYXY"),
+        "got {twice:?}"
+    );
+}
+
+#[test]
+fn dot_with_no_previous_change_reports_rather_than_doing_nothing() {
+    let mut st = state();
+    let before = text_of(&st);
+    press(&mut st, KeyCode::Char('.'));
+
+    assert_eq!(text_of(&st), before);
+    assert!(
+        st.status_model().message.is_some_and(|m| m.contains("E32")),
+        "got {:?}",
+        st.status_model().message,
+    );
+}
+
+#[test]
+fn dot_is_idempotent_in_the_sense_that_it_repeats_the_same_change_twice() {
+    // The regression guard: `.` runs through the same executor that RECORDS
+    // changes, so without care the first `.` would overwrite `last_change`
+    // with a fragment and the second would do something different.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "Z");
+    press(&mut st, KeyCode::Escape);
+
+    press(&mut st, KeyCode::Char('.'));
+    let after_one = text_of(&st);
+    press(&mut st, KeyCode::Char('.'));
+    let after_two = text_of(&st);
+
+    assert_eq!(
+        after_two.matches('Z').count(),
+        after_one.matches('Z').count() + 1,
+        "each `.` must add exactly one more Z",
+    );
+}
+
+#[test]
+fn gn_jumps_onto_the_next_match() {
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('j')); // move off the match
+
+    press(&mut st, KeyCode::Char('g'));
+    press(&mut st, KeyCode::Char('n'));
+    assert_eq!(st.cursor().line, 2, "gn lands on the next `alpha`");
+}
+
+#[test]
+fn dgn_deletes_the_whole_match_not_the_text_before_it() {
+    // The distinction that makes `gn` an OBJECT rather than a motion. Modelled
+    // as a motion it would delete [cursor, match.start) — everything BEFORE
+    // the match — which is the opposite of what the keys mean.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("keep TARGET keep\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    search(&mut st, "TARGET");
+    press(&mut st, KeyCode::Char('0')); // back to column 0
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('g'));
+    press(&mut st, KeyCode::Char('n'));
+
+    let out = text_of(&st);
+    assert!(!out.contains("TARGET"), "the match must be gone: {out:?}");
+    assert!(
+        out.starts_with("keep"),
+        "the text BEFORE it must survive: {out:?}"
+    );
+}
+
+#[test]
+fn cgn_then_dot_renames_matches_one_at_a_time() {
+    // The killer combo: change the next match, then repeat that whole gesture
+    // on the one after. A per-instance confirmable rename with no multi-cursor
+    // machinery.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("foo one\nfoo two\nfoo three\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    search(&mut st, "foo");
+    press(&mut st, KeyCode::Char('0'));
+
+    // cgn -> change the first match
+    press(&mut st, KeyCode::Char('c'));
+    press(&mut st, KeyCode::Char('g'));
+    press(&mut st, KeyCode::Char('n'));
+    type_str(&mut st, "bar");
+    press(&mut st, KeyCode::Escape);
+
+    assert_eq!(text_of(&st).matches("bar").count(), 1, "one renamed");
+
+    // `.` -> the same change on the next match
+    press(&mut st, KeyCode::Char('.'));
+    assert_eq!(
+        text_of(&st).matches("bar").count(),
+        2,
+        "`.` renamed the next one"
+    );
+
+    press(&mut st, KeyCode::Char('.'));
+    let out = text_of(&st);
+    assert_eq!(out.matches("bar").count(), 3, "and the next: {out:?}");
+    assert!(!out.contains("foo"), "every match renamed: {out:?}");
+}
+
+#[test]
+fn gn_with_no_pattern_reports_rather_than_moving() {
+    let mut st = state();
+    let before = st.cursor().line;
+    press(&mut st, KeyCode::Char('g'));
+    press(&mut st, KeyCode::Char('n'));
+
+    assert_eq!(st.cursor().line, before);
+    assert!(
+        st.status_model().message.is_some(),
+        "an impossible gn must say so"
+    );
+}
+
+#[test]
+fn gn_operates_on_the_match_the_cursor_is_already_inside() {
+    // Inclusive, so `cgn` + `.` walks matches ONE at a time rather than every
+    // other one.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("aaa bbb aaa\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    search(&mut st, "aaa"); // cursor lands ON the first match
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('g'));
+    press(&mut st, KeyCode::Char('n'));
+
+    let out = text_of(&st);
+    assert!(
+        out.starts_with(" bbb"),
+        "the match under the cursor went: {out:?}"
+    );
+}

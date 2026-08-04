@@ -136,3 +136,20 @@ mod tests {
         assert!(!Operator::Format.leaves_register());
     }
 }
+
+/// A text EXTENT an operator can act over, as opposed to a point it moves to.
+///
+/// vim's `gn` is the motivating case and shows why the distinction matters:
+/// `dgn` deletes the next match *wherever it is*, including when the cursor is
+/// nowhere near it. Modelled as a motion it would resolve to the match's start
+/// and the operator would act over `[cursor, match.start)` — deleting the text
+/// BEFORE the match instead of the match. Same keys, opposite effect.
+///
+/// Closed, so an unhandled object cannot reach the executor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+pub enum TextObject {
+    /// `gn` — the next search match at or after the cursor.
+    NextMatch,
+    /// `gN` — the previous search match at or before the cursor.
+    PrevMatch,
+}
