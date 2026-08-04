@@ -985,3 +985,102 @@ fn gn_operates_on_the_match_the_cursor_is_already_inside() {
         "the match under the cursor went: {out:?}"
     );
 }
+
+// ── <C-g> / <C-t>: walk the preview without committing ───────────────────
+
+#[test]
+fn ctrl_g_steps_the_preview_to_the_next_match() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha"); // previews line 0
+    assert_eq!(st.cursor().line, 0);
+
+    ctrl(&mut st, 'g');
+    assert_eq!(st.cursor().line, 2, "<C-g> walks to the next match");
+    ctrl(&mut st, 'g');
+    assert_eq!(st.cursor().line, 3);
+}
+
+#[test]
+fn ctrl_t_walks_the_preview_back() {
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    ctrl(&mut st, 'g');
+    ctrl(&mut st, 'g');
+    ctrl(&mut st, 't');
+    assert_eq!(st.cursor().line, 2);
+}
+
+#[test]
+fn escape_after_stepping_still_returns_home() {
+    // The property that makes stepping better than committing-then-`n`:
+    // it is still cancellable.
+    let mut st = state();
+    let origin = st.cursor().line;
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    ctrl(&mut st, 'g');
+    ctrl(&mut st, 'g');
+    assert_ne!(st.cursor().line, origin, "we walked away");
+
+    press(&mut st, KeyCode::Escape);
+    assert_eq!(st.cursor().line, origin, "Escape still goes home");
+}
+
+#[test]
+fn enter_lands_where_the_stepped_preview_showed() {
+    // The contract the commit anchor established, extended to stepping:
+    // what you are looking at is what Enter gives you.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    ctrl(&mut st, 'g');
+    let previewed = st.cursor().line;
+    assert_eq!(previewed, 2, "stepped once");
+
+    press(&mut st, KeyCode::Enter);
+    assert_eq!(
+        st.cursor().line,
+        previewed,
+        "Enter must not snap back to the first match"
+    );
+}
+
+#[test]
+fn editing_the_pattern_after_stepping_restarts_from_the_first_match() {
+    // The step describes a match set the edit replaces.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    ctrl(&mut st, 'g');
+    ctrl(&mut st, 'g');
+
+    press(&mut st, KeyCode::Backspace); // pattern is now `alph`
+    type_str(&mut st, "a"); // back to `alpha`, but the step is reset
+    assert_eq!(
+        st.cursor().line,
+        0,
+        "a fresh pattern previews from the first match"
+    );
+}
+
+#[test]
+fn stepping_the_preview_updates_the_count() {
+    use escriba_search::MatchCount;
+
+    let mut st = state();
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "alpha");
+    match st.status_model().count {
+        MatchCount::Exact { current, total } => assert_eq!((current, total), (1, 3)),
+        other => panic!("expected a count, got {other:?}"),
+    }
+
+    ctrl(&mut st, 'g');
+    match st.status_model().count {
+        MatchCount::Exact { current, .. } => assert_eq!(current, 2, "the count follows the step"),
+        other => panic!("expected a count, got {other:?}"),
+    }
+}

@@ -130,6 +130,15 @@ pub enum Action {
     PromptCaret {
         to: escriba_search::CaretMove,
     },
+    /// `<C-g>` / `<C-t>` — step the search PREVIEW to the next/previous
+    /// match without committing.
+    ///
+    /// Distinct from `n` in the one way that matters: this is still
+    /// cancellable. Escape returns to where the search started, which `n`
+    /// after a commit cannot do.
+    SearchPreviewStep {
+        forward: bool,
+    },
     /// `<Del>` — delete the character AT the prompt caret.
     PromptDelete,
     /// `<C-w>` — delete the word before the prompt caret.
@@ -232,6 +241,7 @@ impl Action {
             | Self::JumpForward
             | Self::PromptCaret { .. }
             | Self::PromptHistory { .. }
+            | Self::SearchPreviewStep { .. }
             | Self::Pending => TextEffect::Preserves,
         }
     }
@@ -271,9 +281,11 @@ impl Action {
             | Self::SearchSubmitOperated { .. }
             | Self::ClearSearchHighlight
             | Self::TextObject(_)
+            | Self::SearchPreviewStep { .. }
             | Self::PromptHistory { .. }
             | Self::PromptBackspace
             | Self::PromptCaret { .. }
+            | Self::SearchPreviewStep { .. }
             | Self::PromptDelete
             | Self::PromptDeleteWord
             | Self::PromptClearToStart

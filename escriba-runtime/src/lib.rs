@@ -820,6 +820,14 @@ impl EditorState {
             .search
             .prompt()
             .map_or_else(|| self.cursor_char(), |p| p.origin);
+        // Read the preview step BEFORE `accept` consumes the prompt: Enter has
+        // to land on the match `<C-g>` walked to, not back on the first.
+        // Without this, stepping the preview and committing would break the
+        // very contract the commit anchor was fixed to establish.
+        let skip = self
+            .search
+            .prompt()
+            .map_or(0, escriba_search::Prompt::preview_skip);
         let outcome = self.search.accept(&text);
         match outcome {
             escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
@@ -833,7 +841,7 @@ impl EditorState {
                     let origin = buf.char_to_position(at);
                     self.jumps.push(origin);
                 }
-                match self.search.commit_step(at) {
+                match self.search.commit_step_skipping(at, skip) {
                     Some(step) => self.land_on(step),
                     None => {
                         let mut m = String::from("E486: Pattern not found");
@@ -985,6 +993,12 @@ impl EditorState {
                     self.search.move_caret(*to);
                 }
             }
+            Action::SearchPreviewStep { forward } => {
+                if self.search.is_prompting() {
+                    self.search.preview_step(*forward);
+                    self.preview_search();
+                }
+            }
             Action::PromptDelete => {
                 if self.search.is_prompting() {
                     self.search.delete_at_caret();
@@ -1041,6 +1055,7 @@ impl EditorState {
             | Action::PromptHistory { .. }
             | Action::PromptBackspace
             | Action::PromptCaret { .. }
+            | Action::SearchPreviewStep { .. }
             | Action::PromptDelete
             | Action::PromptDeleteWord
             | Action::PromptClearToStart
