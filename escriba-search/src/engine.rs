@@ -246,8 +246,17 @@ pub fn word_at(text: &str, cursor: usize) -> Option<String> {
     Some(chars[start..end].iter().collect())
 }
 
-/// Vim's default `maxcount`. Counting is bounded so one keystroke on a large
-/// buffer cannot become a full scan the user waits on.
+/// Vim's default `maxcount` — a DISPLAY cap only.
+///
+/// Past this the ordinal stays exact and the denominator renders as `>99`. It
+/// does **not** bound the scan: [`find_all`] has no early exit, so counting a
+/// large buffer costs a full pass regardless of this constant. Bounding that
+/// work is the caller's job, not this value's.
+///
+/// The previous wording claimed counting was "bounded so one keystroke on a
+/// large buffer cannot become a full scan the user waits on", which was false
+/// in both halves — the scan is uncapped, and while a prompt was open it ran
+/// TWICE per status line.
 pub const MAX_COUNT: usize = 99;
 
 /// A match-count display — vim's `[3/17]`.
