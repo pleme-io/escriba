@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "escriba-memori",
     "escriba-core",
     "escriba-buffer",
     "escriba-config",
@@ -38,6 +39,7 @@ escriba-core    = { path = "escriba-core", version = "0.1.25" }
 escriba-buffer  = { path = "escriba-buffer", version = "0.1.25" }
 escriba-config  = { path = "escriba-config", version = "0.1.25" }
 escriba-mode    = { path = "escriba-mode", version = "0.1.25" }
+escriba-memori  = { path = "escriba-memori", version = "0.1.25" }
 escriba-search  = { path = "escriba-search", version = "0.1.25" }
 escriba-keymap  = { path = "escriba-keymap", version = "0.1.25" }
 escriba-command = { path = "escriba-command", version = "0.1.25" }

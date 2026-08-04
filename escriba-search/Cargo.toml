@@ -12,6 +12,7 @@ authors.workspace = true
 serde     = { workspace = true }
 schemars  = { workspace = true }
 thiserror = { workspace = true }
+escriba-memori = { workspace = true }
 regex     = { workspace = true }
 
 [dev-dependencies]

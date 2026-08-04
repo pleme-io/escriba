@@ -25,7 +25,6 @@ pub mod edit;
 pub mod r#gen;
 pub mod id;
 pub mod jumplist;
-pub mod memori;
 pub mod mode;
 pub mod motion;
 pub mod position;

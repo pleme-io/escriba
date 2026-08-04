@@ -836,6 +836,7 @@ dependencies = [
 name = "escriba-core"
 version = "0.1.25"
 dependencies = [
+ "escriba-memori",
  "escriba-search",
  "pretty_assertions",
  "proptest",
@@ -917,6 +918,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "escriba-memori"
+version = "0.1.25"
+
+[[package]]
 name = "escriba-mode"
 version = "0.1.25"
 dependencies = [
@@ -987,6 +992,7 @@ dependencies = [
 name = "escriba-search"
 version = "0.1.25"
 dependencies = [
+ "escriba-memori",
  "pretty_assertions",
  "regex",
  "schemars",
