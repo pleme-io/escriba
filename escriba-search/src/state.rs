@@ -19,9 +19,6 @@
 //! which is exactly vim's behaviour and falls out of the shape rather than
 //! being restored by hand.
 
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use escriba_memori::{CaretMove, Chars, Offset, Ruler};
 
 use crate::engine::{Direction, SearchMatch, Step, find_all, step, step_inclusive};
