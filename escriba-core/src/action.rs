@@ -187,3 +187,75 @@ impl Action {
         }
     }
 }
+
+/// What an action does to search HIGHLIGHTING.
+///
+/// vim leaves `hlsearch` lit until `:nohlsearch`, which is why nearly every
+/// published vimrc remaps something to `:noh` — the highlight has done its job
+/// the moment you start editing, and leaving it on turns the buffer into
+/// confetti. escriba clears it on the first action that is plainly not part of
+/// searching.
+///
+/// Clearing SUPPRESSES without forgetting: the pattern survives, so `n` still
+/// works and re-lights.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HighlightEffect {
+    /// Search highlighting stays as it is.
+    Keep,
+    /// Stop drawing highlights (the pattern is retained).
+    Clear,
+}
+
+impl Action {
+    /// Classify this action's effect on search highlighting.
+    ///
+    /// **Total over `Action` — no wildcard arm.** "We forgot to clear on the
+    /// new command" becomes unconstructible rather than remembered: adding a
+    /// variant forces the decision here.
+    #[must_use]
+    pub const fn highlight_effect(&self) -> HighlightEffect {
+        match self {
+            // Everything that IS searching, or that is operating the prompt.
+            Self::SearchOpen(_)
+            | Self::SearchRepeat { .. }
+            | Self::SearchWord { .. }
+            | Self::SearchSubmitOperated { .. }
+            | Self::ClearSearchHighlight
+            | Self::PromptHistory { .. }
+            | Self::PromptBackspace
+            | Self::InsertChar(_)
+            | Self::SubmitCommand
+            | Self::Pending
+            // A jump is how you USE the matches; extinguishing them mid-walk
+            // would defeat the purpose.
+            | Self::JumpBack
+            | Self::JumpForward
+            // Arming an operator is not yet a move — `d` then `n` must still
+            // see its matches.
+            | Self::Operator(_)
+            | Self::Save
+            | Self::Quit => HighlightEffect::Keep,
+
+            // A search MOTION is searching, not moving on — `n` must not
+            // extinguish the matches it is walking. Every other motion is a
+            // departure.
+            //
+            // The `_` here is deliberate and is the SAFE direction, unlike
+            // `text_effect`'s: a motion nobody has classified yet is "moving
+            // on", which at worst clears a highlight early. The opposite
+            // default would leave stale confetti on screen.
+            Self::Move(m) => match m {
+                Motion::SearchNext | Motion::SearchPrev => HighlightEffect::Keep,
+                _ => HighlightEffect::Clear,
+            },
+
+            // Moving on, or changing the text: the search is over.
+            Self::ApplyOperator { .. }
+            | Self::Edit(_)
+            | Self::ChangeMode(_)
+            | Self::Command { .. }
+            | Self::Undo
+            | Self::Redo => HighlightEffect::Clear,
+        }
+    }
+}

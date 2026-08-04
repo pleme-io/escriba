@@ -49,6 +49,48 @@ impl CaseMode {
     }
 }
 
+/// Split a `\c` / `\C` case override out of a pattern.
+///
+/// Returns the pattern with the override removed and, if one was present,
+/// whether it demands case-INsensitivity. The first override wins; vim
+/// scans the whole pattern, so position does not matter and `foo\c` behaves
+/// exactly like `\cfoo`.
+///
+/// `\\c` (an escaped backslash followed by `c`) is NOT an override — it is a
+/// literal backslash then a `c`. Walking the string two characters at a time
+/// is what keeps those apart; a `replace("\\c", "")` would corrupt it.
+fn split_case_override(raw: &str) -> (String, Option<bool>) {
+    let mut out = String::with_capacity(raw.len());
+    let mut forced: Option<bool> = None;
+    let mut chars = raw.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.peek() {
+            Some('c') if forced.is_none() => {
+                chars.next();
+                forced = Some(true);
+            }
+            Some('C') if forced.is_none() => {
+                chars.next();
+                forced = Some(false);
+            }
+            // Any other escape (including `\\`) passes through whole, so the
+            // character after it can never be re-read as an override.
+            Some(&next) => {
+                out.push(c);
+                out.push(next);
+                chars.next();
+            }
+            None => out.push(c),
+        }
+    }
+    (out, forced)
+}
+
 /// Why a pattern failed to compile.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PatternError {
@@ -67,6 +109,14 @@ pub enum PatternError {
 pub struct SearchPattern {
     raw: String,
     case: CaseMode,
+    /// The RESOLVED answer, decided once at compile time.
+    ///
+    /// Recomputing it from `raw` + `case` on every call was correct only while
+    /// smartcase was the whole story: it re-derives from the pattern TEXT, so
+    /// it could not see a `\c` override (and would have mis-read the `c` in
+    /// `\c` as ordinary pattern content). Storing what the regex was actually
+    /// built with means the accessor and the engine can no longer disagree.
+    insensitive: bool,
     regex: regex::Regex,
 }
 
@@ -80,8 +130,21 @@ impl SearchPattern {
         if raw.is_empty() {
             return Err(PatternError::Empty);
         }
-        let regex = regex::RegexBuilder::new(raw)
-            .case_insensitive(case.ignores_case(raw))
+        // `\c` / `\C` anywhere in the pattern force case-insensitive /
+        // case-sensitive, overriding smartcase and any `:set ignorecase`.
+        //
+        // This is the answer to "why didn't that match?" that a sticky
+        // case TOGGLE cannot give: the override travels WITH the pattern, so
+        // it is visible in the prompt, survives history recall, and can be
+        // copy-pasted to a colleague. Invisible modal state that silently
+        // changes tomorrow's search is the failure mode being avoided.
+        let (body, forced) = split_case_override(raw);
+        if body.is_empty() {
+            return Err(PatternError::Empty);
+        }
+        let insensitive = forced.map_or_else(|| case.ignores_case(&body), |f| f);
+        let regex = regex::RegexBuilder::new(&body)
+            .case_insensitive(insensitive)
             // A search pattern is per-line in spirit but we scan the whole
             // buffer as one string, so `.` must not leap across lines — that
             // would let `/a.b` match across a newline, which no vim user
@@ -90,8 +153,11 @@ impl SearchPattern {
             .build()
             .map_err(|e| PatternError::Invalid(e.to_string()))?;
         Ok(Self {
+            // The ORIGINAL text is kept, `\c` included, so the prompt and the
+            // history show what the user actually typed — vim does the same.
             raw: raw.to_string(),
             case,
+            insensitive,
             regex,
         })
     }
@@ -141,7 +207,7 @@ impl SearchPattern {
     /// Whether this pattern actually ignores case, after smartcase resolution.
     #[must_use]
     pub fn ignores_case(&self) -> bool {
-        self.case.ignores_case(&self.raw)
+        self.insensitive
     }
 
     pub(crate) const fn regex(&self) -> &regex::Regex {
@@ -247,5 +313,60 @@ mod tests {
         let p = SearchPattern::compile("Foo.*bar", CaseMode::Smart).unwrap();
         assert_eq!(p.raw(), "Foo.*bar");
         assert!(!p.ignores_case(), "capital F should force sensitivity");
+    }
+
+    #[test]
+    fn case_override_forces_both_directions() {
+        // Uppercase in the pattern ⇒ smartcase would be SENSITIVE; \c wins.
+        let p = SearchPattern::compile(r"\cFOO", CaseMode::Smart).expect("compiles");
+        assert!(p.ignores_case(), "\\c must force insensitive");
+
+        // All-lowercase ⇒ smartcase would be INSENSITIVE; \C wins.
+        let p = SearchPattern::compile(r"\Cfoo", CaseMode::Smart).expect("compiles");
+        assert!(!p.ignores_case(), "\\C must force sensitive");
+    }
+
+    #[test]
+    fn a_case_override_beats_an_explicit_mode_too() {
+        // Not just smartcase: `:set ignorecase` loses to `\C` as well.
+        let p = SearchPattern::compile(r"\Cfoo", CaseMode::Ignore).expect("compiles");
+        assert!(!p.ignores_case());
+    }
+
+    #[test]
+    fn the_override_is_stripped_before_the_regex_sees_it() {
+        // If `\c` reached the regex engine it would be an unknown escape and
+        // the pattern would fail to compile at all.
+        let p = SearchPattern::compile(r"\cabc", CaseMode::Smart).expect("compiles");
+        assert!(p.regex().is_match("ABC"), "the body must be `abc`");
+    }
+
+    #[test]
+    fn an_escaped_backslash_is_not_a_case_override() {
+        // `\\c` is a literal backslash followed by `c` — a naive
+        // `replace("\\c", "")` would corrupt it into nothing.
+        let p = SearchPattern::compile(r"a\\c", CaseMode::Sensitive).expect("compiles");
+        assert!(
+            p.regex().is_match(r"a\c"),
+            "must still match a literal backslash-c"
+        );
+        assert!(!p.ignores_case(), "no override was present");
+    }
+
+    #[test]
+    fn a_pattern_that_is_only_an_override_is_empty() {
+        // `/\c` has no body to search for.
+        assert_eq!(
+            SearchPattern::compile(r"\c", CaseMode::Smart),
+            Err(PatternError::Empty),
+        );
+    }
+
+    #[test]
+    fn the_override_may_appear_anywhere() {
+        // vim scans the whole pattern, so a trailing `\c` works too.
+        let p = SearchPattern::compile(r"foo\c", CaseMode::Sensitive).expect("compiles");
+        assert!(p.ignores_case());
+        assert!(p.regex().is_match("FOO"));
     }
 }

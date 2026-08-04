@@ -353,6 +353,15 @@ impl SearchState {
         self.highlight
     }
 
+    /// Re-enable highlighting for the committed pattern.
+    ///
+    /// `n` after an auto-clear must light the matches again — vim does the
+    /// same. Without this, highlighting would be a one-shot that the first
+    /// motion extinguished permanently.
+    pub fn relight(&mut self) {
+        self.highlight = true;
+    }
+
     /// `:noh` — stop highlighting, but keep the pattern so `n` still works.
     pub fn clear_highlight(&mut self) {
         self.highlight = false;
