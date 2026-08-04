@@ -22,8 +22,8 @@ use awase::KeyRepeatGate;
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
 use escriba_core::{
-    Action, BufferId, Cursors, Damage, Edit, EditGen, JumpList, Mode, Motion, Operator, Position,
-    Range, TextEffect, WindowId,
+    Action, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList, Mode, Motion,
+    Operator, Position, Range, TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -575,6 +575,9 @@ impl EditorState {
     /// than failing silently — a search that appears to do nothing is
     /// indistinguishable from a dropped keystroke.
     fn jump_search(&mut self, reverse: bool) {
+        // Using the matches re-lights them: `n` after an auto-clear shows you
+        // what you are walking through.
+        self.search.relight();
         // `n` is a far jump — record where we leave from so `<C-o>` works.
         self.jumps.push(self.cursor());
         let at = self.cursor_char();
@@ -895,6 +898,13 @@ impl EditorState {
             Action::Quit | Action::Operator(_) | Action::Pending => Damage::None,
         };
         self.damage = self.damage.join(d);
+        // The search is over the moment you move on or edit — clear the
+        // highlight rather than leaving the buffer as confetti until an
+        // explicit `:noh`, which is the remap nearly every vimrc carries.
+        // Clearing suppresses without forgetting, so `n` still works.
+        if action.highlight_effect() == HighlightEffect::Clear {
+            self.search.clear_highlight();
+        }
         // Text changed ⇒ every match offset cached against the old text is
         // wrong. `SearchState::refresh` existed for exactly this and had ZERO
         // callers, so inserting four characters left both renderers painting

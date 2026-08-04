@@ -532,3 +532,81 @@ fn two_fast_n_presses_advance_twice() {
         "the immediately-following `n` must also advance"
     );
 }
+
+// ── highlighting decays on its own (T2.2) ────────────────────────────────
+
+#[test]
+fn moving_on_clears_the_highlight_but_keeps_the_pattern() {
+    let mut st = state();
+    search(&mut st, "alpha");
+    assert!(st.search.highlight_enabled(), "a fresh search lights up");
+
+    press(&mut st, KeyCode::Char('j'));
+    assert!(
+        !st.search.highlight_enabled(),
+        "moving on ends the search — no `:noh` remap should be needed",
+    );
+    assert!(
+        st.search.pattern().is_some(),
+        "the PATTERN must survive the clear"
+    );
+}
+
+#[test]
+fn n_relights_after_an_auto_clear() {
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('j')); // clears
+    assert!(!st.search.highlight_enabled());
+
+    press(&mut st, KeyCode::Char('n'));
+    assert!(
+        st.search.highlight_enabled(),
+        "using the matches shows them again"
+    );
+}
+
+#[test]
+fn arming_an_operator_does_not_clear_the_highlight() {
+    // `d` is not "moving on" — `dn` still needs its matches visible.
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('d'));
+    assert!(st.search.highlight_enabled());
+}
+
+// ── \c / \C case override (T2.4) ─────────────────────────────────────────
+
+#[test]
+fn backslash_c_forces_a_case_insensitive_match() {
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("hello\nHELLO\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    // `HELLO` has uppercase, so smartcase alone would be case-SENSITIVE and
+    // find one match. `\c` overrides that.
+    search(&mut st, r"\cHELLO");
+    assert_eq!(st.search.matches().len(), 2, "\\c must match both cases");
+}
+
+#[test]
+fn backslash_capital_c_forces_case_sensitivity() {
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("hello\nHELLO\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    // Lowercase pattern ⇒ smartcase would be insensitive and find both.
+    search(&mut st, r"\Chello");
+    assert_eq!(st.search.matches().len(), 1, "\\C must pin the case");
+}
+
+#[test]
+fn the_override_is_kept_in_the_pattern_text_the_user_sees() {
+    let mut st = state();
+    search(&mut st, r"\calpha");
+    assert_eq!(
+        st.search.pattern().map(escriba_search::SearchPattern::raw),
+        Some(r"\calpha"),
+        "the prompt and history show what was typed, vim-style",
+    );
+}
