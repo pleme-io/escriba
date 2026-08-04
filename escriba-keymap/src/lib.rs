@@ -2,7 +2,7 @@
 
 extern crate self as escriba_keymap;
 
-use escriba_search::Direction as SearchDirection;
+use escriba_search::{CaretMove, Direction as SearchDirection};
 use std::collections::HashMap;
 
 use escriba_core::{Action, CountedAction, Mode, Motion, Operator};
@@ -230,6 +230,51 @@ impl Keymap {
             Key::Backspace,
             Action::PromptBackspace,
             "erase one char",
+        );
+        // Caret editing inside the prompt. Without these the prompt is
+        // append-only, so a typo in the middle of a pattern can only be fixed
+        // by deleting everything back to it.
+        m.bind(
+            Mode::Command,
+            Key::Left,
+            Action::PromptCaret {
+                to: CaretMove::Left,
+            },
+            "caret left",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Right,
+            Action::PromptCaret {
+                to: CaretMove::Right,
+            },
+            "caret right",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Home,
+            Action::PromptCaret {
+                to: CaretMove::Start,
+            },
+            "caret to start",
+        );
+        m.bind(
+            Mode::Command,
+            Key::End,
+            Action::PromptCaret { to: CaretMove::End },
+            "caret to end",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Ctrl('w'),
+            Action::PromptDeleteWord,
+            "delete word before caret",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Ctrl('u'),
+            Action::PromptClearToStart,
+            "clear to start",
         );
 
         // ── search ────────────────────────────────────────────────────

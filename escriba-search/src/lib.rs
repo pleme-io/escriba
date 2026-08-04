@@ -48,7 +48,7 @@ pub use engine::{
     word_at,
 };
 pub use pattern::{CaseMode, PatternError, SearchPattern};
-pub use state::{Accepted, HISTORY_LIMIT, Prompt, SearchState};
+pub use state::{Accepted, CaretMove, HISTORY_LIMIT, Prompt, SearchState};
 
 #[cfg(test)]
 mod integration {
