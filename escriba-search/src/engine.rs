@@ -11,7 +11,7 @@
 //! a byte offset.
 
 use crate::pattern::SearchPattern;
-use escriba_memori::Bound;
+use escriba_memori::{Bound, Bytes, Offset, Ruler};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -106,32 +106,27 @@ pub struct Step {
 /// no-op.
 #[must_use]
 pub fn find_all(text: &str, pattern: &SearchPattern) -> Vec<SearchMatch> {
-    // One pass to build the byte->char map, so the whole conversion is O(n)
-    // rather than O(n*m) from repeated `text[..b].chars().count()` calls. On a
-    // large buffer with many matches that difference is the whole frame budget.
-    let mut byte_to_char = vec![0usize; text.len() + 1];
-    for (char_idx, (byte_idx, _)) in text.char_indices().enumerate() {
-        byte_to_char[byte_idx] = char_idx;
-    }
-    byte_to_char[text.len()] = text.chars().count();
-    // Interior bytes of a multi-byte char are never match boundaries (regex
-    // only reports char-aligned offsets), so leaving them 0 is safe — but fill
-    // them forward anyway so a future caller cannot trip over a stale zero.
-    let mut last = 0;
-    for slot in &mut byte_to_char {
-        if *slot == 0 && last != 0 {
-            *slot = last;
-        } else {
-            last = *slot;
-        }
-    }
+    // `regex` reports BYTE offsets; `SearchMatch` is in CHARS. The conversion
+    // rides a `memori` ascending scan: the offsets arrive in order (matches
+    // are non-overlapping and ascending, and `start <= end` within each), so a
+    // forward-only cursor converts all of them in O(n + m) total with O(1)
+    // extra memory.
+    //
+    // This replaces a dense `byte_to_char` map that was correct but expensive:
+    // it allocated and zeroed a `usize` PER DOCUMENT BYTE — 8 MiB of scratch
+    // for a 1 MiB buffer — on every keystroke of an incremental search. The
+    // scan allocates nothing. `the_ruler_scan_agrees_with_the_hand_rolled_map`
+    // pins the two implementations equal so the swap cannot have changed an
+    // answer.
+    let ruler = Ruler::new(text);
+    let mut scan = ruler.ascending();
 
     pattern
         .regex()
         .find_iter(text)
         .map(|m| SearchMatch {
-            start: byte_to_char[m.start()],
-            end: byte_to_char[m.end()],
+            start: scan.to_chars(Offset::new(m.start())).raw(),
+            end: scan.to_chars(Offset::new(m.end())).raw(),
         })
         .collect()
 }
@@ -579,5 +574,71 @@ mod tests {
         assert_eq!(seen, vec![2, 8, 14]);
         // One more wraps back to the first.
         assert_eq!(step(&m, at, Direction::Forward).unwrap().target.start, 2);
+    }
+
+    #[test]
+    fn the_ruler_scan_agrees_with_the_hand_rolled_map() {
+        // The differential test that licenses the retrofit. The oracle is the
+        // dense `byte_to_char` map `find_all` used to build, reconstructed
+        // here verbatim — if the memori scan ever disagrees with it on any
+        // match boundary of any corpus entry, the swap changed an answer.
+        fn oracle(text: &str, pattern: &SearchPattern) -> Vec<SearchMatch> {
+            let mut byte_to_char = vec![0usize; text.len() + 1];
+            for (char_idx, (byte_idx, _)) in text.char_indices().enumerate() {
+                byte_to_char[byte_idx] = char_idx;
+            }
+            byte_to_char[text.len()] = text.chars().count();
+            let mut last = 0;
+            for slot in &mut byte_to_char {
+                if *slot == 0 && last != 0 {
+                    *slot = last;
+                } else {
+                    last = *slot;
+                }
+            }
+            pattern
+                .regex()
+                .find_iter(text)
+                .map(|m| SearchMatch {
+                    start: byte_to_char[m.start()],
+                    end: byte_to_char[m.end()],
+                })
+                .collect()
+        }
+
+        // Corpora chosen so a byte/char confusion cannot hide: multi-byte
+        // chars BEFORE, BETWEEN and AFTER matches, plus adjacent and
+        // whole-text matches.
+        let cases: &[(&str, &str)] = &[
+            ("alpha bravo alpha", "alpha"),
+            ("héllo wörld héllo", "héllo"),
+            ("日本語 foo 日本語 foo", "foo"),
+            ("🔥a🔥a🔥", "a"),
+            ("aaa", "a"),
+            ("abc", "abc"),
+            ("", "x"),
+            ("no match here", "zzz"),
+            ("x🔥y", r"\w"),
+            ("one\ntwo\none", "one"),
+        ];
+
+        for (text, pat) in cases {
+            let p = SearchPattern::compile(pat, CaseMode::Sensitive).expect("compiles");
+            assert_eq!(
+                find_all(text, &p),
+                oracle(text, &p),
+                "memori scan disagreed with the hand-rolled map on {text:?} / {pat:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn find_all_still_reports_char_offsets_after_the_retrofit() {
+        // The property the retrofit exists to preserve, asserted directly
+        // rather than only through the oracle.
+        let p = SearchPattern::compile("foo", CaseMode::Sensitive).expect("compiles");
+        let got = find_all("héllo foo", &p);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].start, 6, "chars, not the byte offset 7");
     }
 }

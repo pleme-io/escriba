@@ -23,12 +23,11 @@ So, stated at the tier each half actually earns:
   implementation `step`/`step_inclusive` delegate to.
 - **`Anchored`** — load-bearing. `EditorState::search_at` is
   `Anchored<usize, TextRev>` and the manual invalidation was deleted.
-- **`Chars`/`Bytes`/`Ruler`** — **one consumer**, `SearchState::byte_of_caret`,
-  which converts the prompt caret from chars to bytes. Verified by reverting it
-  and watching `Chars`, `Offset` and `Ruler` become unused imports. That is a
-  real consumer and no longer a claim, but it is ONE, in a
-  minibuffer-length string, and deliberately not the hot path — `find_all`
-  still carries its own bulk map for the reason in follow-up #3.
+- **`Chars`/`Bytes`/`Ruler`** — **two consumers, one of them the hot path.**
+  `SearchState::byte_of_caret` (the prompt caret, chars→bytes) and
+  `engine::find_all` (every match offset, bytes→chars, via
+  `Ruler::ascending`). Verified for each by reverting the call site and
+  watching `Bytes`, `Offset` and `Ruler` become unused imports.
 - **`Utf16Units`** — **no consumer, and none is possible yet.** It unblocks
   only with LSP phase 2, which does not exist here.
 
@@ -225,16 +224,24 @@ cautionary tale for what happens when it is not.
 
 1. ~~Extract to `escriba-memori` → fold the twins.~~ **DONE.**
 2. ~~Text-revision counter in `escriba-buffer`.~~ **DONE** — `TextRev`.
-3. Retrofit `escriba-search::engine`'s bulk `byte_to_char` map onto `Ruler`.
-   **NOT as previously written.** `Ruler::to_chars` is **O(n) PER CALL**
-   (`self.text[..b].chars().count()` re-walks from the start), so substituting
-   it into `find_all` — which converts every match offset — is O(n·m) and a
-   performance REGRESSION, precisely the cost `engine.rs`'s own comment says
-   "is the whole frame budget". The retrofit is gated on a bulk/ascending API
-   landing first: a forward-only `Ruler::ascending()` scanner that is O(n+m)
-   total with O(1) extra memory. That would be a WIN, not a tax — today's map
-   allocates and zeroes 8 bytes per document byte on every keystroke.
-4. UTF-16 has no possible consumer until LSP phase 2. Do not list it as
-   pending work; it is blocked, not queued.
+3. ~~Retrofit `find_all` onto `Ruler`.~~ **DONE**, via `Ruler::ascending`.
+
+   Worth recording WHY it needed a new API rather than the obvious
+   substitution: `Ruler::to_chars` is **O(n) per call** (it re-walks from the
+   start, because it must be total and random-access), so calling it per match
+   is O(n·m) — a performance REGRESSION, and precisely the cost the old code's
+   own comment called "the whole frame budget". `AscendingScan` is the third
+   option and beats both: O(n + m) total, O(1) extra memory, versus a dense map
+   that allocated and zeroed EIGHT BYTES PER DOCUMENT BYTE on every keystroke
+   of an incremental search.
+
+   Licensed by `the_ruler_scan_agrees_with_the_hand_rolled_map`, a differential
+   test whose oracle is the deleted algorithm reconstructed verbatim.
+
+4. **UTF-16 is BLOCKED, not queued.** `Utf16Units` has no consumer and cannot
+   have one until LSP position conversion exists — `escriba-lsp-client` has no
+   `Position` type. Giving it a consumer means building that feature for its
+   own reasons; manufacturing one to make the axis look load-bearing would be
+   the same over-claim this file has already had to correct twice.
 4. `(defmemori …)` tatara-lisp surface + `#[derive(DeriveTataraDomain)]`.
    **Not shipped** — M0 is the typed Rust border only.
