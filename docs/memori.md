@@ -23,13 +23,37 @@ So, stated at the tier each half actually earns:
   implementation `step`/`step_inclusive` delegate to.
 - **`Anchored`** — load-bearing. `EditorState::search_at` is
   `Anchored<usize, TextRev>` and the manual invalidation was deleted.
-- **`Chars`/`Bytes`/`Ruler`** — **two consumers, one of them the hot path.**
-  `SearchState::byte_of_caret` (the prompt caret, chars→bytes) and
+- **`Chars`/`Bytes`/`Ruler`** — **three consumers, one of them the hot path.**
+  `SearchState::byte_of_caret` (the search prompt's caret, chars→bytes),
+  `ExLine::byte_of_caret` (the ex-line's caret, same conversion), and
   `engine::find_all` (every match offset, bytes→chars, via
   `Ruler::ascending`). Verified for each by reverting the call site and
-  watching `Bytes`, `Offset` and `Ruler` become unused imports.
+  watching the imports die. Captured for the third, 2026-08-04:
+
+  ```
+  warning: unused imports: `Chars`, `Offset`, and `Ruler`
+    --> escriba-mode/src/lib.rs:36:33
+     |
+  36 | use escriba_memori::{CaretMove, Chars, Offset, Ruler};
+  ```
+- **`CaretMove`** — load-bearing, and the reason it lives here. It started in
+  `escriba-search` as the search prompt's private business; when the ex-line
+  grew a caret, `escriba-mode` needed the same four moves. Two crates that
+  cannot see each other both needing the same positioning verb is the
+  definition of something that belongs below both.
 - **`Utf16Units`** — **no consumer, and none is possible yet.** It unblocks
   only with LSP phase 2, which does not exist here.
+
+**The third consumer arrived by way of the mistake it exists to prevent**, and
+that is worth recording rather than tidying away. `ExLine::byte_of_caret` was
+first written as a local `text.char_indices().nth(caret)` — a *fourth*
+hand-rolled copy of chars→bytes, authored inside the crate that had, in the
+same commit, taken a dependency on the vocabulary built to hold it. Nothing
+caught it; the tests passed, because a hand-rolled conversion that happens to
+be correct is indistinguishable from the shared one until someone edits it.
+The lesson is not "be more careful": it is that a vocabulary only stops
+duplication at the sites that *reach for it*, and reaching is still a habit,
+not an invariant.
 
 Note the falsification that DOESN'T work, since the previous correction used
 it: deleting the re-export from `escriba-core` proves nothing, because
@@ -121,6 +145,8 @@ stale read sneaks back in.
 | reading an ordinal computed against older text | `Anchored<usize, TextRev>` — `get(current_rev)` returns `None`; the manual invalidation was DELETED | parse-time-rejected |
 | a `Ruler` built for the WRONG text | nothing prevents it — the text is a plain `&str` argument | only-mitigated (C1: no text identity exists to bind a Ruler to) |
 | `escriba-search`'s `step`/`step_inclusive` drifting apart | CLOSED — both are one-line delegations to `step_bounded`, which asks `Bound`; there is one implementation to drift | parse-time-rejected |
+| a caret desynchronized from the text it indexes (`clear()` emptying the line and stranding the caret past the end) | `ExLine` holds both as PRIVATE fields; every mutation is a method that maintains the pair, so the nine former call sites cannot touch either half (`E0616`) | only-mitigated (C: unrepresentable for CONSUMERS, but still hand-maintained inside `ExLine`'s own ~100-line impl block — a type does not audit itself) |
+| a DOCUMENT asserting a caret past the end of its line | `Deserialize` routes through the `ExLineWire` shadow, which clamps; an `ExLine` that exists holds regardless of provenance. Note it CLAMPS rather than erroring — the bad value cannot survive the boundary, but it is normalized away rather than reported | parse-time-rejected |
 
 **Proof of the top row**, captured 2026-08-04 by compiling a deliberate
 violation (`r.to_bytes(b)` where `b: Offset<Bytes>`):
@@ -238,10 +264,27 @@ cautionary tale for what happens when it is not.
    Licensed by `the_ruler_scan_agrees_with_the_hand_rolled_map`, a differential
    test whose oracle is the deleted algorithm reconstructed verbatim.
 
-4. **UTF-16 is BLOCKED, not queued.** `Utf16Units` has no consumer and cannot
+4. ~~`CaretMove` belongs below both prompt surfaces.~~ **DONE.** It moved from
+   `escriba-search`'s private prompt code into memori when `escriba-mode`'s
+   ex-line grew a caret and needed the same four moves. `escriba-search` and
+   `escriba-mode` cannot see each other, so the only place the shared verb can
+   live is beneath both — which is exactly what a leaf positioning crate is
+   for.
+
+5. **UTF-16 is BLOCKED, not queued.** `Utf16Units` has no consumer and cannot
    have one until LSP position conversion exists — `escriba-lsp-client` has no
    `Position` type. Giving it a consumer means building that feature for its
    own reasons; manufacturing one to make the axis look load-bearing would be
    the same over-claim this file has already had to correct twice.
-4. `(defmemori …)` tatara-lisp surface + `#[derive(DeriveTataraDomain)]`.
+
+6. **Make reaching for the vocabulary an invariant rather than a habit** —
+   opened by the `ExLine::byte_of_caret` slip in §"three consumers" above. A
+   fourth hand-rolled `char_indices().nth()` landed in a crate that already
+   depended on memori, and nothing failed. Candidate mechanisms, none built: a
+   clippy `disallowed_methods` entry for `char_indices().nth()` outside
+   `escriba-memori`, or a grep-shaped CI gate. Both are *only-mitigated* by
+   construction — a lint catches the spelling, not the intent — so this is
+   named as an open problem, not a queued fix.
+
+7. `(defmemori …)` tatara-lisp surface + `#[derive(DeriveTataraDomain)]`.
    **Not shipped** — M0 is the typed Rust border only.
