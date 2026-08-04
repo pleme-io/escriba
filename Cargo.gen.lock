@@ -1,23 +1,24 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "89109dc8d34a9adc743f8b7805ac4e86d2af6ff1ee3c6eb0ffe0421952a55a55",
+  "cargo_lock_sha256": "de444a0681096e9e99872255b28df8bb23a2e89963902f4fabedc92c138d3ea1",
   "manifest_sha256": {
-    "Cargo.toml": "aada1961fcdcc19a84cf8f10ee215f04c6398df32231dbb70deed6231dedfe5e",
+    "Cargo.toml": "364bebb7d67e9839a84dbff514e1fc237f00e15416c1c8cded18f3dbbcb6de22",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "49ee7eb14847cc1915f9638cc17f5d3ecf3c199c34b53660111608a9323b5f69",
     "escriba-config/Cargo.toml": "6ed1d0f8b3581268a514afa1f5b0f492fb45a8b1f59d3b14693d73cf3358f247",
-    "escriba-core/Cargo.toml": "09f9027863019f1d89774358a29e4ab62ffd5bd652a7a962e99180236e219d21",
+    "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
     "escriba-keymap/Cargo.toml": "b3d2c8fbcd6ac024ecb426d765ab727f2f76efc4bd20bae8169d4295b0ca451b",
     "escriba-lisp/Cargo.toml": "4f19198e1b7c71c5856ce8fa02033df89893e8c1f5f8733f6d37450258838c93",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
+    "escriba-memori/Cargo.toml": "30175bb60acb7a39e2d5a6da33b2c01dcece12d7504270e90514d49711890e74",
     "escriba-mode/Cargo.toml": "eb959369e653d5be8127f3bfd2085ba08f6482f61401b5128fdacda9eca09907",
     "escriba-plugin/Cargo.toml": "cec2d70d3abe6eef0685bc38551cdbfa0b9056e91ede7fe2dd139177467dbc38",
     "escriba-render/Cargo.toml": "d698281ccd087ac42ab0f4e677d13684fa86c8d21190cb9f3373a59230f34282",
     "escriba-runtime/Cargo.toml": "1cd72d1c0e806a48338b27f85495afe4a5a3a85bddaf6afe1de3e24bc529bbc2",
-    "escriba-search/Cargo.toml": "a0ebe2a3b0e558bf85f4551216ff036c5991ed26775b09b159ece5b7b360a249",
+    "escriba-search/Cargo.toml": "840b30efc8b5a826cd50c6b09ef7e6b60a94ca6b7e8e13a2f6d931f054b0ac65",
     "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
     "escriba-ts/Cargo.toml": "95cdcedddba77884e2f39aeaa78c56f195d05e0591a38c114ff969924e20112b",
     "escriba-tui/Cargo.toml": "864325147949ab99a5980dd2f73b14e9b4904c13291d0cfdeb56a9a7a415de92",
@@ -1944,6 +1945,16 @@
       "escriba-core-0.1.25": {
         "runtime_dependencies": [
           {
+            "name": "escriba_memori",
+            "package_key": "escriba-memori-0.1.25",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "escriba_search",
             "package_key": "escriba-search-0.1.25",
             "kind": "normal",
@@ -2415,6 +2426,11 @@
         "build_dependencies": [],
         "features": []
       },
+      "escriba-memori-0.1.25": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
       "escriba-mode-0.1.25": {
         "runtime_dependencies": [
           {
@@ -2835,6 +2851,16 @@
       },
       "escriba-search-0.1.25": {
         "runtime_dependencies": [
+          {
+            "name": "escriba_memori",
+            "package_key": "escriba-memori-0.1.25",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
           {
             "name": "regex",
             "package_key": "regex-1.12.3",
@@ -25012,6 +25038,13 @@
           "path": "src/main.rs"
         }
       ]
+    },
+    "escriba-memori-0.1.25": {
+      "edition": "2024",
+      "lib_target": {
+        "name": "escriba_memori",
+        "path": "src/lib.rs"
+      }
     },
     "escriba-mode-0.1.25": {
       "edition": "2024",
