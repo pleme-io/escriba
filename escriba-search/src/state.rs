@@ -22,6 +22,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use escriba_memori::{Chars, Offset, Ruler};
+
 use crate::engine::{Direction, SearchMatch, Step, find_all, step, step_inclusive};
 use crate::pattern::{CaseMode, PatternError, SearchPattern};
 
@@ -116,10 +118,16 @@ impl Prompt {
     /// constructed by an edit op doing its own arithmetic.
     #[must_use]
     fn byte_of_caret(&self) -> usize {
-        self.text
-            .char_indices()
-            .nth(self.caret)
-            .map_or(self.text.len(), |(b, _)| b)
+        // Routed through memori rather than hand-rolled: this is the one place
+        // in the prompt where CHARS become BYTES, which is exactly the
+        // conversion `Ruler` exists to own. `Ruler::to_bytes` runs the same
+        // `char_indices().nth()` this used to, on a minibuffer-length string,
+        // so there is no cost question — and it makes `Offset<Chars>` a type
+        // the workspace actually depends on rather than one that merely
+        // compiles.
+        Ruler::new(&self.text)
+            .to_bytes(Offset::<Chars>::new(self.caret))
+            .raw()
     }
 }
 
@@ -1200,5 +1208,36 @@ mod tests {
             previewed,
             "Enter must land on the match the stepped preview was showing",
         );
+    }
+
+    #[test]
+    fn the_caret_byte_offset_agrees_with_the_hand_rolled_conversion() {
+        // `byte_of_caret` now routes through `memori::Ruler` instead of its own
+        // `char_indices().nth()`. This is the differential test that pins the
+        // two as equal — over multibyte text, where a byte/char confusion is
+        // the ONLY place the difference shows up.
+        for text in ["", "abc", "héllo", "日本語 foo", "🔥x🔥"] {
+            let mut st = SearchState::new(CaseMode::Smart);
+            st.open(Direction::Forward, 0);
+            for c in text.chars() {
+                st.push(c);
+            }
+            let p = st.prompt().expect("prompting");
+
+            for caret in 0..=text.chars().count() {
+                let by_hand = p
+                    .text
+                    .char_indices()
+                    .nth(caret)
+                    .map_or(p.text.len(), |(b, _)| b);
+                let via_ruler = Ruler::new(&p.text)
+                    .to_bytes(Offset::<Chars>::new(caret))
+                    .raw();
+                assert_eq!(
+                    via_ruler, by_hand,
+                    "caret {caret} in {text:?}: memori disagreed with the hand-rolled map",
+                );
+            }
+        }
     }
 }

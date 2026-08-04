@@ -6,11 +6,36 @@ Corrected 2026-08-04 after an adversarial review measured the claim. The
 previous wording said "wired to real consumers" of all three axes, and a
 reviewer disproved it by deleting `Bytes, Chars, Offset, Ruler, Scale,
 Utf16Units` from `escriba-core`'s re-export and watching the workspace still
-compile clean. **`Bound` and `Anchored` have real consumers; the SCALE axis has
-none** — `escriba-search` still carries its own hand-rolled byte→char map
-(`engine.rs`) and `escriba-lsp-client`-style UTF-16 conversion lives in
-`analysis.rs`. Retrofitting those onto `Ruler` is follow-up #3 and is what
-would make the claim true.
+compile clean.
+
+**Corrected again the same day:** that correction ITSELF cited
+`escriba-lsp-client`-style UTF-16 conversion "in `analysis.rs`". **There is no
+`analysis.rs` in this repo, and no UTF-16 conversion anywhere in the
+workspace** — `escriba-lsp-client` is 182 lines of `ServerConfig` /
+`ServerRegistry` / `detect_root` with no `Position` type and no offsets at all.
+The citation was carried in from another repo's LSP crate. A file path in a
+doc is exactly the kind of claim that gets checked, which is why it is worth
+correcting twice rather than leaving a plausible-looking pointer to nothing.
+
+So, stated at the tier each half actually earns:
+
+- **`Bound`** — load-bearing. `engine.rs::step_bounded` is the single
+  implementation `step`/`step_inclusive` delegate to.
+- **`Anchored`** — load-bearing. `EditorState::search_at` is
+  `Anchored<usize, TextRev>` and the manual invalidation was deleted.
+- **`Chars`/`Bytes`/`Ruler`** — **one consumer**, `SearchState::byte_of_caret`,
+  which converts the prompt caret from chars to bytes. Verified by reverting it
+  and watching `Chars`, `Offset` and `Ruler` become unused imports. That is a
+  real consumer and no longer a claim, but it is ONE, in a
+  minibuffer-length string, and deliberately not the hot path — `find_all`
+  still carries its own bulk map for the reason in follow-up #3.
+- **`Utf16Units`** — **no consumer, and none is possible yet.** It unblocks
+  only with LSP phase 2, which does not exist here.
+
+Note the falsification that DOESN'T work, since the previous correction used
+it: deleting the re-export from `escriba-core` proves nothing, because
+`escriba-search` imports `escriba_memori` directly. The honest test is to
+revert the call site.
 
 The axis is not vestigial — its laws are proven and its compile error is
 recorded below — but "proven" and "load-bearing" are different tiers and this
@@ -200,9 +225,16 @@ cautionary tale for what happens when it is not.
 
 1. ~~Extract to `escriba-memori` → fold the twins.~~ **DONE.**
 2. ~~Text-revision counter in `escriba-buffer`.~~ **DONE** — `TextRev`.
-3. Retrofit `escriba-search::engine`'s `byte_to_char` map and
-   `escriba-lsp-client`-style UTF-16 conversion onto `Ruler`, deleting the
-   hand-rolled copies. **This is what gives the Scale axis its first consumer**
-   — until then the status line above must keep saying two of three.
+3. Retrofit `escriba-search::engine`'s bulk `byte_to_char` map onto `Ruler`.
+   **NOT as previously written.** `Ruler::to_chars` is **O(n) PER CALL**
+   (`self.text[..b].chars().count()` re-walks from the start), so substituting
+   it into `find_all` — which converts every match offset — is O(n·m) and a
+   performance REGRESSION, precisely the cost `engine.rs`'s own comment says
+   "is the whole frame budget". The retrofit is gated on a bulk/ascending API
+   landing first: a forward-only `Ruler::ascending()` scanner that is O(n+m)
+   total with O(1) extra memory. That would be a WIN, not a tax — today's map
+   allocates and zeroes 8 bytes per document byte on every keystroke.
+4. UTF-16 has no possible consumer until LSP phase 2. Do not list it as
+   pending work; it is blocked, not queued.
 4. `(defmemori …)` tatara-lisp surface + `#[derive(DeriveTataraDomain)]`.
    **Not shipped** — M0 is the typed Rust border only.
