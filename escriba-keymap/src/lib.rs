@@ -276,6 +276,20 @@ impl Keymap {
             Action::PromptDeleteWord,
             "delete word before caret",
         );
+        // Walk the preview without committing — `/pat` then `<C-g><C-g>` is
+        // `/pat<CR>nn`, except Escape still takes you home.
+        m.bind(
+            Mode::Command,
+            Key::Ctrl('g'),
+            Action::SearchPreviewStep { forward: true },
+            "preview next match",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Ctrl('t'),
+            Action::SearchPreviewStep { forward: false },
+            "preview previous match",
+        );
         m.bind(
             Mode::Command,
             Key::Ctrl('u'),

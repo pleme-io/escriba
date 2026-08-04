@@ -47,6 +47,14 @@ pub struct Prompt {
     /// invariant `caret <= text.chars().count()` holds at every mutation
     /// below; `caret == len` is the ordinary "typing at the end" state.
     caret: usize,
+    /// How many matches past the first the preview has been stepped, via
+    /// `<C-g>` / `<C-t>`.
+    ///
+    /// Reset to 0 by any edit to the pattern, for the same reason
+    /// `history_index` is: the ordinal describes a match set that the edit
+    /// just replaced, so carrying it forward would land the preview somewhere
+    /// the user never asked for.
+    preview_skip: usize,
     /// Position in history while arrowing through it; `None` = editing fresh
     /// text rather than browsing.
     history_index: Option<usize>,
@@ -89,6 +97,12 @@ impl CaretMove {
 }
 
 impl Prompt {
+    /// How far `<C-g>` has stepped the preview past the first match.
+    #[must_use]
+    pub const fn preview_skip(&self) -> usize {
+        self.preview_skip
+    }
+
     /// The caret as a char index. `caret == text.chars().count()` means "at
     /// the end", which is the common case.
     #[must_use]
@@ -160,6 +174,7 @@ impl SearchState {
             text: String::new(),
             origin,
             caret: 0,
+            preview_skip: 0,
             history_index: None,
             stashed: None,
         });
@@ -183,6 +198,7 @@ impl SearchState {
             p.caret += 1;
             // Editing ends history browsing — the text is the user's now.
             p.history_index = None;
+            p.preview_skip = 0;
         }
     }
 
@@ -206,6 +222,7 @@ impl SearchState {
             if at < p.text.len() {
                 p.text.remove(at);
                 p.history_index = None;
+                p.preview_skip = 0;
             }
         }
     }
@@ -231,6 +248,7 @@ impl SearchState {
         p.text = kept;
         p.caret = i;
         p.history_index = None;
+        p.preview_skip = 0;
     }
 
     /// `<C-u>` — delete from the caret back to the start.
@@ -240,6 +258,7 @@ impl SearchState {
             p.text.drain(..at);
             p.caret = 0;
             p.history_index = None;
+            p.preview_skip = 0;
         }
     }
 
@@ -250,6 +269,7 @@ impl SearchState {
             return false;
         };
         p.history_index = None;
+        p.preview_skip = 0;
         if p.caret == 0 {
             // Backspacing past the `/` closes the prompt — but only when there
             // is nothing to the left. With text ahead of the caret this is a
@@ -364,6 +384,7 @@ impl SearchState {
         // A recalled pattern arrives whole; the caret belongs at its end,
         // which is where a user expects to continue typing.
         p.caret = p.text.chars().count();
+        p.preview_skip = 0;
     }
 
     // ── searching ───────────────────────────────────────────────────────
@@ -389,7 +410,35 @@ impl SearchState {
         let matches = find_all(text, &pattern);
         // Inclusive: typing `/foo` while sitting ON a `foo` must light up that
         // one. `n` deliberately uses the exclusive `step` instead.
-        step_inclusive(&matches, p.origin, p.direction)
+        let mut landed = step_inclusive(&matches, p.origin, p.direction)?;
+        // Then walk forward however far `<C-g>` has taken us. Exclusive from
+        // here, so each press advances by exactly one match, and wrapping
+        // falls out of `step` rather than needing its own arithmetic.
+        for _ in 0..p.preview_skip {
+            landed = step(&matches, landed.target.start, p.direction)?;
+        }
+        Some(landed)
+    }
+
+    /// `<C-g>` / `<C-t>` — walk the preview to the next/previous match without
+    /// committing.
+    ///
+    /// This collapses `/pat<CR>nnn` into one gesture that is STILL
+    /// CANCELLABLE: Escape from here returns to where the search started,
+    /// which `n` after a commit cannot do. It is the reason to prefer stepping
+    /// the preview over committing and then repeating.
+    ///
+    /// Backward saturates at the first match rather than wrapping: `<C-t>`
+    /// walks back through what `<C-g>` advanced, and stopping at the start is
+    /// the honest floor for a counter that begins there.
+    pub fn preview_step(&mut self, forward: bool) {
+        if let Some(p) = self.prompt.as_mut() {
+            p.preview_skip = if forward {
+                p.preview_skip.saturating_add(1)
+            } else {
+                p.preview_skip.saturating_sub(1)
+            };
+        }
     }
 
     /// How many matches the CURRENT PROMPT text would find.
@@ -439,7 +488,24 @@ impl SearchState {
     /// itself; this method is why that type exists.
     #[must_use]
     pub fn commit_step(&self, origin: usize) -> Option<Step> {
-        step_inclusive(&self.matches, origin, self.direction)
+        self.commit_step_skipping(origin, 0)
+    }
+
+    /// [`Self::commit_step`], honouring however far `<C-g>` stepped the
+    /// preview.
+    ///
+    /// Without the skip, stepping the preview to the third match and pressing
+    /// Enter landed on the FIRST — breaking the contract the commit anchor was
+    /// fixed to establish, that what the preview showed is where you land.
+    /// `accept()` consumes the prompt, so the caller reads
+    /// [`Prompt::preview_skip`] before committing and passes it here.
+    #[must_use]
+    pub fn commit_step_skipping(&self, origin: usize, skip: usize) -> Option<Step> {
+        let mut landed = step_inclusive(&self.matches, origin, self.direction)?;
+        for _ in 0..skip {
+            landed = step(&self.matches, landed.target.start, self.direction)?;
+        }
+        Some(landed)
     }
 
     /// `n` (`reverse = false`) / `N` (`reverse = true`).
@@ -983,5 +1049,144 @@ mod tests {
             let (t, c) = shown(&st);
             assert!(c <= t.chars().count(), "caret {c} past {t:?}");
         }
+    }
+
+    // ── preview stepping (<C-g> / <C-t>) ────────────────────────────────
+
+    const HAYSTACK: &str = "aa bb aa bb aa";
+
+    fn previewing(pat: &str) -> SearchState {
+        let mut st = SearchState::new(CaseMode::Smart);
+        st.open(Direction::Forward, 0);
+        for c in pat.chars() {
+            st.push(c);
+        }
+        st
+    }
+
+    #[test]
+    fn preview_starts_on_the_first_match() {
+        let st = previewing("aa");
+        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 0);
+        assert_eq!(st.prompt().expect("open").preview_skip(), 0);
+    }
+
+    #[test]
+    fn ctrl_g_walks_the_preview_forward_one_match_at_a_time() {
+        let mut st = previewing("aa");
+        st.preview_step(true);
+        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 6);
+        st.preview_step(true);
+        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 12);
+    }
+
+    #[test]
+    fn ctrl_t_walks_it_back() {
+        let mut st = previewing("aa");
+        st.preview_step(true);
+        st.preview_step(true);
+        st.preview_step(false);
+        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 6);
+    }
+
+    #[test]
+    fn stepping_back_saturates_at_the_first_match() {
+        // The counter starts at zero, so stopping there is the honest floor —
+        // and it must not underflow.
+        let mut st = previewing("aa");
+        for _ in 0..5 {
+            st.preview_step(false);
+        }
+        assert_eq!(st.prompt().expect("open").preview_skip(), 0);
+        assert_eq!(st.preview(HAYSTACK).expect("a match").target.start, 0);
+    }
+
+    #[test]
+    fn stepping_past_the_last_match_wraps() {
+        // Wrapping falls out of `step`; this pins that it is not special-cased
+        // away by the skip loop.
+        let mut st = previewing("aa");
+        for _ in 0..3 {
+            st.preview_step(true);
+        }
+        assert_eq!(
+            st.preview(HAYSTACK).expect("a match").target.start,
+            0,
+            "three steps past three matches comes back to the first",
+        );
+    }
+
+    #[test]
+    fn editing_the_pattern_resets_the_step() {
+        // The ordinal describes a match set the edit just replaced; carrying
+        // it would land the preview somewhere never asked for.
+        let mut st = previewing("aa");
+        st.preview_step(true);
+        assert_eq!(st.prompt().expect("open").preview_skip(), 1);
+
+        st.push(' ');
+        assert_eq!(
+            st.prompt().expect("open").preview_skip(),
+            0,
+            "typing resets"
+        );
+
+        st.preview_step(true);
+        st.backspace();
+        assert_eq!(
+            st.prompt().expect("open").preview_skip(),
+            0,
+            "backspace resets"
+        );
+    }
+
+    #[test]
+    fn every_pattern_edit_resets_the_step() {
+        // One test per verb, so a new edit op that forgets the reset is caught
+        // rather than inheriting the bug quietly.
+        for (name, op) in [
+            ("delete_at_caret", 0),
+            ("delete_word_before_caret", 1),
+            ("clear_before_caret", 2),
+        ] {
+            let mut st = previewing("aa bb");
+            st.preview_step(true);
+            match op {
+                0 => {
+                    st.move_caret(CaretMove::Start);
+                    st.delete_at_caret();
+                }
+                1 => st.delete_word_before_caret(),
+                _ => st.clear_before_caret(),
+            }
+            assert_eq!(
+                st.prompt().expect("open").preview_skip(),
+                0,
+                "{name} must reset the preview step",
+            );
+        }
+    }
+
+    #[test]
+    fn committing_lands_where_the_stepped_preview_showed() {
+        // The whole promise of stepping: what you are looking at is what
+        // Enter gives you.
+        let mut st = previewing("aa");
+        st.preview_step(true);
+        let previewed = st.preview(HAYSTACK).expect("a match").target.start;
+
+        let prompt = st.prompt().expect("open");
+        let (origin, skip) = (prompt.origin, prompt.preview_skip());
+        assert_eq!(st.accept(HAYSTACK), Accepted::Committed);
+
+        assert_eq!(previewed, 6, "the preview HAD moved");
+        assert_eq!(
+            st.commit_step_skipping(origin, skip)
+                .expect("a match")
+                .target
+                .start,
+            previewed,
+            "Enter must land on the match the stepped preview was showing",
+        );
     }
 }
