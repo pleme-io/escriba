@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "76f27e60435606f060f3b40294355b74071ff44aea8c12f7daf8d84cd03333d0",
+  "cargo_lock_sha256": "8501a7badf3e57ac18b0d4bb8d2df9d35b7a89589fa8b76761f396f339e2bea8",
   "manifest_sha256": {
     "Cargo.toml": "c02168ec730bd767da4905cc632f04c362d4526dc4622467ebf2657bb87b0ad4",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -13,8 +13,8 @@
     "escriba-lisp/Cargo.toml": "4f19198e1b7c71c5856ce8fa02033df89893e8c1f5f8733f6d37450258838c93",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
-    "escriba-memori/Cargo.toml": "30175bb60acb7a39e2d5a6da33b2c01dcece12d7504270e90514d49711890e74",
-    "escriba-mode/Cargo.toml": "eb959369e653d5be8127f3bfd2085ba08f6482f61401b5128fdacda9eca09907",
+    "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
+    "escriba-mode/Cargo.toml": "e1699c281dcc7ed6e07994dd97010a3888ada40fee00cc0dcba70ee87eeeb8c6",
     "escriba-plugin/Cargo.toml": "cec2d70d3abe6eef0685bc38551cdbfa0b9056e91ede7fe2dd139177467dbc38",
     "escriba-render/Cargo.toml": "d698281ccd087ac42ab0f4e677d13684fa86c8d21190cb9f3373a59230f34282",
     "escriba-runtime/Cargo.toml": "1cd72d1c0e806a48338b27f85495afe4a5a3a85bddaf6afe1de3e24bc529bbc2",
@@ -2427,7 +2427,32 @@
         "features": []
       },
       "escriba-memori-0.1.31": {
-        "runtime_dependencies": [],
+        "runtime_dependencies": [
+          {
+            "name": "schemars",
+            "package_key": "schemars-0.8.22",
+            "kind": "normal",
+            "features": [
+              "chrono"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.228",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
         "build_dependencies": [],
         "features": []
       },
@@ -2436,6 +2461,16 @@
           {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.31",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_memori",
+            "package_key": "escriba-memori-0.1.31",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
