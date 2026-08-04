@@ -37,6 +37,10 @@ pub use edit::{Edit, EditKind};
 pub use r#gen::EditGen;
 pub use id::{BufferId, CaretId, WindowId};
 pub use jumplist::{JUMPLIST_LIMIT, JumpList};
+// memori lives in its own leaf crate so `escriba-search` — which sits BELOW
+// core in the dependency graph — can use it too. Re-exported here so position
+// code in core and above reads naturally without naming a second crate.
+pub use escriba_memori::{Anchored, Bound, Bytes, Chars, Offset, Ruler, Scale, Utf16Units};
 pub use mode::{CursorShape, Mode, ModeTransition};
 pub use motion::{Motion, Operator};
 pub use position::Position;
