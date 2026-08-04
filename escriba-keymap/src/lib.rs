@@ -16,6 +16,7 @@ pub enum Key {
     Enter,
     Tab,
     Backspace,
+    Delete,
     Left,
     Right,
     Up,
@@ -236,6 +237,12 @@ impl Keymap {
             Key::Backspace,
             Action::PromptBackspace,
             "erase one char",
+        );
+        m.bind(
+            Mode::Command,
+            Key::Delete,
+            Action::PromptDelete,
+            "delete char at caret",
         );
         // Caret editing inside the prompt. Without these the prompt is
         // append-only, so a typo in the middle of a pattern can only be fixed

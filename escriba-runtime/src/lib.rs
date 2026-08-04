@@ -1053,13 +1053,9 @@ impl EditorState {
             Action::PromptHistory { back } => {
                 if self.search.is_prompting() {
                     self.search.history_step(*back);
-                    // The minibuffer is a separate display buffer, so it must
-                    // be rewritten from the prompt rather than left showing the
-                    // pattern history just replaced.
-                    self.modal.clear_minibuffer();
-                    if let Some(text) = self.search.prompt().map(|p| p.text.clone()) {
-                        self.modal.push_minibuffer_str(&text);
-                    }
+                    // No minibuffer resync: the shadow is the ex-line's store
+                    // and nothing reads it while a search prompt is open, so
+                    // rewriting it here was maintaining a copy for no reader.
                     self.preview_search();
                 }
             }
@@ -1372,8 +1368,20 @@ impl EditorState {
             // cmdline). `search.is_prompting()` is the typed discriminator —
             // it can only be true when `/` or `?` actually opened a prompt.
             if self.search.is_prompting() {
+                // The search prompt is the SOLE store while it is open.
+                //
+                // This used to also `push_minibuffer(c)`, and the two stores
+                // insert differently — `search.push` at the caret, the
+                // minibuffer always at the end — so `/fo<Left>X` left them
+                // reading `fXo` and `foX`. That was one of FIVE desync paths;
+                // the caret moves, forward-delete, delete-word and
+                // clear-to-start never touched the shadow at all.
+                //
+                // Deleting the write costs nothing because `status_model`
+                // already selects the minibuffer only on the `prompt == None`
+                // branch — the shadow is the EX-LINE's store, and while a
+                // search prompt is open nothing reads it.
                 self.search.push(c);
-                self.modal.push_minibuffer(c);
                 self.preview_search();
             } else {
                 self.modal.push_minibuffer(c);
@@ -1405,12 +1413,17 @@ impl EditorState {
             return false;
         }
         if self.search.is_prompting() {
-            // Backspacing past the `/` closes the prompt, as vim does.
+            // Backspacing past the `/` closes the prompt, as vim does. No
+            // `pop_minibuffer` here for the same reason as `insert_char`: the
+            // shadow is the ex-line's, and popping its TAIL when the caret is
+            // mid-pattern was another desync path.
             if self.search.backspace() {
                 self.modal.clear_minibuffer();
                 self.modal.enter(Mode::Normal);
-                return true;
             }
+            // Never `pop_minibuffer` on the search path: it pops the TAIL,
+            // while `search.backspace()` removes the char before the CARET.
+            return true;
         }
         self.modal.pop_minibuffer();
         true
@@ -1794,7 +1807,11 @@ mod tests {
         assert_eq!(st.search.prompt().unwrap().text, "bravox");
         st.apply(&Action::PromptBackspace);
         assert_eq!(st.search.prompt().unwrap().text, "bravo", "typo corrected");
-        assert_eq!(st.modal.minibuffer(), "bravo", "display stays in lockstep");
+        assert_eq!(
+            st.status_model().prompt_text,
+            "bravo",
+            "the model reads the PROMPT — the minibuffer is the ex-line's store",
+        );
         assert_eq!(st.cursor().line, 1, "preview re-ran and found it");
     }
 
@@ -1836,7 +1853,7 @@ mod tests {
         st.apply(&Action::InsertChar('w'));
         st.apply(&Action::InsertChar('q'));
         st.apply(&Action::PromptBackspace);
-        assert_eq!(st.modal.minibuffer(), "w");
+        assert_eq!(st.status_model().prompt_text, "w");
         assert!(st.search.prompt().is_none(), "no search was involved");
     }
 
@@ -1847,7 +1864,11 @@ mod tests {
         st.apply(&Action::SearchOpen(SearchDirection::Forward));
         st.apply(&Action::PromptHistory { back: true });
         assert_eq!(st.search.prompt().unwrap().text, "bravo");
-        assert_eq!(st.modal.minibuffer(), "bravo", "display follows the prompt");
+        assert_eq!(
+            st.status_model().prompt_text,
+            "bravo",
+            "display follows the prompt"
+        );
     }
 
     #[test]
@@ -1864,7 +1885,7 @@ mod tests {
             "a",
             "the draft comes back"
         );
-        assert_eq!(st.modal.minibuffer(), "a");
+        assert_eq!(st.status_model().prompt_text, "a");
     }
 
     #[test]
@@ -1873,7 +1894,7 @@ mod tests {
         st.apply(&Action::ChangeMode(Mode::Command));
         st.apply(&Action::InsertChar('w'));
         st.apply(&Action::PromptHistory { back: true });
-        assert_eq!(st.modal.minibuffer(), "w", "ex line untouched");
+        assert_eq!(st.status_model().prompt_text, "w", "ex line untouched");
     }
 
     fn new_state_with(text: &str) -> EditorState {
