@@ -45,11 +45,17 @@
 //! `Ruler` for the wrong text. The full ledger is in `docs/memori.md`.
 //!
 //! The `(defmemori …)` tatara-lisp surface is a NAMED FOLLOW-UP, not shipped.
-//! This module is the typed Rust border only.
+//! This crate is the typed Rust border only.
+//!
+//! # Why a leaf crate
+//!
+//! It has **no dependencies, deliberately**. `escriba-core` imports
+//! `escriba_search::Direction`, so core depends on SEARCH — and a positioning
+//! primitive living in core would be invisible to the search engine, which is
+//! where the `step`/`step_inclusive` twins [`Bound`] exists to replace live.
+//! The vocabulary has to sit below both, so it does.
 
 use core::marker::PhantomData;
-
-use crate::EditGen;
 
 // ── scales ───────────────────────────────────────────────────────────────
 
@@ -213,26 +219,26 @@ impl Bound {
 /// [`Anchored::get`] takes the CURRENT generation and returns `None` when they
 /// disagree, so a stale read is a visible absence instead of a wrong column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Anchored<T> {
+pub struct Anchored<T, G: PartialEq + Copy> {
     value: T,
-    at: EditGen,
+    at: G,
 }
 
-impl<T> Anchored<T> {
+impl<T, G: PartialEq + Copy> Anchored<T, G> {
     #[must_use]
-    pub const fn new(value: T, at: EditGen) -> Self {
+    pub const fn new(value: T, at: G) -> Self {
         Self { value, at }
     }
 
     /// The value, if it was computed against `now`.
     #[must_use]
-    pub fn get(&self, now: EditGen) -> Option<&T> {
+    pub fn get(&self, now: G) -> Option<&T> {
         (self.at == now).then_some(&self.value)
     }
 
     /// The generation this was computed against.
     #[must_use]
-    pub const fn generation(&self) -> EditGen {
+    pub const fn generation(&self) -> G {
         self.at
     }
 
@@ -247,7 +253,7 @@ impl<T> Anchored<T> {
     }
 
     #[must_use]
-    pub fn is_fresh(&self, now: EditGen) -> bool {
+    pub fn is_fresh(&self, now: G) -> bool {
         self.at == now
     }
 }
@@ -491,8 +497,9 @@ mod tests {
 
     #[test]
     fn law_a_value_from_an_older_generation_reads_as_absent() {
-        let g0 = EditGen::default();
-        let g1 = g0.next();
+        // Any `PartialEq + Copy` works as a generation — memori does not care
+        // WHICH counter, only that two of them can disagree.
+        let (g0, g1) = (0_u64, 1_u64);
 
         let a = Anchored::new(Offset::<Chars>::new(7), g0);
         assert_eq!(a.get(g0), Some(&Offset::new(7)), "fresh");
@@ -511,9 +518,8 @@ mod tests {
         // A value from a LATER generation is just as unusable as an older one —
         // it is a mismatch, not a comparison. Treating it as "newer, so fine"
         // is how a stale read sneaks back in.
-        let g0 = EditGen::default();
-        let a = Anchored::new(1_u8, g0.next());
-        assert_eq!(a.get(g0), None);
+        let a = Anchored::new(1_u8, 1_u64);
+        assert_eq!(a.get(0_u64), None);
     }
 
     // ── the compile-time seal, demonstrated ─────────────────────────────

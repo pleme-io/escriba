@@ -1,0 +1,16 @@
+[package]
+name = "escriba-memori"
+description = "memori (目盛) — the positioning vocabulary: scale-tagged offsets, endpoint bounds, and freshness. A leaf crate with zero dependencies, so every layer that manipulates a position can depend on it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# DELIBERATELY EMPTY. memori sits BELOW escriba-core and escriba-search, both of
+# which manipulate positions, so it can depend on neither. That constraint is
+# the reason this is its own crate rather than a module in core: core imports
+# `escriba_search::Direction`, so a primitive living there is invisible to the
+# search engine whose `step`/`step_inclusive` twins this vocabulary replaces.
+[dependencies]

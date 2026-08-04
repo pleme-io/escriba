@@ -1,8 +1,8 @@
 # memori (目盛) — the positioning vocabulary
 
-**Status: M0 — typed border, laws proven, NOT yet wired to escriba-search.**
-Read §4 before citing this as solved; two of the three axes are sealed only at
-this border, and the reason is architectural rather than unfinished work.
+**Status: M1 — typed border, laws proven, and the search engine's endpoint
+rule folded onto it.** One architectural finding remains open (§4.2); read it
+before citing freshness as solved.
 
 `memori` is the graduation marks on a ruler. An offset is a count of marks, and
 the marks differ — which is the entire problem.
@@ -84,7 +84,7 @@ stale read sneaks back in.
 | an inclusive search spelled as `step(from - 1)`, hiding a match at 0 | `Bound` is a value and `first_matching` contains no subtraction | parse-time-rejected |
 | reading an offset computed against older text | `Anchored::get(now)` returns `None` on a generation mismatch | parse-time-rejected |
 | a `Ruler` built for the WRONG text | nothing prevents it — the text is a plain `&str` argument | only-mitigated (C1: no text identity exists to bind a Ruler to) |
-| `escriba-search`'s `step`/`step_inclusive` twins | UNCHANGED — see §4 | only-mitigated (C2: memori sits above search in the dependency graph) |
+| `escriba-search`'s `step`/`step_inclusive` drifting apart | CLOSED — both are one-line delegations to `step_bounded`, which asks `Bound`; there is one implementation to drift | parse-time-rejected |
 
 **Proof of the top row**, captured 2026-08-04 by compiling a deliberate
 violation (`r.to_bytes(b)` where `b: Offset<Bytes>`):
@@ -124,21 +124,34 @@ Both are real constraints found while wiring, not remaining effort. Stating
 them is the point; a vocabulary that claims coverage it does not have is worse
 than one that does not exist.
 
-### 4.1 memori cannot serve `escriba-search` from `escriba-core`
+### 4.1 RESOLVED — memori is a leaf crate
 
-`escriba-core/src/action.rs:1` is `use escriba_search::Direction`. **Core
-depends on search**, so a primitive living in core is invisible to search — and
-`step`/`step_inclusive`, the twins `Bound` exists to replace, are in
-`escriba-search/src/engine.rs`.
+`escriba-core/src/action.rs:1` is `use escriba_search::Direction`, so **core
+depends on search**, and a primitive living in core was invisible to the search
+engine whose twins `Bound` exists to replace.
 
-The positioning vocabulary wants to be **below both**. Folding the twins into
-`Bound` therefore needs memori extracted to a leaf crate (`escriba-memori`)
-that core and search both depend on. That is a mechanical move, but it is a
-dependency-graph change and does not belong in the same commit as the
-vocabulary it would move.
+memori is therefore its own crate, `escriba-memori`, with a **deliberately
+empty `[dependencies]`** — it sits below core AND search, which is the only
+position from which a positioning vocabulary can serve everything that
+manipulates a position. `escriba-core` re-exports it so position code there
+reads naturally without naming a second crate.
 
-Until then `engine.rs` keeps its two functions and this file keeps the
-`only-mitigated (C2)` row above.
+`Anchored<T, G>` is generic over the generation type as a consequence: memori
+cannot name `EditGen` (that lives in core, above it), and does not need to —
+it requires only that two generations can disagree.
+
+`engine.rs::step_bounded` is now the single implementation; `step` and
+`step_inclusive` are one-line delegations that pass `Bound::Exclusive` /
+`Bound::Inclusive`. They stay because they are published API with their own
+tests and read better at call sites with no other reason to name a bound
+(★★ MODULARIZE, DON'T DELETE).
+
+**Proven 2026-08-04:** swapping the bound in `step`'s delegation turns four
+existing engine tests red — `forward_advances_past_a_match_the_cursor_sits_on`,
+`a_lone_match_resolves_to_itself_by_wrapping`,
+`backward_wraps_at_the_top_and_says_so`,
+`step_inclusive_backward_also_accepts_the_cursor_position` — so the fold is
+load-bearing rather than cosmetic.
 
 ### 4.2 `EditGen` is a REFRESH generation, not a TEXT generation
 
@@ -162,8 +175,7 @@ classifier that a future action could still forget.
 
 ## 5. Named follow-ups
 
-1. Extract to `escriba-memori` (leaf crate) → fold `step`/`step_inclusive`
-   into one `Bound`-taking function. Closes the C2 row.
+1. ~~Extract to `escriba-memori` → fold the twins.~~ **DONE.**
 2. Text-revision counter in `escriba-buffer` → `Anchored` becomes usable for
    real, replacing manual invalidation. Closes the C1-adjacent staleness class.
 3. Retrofit `escriba-search::engine`'s `byte_to_char` map and

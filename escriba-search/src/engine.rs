@@ -11,6 +11,7 @@
 //! a byte offset.
 
 use crate::pattern::SearchPattern;
+use escriba_memori::Bound;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -146,97 +147,75 @@ pub fn find_all(text: &str, pattern: &SearchPattern) -> Vec<SearchMatch> {
 /// - A single match always resolves to itself, reporting a wrap.
 #[must_use]
 pub fn step(matches: &[SearchMatch], from: usize, direction: Direction) -> Option<Step> {
-    if matches.is_empty() {
-        return None;
-    }
-    match direction {
-        Direction::Forward => matches
-            .iter()
-            .position(|m| m.start > from)
-            .map(|i| Step {
-                target: matches[i],
-                index: i,
-                wrapped: Wrapped::No,
-            })
-            .or(Some(Step {
-                target: matches[0],
-                index: 0,
-                wrapped: Wrapped::AtBottom,
-            })),
-        Direction::Backward => matches
-            .iter()
-            .rposition(|m| m.start < from)
-            .map(|i| Step {
-                target: matches[i],
-                index: i,
-                wrapped: Wrapped::No,
-            })
-            .or_else(|| {
-                let i = matches.len() - 1;
-                Some(Step {
-                    target: matches[i],
-                    index: i,
-                    wrapped: Wrapped::AtTop,
-                })
-            }),
-    }
+    step_bounded(matches, from, direction, Bound::Exclusive)
 }
 
 /// Like [`step`], but a match starting exactly **at** `from` counts as a hit.
 ///
 /// This is what incremental search needs and `n` must not have. Typing `/foo`
 /// while the cursor already sits on a `foo` should light up *that* `foo`;
-/// pressing `n` on the same `foo` must move to the next one. The difference is
-/// one comparison, and getting it wrong is invisible until the cursor happens
-/// to rest on a match.
+/// pressing `n` on the same `foo` must move to the next one.
 ///
 /// `from.saturating_sub(1)` is not a substitute: at offset 0 it saturates back
 /// to 0, so a match at 0 stays unreachable — the exact case that fails on the
 /// first line of a file.
 #[must_use]
 pub fn step_inclusive(matches: &[SearchMatch], from: usize, direction: Direction) -> Option<Step> {
+    step_bounded(matches, from, direction, Bound::Inclusive)
+}
+
+/// Step to the next match, with the endpoint rule stated rather than chosen by
+/// picking a function name.
+///
+/// [`step`] and [`step_inclusive`] are now one-line delegations to this. They
+/// stay because they are published API with their own tests (★★ MODULARIZE,
+/// DON'T DELETE) and because `step`/`step_inclusive` read better at a call site
+/// that has no other reason to name a bound — but there is exactly ONE
+/// implementation, so the twins can no longer drift apart.
+///
+/// The difference between them used to be a single `>` versus `>=` duplicated
+/// across two nearly identical function bodies, which is precisely the shape
+/// that drifts. `memori::Bound` owns that comparison now, and
+/// `Bound::first_matching` contains no subtraction — so the "back up one to
+/// include the anchor" trick that made offset 0 unreachable has nowhere left
+/// to live.
+#[must_use]
+pub fn step_bounded(
+    matches: &[SearchMatch],
+    from: usize,
+    direction: Direction,
+    bound: Bound,
+) -> Option<Step> {
     if matches.is_empty() {
         return None;
     }
-    match direction {
-        Direction::Forward => matches
-            .iter()
-            .position(|m| m.start >= from)
-            .map(|i| Step {
+    let starts: Vec<usize> = matches.iter().map(|m| m.start).collect();
+    let forward = matches!(direction, Direction::Forward);
+
+    match bound.first_matching(&starts, from, forward) {
+        Some(i) => Some(Step {
+            target: matches[i],
+            index: i,
+            wrapped: Wrapped::No,
+        }),
+        // Nothing ahead: wrap to the far end and SAY so. Wrapping silently is
+        // how a user loses track of where they are in a long file.
+        None if forward => Some(Step {
+            target: matches[0],
+            index: 0,
+            wrapped: Wrapped::AtBottom,
+        }),
+        None => {
+            let i = matches.len() - 1;
+            Some(Step {
                 target: matches[i],
                 index: i,
-                wrapped: Wrapped::No,
+                wrapped: Wrapped::AtTop,
             })
-            .or(Some(Step {
-                target: matches[0],
-                index: 0,
-                wrapped: Wrapped::AtBottom,
-            })),
-        Direction::Backward => matches
-            .iter()
-            .rposition(|m| m.start <= from)
-            .map(|i| Step {
-                target: matches[i],
-                index: i,
-                wrapped: Wrapped::No,
-            })
-            .or_else(|| {
-                let i = matches.len() - 1;
-                Some(Step {
-                    target: matches[i],
-                    index: i,
-                    wrapped: Wrapped::AtTop,
-                })
-            }),
+        }
     }
 }
 
-/// The word under (or immediately after) `cursor` — what `*` and `#` search
-/// for.
-///
-/// vim's rule, matched here: if the cursor is not on a word character, scan
-/// forward on the current line for one. Returns `None` when the rest of the
-/// line has no word, which is when vim beeps and does nothing.
 #[must_use]
 pub fn word_at(text: &str, cursor: usize) -> Option<String> {
     let chars: Vec<char> = text.chars().collect();
