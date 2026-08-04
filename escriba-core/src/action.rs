@@ -67,6 +67,27 @@ pub enum Action {
     /// `:noh` — stop highlighting matches while keeping the pattern, so `n`
     /// still works. Distinct from cancelling a search.
     ClearSearchHighlight,
+
+    /// `d/foo<CR>` — commit the open search prompt and apply `op` from the
+    /// prompt's ORIGIN to wherever the search lands.
+    ///
+    /// Emitted only by the operator-pending machine; no keymap produces it.
+    /// It exists because committing a search MOVES the cursor, and the
+    /// operator needs the pre-move position as its start point. Carrying the
+    /// operator through the commit makes "operate over a search" one atomic
+    /// action instead of two steps racing to own the cursor.
+    SearchSubmitOperated {
+        op: Operator,
+    },
+
+    /// `<C-o>` — walk back to where the last far jump was taken from.
+    ///
+    /// Lives beside the search actions because search is what made it
+    /// necessary — committing a `/` used to be a one-way door — but it is not
+    /// a search action: `G`, `gg`, `%` and tag jumps are the other consumers.
+    JumpBack,
+    /// `<C-i>` — walk forward again after [`Action::JumpBack`].
+    JumpForward,
     /// Backspace inside a command-line or search prompt.
     ///
     /// Key::Backspace was previously bound in NO mode, so the minibuffer could
@@ -147,6 +168,7 @@ impl Action {
             | Self::Redo
             | Self::PromptBackspace
             | Self::Command { .. }
+            | Self::SearchSubmitOperated { .. }
             | Self::SubmitCommand => TextEffect::Mutates,
 
             Self::Move(_)
@@ -158,6 +180,8 @@ impl Action {
             | Self::SearchRepeat { .. }
             | Self::SearchWord { .. }
             | Self::ClearSearchHighlight
+            | Self::JumpBack
+            | Self::JumpForward
             | Self::PromptHistory { .. }
             | Self::Pending => TextEffect::Preserves,
         }

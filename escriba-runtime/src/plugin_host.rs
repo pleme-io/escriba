@@ -55,7 +55,12 @@ impl PluginHost {
     /// eager; the binary applies those at boot and never registers them
     /// here, but an empty-trigger registration is harmless (it simply
     /// never activates).
-    pub fn register(&mut self, name: impl Into<String>, triggers: Vec<LazyTrigger>, entry_src: impl Into<String>) {
+    pub fn register(
+        &mut self,
+        name: impl Into<String>,
+        triggers: Vec<LazyTrigger>,
+        entry_src: impl Into<String>,
+    ) {
         self.plugins.push(LazyPlugin {
             name: name.into(),
             triggers,

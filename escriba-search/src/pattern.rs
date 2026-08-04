@@ -89,7 +89,11 @@ impl SearchPattern {
             .dot_matches_new_line(false)
             .build()
             .map_err(|e| PatternError::Invalid(e.to_string()))?;
-        Ok(Self { raw: raw.to_string(), case, regex })
+        Ok(Self {
+            raw: raw.to_string(),
+            case,
+            regex,
+        })
     }
 
     /// Compile a *literal* pattern — every regex metacharacter is escaped.
@@ -174,9 +178,18 @@ mod tests {
 
     #[test]
     fn empty_pattern_is_rejected_not_silently_accepted() {
-        assert_eq!(SearchPattern::compile("", CaseMode::Smart), Err(PatternError::Empty));
-        assert_eq!(SearchPattern::literal("", CaseMode::Smart), Err(PatternError::Empty));
-        assert_eq!(SearchPattern::whole_word("", CaseMode::Smart), Err(PatternError::Empty));
+        assert_eq!(
+            SearchPattern::compile("", CaseMode::Smart),
+            Err(PatternError::Empty)
+        );
+        assert_eq!(
+            SearchPattern::literal("", CaseMode::Smart),
+            Err(PatternError::Empty)
+        );
+        assert_eq!(
+            SearchPattern::whole_word("", CaseMode::Smart),
+            Err(PatternError::Empty)
+        );
     }
 
     #[test]

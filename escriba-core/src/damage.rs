@@ -95,16 +95,7 @@ impl Damage {
             (Full, _) | (_, Full) => Full,
             (Viewport, _) | (_, Viewport) => Viewport,
             (None, x) | (x, None) => x,
-            (
-                Lines {
-                    from: f0,
-                    to: t0,
-                },
-                Lines {
-                    from: f1,
-                    to: t1,
-                },
-            ) => Lines {
+            (Lines { from: f0, to: t0 }, Lines { from: f1, to: t1 }) => Lines {
                 from: f0.min(f1),
                 to: t0.max(t1),
             },

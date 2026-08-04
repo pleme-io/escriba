@@ -14,7 +14,17 @@ use serde::{Deserialize, Serialize};
 /// A monotonic edit-generation counter. Equality is the freshness test:
 /// `product_gen == current_gen` ⇒ the product matches the live state.
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default, Serialize, Deserialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
     JsonSchema,
 )]
 pub struct EditGen(pub u64);

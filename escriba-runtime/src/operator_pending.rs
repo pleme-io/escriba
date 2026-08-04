@@ -29,6 +29,17 @@ pub enum OpState {
         op: Operator,
         count: u32,
     },
+    /// `d/` — an operator is armed AND a search prompt is open.
+    ///
+    /// Without this state the prompt's own keys (the typed pattern, Backspace,
+    /// history) hit the "anything else cancels" arm and the operator
+    /// evaporated on the very first character, so `d/foo<CR>` silently did
+    /// nothing. The operator has to survive an arbitrary number of keystrokes
+    /// here, which is exactly why it needs a state rather than a guard.
+    AwaitingSearch {
+        op: Operator,
+        count: u32,
+    },
 }
 
 /// The zenmai machine. A ZST marker; the reducer is [`Self::step`]. The
@@ -52,20 +63,72 @@ impl zenmai::Machine for OperatorPending {
 
             // Resting: an operator key arms the machine (capturing its count);
             // everything else passes straight through carrying its own count.
-            (OpState::Resting, Action::Operator(op)) => {
-                (OpState::Awaiting { op, count }, vec![])
-            }
+            (OpState::Resting, Action::Operator(op)) => (OpState::Awaiting { op, count }, vec![]),
             (OpState::Resting, other) => (OpState::Resting, vec![(other, count)]),
 
             // Awaiting a motion: the motion composes into ApplyOperator, applied
             // `op_count × motion_count` times (the two vim counts multiply).
-            (OpState::Awaiting { op, count: op_count }, Action::Move(motion)) => (
+            (
+                OpState::Awaiting {
+                    op,
+                    count: op_count,
+                },
+                Action::Move(motion),
+            ) => (
                 OpState::Resting,
                 vec![(
                     Action::ApplyOperator { op: *op, motion },
                     op_count.saturating_mul(count).max(1),
                 )],
             ),
+
+            // Awaiting + `/` or `?`: open the prompt and STAY ARMED. This arm
+            // is the whole fix — it used to fall into the catch-all below,
+            // which disarmed the operator and dropped the key.
+            (
+                OpState::Awaiting {
+                    op,
+                    count: op_count,
+                },
+                Action::SearchOpen(dir),
+            ) => (
+                OpState::AwaitingSearch {
+                    op: *op,
+                    count: *op_count,
+                },
+                vec![(Action::SearchOpen(dir), 1)],
+            ),
+
+            // Prompt editing passes through untouched while the operator waits.
+            (
+                OpState::AwaitingSearch { .. },
+                a
+                @ (Action::InsertChar(_) | Action::PromptBackspace | Action::PromptHistory { .. }),
+            ) => (*state, vec![(a, 1)]),
+
+            // `<CR>` resolves the operand. Emitted as ONE action rather than
+            // "commit, then operate": committing MOVES the cursor, which would
+            // destroy the operator's start point before the operator ran.
+            (
+                OpState::AwaitingSearch {
+                    op,
+                    count: op_count,
+                },
+                Action::SubmitCommand,
+            ) => (
+                OpState::Resting,
+                vec![(Action::SearchSubmitOperated { op: *op }, *op_count)],
+            ),
+
+            // Esc disarms both the prompt and the operator.
+            (OpState::AwaitingSearch { .. }, Action::ChangeMode(m)) => {
+                (OpState::Resting, vec![(Action::ChangeMode(m), 1)])
+            }
+
+            // Any other key while a search operand is being typed disarms the
+            // operator but still runs the key — dropping it silently is what
+            // made `d/` feel broken.
+            (OpState::AwaitingSearch { .. }, other) => (OpState::Resting, vec![(other, count)]),
 
             // Awaiting + anything-not-a-motion cancels the operator and drops
             // the key (vim: `d` then a non-motion does nothing). Covers Esc
@@ -87,14 +150,26 @@ mod tests {
         // `d` arms (count 1), `w` composes `dw` once.
         let (s, fx) =
             OperatorPending::step(&OpState::Resting, (Action::Operator(Operator::Delete), 1));
-        assert_eq!(s, OpState::Awaiting { op: Operator::Delete, count: 1 });
+        assert_eq!(
+            s,
+            OpState::Awaiting {
+                op: Operator::Delete,
+                count: 1
+            }
+        );
         assert!(fx.is_empty(), "the operator key runs nothing, it waits");
 
         let (s, fx) = OperatorPending::step(&s, (Action::Move(Motion::WordStartNext), 1));
         assert_eq!(s, OpState::Resting);
         assert_eq!(
             fx,
-            vec![(Action::ApplyOperator { op: Operator::Delete, motion: Motion::WordStartNext }, 1)]
+            vec![(
+                Action::ApplyOperator {
+                    op: Operator::Delete,
+                    motion: Motion::WordStartNext
+                },
+                1
+            )]
         );
     }
 
@@ -104,11 +179,23 @@ mod tests {
         // composed motion as the repetition count.
         let (s, _) =
             OperatorPending::step(&OpState::Resting, (Action::Operator(Operator::Delete), 3));
-        assert_eq!(s, OpState::Awaiting { op: Operator::Delete, count: 3 });
+        assert_eq!(
+            s,
+            OpState::Awaiting {
+                op: Operator::Delete,
+                count: 3
+            }
+        );
         let (_, fx) = OperatorPending::step(&s, (Action::Move(Motion::WordStartNext), 1));
         assert_eq!(
             fx,
-            vec![(Action::ApplyOperator { op: Operator::Delete, motion: Motion::WordStartNext }, 3)]
+            vec![(
+                Action::ApplyOperator {
+                    op: Operator::Delete,
+                    motion: Motion::WordStartNext
+                },
+                3
+            )]
         );
     }
 
@@ -132,7 +219,10 @@ mod tests {
     #[test]
     fn esc_cancels_a_pending_operator_and_drops_the_key() {
         let (s, fx) = OperatorPending::step(
-            &OpState::Awaiting { op: Operator::Change, count: 1 },
+            &OpState::Awaiting {
+                op: Operator::Change,
+                count: 1,
+            },
             (Action::ChangeMode(Mode::Normal), 1),
         );
         assert_eq!(s, OpState::Resting, "Esc cancels the operator");
@@ -144,10 +234,19 @@ mod tests {
         // A stray Pending while awaiting keeps the operator armed (a multi-key
         // motion like `gg` builds in the runtime's sequence buffer first).
         let (s, fx) = OperatorPending::step(
-            &OpState::Awaiting { op: Operator::Yank, count: 1 },
+            &OpState::Awaiting {
+                op: Operator::Yank,
+                count: 1,
+            },
             (Action::Pending, 1),
         );
-        assert_eq!(s, OpState::Awaiting { op: Operator::Yank, count: 1 });
+        assert_eq!(
+            s,
+            OpState::Awaiting {
+                op: Operator::Yank,
+                count: 1
+            }
+        );
         assert!(fx.is_empty());
     }
 
@@ -155,7 +254,10 @@ mod tests {
     fn inert_on_a_doubled_operator_dd_deferred() {
         // `dd` (linewise) is deferred — a second operator cancels for now.
         let (s, fx) = OperatorPending::step(
-            &OpState::Awaiting { op: Operator::Delete, count: 1 },
+            &OpState::Awaiting {
+                op: Operator::Delete,
+                count: 1,
+            },
             (Action::Operator(Operator::Delete), 1),
         );
         assert_eq!(s, OpState::Resting);

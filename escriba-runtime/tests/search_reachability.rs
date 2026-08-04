@@ -50,6 +50,27 @@ fn type_str(st: &mut EditorState, s: &str) {
     }
 }
 
+/// Press Ctrl+`c` through the full input path.
+fn ctrl(st: &mut EditorState, c: char) {
+    st.tick(&AppEvent::Key(KeyEvent {
+        key: KeyCode::Char(c),
+        pressed: true,
+        modifiers: Modifiers {
+            ctrl: true,
+            ..Modifiers::default()
+        },
+        text: None,
+    }));
+}
+
+/// The active buffer's text.
+fn text_of(st: &EditorState) -> String {
+    st.buffers
+        .get(st.active)
+        .map(escriba_buffer::Buffer::to_string)
+        .unwrap_or_default()
+}
+
 /// `/pattern<CR>` — entirely through keystrokes.
 fn search(st: &mut EditorState, pattern: &str) {
     press(st, KeyCode::Char('/'));
@@ -318,4 +339,196 @@ fn an_ex_command_is_not_mistaken_for_a_search() {
 
     assert!(!st.search.is_prompting(), "`:` is not a search");
     assert_eq!(st.status_model().prompt, PromptKind::Ex);
+}
+
+// ── the jumplist: search is a place you can come back from ───────────────
+
+#[test]
+fn ctrl_o_returns_to_where_the_search_was_launched_from() {
+    let mut st = state();
+    let origin = st.cursor().line;
+
+    search(&mut st, "foxtrot");
+    assert_ne!(st.cursor().line, origin, "the search moved us");
+
+    press(&mut st, KeyCode::Char('o'));
+    // `o` is not the jump key — Ctrl is required. Guard against a plain-char
+    // binding accidentally satisfying this test.
+    let after_plain_o = st.cursor().line;
+    assert_ne!(after_plain_o, origin, "plain `o` must not jump back");
+
+    let mut st = state();
+    search(&mut st, "foxtrot");
+    ctrl(&mut st, 'o');
+    assert_eq!(
+        st.cursor().line,
+        origin,
+        "<C-o> returns to the launch point"
+    );
+}
+
+#[test]
+fn ctrl_i_goes_forward_again() {
+    let mut st = state();
+    search(&mut st, "foxtrot");
+    let landed = st.cursor().line;
+
+    ctrl(&mut st, 'o');
+    ctrl(&mut st, 'i');
+    assert_eq!(st.cursor().line, landed, "<C-i> returns to the match");
+}
+
+#[test]
+fn n_records_a_jump_so_it_is_not_a_one_way_door() {
+    let mut st = state();
+    search(&mut st, "alpha");
+    let first = st.cursor().line;
+
+    press(&mut st, KeyCode::Char('n'));
+    assert_ne!(st.cursor().line, first);
+
+    ctrl(&mut st, 'o');
+    assert_eq!(st.cursor().line, first, "<C-o> undoes an `n`");
+}
+
+#[test]
+fn ctrl_o_with_an_empty_jumplist_reports_rather_than_moving() {
+    let mut st = state();
+    let before = st.cursor().line;
+    ctrl(&mut st, 'o');
+
+    assert_eq!(st.cursor().line, before, "nothing to jump back to");
+    assert!(
+        st.status_model()
+            .message
+            .is_some_and(|m| m.contains("E662")),
+        "an impossible jump must say so, not look like a dead key",
+    );
+}
+
+// ── search as a motion: dn / d/foo<CR> (T1.2) ────────────────────────────
+
+#[test]
+fn d_then_n_deletes_to_the_next_match() {
+    let mut st = state();
+    search(&mut st, "alpha"); // lands on line 0
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('n'));
+
+    let after = text_of(&st);
+    assert_ne!(after, before, "`dn` must delete to the next match");
+    assert!(after.len() < before.len(), "text got shorter");
+}
+
+#[test]
+fn d_slash_pattern_cr_deletes_up_to_the_match() {
+    // The mechanic the operator FSM's catch-all used to swallow entirely.
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "charlie");
+    press(&mut st, KeyCode::Enter);
+
+    let after = text_of(&st);
+    assert_ne!(after, before, "`d/charlie<CR>` must delete");
+    assert!(
+        after.starts_with("charlie"),
+        "everything up to the match should be gone, got {after:?}",
+    );
+}
+
+#[test]
+fn the_operator_survives_every_keystroke_of_the_pattern() {
+    // Each typed character used to hit the catch-all and disarm `d`.
+    let mut st = state();
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+
+    for c in "charlie".chars() {
+        press(&mut st, KeyCode::Char(c));
+        assert!(st.search.is_prompting(), "prompt died on {c:?}");
+    }
+
+    press(&mut st, KeyCode::Enter);
+    assert!(
+        text_of(&st).starts_with("charlie"),
+        "operator was lost mid-pattern"
+    );
+}
+
+#[test]
+fn esc_during_an_operated_search_disarms_both() {
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "charlie");
+    press(&mut st, KeyCode::Escape);
+
+    assert_eq!(text_of(&st), before, "Esc must not delete anything");
+    assert!(!st.search.is_prompting());
+
+    // And the operator must be gone too — a following motion is a plain move.
+    press(&mut st, KeyCode::Char('j'));
+    assert_eq!(
+        text_of(&st),
+        before,
+        "a stale operator would have deleted here"
+    );
+}
+
+#[test]
+fn dn_with_no_pattern_says_why_instead_of_doing_nothing() {
+    let mut st = state();
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('n'));
+
+    assert_eq!(text_of(&st), before, "nothing to delete to");
+    assert!(
+        st.status_model().message.is_some_and(|m| m.contains("E35")),
+        "an aborted operator must report, got {:?}",
+        st.status_model().message,
+    );
+}
+
+#[test]
+fn y_then_n_yanks_without_changing_the_buffer() {
+    let mut st = state();
+    search(&mut st, "alpha");
+    let before = text_of(&st);
+
+    press(&mut st, KeyCode::Char('y'));
+    press(&mut st, KeyCode::Char('n'));
+
+    assert_eq!(text_of(&st), before, "yank must not mutate");
+    assert!(st.register().is_some(), "yank must fill the register");
+}
+
+// ── the repeat gate must not swallow a deliberate second press ───────────
+
+#[test]
+fn two_fast_n_presses_advance_twice() {
+    // Measured before the fix: the KeyRepeatGate dropped the second `n` inside
+    // its debounce window, which reads as a dead key.
+    let mut st = state();
+    search(&mut st, "alpha");
+    let first = st.cursor().line;
+
+    press(&mut st, KeyCode::Char('n'));
+    let second = st.cursor().line;
+    press(&mut st, KeyCode::Char('n'));
+    let third = st.cursor().line;
+
+    assert_ne!(first, second, "first `n` advanced");
+    assert_ne!(
+        second, third,
+        "the immediately-following `n` must also advance"
+    );
 }

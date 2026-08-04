@@ -248,10 +248,42 @@ impl Keymap {
             Action::SearchOpen(SearchDirection::Backward),
             "search backward",
         );
-        nm(&mut m, Key::Char('n'), Action::SearchRepeat { reverse: false }, "next match");
-        nm(&mut m, Key::Char('N'), Action::SearchRepeat { reverse: true }, "previous match");
-        nm(&mut m, Key::Char('*'), Action::SearchWord { reverse: false }, "search word forward");
-        nm(&mut m, Key::Char('#'), Action::SearchWord { reverse: true }, "search word backward");
+        // `n`/`N` are MOTIONS, not standalone jumps. Binding them to
+        // `Action::Move` is what makes `dn` / `yN` compose — the
+        // operator-pending machine only recognises `Action::Move` as an
+        // operand. `Action::SearchRepeat` remains a valid action (a user rc or
+        // the tatara-lisp binding table may name it) and the runtime routes it
+        // through the same executor, so there is exactly one code path.
+        nm(
+            &mut m,
+            Key::Char('n'),
+            Action::Move(Motion::SearchNext),
+            "next match",
+        );
+        nm(
+            &mut m,
+            Key::Char('N'),
+            Action::Move(Motion::SearchPrev),
+            "previous match",
+        );
+
+        // ── jumplist ──────────────────────────────────────────────────
+        // The return ticket for every far jump above. Without it a committed
+        // search is a one-way door.
+        nm(&mut m, Key::Ctrl('o'), Action::JumpBack, "jump back");
+        nm(&mut m, Key::Ctrl('i'), Action::JumpForward, "jump forward");
+        nm(
+            &mut m,
+            Key::Char('*'),
+            Action::SearchWord { reverse: false },
+            "search word forward",
+        );
+        nm(
+            &mut m,
+            Key::Char('#'),
+            Action::SearchWord { reverse: true },
+            "search word backward",
+        );
         m.bind(
             Mode::Visual,
             Key::Esc,

@@ -22,8 +22,8 @@ use awase::KeyRepeatGate;
 use escriba_buffer::BufferSet;
 use escriba_command::{CommandRegistry, EditContext};
 use escriba_core::{
-    Action, BufferId, Cursors, Damage, Edit, EditGen, Mode, Motion, Operator, Position, Range,
-    TextEffect, WindowId,
+    Action, BufferId, Cursors, Damage, Edit, EditGen, JumpList, Mode, Motion, Operator, Position,
+    Range, TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -60,6 +60,10 @@ pub struct EditorState {
     /// numerator. `None` when no search has landed, or after an edit
     /// invalidated the match set. The denominator is `search.matches().len()`.
     search_at: Option<usize>,
+    /// Where the cursor was before each far jump — `<C-o>` / `<C-i>`.
+    /// Search commits, `n`/`N` and `*`/`#` all record into it, which is what
+    /// makes a search a place you can come back from.
+    pub jumps: JumpList,
     /// Generic editor option store (name → value). Written by the
     /// tatara-lisp `(set-option …)` effect and the declarative
     /// `defoption` apply path; typed accessors layer on top later.
@@ -121,6 +125,24 @@ enum SeqStep {
     Passthrough,
 }
 
+/// Keys whose repeat is a deliberate second press, never an OS key-repeat
+/// storm.
+///
+/// Each of these relocates the cursor somewhere far and specific, so a user
+/// pressing one twice quickly means it twice. Held `j`/`l` is the opposite:
+/// the repeats are the OS, and honouring all of them thrashes the viewport.
+const fn is_discrete_jump(key: &Key) -> bool {
+    matches!(
+        key,
+        Key::Char('n')
+            | Key::Char('N')
+            | Key::Char('*')
+            | Key::Char('#')
+            | Key::Ctrl('o')
+            | Key::Ctrl('i')
+    )
+}
+
 impl EditorState {
     /// Build a fresh editor with one buffer (scratch or file-backed).
     pub fn new_with_buffer(initial: BufferSet, active: BufferId) -> Self {
@@ -145,6 +167,7 @@ impl EditorState {
             modal: ModalState::new(),
             search: SearchState::new(escriba_search::CaseMode::Smart),
             search_at: None,
+            jumps: JumpList::new(),
             keymap: Keymap::default_vim(),
             commands: CommandRegistry::default_set(),
             layout: Layout::single(window),
@@ -303,6 +326,14 @@ impl EditorState {
     fn gate_key(&mut self, key: &Key, now: Instant) -> bool {
         match self.modal.mode() {
             Mode::Normal | Mode::Visual | Mode::VisualLine => {
+                // The gate exists for HELD keys that flood the motion path and
+                // thrash the viewport (`j`, `l`). It is wrong for the discrete
+                // jumps: two `n` presses 10 ms apart mean two matches, and
+                // swallowing the second is indistinguishable from a dead key —
+                // the exact symptom the gate was added to prevent elsewhere.
+                if is_discrete_jump(key) {
+                    return true;
+                }
                 self.repeat_gate.try_pass_at(*key, now)
             }
             Mode::Insert | Mode::Command => true,
@@ -544,6 +575,8 @@ impl EditorState {
     /// than failing silently — a search that appears to do nothing is
     /// indistinguishable from a dropped keystroke.
     fn jump_search(&mut self, reverse: bool) {
+        // `n` is a far jump — record where we leave from so `<C-o>` works.
+        self.jumps.push(self.cursor());
         let at = self.cursor_char();
         match self.search.repeat(at, reverse) {
             Some(step) => self.land_on(step),
@@ -577,6 +610,64 @@ impl EditorState {
         }
     }
 
+    /// `d/foo<CR>` — commit the prompt and operate from the prompt's origin to
+    /// where the search lands, as ONE action.
+    ///
+    /// Split from [`Self::submit_search`] rather than sharing it because the
+    /// two want opposite things from the commit: the bare `/` MOVES the cursor
+    /// to the match, and an operated `/` must NOT — the cursor is the
+    /// operator's start point, and moving it first would leave the operator
+    /// with a zero-width range.
+    fn submit_search_operated(&mut self, op: Operator) {
+        let text = self.active_text();
+        let Some(origin) = self.search.prompt().map(|p| p.origin) else {
+            return;
+        };
+
+        match self.search.accept(&text) {
+            escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
+                self.modal.clear_minibuffer();
+                self.modal.enter(Mode::Normal);
+                match self.search.commit_step(origin) {
+                    Some(step) => {
+                        // Operating over a search is itself a far jump.
+                        if let Some(buf) = self.buffers.get(self.active) {
+                            let from = buf.char_to_position(origin);
+                            self.jumps.push(from);
+                            let target = buf.char_to_position(step.target.start);
+                            self.set_cursor(from);
+                            self.search_at = Some(step.index);
+                            self.apply_operator_to(op, target);
+                        }
+                    }
+                    None => self.report_pattern_not_found(),
+                }
+            }
+            escriba_search::Accepted::NothingToRepeat => {
+                self.modal.clear_minibuffer();
+                self.modal.enter(Mode::Normal);
+                self.messages
+                    .push("E35: No previous regular expression".to_string());
+            }
+            escriba_search::Accepted::Invalid(e) => {
+                let mut m = String::from("E383: Invalid search string: ");
+                m.push_str(&e.to_string());
+                self.messages.push(m);
+            }
+        }
+    }
+
+    /// vim's E486, with the pattern named. One place, so both the bare and the
+    /// operated search paths report identically.
+    fn report_pattern_not_found(&mut self) {
+        let mut m = String::from("E486: Pattern not found");
+        if let Some(p) = self.search.pattern() {
+            m.push_str(": ");
+            m.push_str(p.raw());
+        }
+        self.messages.push(m);
+    }
+
     /// Commit the `/` prompt: compile, search, jump, and report like vim.
     fn submit_search(&mut self) {
         let text = self.active_text();
@@ -603,6 +694,14 @@ impl EditorState {
             escriba_search::Accepted::Committed | escriba_search::Accepted::ReusedPrevious => {
                 self.modal.clear_minibuffer();
                 self.modal.enter(Mode::Normal);
+                // Record the jump from the PROMPT ORIGIN, not the live cursor:
+                // preview has already moved the cursor onto the match, so
+                // `<C-o>` would otherwise return you to the match you jumped
+                // to rather than the place you searched from.
+                if let Some(buf) = self.buffers.get(self.active) {
+                    let origin = buf.char_to_position(at);
+                    self.jumps.push(origin);
+                }
                 match self.search.commit_step(at) {
                     Some(step) => self.land_on(step),
                     None => {
@@ -654,6 +753,8 @@ impl EditorState {
                     SearchDirection::Forward
                 };
                 let (text, at) = (self.active_text(), self.cursor_char());
+                // `*` jumps, so it records too.
+                self.jumps.push(self.cursor());
                 match self.search.search_word(&text, at, dir) {
                     Some(step) => self.land_on(step),
                     // vim beeps and stays put when there is no word under the
@@ -664,6 +765,23 @@ impl EditorState {
                 }
             }
             Action::ClearSearchHighlight => self.search.clear_highlight(),
+            Action::SearchSubmitOperated { op } => self.submit_search_operated(*op),
+            Action::JumpBack => {
+                let here = self.cursor();
+                if let Some(pos) = self.jumps.back(here) {
+                    self.set_cursor(pos);
+                } else {
+                    self.messages
+                        .push("E662: At start of changelist".to_string());
+                }
+            }
+            Action::JumpForward => {
+                if let Some(pos) = self.jumps.forward() {
+                    self.set_cursor(pos);
+                } else {
+                    self.messages.push("E663: At end of changelist".to_string());
+                }
+            }
             Action::ChangeMode(m) => {
                 // Leaving the cmdline abandons any open search prompt and
                 // returns the cursor home. The COMMITTED pattern survives —
@@ -752,7 +870,11 @@ impl EditorState {
             | Action::PromptBackspace
             | Action::SearchRepeat { .. }
             | Action::SearchWord { .. }
-            | Action::ClearSearchHighlight => Damage::Full,
+            | Action::ClearSearchHighlight
+            | Action::SearchSubmitOperated { .. }
+            // A jump can land anywhere, so the viewport may scroll wholesale.
+            | Action::JumpBack
+            | Action::JumpForward => Damage::Full,
             Action::InsertChar(_)
             | Action::Edit(_)
             | Action::Undo
@@ -858,6 +980,17 @@ impl EditorState {
     }
 
     fn apply_motion(&mut self, motion: Motion) {
+        // A bare search motion is a FAR JUMP and it REPORTS — it records into
+        // the jumplist, prints vim's "hit BOTTOM" on a wrap, and says E486
+        // when nothing matches. `resolve_motion` can do none of that: it is
+        // deliberately pure because the OPERATOR path calls it to find a range
+        // without moving the cursor. So `n` routes to the one executor that
+        // owns those side effects, and `Action::SearchRepeat` routes to the
+        // same place — one code path, two spellings.
+        if matches!(motion, Motion::SearchNext | Motion::SearchPrev) {
+            self.jump_search(matches!(motion, Motion::SearchPrev));
+            return;
+        }
         let Some(pos) = self.resolve_motion(self.cursor(), motion) else {
             return;
         };
@@ -875,8 +1008,31 @@ impl EditorState {
     fn apply_operator(&mut self, op: Operator, motion: Motion) {
         let from = self.cursor();
         let Some(to) = self.resolve_motion(from, motion) else {
+            // A motion that cannot resolve aborts the operator with the buffer
+            // untouched. A search motion says WHY — `dn` with no pattern armed
+            // is otherwise indistinguishable from a dropped keystroke, which
+            // is the same complaint that motivated E486 on the bare path.
+            if matches!(motion, Motion::SearchNext | Motion::SearchPrev) {
+                if self.search.pattern().is_none() {
+                    self.messages
+                        .push("E35: No previous regular expression".to_string());
+                } else {
+                    self.report_pattern_not_found();
+                }
+            }
             return;
         };
+        self.apply_operator_to(op, to);
+    }
+
+    /// Apply `op` over `[cursor, to)`.
+    ///
+    /// Split out of [`Self::apply_operator`] so the operated-search path can
+    /// reach the same range machinery with a target it resolved itself — the
+    /// alternative was a second copy of the delete/yank/register logic, which
+    /// is how the two would drift.
+    fn apply_operator_to(&mut self, op: Operator, to: Position) {
+        let from = self.cursor();
         let range = Range {
             start: from,
             end: to,
