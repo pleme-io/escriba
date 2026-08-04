@@ -265,6 +265,16 @@ impl Buffer {
         let r = entry.reverse.range.normalized();
         let a = self.position_to_char(r.start)?;
         let b = self.position_to_char(r.end)?;
+        // undo/redo change the TEXT, so every offset measured against the old
+        // text expires here too — `apply` bumping alone was not enough: an
+        // ordinal anchored before an undo read as FRESH and displayed a
+        // position in the previous match set.
+        //
+        // BEFORE the match, not inside an arm: the first attempt at this fix
+        // landed in the `Insert` arm only, so undoing an insert (whose reverse
+        // is a Delete) still did not bump. After the fallible prelude, so a
+        // rejected undo invalidates nothing.
+        self.text_rev = self.text_rev.next();
         match &entry.reverse.kind {
             EditKind::Insert { text } => {
                 self.rope.insert(a, text);
@@ -286,6 +296,16 @@ impl Buffer {
         let r = entry.applied.range.normalized();
         let a = self.position_to_char(r.start)?;
         let b = self.position_to_char(r.end)?;
+        // undo/redo change the TEXT, so every offset measured against the old
+        // text expires here too — `apply` bumping alone was not enough: an
+        // ordinal anchored before an undo read as FRESH and displayed a
+        // position in the previous match set.
+        //
+        // BEFORE the match, not inside an arm: the first attempt at this fix
+        // landed in the `Insert` arm only, so undoing an insert (whose reverse
+        // is a Delete) still did not bump. After the fallible prelude, so a
+        // rejected undo invalidates nothing.
+        self.text_rev = self.text_rev.next();
         match &entry.applied.kind {
             EditKind::Insert { text } => {
                 self.rope.insert(a, text);
@@ -532,5 +552,37 @@ mod text_rev_tests {
         let _ = b.to_string();
         let _ = b.text_rev();
         assert_eq!(b.text_rev(), before);
+    }
+}
+
+#[cfg(test)]
+mod undo_rev_tests {
+    use super::*;
+    use escriba_core::{Edit, Position};
+
+    #[test]
+    fn undo_and_redo_advance_the_revision() {
+        // They mutate the rope, so they expire offsets exactly as `apply`
+        // does. The first fix for this landed inside one match arm only, so
+        // undoing an INSERT — whose reverse is a Delete — still did not bump.
+        let mut b = Buffer::from_str(BufferId(0), "hello");
+        b.apply(&Edit::insert(Position::new(0, 0), "X".to_string()))
+            .expect("insert applies");
+        let after_edit = b.text_rev();
+
+        b.undo().expect("undo applies");
+        assert_ne!(b.text_rev(), after_edit, "undo must advance the revision");
+        let after_undo = b.text_rev();
+
+        b.redo().expect("redo applies");
+        assert_ne!(b.text_rev(), after_undo, "redo must advance it again");
+    }
+
+    #[test]
+    fn a_rejected_undo_does_not_advance_the_revision() {
+        let mut b = Buffer::from_str(BufferId(0), "hello");
+        let before = b.text_rev();
+        assert!(b.undo().is_err(), "nothing to undo");
+        assert_eq!(b.text_rev(), before, "a failed undo changed no text");
     }
 }

@@ -1167,3 +1167,134 @@ fn an_operated_search_lands_where_its_stepped_preview_showed() {
         "must delete up to the SECOND match, got {after:?}",
     );
 }
+
+// ── review findings, each with its measured reproduction ─────────────────
+
+#[test]
+fn an_abandoned_prompt_does_not_leave_dot_typing_into_the_buffer() {
+    // The worst of the review findings. `last_change` was keyed on the
+    // action's VARIANT, so `/q<Esc>` — pure navigation that changed nothing —
+    // left the register holding `InsertChar('q')`, and `.` in Normal mode
+    // routed that to the text. A corrupting register, not a lost one.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("abc\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "Z");
+    press(&mut st, KeyCode::Escape);
+    let after_insert = text_of(&st);
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "q");
+    press(&mut st, KeyCode::Escape); // abandoned — changed nothing
+
+    press(&mut st, KeyCode::Char('.'));
+    let after_dot = text_of(&st);
+    assert!(
+        !after_dot.contains('q'),
+        "`.` typed the pattern into the buffer: {after_dot:?}"
+    );
+    assert_eq!(
+        after_dot.matches('Z').count(),
+        after_insert.matches('Z').count() + 1,
+        "`.` must still repeat the INSERT: {after_dot:?}",
+    );
+}
+
+#[test]
+fn a_committed_search_between_a_change_and_dot_does_not_eat_the_register() {
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("abc\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "Z");
+    press(&mut st, KeyCode::Escape);
+
+    search(&mut st, "a"); // a real, committed search — changes no text
+
+    press(&mut st, KeyCode::Char('.'));
+    assert_eq!(
+        text_of(&st).matches('Z').count(),
+        2,
+        "the change must survive a search"
+    );
+}
+
+#[test]
+fn a_failed_operator_does_not_become_the_repeatable_change() {
+    // `dgn` with no pattern armed changes nothing, so it must not displace
+    // whatever `.` was going to repeat.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("abc\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "Z");
+    press(&mut st, KeyCode::Escape);
+
+    press(&mut st, KeyCode::Char('d'));
+    press(&mut st, KeyCode::Char('g'));
+    press(&mut st, KeyCode::Char('n')); // no pattern -> aborts
+
+    press(&mut st, KeyCode::Char('.'));
+    assert_eq!(
+        text_of(&st).matches('Z').count(),
+        2,
+        "`.` still repeats the insert"
+    );
+}
+
+#[test]
+fn gn_operates_on_the_containing_match_from_any_interior_column() {
+    // `resolve_object` compared only against `m.start`, so one column into a
+    // match the containing match was rejected and `gn` skipped to the NEXT —
+    // meaning `cgn` silently missed the instance the cursor was standing in.
+    // vim operates on the containing match from every interior column.
+    for col in 0..3u32 {
+        let mut bufs = escriba_buffer::BufferSet::new();
+        let id = bufs.scratch("foo bar foo\n");
+        let mut st = EditorState::new_with_buffer(bufs, id);
+
+        search(&mut st, "foo");
+        press(&mut st, KeyCode::Char('0'));
+        for _ in 0..col {
+            press(&mut st, KeyCode::Char('l'));
+        }
+
+        press(&mut st, KeyCode::Char('d'));
+        press(&mut st, KeyCode::Char('g'));
+        press(&mut st, KeyCode::Char('n'));
+
+        assert_eq!(
+            text_of(&st),
+            " bar foo\n",
+            "from column {col} `dgn` must delete the match the cursor is inside",
+        );
+    }
+}
+
+#[test]
+fn an_undo_expires_the_match_ordinal() {
+    use escriba_search::MatchCount;
+
+    // `Buffer::undo`/`redo` mutated the rope WITHOUT advancing `TextRev`, so
+    // an ordinal anchored before the undo read as fresh and displayed a
+    // position in the previous match set.
+    let mut bufs = escriba_buffer::BufferSet::new();
+    let id = bufs.scratch("foo\nfoo\nfoo\n");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+
+    press(&mut st, KeyCode::Char('i'));
+    type_str(&mut st, "X");
+    press(&mut st, KeyCode::Escape);
+    search(&mut st, "foo");
+    assert!(matches!(st.status_model().count, MatchCount::Exact { .. }));
+
+    press(&mut st, KeyCode::Char('u')); // undo changes the text
+    assert!(
+        !matches!(st.status_model().count, MatchCount::Exact { .. }),
+        "an ordinal into the pre-undo match set must not be displayed as current",
+    );
+}

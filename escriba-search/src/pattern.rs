@@ -164,7 +164,9 @@ impl SearchPattern {
 
     /// Compile a *literal* pattern — every regex metacharacter is escaped.
     ///
-    /// This is what `*` / `#` (search-word-under-cursor) use: the word under
+    /// Not what `*` / `#` use — those go through `whole_word` via
+    /// `SearchState::search_word`, which adds the `\\b` anchors. This is the
+    /// plain literal constructor, for a caller that wants no anchoring: the word under
     /// the cursor may legitimately contain `.` or `[`, and the user means those
     /// characters, not their regex meaning.
     ///
