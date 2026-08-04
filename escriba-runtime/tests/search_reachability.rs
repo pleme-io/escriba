@@ -1298,3 +1298,91 @@ fn an_undo_expires_the_match_ordinal() {
         "an ordinal into the pre-undo match set must not be displayed as current",
     );
 }
+
+// ── arming a search implies lighting it ──────────────────────────────────
+
+#[test]
+fn a_bare_cr_relights_the_previous_pattern() {
+    // Three sites armed a search by assigning direction/highlight/refresh
+    // separately, and the bare `/<CR>` re-search forgot the highlight — so
+    // re-running the previous pattern after an auto-clear jumped correctly and
+    // stayed dark. `SearchState::arm` makes the three one act.
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('j')); // auto-clear
+    assert!(!st.search.highlight_enabled());
+
+    press(&mut st, KeyCode::Char('/'));
+    press(&mut st, KeyCode::Enter); // bare `/<CR>` reuses the previous pattern
+    assert!(
+        st.search.highlight_enabled(),
+        "re-arming the previous pattern IS arming — it must light up",
+    );
+}
+
+#[test]
+fn cancelling_a_new_search_keeps_the_old_pattern_lit() {
+    // `ChangeMode(_)` classified as Clear landed on top of the cancel it had
+    // just performed, so changing your mind about a new search silently
+    // destroyed the previous one's highlights — contradicting both
+    // `SearchState::cancel`'s doc and the runtime's own ChangeMode arm.
+    let mut st = state();
+    search(&mut st, "alpha");
+    assert!(st.search.highlight_enabled());
+
+    press(&mut st, KeyCode::Char('/'));
+    type_str(&mut st, "bravo");
+    press(&mut st, KeyCode::Escape);
+
+    assert!(
+        st.search.highlight_enabled(),
+        "cancelling a NEW search must not erase the OLD one's highlights",
+    );
+    assert_eq!(
+        st.search.pattern().map(escriba_search::SearchPattern::raw),
+        Some("alpha"),
+        "and the committed pattern survives",
+    );
+}
+
+#[test]
+fn entering_insert_still_clears_the_highlight() {
+    // The other half: `ChangeMode` must keep clearing when it begins editing,
+    // or the auto-clear rule is gone.
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('i'));
+    assert!(!st.search.highlight_enabled(), "editing ends the search");
+}
+
+#[test]
+fn a_second_slash_soon_after_the_first_is_not_swallowed() {
+    // The repeat gate is keyed BY KEY, so `/foo<CR>` followed quickly by `/`
+    // put both presses in one debounce window and the second was dropped —
+    // vim's reuse-the-previous-pattern gesture simply did not happen. The gate
+    // is now an allow-list of keys you HOLD, so a key absent from it is
+    // honoured rather than silently eaten.
+    let mut st = state();
+    search(&mut st, "alpha");
+    press(&mut st, KeyCode::Char('/'));
+    assert!(
+        st.search.is_prompting(),
+        "the second `/` must open a prompt"
+    );
+}
+
+#[test]
+fn holding_j_is_still_debounced() {
+    // The other half: the gate must keep doing its job for the keys it exists
+    // for, or inverting it would just delete the feature.
+    let mut st = state();
+    let start = std::time::Instant::now();
+    for _ in 0..6 {
+        st.tick_at(&key(KeyCode::Char('j')), start);
+    }
+    assert!(
+        st.cursor().line <= 1,
+        "six `j` at one instant must not scroll six lines, got {}",
+        st.cursor().line,
+    );
+}

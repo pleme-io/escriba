@@ -308,6 +308,23 @@ impl Action {
             // `text_effect`'s: a motion nobody has classified yet is "moving
             // on", which at worst clears a highlight early. The opposite
             // default would leave stale confetti on screen.
+            // Entering Insert begins editing, so the search is over. Every
+            // OTHER mode change is navigation or a CANCEL — and a cancel must
+            // not erase the committed pattern's highlights. Both
+            // `SearchState::cancel` and the runtime's own `ChangeMode` arm
+            // promise that in writing ("cancelling a new search must not erase
+            // the old highlights"), and a blanket `Clear` here landed on top of
+            // the cancel it had just performed: `/foo<CR>` then `/bar<Esc>`
+            // silently extinguished `foo`.
+            //
+            // Total over `Mode`, so a new mode must decide.
+            Self::ChangeMode(m) => match m {
+                Mode::Insert => HighlightEffect::Clear,
+                Mode::Normal | Mode::Visual | Mode::VisualLine | Mode::Command => {
+                    HighlightEffect::Keep
+                }
+            },
+
             Self::Move(m) => match m {
                 Motion::SearchNext | Motion::SearchPrev => HighlightEffect::Keep,
                 _ => HighlightEffect::Clear,
@@ -318,7 +335,6 @@ impl Action {
             | Self::ApplyOperatorObject { .. }
             | Self::RepeatLastChange
             | Self::Edit(_)
-            | Self::ChangeMode(_)
             | Self::Command { .. }
             | Self::Undo
             | Self::Redo => HighlightEffect::Clear,
