@@ -23,9 +23,9 @@ So, stated at the tier each half actually earns:
   implementation `step`/`step_inclusive` delegate to.
 - **`Anchored`** — load-bearing. `EditorState::search_at` is
   `Anchored<usize, TextRev>` and the manual invalidation was deleted.
-- **`Chars`/`Bytes`/`Ruler`** — **three consumers, one of them the hot path.**
-  `SearchState::byte_of_caret` (the search prompt's caret, chars→bytes),
-  `ExLine::byte_of_caret` (the ex-line's caret, same conversion), and
+- **`Chars`/`Bytes`/`Ruler`** — **two consumers, one of them the hot path.**
+  `CaretLine::byte_of_caret` (chars→bytes, now serving BOTH the search prompt
+  and the ex-line — see `CaretLine` below) and
   `engine::find_all` (every match offset, bytes→chars, via
   `Ruler::ascending`). Verified for each by reverting the call site and
   watching the imports die. Captured for the third, 2026-08-04:
@@ -36,6 +36,15 @@ So, stated at the tier each half actually earns:
      |
   36 | use escriba_memori::{CaretMove, Chars, Offset, Ruler};
   ```
+- **`CaretLine`** — load-bearing, and the sharpest instance of what this crate
+  is FOR. A line of text plus the caret editing it, private fields, invariant
+  `caret <= text.chars().count()` maintained by the type. It was written twice
+  before it lived here: `escriba-search`'s `Prompt` held the two as sibling
+  fields and paired them correctly at six mutation sites by convention, and
+  `escriba-mode`'s ex-line held the identical pair and got it wrong at the
+  seventh. Both crates now hold one, and `escriba-search` lost its private
+  `byte_of_caret` in the process — which is why the Scale consumer count went
+  back DOWN to two while the number of call sites served went up.
 - **`CaretMove`** — load-bearing, and the reason it lives here. It started in
   `escriba-search` as the search prompt's private business; when the ex-line
   grew a caret, `escriba-mode` needed the same four moves. Two crates that
@@ -45,7 +54,7 @@ So, stated at the tier each half actually earns:
   only with LSP phase 2, which does not exist here.
 
 **The third consumer arrived by way of the mistake it exists to prevent**, and
-that is worth recording rather than tidying away. `ExLine::byte_of_caret` was
+that is worth recording rather than tidying away. The ex-line's `byte_of_caret` was
 first written as a local `text.char_indices().nth(caret)` — a *fourth*
 hand-rolled copy of chars→bytes, authored inside the crate that had, in the
 same commit, taken a dependency on the vocabulary built to hold it. Nothing
@@ -145,8 +154,9 @@ stale read sneaks back in.
 | reading an ordinal computed against older text | `Anchored<usize, TextRev>` — `get(current_rev)` returns `None`; the manual invalidation was DELETED | parse-time-rejected |
 | a `Ruler` built for the WRONG text | nothing prevents it — the text is a plain `&str` argument | only-mitigated (C1: no text identity exists to bind a Ruler to) |
 | `escriba-search`'s `step`/`step_inclusive` drifting apart | CLOSED — both are one-line delegations to `step_bounded`, which asks `Bound`; there is one implementation to drift | parse-time-rejected |
-| a caret desynchronized from the text it indexes (`clear()` emptying the line and stranding the caret past the end) | `ExLine` holds both as PRIVATE fields; every mutation is a method that maintains the pair, so the nine former call sites cannot touch either half (`E0616`) | only-mitigated (C: unrepresentable for CONSUMERS, but still hand-maintained inside `ExLine`'s own ~100-line impl block — a type does not audit itself) |
-| a DOCUMENT asserting a caret past the end of its line | `Deserialize` routes through the `ExLineWire` shadow, which clamps; an `ExLine` that exists holds regardless of provenance. Note it CLAMPS rather than erroring — the bad value cannot survive the boundary, but it is normalized away rather than reported | parse-time-rejected |
+| a caret desynchronized from the text it indexes (`clear()` emptying the line and stranding the caret past the end) | `CaretLine` holds both as PRIVATE fields; every mutation is a method that maintains the pair, so the fifteen former call sites across two crates cannot touch either half (`E0616`) | only-mitigated (C: unrepresentable for CONSUMERS, but still hand-maintained inside `CaretLine`'s own impl block — a type does not audit itself) |
+| the SAME caret-line logic written twice, once per prompt | CLOSED — `CaretLine` is in memori, below both `escriba-search` and `escriba-mode`, which cannot see each other. There is one implementation to drift | parse-time-rejected |
+| a DOCUMENT asserting a caret past the end of its line | `CaretLine::new` is the only door a caret enters through from outside, and it clamps; `escriba-mode`'s `ExLineWire` deserialization shadow routes through it. Note it CLAMPS rather than erroring — the bad value cannot survive the boundary, but it is normalized away rather than reported | parse-time-rejected |
 
 **Proof of the top row**, captured 2026-08-04 by compiling a deliberate
 violation (`r.to_bytes(b)` where `b: Offset<Bytes>`):
@@ -278,7 +288,7 @@ cautionary tale for what happens when it is not.
    the same over-claim this file has already had to correct twice.
 
 6. **Make reaching for the vocabulary an invariant rather than a habit** —
-   opened by the `ExLine::byte_of_caret` slip in §"three consumers" above. A
+   opened by the ex-line's `byte_of_caret` slip in §2 above. A
    fourth hand-rolled `char_indices().nth()` landed in a crate that already
    depended on memori, and nothing failed. Candidate mechanisms, none built: a
    clippy `disallowed_methods` entry for `char_indices().nth()` outside
