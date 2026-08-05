@@ -1,5 +1,22 @@
 name: ci
 
+# The rust gate is a DECLARED PIPELINE of pleme-io actions — the first consumer
+# of substrate's action-pipeline.yml.
+#
+# The unit of composition is the ACTION, not the workflow. That matters here
+# because escriba's CI is structurally unique: no reusable in the catalogue
+# expresses "fmt + whole-workspace check + tests with two crates excluded +
+# doctests", and writing one for a single consumer is the failure mode the
+# fleet already demonstrates 34 times over. A pipeline expresses it by
+# composing primitives that already exist.
+#
+# NOTHING IS DROPPED IN THE MIGRATION — that took extending rust-gate first
+# (pleme-io/actions@57b5f91). `cargo check --workspace` is not redundant with
+# the test step: the tests EXCLUDE escriba-render and escriba-tui, so without a
+# separate check those two crates stop being compiled by CI entirely while the
+# run stays green. rust-gate had no check step; it does now, and it sits inside
+# the conjunction that decides the exit code.
+
 on:
   push:
     branches:
@@ -9,52 +26,53 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
-      - name: cargo check
-        run: cargo check --workspace
-      # escriba-render and escriba-tui are excluded because BOTH pull the
-      # full wgpu 25 + winit 0.30 stack -- escriba-tui transitively, via
-      # madori -- which needs the X11/wayland/xkbcommon dev headers a bare
-      # ubuntu-latest runner does not carry. That is a PLATFORM constraint,
-      # NOT a hidden failure: with no exclusions at all, both crates build
-      # and every test passes on macOS (verified 2026-07-27, 555 passed /
-      # 0 failed / 0 ignored).
+  gate:
+    uses: pleme-io/substrate/.github/workflows/action-pipeline.yml@main
+    with:
+      # escriba-render and escriba-tui are excluded from the TEST step because
+      # BOTH pull the full wgpu 25 + winit 0.30 stack -- escriba-tui
+      # transitively, via madori -- which needs the X11/wayland/xkbcommon dev
+      # headers a bare ubuntu-latest runner does not carry. That is a PLATFORM
+      # constraint, NOT a hidden failure: with no exclusions at all, both
+      # crates build and every test passes on macOS (verified 2026-07-27,
+      # 555 passed / 0 failed / 0 ignored). They ARE still type-checked, by the
+      # check step over the whole workspace.
       # DESTINATION: install those system deps on the runner and drop both
       # exclusions, so CI exercises the whole workspace instead of 19/21.
       #
-      # --all-targets so a target that silently stops compiling cannot
-      # hide. It does NOT run doctests, hence the explicit --doc step.
-      - name: cargo test
-        run: cargo test --workspace --exclude escriba-render --exclude escriba-tui --all-targets
-      - name: cargo test (doctests)
-        run: cargo test --workspace --exclude escriba-render --exclude escriba-tui --doc
+      # --all-targets so a target that silently stops compiling cannot hide.
+      # It does NOT run doctests, hence the second step.
+      pipeline: |
+        (defpipeline ci
+          (step rust-gate :run-clippy "false" :run-check "true" :check-args "--workspace" :fmt-args "--all -- --check" :test-args "--workspace --exclude escriba-render --exclude escriba-tui --all-targets")
+          (step rust-gate :run-fmt "false" :run-clippy "false" :test-args "--workspace --exclude escriba-render --exclude escriba-tui --doc")
+        )
+    secrets: inherit
+
   nix-build:
     name: nix-build
     runs-on: macos-15
-    # This job was continue-on-error "until crate2nix's garasu-name-collision
-    # is resolved upstream". That justification is obsolete, not merely
-    # stale: the flake moved OFF crate2nix onto substrate's lockfile-builder
-    # in cebb9e6, and the only surviving mention of crate2nix in the whole
-    # repo was this comment. A local `nix build .#default` (2026-07-27,
-    # aarch64-darwin) built garasu -- the crate named in the collision -- and
-    # all 20 workspace members green, reaching the final root crate and
-    # failing only on a full local disk. No name collision exists.
+    # Left hand-authored deliberately: this is a macOS nix build and no action
+    # in the catalogue covers it. A pipeline names actions; there is no
+    # nix-build action to name, and inventing one for a single consumer is the
+    # exact thing this exercise is trying not to do.
     #
-    # CAVEAT, stated rather than hidden: that local run never went fully
-    # green (disk exhaustion), so a clean end-to-end nix build is unproven.
-    # The first CI run is the remaining proof. Red here is a true signal.
+    # This job was continue-on-error "until crate2nix's garasu-name-collision
+    # is resolved upstream". That justification is obsolete, not merely stale:
+    # the flake moved OFF crate2nix onto substrate's lockfile-builder in
+    # cebb9e6, and the only surviving mention of crate2nix in the whole repo
+    # was this comment. A local `nix build .#default` (2026-07-27,
+    # aarch64-darwin) built garasu -- the crate named in the collision -- and
+    # all 20 workspace members green, reaching the final root crate and failing
+    # only on a full local disk. No name collision exists.
+    #
+    # CAVEAT, stated rather than hidden: that local run never went fully green
+    # (disk exhaustion), so a clean end-to-end nix build is unproven. The first
+    # CI run is the remaining proof. Red here is a true signal.
     #
     # NOTE: `nix flake check` below is near-vacuous -- flake.nix exposes no
     # `checks` output, so it asserts only structural sanity (isValidApp /
