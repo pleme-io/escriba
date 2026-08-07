@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 escriba-core     = { workspace = true }
+escriba-madoguchi = { workspace = true }
 escriba-plugin   = { workspace = true }
 tatara-lisp      = { workspace = true }
 tatara-lisp-eval = { workspace = true }

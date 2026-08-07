@@ -34,7 +34,7 @@ use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
 use escriba_ui::chrome::{ChromePalette, FleetTheme};
 use escriba_ui::splash::Splash;
 use escriba_ui::{Layout, Rect, Viewport, Window};
-use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, HostEffect, VmError};
+use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, VmError};
 use madori::AppEvent;
 use std::time::Instant;
 
@@ -146,6 +146,13 @@ pub struct EditorState {
     /// `Copy` struct read many times per frame, and re-derived only in
     /// [`set_theme`](Self::set_theme), so the two cannot disagree.
     chrome: ChromePalette,
+    /// How deep the current command dispatch is nested.
+    ///
+    /// `Negai::RunCommand` lets a command invoke a command, which is useful
+    /// and which can also recurse forever. The budget makes the runaway
+    /// bounded and REPORTED rather than a stack overflow — the difference
+    /// between a typed refusal and the editor dying under the operator.
+    dispatch_depth: u8,
     /// The start screen, while it is up.
     ///
     /// `Some` only between boot and the first keypress, and only when the
@@ -390,6 +397,11 @@ impl EditorState {
             }
             Negai::Yank { text, .. } => self.register = Some(text),
             Negai::ClearSearchHighlight => self.search.clear_highlight(),
+            Negai::SetOption { name, value } => {
+                self.options.insert(name, value);
+            }
+            Negai::InsertText(text) => self.insert_text(&text),
+            Negai::RunCommand { name, args } => self.run_command(&name, &args),
             Negai::Message(m) => self.messages.push(m),
             Negai::Quit => self.quit_requested = true,
             // Both suspend the dispatch and need machinery that does not
@@ -567,6 +579,7 @@ impl EditorState {
             damage: Damage::None,
             // The FLEET default until an rc says otherwise — never a
             // hand-written theme name, so a fleet re-point lands for free.
+            dispatch_depth: 0,
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,
@@ -1896,6 +1909,29 @@ impl EditorState {
     }
 
     fn run_command(&mut self, name: &str, args: &[String]) {
+        // Bound the command -> RunCommand slip -> command cycle. Refused and
+        // reported, never a stack overflow: an editor that dies under the
+        // operator loses their buffer, and a script that loops is a mistake
+        // they should be told about, not punished for.
+        if self.dispatch_depth >= Self::MAX_DISPATCH_DEPTH {
+            let mut m = String::from("command recursion too deep at `");
+            m.push_str(name);
+            m.push_str("` — refusing");
+            self.messages.push(m);
+            self.damage = self.damage.join(Damage::Viewport);
+            self.bump_gen();
+            return;
+        }
+        self.dispatch_depth += 1;
+        self.run_command_inner(name, args);
+        self.dispatch_depth -= 1;
+    }
+
+    /// How many nested command dispatches are allowed. Deep enough that no
+    /// legitimate script notices, shallow enough to fail fast.
+    const MAX_DISPATCH_DEPTH: u8 = 8;
+
+    fn run_command_inner(&mut self, name: &str, args: &[String]) {
         // Lazy-activation seam (lazy.nvim `cmd =` model): a user plugin
         // gated on `Command: <name>` has its entry applied the first time
         // that command runs, BEFORE dispatch — so the activated plugin
@@ -1979,20 +2015,15 @@ impl EditorState {
         Ok(())
     }
 
-    /// Apply tatara-lisp [`HostEffect`]s to live editor state. The
-    /// single seam where Lisp-requested mutations land — extend here +
-    /// in `escriba-vm` to add a capability.
-    pub fn apply_host_effects(&mut self, effects: Vec<HostEffect>) {
-        for eff in effects {
-            match eff {
-                HostEffect::Message(m) => self.messages.push(m),
-                HostEffect::RunCommand { name, args } => self.run_command(&name, &args),
-                HostEffect::SetOption { name, value } => {
-                    self.options.insert(name, value);
-                }
-                HostEffect::InsertText(text) => self.insert_text(&text),
-            }
-        }
+    /// Apply tatara-lisp effects to live editor state.
+    ///
+    /// A thin adapter now. It used to be `apply_host_effects`, a THIRD
+    /// implementation of message-push / option-insert / insert-text beside
+    /// the Action executor and the slip interpreter — the same duplication
+    /// that let `u` and `:undo` drift apart in M3. The VM emits slips; this
+    /// hands them to the one interpreter.
+    pub fn apply_host_effects(&mut self, effects: Vec<Negai>) {
+        self.interpret(Outcome::did(effects));
     }
 
     /// Insert a (possibly multi-line) string at the cursor and advance
@@ -2930,7 +2961,7 @@ mod tests {
     #[test]
     fn insert_text_effect_multiline_lands_cursor_on_last_line() {
         let mut s = new_state_with("");
-        s.apply_host_effects(vec![HostEffect::InsertText("foo\nbar".to_string())]);
+        s.apply_host_effects(vec![Negai::InsertText("foo\nbar".to_string())]);
         assert_eq!(s.buffers.get(s.active).unwrap().to_string(), "foo\nbar");
         assert_eq!(s.cursor(), Position::new(1, 3));
     }

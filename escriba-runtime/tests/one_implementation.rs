@@ -196,3 +196,84 @@ impl PatternPeek for EditorState {
         self.window().search().pattern().map(str::to_string)
     }
 }
+
+// ─── M4: the third vocabulary is gone, and recursion is bounded ──────────
+
+#[test]
+fn lisp_effects_go_through_the_one_interpreter() {
+    // `escriba-vm` used to emit `HostEffect`, applied by a THIRD
+    // implementation (`apply_host_effects`) beside the Action executor and
+    // the slip interpreter. It emits slips now, so a script and a command
+    // and a keypress all mutate through one body of code.
+    let mut st = editor();
+    st.run_lisp(r#"(set-option "tabstop" "4")"#)
+        .expect("lisp evaluates");
+    assert_eq!(
+        st.options.get("tabstop").map(String::as_str),
+        Some("4"),
+        "a Lisp set-option must reach the same store defoption writes",
+    );
+}
+
+#[test]
+fn a_lisp_message_lands_where_every_other_message_lands() {
+    let mut st = editor();
+    st.run_lisp(r#"(message "from lisp")"#).expect("evaluates");
+    assert_eq!(st.messages.last().map(String::as_str), Some("from lisp"));
+}
+
+#[test]
+fn runaway_command_recursion_is_refused_not_fatal() {
+    // `Negai::RunCommand` lets a command invoke a command, which can recurse
+    // forever. Unbounded, that is a stack overflow — the editor dying under
+    // the operator and taking their buffer with it. Bounded, it is a typed
+    // refusal they can read.
+    //
+    // M0 claimed there would be no RunCommand at all, reasoning that it let
+    // "a handler reach anything by naming it". That was wrong: capabilities
+    // govern READS, and any handler could already emit Quit or Save. The
+    // real hazard was always the recursion, and this is it, bounded.
+    use escriba_madoguchi::{Native, Negai, Outcome, View, caps, erase};
+
+    // A command that asks to run ITSELF. Without a budget this is an
+    // unbounded descent; the test would abort rather than fail.
+    struct SelfCall;
+    impl Native for SelfCall {
+        type Reads = caps!();
+        fn run(_: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+            Outcome::did(vec![Negai::RunCommand {
+                name: "loop".to_string(),
+                args: Vec::new(),
+            }])
+        }
+    }
+
+    let mut st = editor();
+    st.commands.register(escriba_command::Command::native(
+        "loop",
+        "invokes itself",
+        erase::<SelfCall>(),
+    ));
+    ex(&mut st, "loop");
+    assert!(
+        st.messages.iter().any(|m| m.contains("recursion too deep")),
+        "a self-invoking command must be refused and SAID: {:?}",
+        st.messages,
+    );
+    assert!(!st.quit_requested, "and the editor must survive it");
+
+    // The budget bounds NESTING, not usage: a budget that leaked across
+    // calls would make the editor stop working after eight commands.
+    let mut st = editor();
+    for _ in 0..20 {
+        ex(&mut st, "buffer-info");
+    }
+    // Twenty top-level dispatches must all be allowed — the budget bounds
+    // NESTING, not usage. A budget that leaked across calls would make the
+    // editor stop working after eight commands.
+    assert!(
+        !st.messages.iter().any(|m| m.contains("recursion too deep")),
+        "sequential commands must not exhaust the nesting budget: {:?}",
+        st.messages,
+    );
+}

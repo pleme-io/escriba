@@ -66,13 +66,25 @@ impl Continuation {
 /// Spawning is [`Negai::Errand`]: one supervisor, one cancellation path, one
 /// place staleness is decided.
 ///
-/// ## Why there is no `RunCommand`
+/// ## `RunCommand`, and a correction
 ///
-/// A slip that re-entered the command registry would make dispatch
-/// recursive, and recursion here means a handler can reach anything by
-/// naming it — which is exactly the ceiling this crate exists to remove.
-/// The boundary is already pinned in `escriba-command`
-/// (`action_naming_a_command_is_inert_not_recursive`).
+/// M0 said there would be no `RunCommand`, on the grounds that re-entering
+/// the registry "means a handler can reach anything by naming it — which is
+/// exactly the ceiling this crate exists to remove". That reasoning was
+/// **wrong**, and M4 corrects it: madoguchi's capabilities govern what a
+/// handler can READ. They have never governed what it can ASK FOR — any
+/// handler may already emit `Quit`, `Save` or `Edit`. `RunCommand` therefore
+/// adds no write authority that did not exist; it is a convenience over
+/// emitting the same slips directly.
+///
+/// The real hazard is the one the original note buried: unbounded RECURSION,
+/// command → slip → command → … . That is bounded explicitly by the
+/// interpreter's dispatch-depth budget, and a refusal is REPORTED rather than
+/// silent, per Phase 0.
+///
+/// The separate boundary that `:action` takes action SYMBOLS and never
+/// command names still holds, and is still pinned by
+/// `action_naming_a_command_is_inert_not_recursive`.
 /// Deliberately NOT `#[non_exhaustive]`.
 ///
 /// It was, briefly. `#[non_exhaustive]` forces every out-of-crate consumer to
@@ -138,6 +150,23 @@ pub enum Negai {
     /// the ceiling. It is now an ordinary request.
     ClearSearchHighlight,
 
+    /// Set an editor option. The declarative `defoption` apply path and the
+    /// imperative `(set-option …)` effect converge on this one slip, so the
+    /// two config tiers cannot write the option store differently.
+    SetOption {
+        name: String,
+        value: String,
+    },
+    /// Insert text at the cursor, advancing it. Distinct from
+    /// [`Edit`](Self::Edit), which is positional: this is where the operator
+    /// IS, which is what a script means by "insert".
+    InsertText(String),
+    /// Run a registered command. See the correction above.
+    RunCommand {
+        name: String,
+        args: Vec<String>,
+    },
+
     // ── operator feedback ────────────────────────────────────────────
     /// Say something on the status line. The channel Phase 0 opened.
     Message(String),
@@ -166,7 +195,7 @@ impl Negai {
     pub const fn touches_text(&self) -> bool {
         matches!(
             self,
-            Self::Edit { .. } | Self::Undo { .. } | Self::Redo { .. }
+            Self::Edit { .. } | Self::Undo { .. } | Self::Redo { .. } | Self::InsertText(_)
         )
     }
 
