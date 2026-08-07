@@ -110,17 +110,17 @@ async-trait      = "0.1"
 # would be a phantom dependency. Derive via `tatara_lisp::Derive*`.
 tatara-lisp        = "0.3.3"
 tatara-lisp-eval   = "0.3.3"
-garasu             = { git = "https://github.com/pleme-io/garasu", branch = "main", version = "0.1" }
-madori             = { git = "https://github.com/pleme-io/madori", branch = "main", version = "0.1" }
-ishou-tokens       = { git = "https://github.com/pleme-io/ishou", branch = "main", features = ["wgpu"], version = "0.1" }
-awase              = { git = "https://github.com/pleme-io/awase", branch = "main", version = "0.1" }
-hayai              = { git = "https://github.com/pleme-io/hayai", branch = "main", version = "0.1" }
-irodori            = { git = "https://github.com/pleme-io/irodori", branch = "main", version = "0.1" }
-mojiban            = { git = "https://github.com/pleme-io/mojiban", branch = "main", version = "0.1" }
-shikumi            = { git = "https://github.com/pleme-io/shikumi", branch = "main", version = "0.1" }
+garasu             = "0.1"
+madori             = "0.1"
+ishou-tokens       = { version = "0.1", features = ["wgpu"] }
+awase              = "0.1"
+hayai              = "0.1"
+irodori            = "0.1"
+mojiban            = "0.1"
+shikumi            = "0.1"
 # The fleet Mealy-machine-with-effects primitive — escriba-runtime's
 # operator-pending FSM stands on it (3rd consumer after bolso + gaveta).
-zenmai             = { git = "https://github.com/pleme-io/zenmai", branch = "main", version = "0.0" }
+zenmai             = "0.0"
 
 # Testing.
 pretty_assertions = "1"
