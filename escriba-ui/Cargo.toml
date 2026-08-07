@@ -20,6 +20,9 @@ schemars       = { workspace = true }
 ishou-tokens   = { workspace = true }
 # Severity -> colour is a CHROME decision; shirube models what a finding is.
 escriba-shirube = { workspace = true }
+# hikari's `HlClass` + `Theme` — the syntax VOCABULARY, not a renderer. This
+# crate answers "what colour is a keyword"; who draws it stays elsewhere.
+hikari-core     = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

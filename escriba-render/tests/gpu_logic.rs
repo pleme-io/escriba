@@ -298,3 +298,57 @@ mod gutter_geometry {
         );
     }
 }
+
+/// Syntax colours follow the editor's theme.
+///
+/// The GPU face held `hikari_core::NordTheme` by value, so `(deftheme :preset
+/// "vellum")` repainted the chrome and left every keyword, string and comment
+/// Nord — a theme that changed the frame and not the picture.
+mod syntax_follows_the_theme {
+    use escriba_ui::chrome::{ChromePalette, FleetTheme};
+    use escriba_ui::syntax::{ALL_CLASSES, ChromeSyntax};
+    use hikari_core::Theme;
+
+    fn rgb(c: hikari_core::Rgb) -> (u8, u8, u8) {
+        (c.r, c.g, c.b)
+    }
+
+    #[test]
+    fn the_renderers_syntax_theme_is_built_from_the_chrome_it_paints() {
+        // Same construction the render pass performs. If these diverged, the
+        // code and the chrome would be resolving two different themes and the
+        // window would be internally inconsistent.
+        for theme in [
+            FleetTheme::PlemeDark,
+            FleetTheme::Vellum,
+            FleetTheme::PolarVeil,
+            FleetTheme::Bare,
+        ] {
+            let chrome = ChromePalette::for_theme(theme);
+            let syn = ChromeSyntax::new(chrome);
+            assert_eq!(
+                syn.chrome().hex_tuple(),
+                chrome.hex_tuple(),
+                "{theme:?}: the syntax theme must resolve the chrome it was given",
+            );
+            // And a keyword must be the `link` role, not a constant.
+            assert_eq!(
+                rgb(syn.color(hikari_core::HlClass::Keyword)),
+                (chrome.link.r, chrome.link.g, chrome.link.b),
+            );
+        }
+    }
+
+    #[test]
+    fn switching_theme_moves_the_code_colours() {
+        let a = ChromeSyntax::for_theme(FleetTheme::PlemeDark);
+        let b = ChromeSyntax::for_theme(FleetTheme::Vellum);
+        assert!(
+            ALL_CLASSES
+                .iter()
+                .any(|c| rgb(a.color(*c)) != rgb(b.color(*c))),
+            "a theme switch that leaves every syntax colour identical is the \
+             bug this replaced",
+        );
+    }
+}
