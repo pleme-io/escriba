@@ -93,6 +93,35 @@ pub struct StatusModel<'a> {
 }
 
 impl StatusModel<'_> {
+    /// What the mode indicator should SAY — which is not always the mode.
+    ///
+    /// vim's `/` reuses the command line, so escriba's search runs in
+    /// `Mode::Command`. Reporting the raw mode therefore labelled a search
+    /// `COMMAND` and drew it with the `:` glyph: pressing `/` produced a
+    /// status line indistinguishable from having pressed `:`. The mode was
+    /// right and the *report* was wrong — an implementation detail (which
+    /// mode hosts the prompt) leaking into what the operator is told.
+    ///
+    /// Derived from the same typed `PromptKind` the sigil comes from, so the
+    /// label and the sigil cannot disagree.
+    #[must_use]
+    pub fn mode_label(self) -> &'static str {
+        match self.prompt {
+            PromptKind::SearchForward | PromptKind::SearchBackward => "SEARCH",
+            PromptKind::None | PromptKind::Ex => self.mode.as_str(),
+        }
+    }
+
+    /// The character the mode indicator leads with, when a prompt is open.
+    ///
+    /// `None` means "no prompt — use your own mode glyph". A face that draws
+    /// a pill takes this over its mode glyph so `/` and `?` read as
+    /// themselves instead of as the `:` of an ex-command.
+    #[must_use]
+    pub const fn pill_sigil(self) -> Option<char> {
+        self.prompt.sigil()
+    }
+
     /// Render the prompt segment (`/foo`) into `out`. Empty when no prompt is
     /// open.
     pub fn render_prompt_into(self, out: &mut String) {
@@ -111,7 +140,7 @@ impl StatusModel<'_> {
     #[must_use]
     pub fn render(self) -> String {
         let mut out = String::with_capacity(64);
-        out.push_str(self.mode.as_str());
+        out.push_str(self.mode_label());
         out.push_str("  ");
         push_usize(&mut out, self.line);
         out.push(':');
@@ -250,6 +279,52 @@ mod tests {
         )
         .render();
         assert!(s.contains("E486"), "{s}");
+    }
+
+    /// The reported defect: `/foo` produced a status line that read
+    /// `: COMMAND`, which is what pressing `:` produces. A search must
+    /// announce itself as a search, on every face, from one decision.
+    #[test]
+    fn an_open_search_reports_as_search_not_command() {
+        let searching = |dir| StatusModel {
+            mode: Mode::Command, // search genuinely runs in Command mode…
+            prompt: dir,
+            ..model(PromptKind::None, "foo", MatchCount::Idle, None)
+        };
+        for dir in [PromptKind::SearchForward, PromptKind::SearchBackward] {
+            let m = searching(dir);
+            assert_eq!(m.mode_label(), "SEARCH", "{dir:?}"); // …and says SEARCH
+            assert_ne!(m.pill_sigil(), Some(':'), "{dir:?}");
+            assert!(m.render().starts_with("SEARCH"), "{}", m.render());
+        }
+        assert_eq!(m_ex().mode_label(), "COMMAND");
+        assert_eq!(m_ex().pill_sigil(), Some(':'));
+    }
+
+    fn m_ex<'a>() -> StatusModel<'a> {
+        StatusModel {
+            mode: Mode::Command,
+            prompt: PromptKind::Ex,
+            ..model(PromptKind::None, "w", MatchCount::Idle, None)
+        }
+    }
+
+    #[test]
+    fn the_pill_sigil_and_the_label_never_disagree() {
+        // Both derive from PromptKind; this pins that they keep doing so.
+        for (kind, sigil, label) in [
+            (PromptKind::SearchForward, Some('/'), "SEARCH"),
+            (PromptKind::SearchBackward, Some('?'), "SEARCH"),
+            (PromptKind::Ex, Some(':'), "COMMAND"),
+        ] {
+            let m = StatusModel {
+                mode: Mode::Command,
+                prompt: kind,
+                ..model(PromptKind::None, "", MatchCount::Idle, None)
+            };
+            assert_eq!(m.pill_sigil(), sigil, "{kind:?}");
+            assert_eq!(m.mode_label(), label, "{kind:?}");
+        }
     }
 
     #[test]

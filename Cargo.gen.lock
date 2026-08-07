@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "84d913f18a2b8137823f1375ac678a0fc516c50c6cd0739eed76355f7e0c3541",
+  "cargo_lock_sha256": "a682f89bb813675ab6f251d2fe10591c137879b3ba31eba232f9f33f0b3f8966",
   "manifest_sha256": {
     "Cargo.toml": "55ef5245e1e03e106ed35e43f6487fc3889f691f565eeb44461ecc5abdf3be66",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -10,7 +10,7 @@
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
     "escriba-keymap/Cargo.toml": "b3d2c8fbcd6ac024ecb426d765ab727f2f76efc4bd20bae8169d4295b0ca451b",
-    "escriba-lisp/Cargo.toml": "4f19198e1b7c71c5856ce8fa02033df89893e8c1f5f8733f6d37450258838c93",
+    "escriba-lisp/Cargo.toml": "b4288eb555155b96263b4435fcc9b9c14ca5da9e1a87d7ea16ca6c619d31f4d5",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
@@ -2167,6 +2167,16 @@
           {
             "name": "escriba_keymap",
             "package_key": "escriba-keymap-0.1.34",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_ui",
+            "package_key": "escriba-ui-0.1.34",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,

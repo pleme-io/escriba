@@ -50,6 +50,7 @@
 //! | `defruler`    | [`RulerSpec`] — declarative column rulers / visual guides (absorbs vim `colorcolumn`, vscode `editor.rulers`, jetbrains hard-wrap margin) |
 //! | `defmcp`      | [`McpToolSpec`] — declarative MCP-tool binding (invention — no editor ships typed cross-process MCP import) |
 //! | `deffold`     | [`FoldSpec`] — declarative folding rules per filetype (absorbs vim `foldmethod`, nvim-treesitter-fold, vscode `FoldingRangeProvider`) |
+//! | `defsplash`   | [`SplashSpec`] — the start screen (absorbs vim `:intro`, alpha.nvim / startify, the vscode welcome tab) |
 //!
 //! # Extending
 //!
@@ -97,6 +98,7 @@ mod schedule;
 mod session;
 mod sexp;
 mod snippet;
+mod splash;
 mod statusline;
 mod strutil;
 mod task;
@@ -109,7 +111,7 @@ pub use abbrev::AbbrevSpec;
 pub use apply::{
     ApplyReport, CommandApplyReport, GrammarApplyReport, OptionApplyReport, apply_plan_to_commands,
     apply_plan_to_grammar_extensions, apply_plan_to_keymap, apply_plan_to_options,
-    parse_leader_key,
+    apply_plan_to_splash, parse_leader_key, resolve_action,
 };
 pub use attest::{
     AttestResult, AttestSpec, KNOWN_KINDS as ATTEST_KINDS, KNOWN_SEVERITIES as ATTEST_SEVERITIES,
@@ -153,6 +155,7 @@ pub use ruler::{KNOWN_STYLES as RULER_STYLES, RulerSpec, is_known_style as is_kn
 pub use schedule::{Dispatch as ScheduleDispatch, ScheduleSpec, Trigger as ScheduleTrigger};
 pub use session::{KNOWN_LAYOUTS as SESSION_LAYOUTS, SessionSpec, is_known_layout};
 pub use snippet::{Resolution as SnippetResolution, SnippetSpec};
+pub use splash::{SplashEntrySpec, SplashSpec};
 pub use statusline::{KNOWN_SEGMENTS, StatusLineSpec, StatusSegment, is_known_segment};
 pub use task::TaskSpec;
 pub use term::{
@@ -324,6 +327,16 @@ pub enum LispError {
         qualified id is `{target}`"
     )]
     WorkflowMcpDependencyMissing { workflow: String, target: String },
+    #[error(
+        "defsplash entry `{0}` has a `:key` that is not exactly one character \
+        — the splash is dismissed by the first keypress, so there is no \
+        second key to wait for"
+    )]
+    MalformedSplashKey(String),
+    #[error(
+        "defsplash entry for key `{0}` has an empty `:action` — an entry that does nothing is a dead row on the start screen"
+    )]
+    EmptySplashAction(String),
     #[error("deffold missing `:filetype` — folding rules are always filetype-scoped")]
     EmptyFoldFiletype,
     #[error(
@@ -381,6 +394,10 @@ pub struct ApplyPlan {
     pub rulers: Vec<RulerSpec>,
     pub mcp_tools: Vec<McpToolSpec>,
     pub folds: Vec<FoldSpec>,
+    /// The start screen. Singleton, last-writer-wins — a user rc that
+    /// declares its own `(defsplash …)` replaces the shipped one whole
+    /// rather than merging two half-screens.
+    pub splash: Option<SplashSpec>,
 }
 
 impl ApplyPlan {
@@ -426,6 +443,9 @@ impl ApplyPlan {
         self.rulers.extend(other.rulers);
         self.mcp_tools.extend(other.mcp_tools);
         self.folds.extend(other.folds);
+        if other.splash.is_some() {
+            self.splash = other.splash;
+        }
     }
 
     /// Pairs of `(label, count)` — the single source of truth the
@@ -467,6 +487,7 @@ impl ApplyPlan {
             ("rulers", self.rulers.len()),
             ("mcp_tools", self.mcp_tools.len()),
             ("folds", self.folds.len()),
+            ("splash", usize::from(self.splash.is_some())),
         ]
     }
 
@@ -786,6 +807,23 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         Ok(())
     })?;
 
+    // Strict on entry shape: a malformed `:key` or an empty `:action`
+    // would render as a row an operator can press with nothing behind
+    // it, which is worse than no row at all. Last writer wins, like
+    // every other singleton form.
+    let splashes: Vec<SplashSpec> = compile_validated(src, |s: &SplashSpec| {
+        for e in &s.entries {
+            if e.key_char().is_none() {
+                return Err(LispError::MalformedSplashKey(e.key.clone()));
+            }
+            if e.action.trim().is_empty() {
+                return Err(LispError::EmptySplashAction(e.key.clone()));
+            }
+        }
+        Ok(())
+    })?;
+    let splash = splashes.into_iter().last();
+
     Ok(ApplyPlan {
         keybinds,
         commands,
@@ -819,6 +857,7 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         rulers,
         mcp_tools,
         folds,
+        splash,
     })
 }
 
@@ -893,6 +932,7 @@ pub const FORM_GLYPHS: &[(&str, &str)] = &[
     ("rulers", "📏"),
     ("mcp_tools", "🔌"),
     ("folds", "🪗"),
+    ("splash", "🚪"),
 ];
 
 /// `(category, glyph)` pairs for plugin `:category` strings — see
@@ -1303,16 +1343,17 @@ mod tests {
             (defruler    :columns (80))
             (defmcp      :name "a-mcp" :server "mado" :tool "status")
             (deffold     :filetype "a-lang" :method "indent")
+            (defsplash   :tagline "a" :entries ((:key "q" :label "quit" :action "quit")))
             "##,
         )
         .unwrap();
         let b = a.clone();
         a.merge(b);
         // Each form should have doubled (except last-writer-wins
-        // singletons: theme, statusline, bufferline which stay 1).
+        // singletons: theme, statusline, bufferline, splash — 1).
         for (name, count) in a.counts() {
             let expected = match name {
-                "theme" | "statusline" | "bufferline" => 1,
+                "theme" | "statusline" | "bufferline" | "splash" => 1,
                 _ => 2,
             };
             assert_eq!(count, expected, "{name} did not double on self-merge");

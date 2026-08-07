@@ -30,6 +30,7 @@ use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
 use escriba_mode::ModalState;
 use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
+use escriba_ui::splash::Splash;
 use escriba_ui::{Layout, Rect, Viewport, Window};
 use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, HostEffect, VmError};
 use madori::AppEvent;
@@ -130,6 +131,31 @@ pub struct EditorState {
     /// always covers the changed region (`Damage ⊇ changed`); the renderer
     /// drains it with [`take_damage`](Self::take_damage) to scope its work.
     damage: Damage,
+    /// The start screen, while it is up.
+    ///
+    /// `Some` only between boot and the first keypress, and only when the
+    /// editor opened with no file. It is deliberately NOT a `Mode`: a mode
+    /// is a state keys are interpreted *in*, and the splash interprets
+    /// exactly one key before it is gone. Modelling it as `Option<Splash>`
+    /// keeps the modal state machine's variant set — and every exhaustive
+    /// match over it — untouched.
+    splash: Option<Splash>,
+}
+
+/// What the start screen did with a keypress.
+///
+/// Total, and matched exhaustively at its one call site, so a future
+/// outcome (a menu that opens a submenu, say) is a compile error rather
+/// than a key that silently falls through to the buffer.
+enum SplashKey {
+    /// No start screen is up — the key is the buffer's.
+    NotShowing,
+    /// The key selected a menu entry; run this.
+    Ran(Action),
+    /// The screen is gone and the key was not a menu key, so it still
+    /// means whatever it normally means. Anything else would make the
+    /// first keystroke after boot vanish.
+    Dismissed,
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -257,7 +283,54 @@ impl EditorState {
             plugin_host: PluginHost::default(),
             edit_gen: EditGen::default(),
             damage: Damage::None,
+            splash: None,
         }
+    }
+
+    /// The start screen, if one is up. Renderers paint this INSTEAD of the
+    /// buffer pane; `None` is the ordinary editor.
+    #[must_use]
+    pub fn splash(&self) -> Option<&Splash> {
+        self.splash.as_ref()
+    }
+
+    /// Raise the start screen. The binary calls this at boot when no file
+    /// was named; an empty splash is refused so a face never has to render
+    /// a blank screen over a perfectly good buffer.
+    pub fn set_splash(&mut self, splash: Splash) {
+        if splash.is_empty() {
+            return;
+        }
+        self.splash = Some(splash);
+        self.damage = self.damage.join(Damage::Viewport);
+        self.bump_gen();
+    }
+
+    /// Take the start screen down. Idempotent; bumps the refresh generation
+    /// only when something actually changed, so dismissing twice does not
+    /// cost a repaint.
+    pub fn dismiss_splash(&mut self) {
+        if self.splash.take().is_some() {
+            self.damage = self.damage.join(Damage::Viewport);
+            self.bump_gen();
+        }
+    }
+
+    /// Offer `key` to the start screen.
+    ///
+    /// A menu key runs its entry; ANY other key simply takes the screen
+    /// down and is then handled normally — so the first thing an operator
+    /// types is never swallowed.
+    fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
+        let Some(splash) = self.splash.as_ref() else {
+            return SplashKey::NotShowing;
+        };
+        let chosen = match key {
+            Key::Char(c) => splash.entry_for(*c).map(|e| e.action.clone()),
+            _ => None,
+        };
+        self.dismiss_splash();
+        chosen.map_or(SplashKey::Dismissed, SplashKey::Ran)
     }
 
     /// The current refresh generation. A renderer caches its products against
@@ -415,6 +488,14 @@ impl EditorState {
 
     /// Dispatch a single key through the keymap + apply the resulting action.
     pub fn on_key(&mut self, key: &Key) {
+        // The start screen owns the first keypress and nothing after it.
+        match self.consume_splash_key(key) {
+            SplashKey::NotShowing | SplashKey::Dismissed => {}
+            SplashKey::Ran(action) => {
+                self.apply(&action);
+                return;
+            }
+        }
         // Multi-key sequence resolution runs first: a key that begins or
         // continues a bound sequence (`<leader>ff`, `gg`) is held or
         // resolved here before the single-key path sees it.

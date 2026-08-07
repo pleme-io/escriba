@@ -880,6 +880,7 @@ dependencies = [
  "escriba-command",
  "escriba-core",
  "escriba-keymap",
+ "escriba-ui",
  "ishou-tokens",
  "pretty_assertions",
  "schemars",

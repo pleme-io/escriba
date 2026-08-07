@@ -7,6 +7,10 @@ extern crate self as escriba_ui;
 /// drift apart (or off the fleet baseline) again.
 pub mod chrome;
 
+/// The start screen — one laid-out model every face paints, rather than
+/// three copies of the same centering arithmetic.
+pub mod splash;
+
 use escriba_core::{BufferId, Position, WindowId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -12,6 +12,10 @@ authors.workspace = true
 escriba-core    = { workspace = true }
 escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }
+# `(defsplash …)` lowers into `escriba_ui::splash::Splash` HERE, in the spec
+# crate, so all three faces (tui / gpu / text) consume one laid-out model —
+# the same reason ishou-tokens is resolved here rather than per renderer.
+escriba-ui      = { workspace = true }
 tatara-lisp     = { workspace = true }
 # `(deftheme :preset …)` resolves to a typed `ishou_tokens::FleetTheme` HERE,
 # in the spec crate, so BOTH faces (escriba-tui and escriba-render) consume

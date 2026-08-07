@@ -1,5 +1,75 @@
 # escriba
 
+## Start screen — `(defsplash …)` (2026-08-07, shipped)
+
+`escriba` with no file argument opens on a start screen: the wordmark,
+a tagline, a five-entry menu, and a footer strip. `escriba <file>` never
+shows it — a welcome screen in front of a file you asked for is a
+keystroke tax.
+
+**One model, three faces.** `escriba_ui::splash::Splash` owns ALL the
+layout (centering, block grouping, degradation); the faces only color it.
+Two projections, both derived from `rows()` so they cannot disagree:
+`rows()` for a face that positions widgets (ratatui), `screen_chunks()`
+for the two that emit a character stream (the ANSI dump, and the GPU's
+`set_rich_text`, which needs a coverage-complete partition). Colors are
+ROLES resolved through `ChromePalette` — the same seam the rest of the
+chrome uses — so the screen tracks a theme change for free.
+
+**Authored, not hardcoded.** There is deliberately no
+`Splash::default()`. The content is `(defsplash …)` in
+`configs/blnvim-defaults.lisp`, lowered by
+`escriba_lisp::apply_plan_to_splash`. Entry `:action` strings go through
+`escriba_lisp::resolve_action` — the SAME table `defkeybind` uses (made
+`pub` for this), so a menu entry and a key bound to the same string
+dispatch identically. The shipped menu lists only actions wired TODAY
+(`normal` / `insert` / `search-forward` / `command` / `quit`); a pressed
+key that did nothing would be worse than a shorter menu.
+
+**Two traps worth remembering:**
+
+- **`:disabled #t`, not `:enable #f`.** A key absent from a tatara-lisp
+  form does NOT reach serde's `#[serde(default = …)]` — it takes the
+  field type's zero value. An `:enable: bool` therefore made a bare
+  `(defsplash …)` parse cleanly and never appear. Verified, not assumed:
+  the first cut shipped with `enable = false`. Polarity is inverted here
+  relative to `defeffect` on purpose, to put the safe state on the zero
+  value.
+- **The screen owns the FIRST keypress only.** A menu key runs its
+  entry; any other key dismisses and is then handled normally, so the
+  first thing you type is never eaten. It is `Option<Splash>` on
+  `EditorState`, deliberately NOT a `Mode` variant — a mode is a state
+  keys are interpreted *in*, and this interprets exactly one key.
+
+`--no-splash` / `$ESCRIBA_NO_SPLASH` skip it for one run; `--list-rc`
+reports it in the wiring-status block. Footer facts are computed from the
+plan the editor actually booted with, and the theme name comes from
+`chrome::prescribed_theme_name()` (what is PAINTED) rather than
+`plan.theme` (what was DECLARED) — see the theming gap below.
+
+## Search reports as SEARCH, not COMMAND (2026-08-07, fixed)
+
+vim's `/` is the command line, so escriba's search genuinely runs in
+`Mode::Command`. The status line reported the raw mode, which meant
+`/foo` rendered `: COMMAND` — character-for-character the line `:`
+produces — with the pattern parked at the far RIGHT, past the match
+count. Search was fully working and read as "pressing `/` put me in `:`
+mode". **The model was right and the report was wrong.**
+
+Fixed at the shared model so both faces inherit it:
+`StatusModel::mode_label()` says `SEARCH` when a search prompt is open,
+and `pill_sigil()` gives the pill `/` or `?` instead of `:`. Both derive
+from the same typed `PromptKind` as the sigil, so label and sigil cannot
+disagree. The TUI also moved the prompt to the LEFT, where vim puts the
+cmdline. Pinned by `escriba-tui/tests/status_line_frame.rs`, which
+asserts on rendered CELLS — the unit tests all passed throughout the
+period this was broken.
+
+`resolve_action` also gained `search-forward` / `search-backward` /
+`search-next` / `search-prev`, which were missing: `:action
+"search-forward"` silently became a lookup for a command that does not
+exist.
+
 ## Theming — how escriba paints (2026-07-26)
 
 **One seam: `escriba_ui::chrome::ChromePalette`.** Both faces (the ratatui
@@ -117,6 +187,7 @@ cargo run -- --spec > escriba.json  # dump OpenAPI 3.1 surface
 cargo run -- plugin list            # 45 bundled plugin caixas + user installs
 cargo run -- plugin forge --out o   # emit every plugin caixa dir (caixa.lisp + entry + flake)
 cargo run -- --list-rc              # composite plan summary + wiring status
+cargo run -- --no-splash            # skip the start screen for one run
 cargo test --workspace --lib        # workspace unit tests (all green)
 ```
 
@@ -132,7 +203,7 @@ cargo test --workspace --lib        # workspace unit tests (all green)
 | `escriba-command` | Command registry + palette entries | `Command`, `CommandSpec`, `CommandRegistry`, `EditContext` |
 | `escriba-api` | OpenAPI 3.1 surface generation | `OpenApiSpec`, `build_spec` |
 | `escriba-spec` | Thin re-export of `escriba-api` | — |
-| `escriba-ui` | Viewport, Window, Layout — pure layout math | `Viewport`, `Window`, `Rect`, `Layout` |
+| `escriba-ui` | Viewport, Window, Layout, Splash — pure layout math | `Viewport`, `Window`, `Rect`, `Layout`, `Splash` |
 | `escriba-render` | Render backends (GPU via madori/garasu, text) | `Renderer`, `GpuRenderer`, `TextRenderer` |
 | `escriba-tui` | ratatui + crossterm TUI backend | — |
 | `escriba-input` | Platform-event → escriba-key translation | `InputOutcome`, `translate_app_event` |

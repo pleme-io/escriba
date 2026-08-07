@@ -31,8 +31,65 @@ pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
         .constraints([Constraint::Min(3), Constraint::Length(1)])
         .split(area);
 
-    draw_buffer(f, chunks[0], state);
+    // The start screen replaces the buffer pane rather than overlaying it:
+    // there is nothing behind it worth showing (escriba only raises it on
+    // an empty scratch buffer), and an overlay would have to reason about
+    // what it is covering.
+    match state.splash() {
+        Some(splash) => draw_splash(f, chunks[0], splash),
+        None => draw_buffer(f, chunks[0], state),
+    }
     draw_status_line(f, chunks[1], state);
+}
+
+/// Paint the start screen.
+///
+/// All the layout arithmetic lives in `escriba_ui::splash`; this walks the
+/// rows it hands back and colors each span by ROLE. That is the whole reason
+/// the model exists — the GPU and text faces run the same two loops over the
+/// same rows, so the three faces cannot lay the screen out three ways.
+fn draw_splash(
+    f: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    splash: &escriba_ui::splash::Splash,
+) {
+    let chrome = ChromePalette::prescribed();
+    let ground = Style::default()
+        .fg(rgb(chrome.text))
+        .bg(rgb(chrome.background));
+    f.render_widget(Block::default().borders(Borders::NONE).style(ground), area);
+
+    for row in splash.rows(area.width, area.height) {
+        let spans: Vec<Span<'static>> = row
+            .spans
+            .iter()
+            .map(|s| {
+                Span::styled(
+                    s.text.clone(),
+                    ground.fg(rgb(s.role.color(&chrome))).add_modifier(
+                        // The wordmark and the menu keys carry the weight;
+                        // everything else stays quiet so they can.
+                        if matches!(
+                            s.role,
+                            escriba_ui::splash::SplashRole::Art
+                                | escriba_ui::splash::SplashRole::MenuKey
+                        ) {
+                            Modifier::BOLD
+                        } else {
+                            Modifier::empty()
+                        },
+                    ),
+                )
+            })
+            .collect();
+        let line_area = ratatui::layout::Rect {
+            x: area.x + row.col,
+            y: area.y + row.row,
+            width: area.width.saturating_sub(row.col),
+            height: 1,
+        };
+        f.render_widget(Paragraph::new(Line::from(spans)).style(ground), line_area);
+    }
 }
 
 fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorState) {
@@ -203,48 +260,55 @@ fn cursor_spans(under: char, shape: CursorShape) -> Vec<Span<'static>> {
 }
 
 fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorState) {
-    let mode = state.modal.mode().as_str();
+    // ONE model, read once. The pill and the prompt both derive from it, so
+    // they cannot describe two different states of the same editor.
+    let model = state.status_model();
     let pos = format!("{}:{}", state.cursor().line + 1, state.cursor().column + 1);
-    let path = state
-        .buffers
-        .get(state.active)
-        .and_then(|b| b.path.clone())
-        .map_or("scratch".to_string(), |p| p.display().to_string());
-    let modified = state.buffers.get(state.active).is_some_and(|b| b.modified);
     // Status glyphs are the BORN fleet vocabulary (`ishou_tokens::EscribaSignals`),
     // not hand-picked literals. Single-width `Glyph` mode keeps the
     // status-line column alignment-safe.
     let sig = EscribaSignals::prescribed();
-    let modified_indicator = if modified {
-        format!(" {}", sig.modified.render(SignalMode::Glyph))
-    } else {
-        String::new()
-    };
 
-    // Mode pill = fleet mode glyph + escriba's canonical uppercase label.
-    let mode_glyph = mode_signal(&sig, state.modal.mode()).render(SignalMode::Glyph);
-    let mode_span = Span::styled(
-        format!(" {mode_glyph} {mode} "),
-        mode_style_for(state.modal.mode()),
-    );
-    let path_span = Span::styled(format!(" {path}{modified_indicator} "), status_style());
-    let minibuffer = if state.modal.mode() == escriba_core::Mode::Command {
-        {
-            // Command mode hosts BOTH the ex-line and the search prompt (vim's
-            // cmdline does the same), so the prefix must report which prompt is
-            // actually open — a hardcoded ':' rendered a `/foo` search as `:foo`.
-            //
-            // The prefix used to be decided here, by a second copy of that
-            // reasoning. It now comes from `EditorState::status_model()`, the same
-            // model the GPU face renders, so the two faces cannot drift — which
-            // they had: the GPU face drew no prompt at all.
-            let model = state.status_model();
-            let mut line = String::from(" ");
-            model.render_prompt_into(&mut line);
-            Span::styled(line, cmd_style())
-        }
+    // The pill leads with the OPEN PROMPT'S sigil when there is one, and the
+    // mode glyph otherwise. Search reuses `Mode::Command` (vim's `/` IS the
+    // command line), so painting the raw mode drew `: COMMAND` for a search
+    // — a status line character-for-character identical to the one `:`
+    // produces. That is how a fully working search reads as "pressing `/`
+    // put me in `:` mode": the editor was right and its report was wrong.
+    let mut pill = String::with_capacity(16);
+    pill.push(' ');
+    match model.pill_sigil() {
+        Some(sigil) => pill.push(sigil),
+        None => pill.push_str(mode_signal(&sig, state.modal.mode()).render(SignalMode::Glyph)),
+    }
+    pill.push(' ');
+    pill.push_str(model.mode_label());
+    pill.push(' ');
+    let mode_span = Span::styled(pill, pill_style_for(&model, state.modal.mode()));
+
+    // vim puts the command line bottom-LEFT, where the eye already is. This
+    // prompt used to render at the far RIGHT, wedged between the match count
+    // and the cursor position — `/foo` was on screen and nobody saw it. When
+    // a prompt is open it takes the slot the path occupies, the way vim's
+    // cmdline covers the status text.
+    let context_span = if model.pill_sigil().is_some() {
+        let mut line = String::from(" ");
+        model.render_prompt_into(&mut line);
+        line.push(' ');
+        Span::styled(line, cmd_style())
     } else {
-        Span::raw("")
+        let path = state
+            .buffers
+            .get(state.active)
+            .and_then(|b| b.path.clone())
+            .map_or("scratch".to_string(), |p| p.display().to_string());
+        let modified = state.buffers.get(state.active).is_some_and(|b| b.modified);
+        let modified_indicator = if modified {
+            format!(" {}", sig.modified.render(SignalMode::Glyph))
+        } else {
+            String::new()
+        };
+        Span::styled(format!(" {path}{modified_indicator} "), status_style())
     };
     let pos_span = Span::styled(format!(" {pos} "), status_style());
 
@@ -252,7 +316,7 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     // discarded; the denominator is what turns "press n until it looks right"
     // into a decision — `[1/1]` says a rename is safe, `[1/240]` says narrow
     // the pattern first. Silent when there is nothing to count.
-    let count = state.status_model().count;
+    let count = model.count;
     let count_span = if count.is_idle() {
         Span::raw("")
     } else {
@@ -262,21 +326,17 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
         Span::styled(c, status_style())
     };
 
-    // Layout: [mode] [path+modified] … (flex) … [count] [minibuffer] [pos]
+    // Layout: [pill] [prompt-or-path] … (flex) … [count] [pos]
     let available = usize::from(area.width);
-    let left = format!("{}{}", mode_span.content, path_span.content,);
-    let right = format!(
-        "{}{}{}",
-        count_span.content, minibuffer.content, pos_span.content
-    );
-    let pad = available.saturating_sub(left.chars().count() + right.chars().count());
+    let left = mode_span.content.chars().count() + context_span.content.chars().count();
+    let right = count_span.content.chars().count() + pos_span.content.chars().count();
+    let pad = available.saturating_sub(left + right);
 
     let line = Line::from(vec![
         mode_span,
-        path_span,
+        context_span,
         Span::raw(" ".repeat(pad)),
         count_span,
-        minibuffer,
         pos_span,
     ]);
     f.render_widget(Paragraph::new(line).style(status_style()), area);
@@ -403,6 +463,23 @@ fn mode_style_for(mode: escriba_core::Mode) -> Style {
         .fg(rgb(c.background))
         .bg(rgb(bg))
         .add_modifier(Modifier::BOLD)
+}
+
+/// The pill's style, chosen from the status MODEL rather than the raw mode.
+///
+/// A search and an ex-command share `Mode::Command`, so [`mode_style_for`]
+/// alone paints them identically — same colour, and (before this) the same
+/// `: COMMAND` text. The search gets the accent field so the two prompts are
+/// distinguishable at a glance, not only by reading the label.
+fn pill_style_for(model: &escriba_runtime::StatusModel<'_>, mode: escriba_core::Mode) -> Style {
+    if model.prompt.is_search() {
+        let c = ChromePalette::prescribed();
+        return Style::default()
+            .fg(rgb(c.background))
+            .bg(rgb(c.accent))
+            .add_modifier(Modifier::BOLD);
+    }
+    mode_style_for(mode)
 }
 
 #[cfg(test)]

@@ -32,8 +32,12 @@ pub mod range;
 pub mod selection;
 
 pub use action::{Action, CountedAction, HighlightEffect, TextEffect};
+// `Action::SearchOpen` carries it, so anything that CONSTRUCTS an action needs
+// it. Re-exported here rather than making every such crate take a direct
+// escriba-search dependency for one enum.
 pub use damage::{Damage, LineDelta};
 pub use edit::{Edit, EditKind};
+pub use escriba_search::Direction as SearchDirection;
 pub use r#gen::EditGen;
 pub use id::{BufferId, CaretId, WindowId};
 pub use jumplist::{JUMPLIST_LIMIT, JumpList};

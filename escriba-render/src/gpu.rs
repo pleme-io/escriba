@@ -131,7 +131,7 @@ impl RenderCallback for GpuRenderer {
         //    just mode/cursor for the status line and reuses the cached shaped
         //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
         //    is Some((text, path)) exactly when the generation moved.
-        let (rebuild_input, mode, status_core, cur_gen) = {
+        let (rebuild_input, splash_chunks, mode, status_core, cur_gen) = {
             let s = self
                 .state
                 .lock()
@@ -141,6 +141,23 @@ impl RenderCallback for GpuRenderer {
             };
             let cur_gen = s.edit_gen();
             let rebuild = cur_gen != self.last_gen || self.cached_text.is_none();
+            // The start screen replaces the buffer text entirely, so when
+            // one is up the (expensive) highlight+slice pass below is not
+            // merely wasted, it is wrong — it would paint the scratch
+            // buffer underneath. Laid out in CELLS, from the same estimate
+            // `resize` uses, so the screen centres on what is really there.
+            let splash_chunks = (rebuild)
+                .then(|| s.splash())
+                .flatten()
+                .map(|sp| {
+                    let cell_w = (self.font_size * 0.6).max(1.0);
+                    let cols = (ctx.width as f32 / cell_w).max(1.0) as u16;
+                    let rows =
+                        ((ctx.height as f32 - self.line_height) / self.line_height).max(1.0) as u16;
+                    sp.screen_chunks(cols, rows)
+                })
+                .filter(|c| !c.is_empty());
+            let rebuild = rebuild && splash_chunks.is_none();
             // (rendered text, path, search-match byte ranges INTO that text).
             // The match ranges ride along with the text they index so the two
             // cannot be computed against different frames.
@@ -222,6 +239,7 @@ impl RenderCallback for GpuRenderer {
             };
             (
                 rebuild_input,
+                splash_chunks,
                 s.modal.mode(),
                 s.status_model().render(),
                 cur_gen,
@@ -237,7 +255,32 @@ impl RenderCallback for GpuRenderer {
         let fg = chrome_glyph(palette.text);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
-        if let Some((text, path, match_bytes)) = rebuild_input {
+        if let Some(chunks) = splash_chunks {
+            // The start screen: same laid-out stream the ANSI face
+            // consumes, roles turned into glyphon attrs instead of SGR.
+            let base = Attrs::new().family(Family::Monospace);
+            let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
+            buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
+            let runs: Vec<(&str, Attrs)> = chunks
+                .iter()
+                .map(|c| {
+                    (
+                        c.text.as_str(),
+                        base.clone().color(chrome_glyph(c.role.color(&palette))),
+                    )
+                })
+                .collect();
+            buffer.set_rich_text(
+                &mut ctx.text.font_system,
+                runs,
+                &base,
+                Shaping::Advanced,
+                None,
+            );
+            buffer.shape_until_scroll(&mut ctx.text.font_system, false);
+            self.cached_text = Some(buffer);
+            self.last_gen = cur_gen;
+        } else if let Some((text, path, match_bytes)) = rebuild_input {
             let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
             buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
             // hikari: resolve the language, highlight the visible text, paint
