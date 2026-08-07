@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "a682f89bb813675ab6f251d2fe10591c137879b3ba31eba232f9f33f0b3f8966",
+  "cargo_lock_sha256": "9c139abde8aa8b1b24d99412c084ca4306847b8f58bd8a306416ac59dac4b0b8",
   "manifest_sha256": {
-    "Cargo.toml": "55ef5245e1e03e106ed35e43f6487fc3889f691f565eeb44461ecc5abdf3be66",
+    "Cargo.toml": "9d7464ff36734a2b4f73a317a8923b587c1f4eddf2ad5bf90a45e6ee81a842f2",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "49ee7eb14847cc1915f9638cc17f5d3ecf3c199c34b53660111608a9323b5f69",
@@ -12,6 +12,7 @@
     "escriba-keymap/Cargo.toml": "b3d2c8fbcd6ac024ecb426d765ab727f2f76efc4bd20bae8169d4295b0ca451b",
     "escriba-lisp/Cargo.toml": "b4288eb555155b96263b4435fcc9b9c14ca5da9e1a87d7ea16ca6c619d31f4d5",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
+    "escriba-madoguchi/Cargo.toml": "1608fcee991d921f4960e59991d3a45c0302c7b722905beb1e4f0049fc193853",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
     "escriba-mode/Cargo.toml": "e1699c281dcc7ed6e07994dd97010a3888ada40fee00cc0dcba70ee87eeeb8c6",
@@ -2318,6 +2319,22 @@
           {
             "name": "tracing",
             "package_key": "tracing-0.1.44",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "escriba-madoguchi-0.1.34": {
+        "runtime_dependencies": [
+          {
+            "name": "escriba_core",
+            "package_key": "escriba-core-0.1.34",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -24586,6 +24603,13 @@
       "edition": "2024",
       "lib_target": {
         "name": "escriba_lsp_client",
+        "path": "src/lib.rs"
+      }
+    },
+    "escriba-madoguchi-0.1.34": {
+      "edition": "2024",
+      "lib_target": {
+        "name": "escriba_madoguchi",
         "path": "src/lib.rs"
       }
     },

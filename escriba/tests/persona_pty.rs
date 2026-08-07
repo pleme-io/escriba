@@ -45,6 +45,48 @@ use nix::sys::signal::{Signal, kill};
 use nix::sys::termios::{LocalFlags, tcgetattr};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 
+/// How long the guest may take to claim the alt screen before we call it
+/// WEDGED.
+///
+/// This is a LIVENESS bound, not a performance one, and the distinction is
+/// the whole reason it is 20s and not 3s.
+///
+/// It was 3s, and it measured the wrong thing. A debug-build escriba boots in
+/// 2.2s with `--no-defaults` and 2.5–5.8s with them (14 tree-sitter grammars
+/// registered, 45 plugin caixas parsed), so the assertion passed on an idle
+/// machine and failed on a busy one — it was reporting the load of the host
+/// running CI, not a property of the editor. A gate that flips with machine
+/// load is worse than no gate: it teaches everyone to re-run red until it
+/// goes green, and then a real wedge slips through in the noise.
+///
+/// The failure this genuinely protects against is the guest never claiming
+/// the screen at all — a boot deadlock, a panic before `EnterAlternateScreen`,
+/// a terminal left cooked. 20s catches every one of those and is immune to a
+/// loaded machine.
+///
+/// It is deliberately NOT a boot-time budget. escriba's real boot cost is
+/// worth measuring and worth improving, but a PTY conformance test is the
+/// wrong instrument: it cannot separate spawn, link, page-in and parse, and
+/// it only ever runs against a debug build.
+const ALT_CLAIM_BUDGET: Duration = Duration::from_secs(20);
+
+/// Overall wall-clock ceiling for one persona run.
+///
+/// Was 7–12s per script. The injection clocks start at alt-entry, so a slow
+/// boot pushed the tail of a script past the deadline and the run was
+/// discarded before its assertions could speak — the same load sensitivity as
+/// ALT_CLAIM_BUDGET, one layer out. Generous for the same reason: this exists
+/// to stop a hung guest hanging CI, not to time the editor.
+const DRIVE_BUDGET: Duration = Duration::from_secs(45);
+
+/// How long the guest gets to repaint after the script's last injection
+/// before the run is considered finished.
+///
+/// A full ratatui redraw is sub-millisecond; this is sized for a loaded
+/// machine, not for the editor. Without it a persona whose guest never quits
+/// idles until DRIVE_BUDGET, which is a backstop and a terrible runtime.
+const SETTLE_AFTER_SCRIPT: Duration = Duration::from_millis(1500);
+
 /// crossterm 0.28's `EnterAlternateScreen` / `LeaveAlternateScreen` wire
 /// bytes — the mode-restore observables.
 const ALT_ENTER: &[u8] = b"\x1b[?1049h";
@@ -201,6 +243,12 @@ fn drive(policy: DsrPolicy, script: &[Step], total: Duration) -> Option<Outcome>
     let mut signaled = false;
     let mut saw_eof = false;
     let start = Instant::now();
+    // When the last script step was injected. A persona whose guest never
+    // quits (the mute and shrink rows) has nothing left to do once its
+    // script is exhausted, and idling to the ceiling turned a 45s CEILING
+    // into a 45s COST. `total` is the wedged-guest backstop; this is the
+    // normal exit.
+    let mut script_done_at: Option<Duration> = None;
 
     while start.elapsed() < total {
         let mut buf = [0u8; 4096];
@@ -253,6 +301,17 @@ fn drive(policy: DsrPolicy, script: &[Step], total: Duration) -> Option<Outcome>
                     }
                     sent[i] = true;
                 }
+            }
+            if script_done_at.is_none() && sent.iter().all(|b| *b) {
+                script_done_at = Some(start.elapsed());
+            }
+        }
+        // Settle, then stop: the guest gets a repaint window after the last
+        // keystroke, and the assertions read a complete frame rather than a
+        // half-written one.
+        if let Some(done) = script_done_at {
+            if start.elapsed().saturating_sub(done) >= SETTLE_AFTER_SCRIPT {
+                break;
             }
         }
         match waitpid(child, Some(WaitPidFlag::WNOHANG)) {
@@ -394,14 +453,14 @@ fn healthy_persona_renders_and_quits() {
             latency: Duration::from_millis(50),
         },
         &script,
-        Duration::from_secs(10),
+        DRIVE_BUDGET,
     ) else {
         return;
     };
     assert!(
-        o.alt_entered_at
-            .is_some_and(|at| at <= Duration::from_secs(3)),
-        "TUI must claim the alt screen within 3s of spawn: alt_entered_at={:?} cpr={} tail={:?}",
+        o.alt_entered_at.is_some_and(|at| at <= ALT_CLAIM_BUDGET),
+        "TUI must claim the alt screen within {ALT_CLAIM_BUDGET:?} of spawn: \
+         alt_entered_at={:?} cpr={} tail={:?}",
         o.alt_entered_at,
         o.cpr_queries,
         tail(&o.transcript),
@@ -451,7 +510,7 @@ fn mute_persona_never_fatal() {
         after_alt: Duration::from_millis(4000),
         inject: Inject::Keys(b":"),
     }];
-    let Some(o) = drive(DsrPolicy::Mute, &script, Duration::from_secs(7)) else {
+    let Some(o) = drive(DsrPolicy::Mute, &script, DRIVE_BUDGET) else {
         return;
     };
     assert!(
@@ -516,7 +575,7 @@ fn insert_roundtrip() {
             latency: Duration::from_millis(50),
         },
         &script,
-        Duration::from_secs(12),
+        DRIVE_BUDGET,
     ) else {
         return;
     };
