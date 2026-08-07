@@ -1,0 +1,204 @@
+//! `Snapshot` — the window behaviour reads the editor through.
+//!
+//! ## The seal
+//!
+//! Every method takes `&self` and returns owned or borrowed data. There is
+//! no `&mut` anywhere in this trait and no interior mutability behind it, so
+//! a handler holding a `&dyn Snapshot` **cannot change the editor**. Not "is
+//! discouraged from" — cannot. That is the entire security property of the
+//! crate, and it is enforced by the type, not by review.
+//!
+//! Today the ceiling this replaces is `EditContext`, which hands out
+//! `&mut BufferSet` and `&mut ModalState` and *still* is not enough: the
+//! runtime special-cases `:noh` because `EditContext` cannot reach
+//! `SearchState`. Widening `EditContext` would have made every handler
+//! omnipotent to fix a problem of it being too narrow. Reading through a
+//! window and returning slips makes the surface wider AND the power smaller
+//! at the same time.
+//!
+//! ## Capabilities are M2
+//!
+//! In M0 the trait is one flat surface. M2 narrows it so a handler declares
+//! which views it touches and the type system hands it exactly those — at
+//! which point a handler bound to `(Search,)` that calls `.buffers()` fails
+//! to COMPILE. The views are already split by concern here so that narrowing
+//! is a type-level change rather than a re-carve of the surface.
+
+use escriba_core::{BufferId, Mode, Position};
+
+/// What a handler can learn about one buffer.
+pub trait BufferView {
+    fn id(&self) -> BufferId;
+    /// The buffer's path, if it has one. Scratch buffers do not.
+    fn path(&self) -> Option<&std::path::Path>;
+    fn line_count(&self) -> u32;
+    /// One line, without its terminator. `None` past the end.
+    fn line(&self, n: u32) -> Option<String>;
+    fn is_modified(&self) -> bool;
+    /// The whole text. Deliberately explicit and deliberately unattractive:
+    /// a handler that reaches for this on every keystroke is telling you it
+    /// wants a narrower view that does not exist yet.
+    fn text(&self) -> String;
+}
+
+/// What a handler can learn about where the operator is.
+pub trait CursorView {
+    fn position(&self) -> Position;
+    fn mode(&self) -> Mode;
+}
+
+/// The read window itself.
+///
+/// `&dyn Snapshot` is what a handler receives. Adding a view here widens what
+/// behaviour can KNOW; it never widens what behaviour can DO, because doing
+/// is [`Negai`](crate::Negai) and nothing else.
+pub trait Snapshot {
+    /// The buffer the operator is in, if any.
+    fn active(&self) -> Option<&dyn BufferView>;
+    /// A specific buffer.
+    fn buffer(&self, id: BufferId) -> Option<&dyn BufferView>;
+    /// Every open buffer id, in a stable order.
+    fn buffer_ids(&self) -> Vec<BufferId>;
+    /// Cursor + mode.
+    fn cursor(&self) -> &dyn CursorView;
+    /// An editor option (`number`, `tabstop`, `mapleader`, …).
+    fn option(&self, name: &str) -> Option<&str>;
+}
+
+// ─── Test double ─────────────────────────────────────────────────────────
+
+/// A `Snapshot` built from plain values — the mockable Environment seam.
+///
+/// Every typed primitive in this fleet ships one, and here it earns its
+/// keep twice over: a handler test needs no `EditorState`, no buffers, no
+/// runtime and no I/O, so behaviour can be tested exhaustively at the crate
+/// that defines it rather than through the editor that hosts it.
+#[derive(Debug, Clone, Default)]
+pub struct FakeSnapshot {
+    pub buffers: Vec<FakeBuffer>,
+    pub active: Option<BufferId>,
+    pub position: Position,
+    pub mode: Mode,
+    pub options: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FakeBuffer {
+    pub id: BufferId,
+    pub path: Option<std::path::PathBuf>,
+    pub text: String,
+    pub modified: bool,
+}
+
+impl FakeBuffer {
+    #[must_use]
+    pub fn new(id: u64, text: impl Into<String>) -> Self {
+        Self {
+            id: BufferId(id),
+            path: None,
+            text: text.into(),
+            modified: false,
+        }
+    }
+
+    #[must_use]
+    pub fn at(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    #[must_use]
+    pub const fn dirty(mut self) -> Self {
+        self.modified = true;
+        self
+    }
+}
+
+impl BufferView for FakeBuffer {
+    fn id(&self) -> BufferId {
+        self.id
+    }
+    fn path(&self) -> Option<&std::path::Path> {
+        self.path.as_deref()
+    }
+    fn line_count(&self) -> u32 {
+        // An empty buffer is one (empty) line, matching Buffer::line_count.
+        u32::try_from(self.text.lines().count().max(1)).unwrap_or(u32::MAX)
+    }
+    fn line(&self, n: u32) -> Option<String> {
+        self.text.lines().nth(n as usize).map(str::to_string)
+    }
+    fn is_modified(&self) -> bool {
+        self.modified
+    }
+    fn text(&self) -> String {
+        self.text.clone()
+    }
+}
+
+impl FakeSnapshot {
+    /// A snapshot holding one buffer, focused, cursor at the origin.
+    #[must_use]
+    pub fn with_buffer(text: impl Into<String>) -> Self {
+        let b = FakeBuffer::new(1, text);
+        Self {
+            active: Some(b.id),
+            buffers: vec![b],
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn at(mut self, position: Position) -> Self {
+        self.position = position;
+        self
+    }
+
+    #[must_use]
+    pub const fn in_mode(mut self, mode: Mode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    #[must_use]
+    pub fn with_option(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
+        self.options.push((k.into(), v.into()));
+        self
+    }
+}
+
+impl CursorView for FakeSnapshot {
+    fn position(&self) -> Position {
+        self.position
+    }
+    fn mode(&self) -> Mode {
+        self.mode
+    }
+}
+
+impl Snapshot for FakeSnapshot {
+    fn active(&self) -> Option<&dyn BufferView> {
+        let id = self.active?;
+        self.buffer(id)
+    }
+    fn buffer(&self, id: BufferId) -> Option<&dyn BufferView> {
+        self.buffers
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b as &dyn BufferView)
+    }
+    fn buffer_ids(&self) -> Vec<BufferId> {
+        let mut v: Vec<_> = self.buffers.iter().map(FakeBuffer::id).collect();
+        v.sort_unstable();
+        v
+    }
+    fn cursor(&self) -> &dyn CursorView {
+        self
+    }
+    fn option(&self, name: &str) -> Option<&str> {
+        self.options
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.as_str())
+    }
+}

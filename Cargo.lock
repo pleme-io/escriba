@@ -905,6 +905,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "escriba-madoguchi"
+version = "0.1.34"
+dependencies = [
+ "escriba-core",
+]
+
+[[package]]
 name = "escriba-mcp"
 version = "0.1.34"
 dependencies = [

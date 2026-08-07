@@ -1,0 +1,15 @@
+[package]
+name = "escriba-madoguchi"
+description = "The service counter (窓口) — the read-only seam authored behaviour reaches the escriba editor through. Behaviour reads a Snapshot and returns typed request slips; one interpreter applies them."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core = { workspace = true }
+
+[lints]
+workspace = true

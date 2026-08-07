@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "escriba-memori",
     "escriba-core",
+    "escriba-madoguchi",
     "escriba-buffer",
     "escriba-config",
     "escriba-mode",
@@ -36,6 +37,7 @@ authors = ["pleme-io"]
 [workspace.dependencies]
 # Workspace-internal — path deps.
 escriba-core    = { path = "escriba-core", version = "0.1.34" }
+escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.34" }
 escriba-buffer  = { path = "escriba-buffer", version = "0.1.34" }
 escriba-config  = { path = "escriba-config", version = "0.1.34" }
 escriba-mode    = { path = "escriba-mode", version = "0.1.34" }
