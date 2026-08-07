@@ -65,27 +65,23 @@ impl SearchMatch {
     }
 }
 
-/// Whether stepping to a match ran off the end and came back around. vim
-/// reports this ("search hit BOTTOM, continuing at TOP") and so do we — a wrap
-/// that happens silently is how you lose your place in a large file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Wrapped {
-    No,
-    /// Ran past the end, resumed at the top.
-    AtBottom,
-    /// Ran past the start, resumed at the bottom.
-    AtTop,
-}
+// `Wrapped` moved to `escriba-memori` when result-list navigation became its
+// second consumer. The wrap and the fact that it is ANNOUNCED are one
+// behaviour; two copies are two chances for one of them to go quiet.
+// Re-exported, so no caller had to move.
+pub use escriba_memori::Wrapped;
 
-impl Wrapped {
-    /// The message vim prints, or `None` when nothing wrapped.
-    #[must_use]
-    pub const fn message(self) -> Option<&'static str> {
-        match self {
-            Self::No => None,
-            Self::AtBottom => Some("search hit BOTTOM, continuing at TOP"),
-            Self::AtTop => Some("search hit TOP, continuing at BOTTOM"),
-        }
+/// vim's wrap messages.
+///
+/// These stay here rather than in memori: the WRAP is a property of stepping,
+/// the WORDS are vim's, and a fleet primitive should not carry one editor's
+/// phrasing.
+#[must_use]
+pub const fn wrap_message(w: Wrapped) -> Option<&'static str> {
+    match w {
+        Wrapped::No => None,
+        Wrapped::AtBottom => Some("search hit BOTTOM, continuing at TOP"),
+        Wrapped::AtTop => Some("search hit TOP, continuing at BOTTOM"),
     }
 }
 
@@ -187,28 +183,14 @@ pub fn step_bounded(
     let starts: Vec<usize> = matches.iter().map(|m| m.start).collect();
     let forward = matches!(direction, Direction::Forward);
 
-    match bound.first_matching(&starts, from, forward) {
-        Some(i) => Some(Step {
-            target: matches[i],
-            index: i,
-            wrapped: Wrapped::No,
-        }),
-        // Nothing ahead: wrap to the far end and SAY so. Wrapping silently is
-        // how a user loses track of where they are in a long file.
-        None if forward => Some(Step {
-            target: matches[0],
-            index: 0,
-            wrapped: Wrapped::AtBottom,
-        }),
-        None => {
-            let i = matches.len() - 1;
-            Some(Step {
-                target: matches[i],
-                index: i,
-                wrapped: Wrapped::AtTop,
-            })
-        }
-    }
+    // An adapter now: the wrap, and saying so, live in
+    // `memori::Bound::step_wrapping`, shared with result-list navigation.
+    let landing = bound.step_wrapping(&starts, from, forward)?;
+    Some(Step {
+        target: matches[landing.index],
+        index: landing.index,
+        wrapped: landing.wrapped,
+    })
 }
 
 #[must_use]
@@ -409,7 +391,7 @@ mod tests {
         let s = step(&m, 100, Direction::Forward).unwrap();
         assert_eq!(s.target.start, 0);
         assert_eq!(s.wrapped, Wrapped::AtBottom);
-        assert!(s.wrapped.message().unwrap().contains("BOTTOM"));
+        assert!(wrap_message(s.wrapped).unwrap().contains("BOTTOM"));
     }
 
     #[test]
@@ -426,7 +408,7 @@ mod tests {
         let s = step(&m, 0, Direction::Backward).unwrap();
         assert_eq!(s.target.start, 4);
         assert_eq!(s.wrapped, Wrapped::AtTop);
-        assert!(s.wrapped.message().unwrap().contains("TOP"));
+        assert!(wrap_message(s.wrapped).unwrap().contains("TOP"));
     }
 
     #[test]

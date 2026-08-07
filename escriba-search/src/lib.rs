@@ -45,7 +45,7 @@ pub mod state;
 
 pub use engine::{
     Direction, MAX_COUNT, MatchCount, SearchMatch, Step, Wrapped, find_all, step, step_inclusive,
-    word_at,
+    word_at, wrap_message,
 };
 pub use escriba_memori::CaretMove;
 pub use pattern::{CaseMode, PatternError, SearchPattern};

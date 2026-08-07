@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "6e2d0775ab169b31b0cd7282a68daa62dff63cedbe644af05f542ac79d658f6d",
+  "cargo_lock_sha256": "1d49d68eb3b81fc6c377cdd0f89f3db04604ab5b4840c590575abf015e48e53e",
   "manifest_sha256": {
-    "Cargo.toml": "34f60d447da2aa788e70d6343f30d9372540a2dd665cfed98057de77c317996d",
+    "Cargo.toml": "79efff32ac40223ba6f5d1b89e57453777e4a1e6a1293c3a2f7eab8a17fe5f20",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a508c51944c8322367933e850b32c11866601eccce858517e81e9b8174fa1995",
@@ -20,6 +20,7 @@
     "escriba-render/Cargo.toml": "d698281ccd087ac42ab0f4e677d13684fa86c8d21190cb9f3373a59230f34282",
     "escriba-runtime/Cargo.toml": "f2c185543f2835d834aab06e6d2db9de20bc0c62e777a3f26f18993aa9063fb1",
     "escriba-search/Cargo.toml": "840b30efc8b5a826cd50c6b09ef7e6b60a94ca6b7e8e13a2f6d931f054b0ac65",
+    "escriba-shirube/Cargo.toml": "e60f6f1678653b7a5750505e7297841758f7416ffbf5a7a9c6c4eda225fb1104",
     "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
     "escriba-ts/Cargo.toml": "95cdcedddba77884e2f39aeaa78c56f195d05e0591a38c114ff969924e20112b",
     "escriba-tui/Cargo.toml": "864325147949ab99a5980dd2f73b14e9b4904c13291d0cfdeb56a9a7a415de92",
@@ -2970,6 +2971,42 @@
           {
             "name": "thiserror",
             "package_key": "thiserror-2.0.19",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "escriba-shirube-0.1.35": {
+        "runtime_dependencies": [
+          {
+            "name": "escriba_buffer",
+            "package_key": "escriba-buffer-0.1.35",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_core",
+            "package_key": "escriba-core-0.1.35",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_memori",
+            "package_key": "escriba-memori-0.1.35",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -24685,6 +24722,13 @@
       "edition": "2024",
       "lib_target": {
         "name": "escriba_search",
+        "path": "src/lib.rs"
+      }
+    },
+    "escriba-shirube-0.1.35": {
+      "edition": "2024",
+      "lib_target": {
+        "name": "escriba_shirube",
         "path": "src/lib.rs"
       }
     },

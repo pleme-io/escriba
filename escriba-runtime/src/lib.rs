@@ -1244,7 +1244,7 @@ impl EditorState {
     /// commit and `n`/`N`. `land_on` deliberately does NOT report, or the bare
     /// commit would say it twice.
     fn report_wrap(&mut self, step: &escriba_search::Step) {
-        if let Some(msg) = step.wrapped.message() {
+        if let Some(msg) = escriba_search::wrap_message(step.wrapped) {
             self.messages.push(msg.to_string());
         }
     }

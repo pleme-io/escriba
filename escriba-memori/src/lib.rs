@@ -206,6 +206,73 @@ impl Bound {
     }
 }
 
+/// Whether a step ran off the end and resumed at the other one.
+///
+/// Reported, never silent. Wrapping without saying so is how a reader loses
+/// track of where they are in a long file — vim prints "search hit BOTTOM,
+/// continuing at TOP" for exactly this reason.
+///
+/// Lifted here from `escriba-search` when result-list navigation became the
+/// second consumer: the wrap and the way it is ANNOUNCED are one behaviour,
+/// and two copies would be two chances to stop announcing it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Wrapped {
+    #[default]
+    No,
+    /// Ran past the end, resumed at the top.
+    AtBottom,
+    /// Ran past the start, resumed at the bottom.
+    AtTop,
+}
+
+impl Wrapped {
+    #[must_use]
+    pub const fn happened(self) -> bool {
+        !matches!(self, Self::No)
+    }
+}
+
+/// Where a wrapping step landed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Landing {
+    /// Index into the sorted starts that were stepped over.
+    pub index: usize,
+    pub wrapped: Wrapped,
+}
+
+impl Bound {
+    /// [`first_matching`](Self::first_matching), wrapping at the ends.
+    ///
+    /// `first_matching` answers "what is next" and returns `None` at the end.
+    /// Both callers want "what is next, wrapping" — and both also want to
+    /// TELL the reader that it wrapped. Doing it here means search and result
+    /// navigation cannot drift into wrapping differently, or into one of them
+    /// going quiet about it.
+    ///
+    /// `None` only when `starts` is empty: with anything to land on, a
+    /// wrapping step always lands.
+    #[must_use]
+    pub fn step_wrapping(self, starts: &[usize], anchor: usize, forward: bool) -> Option<Landing> {
+        if starts.is_empty() {
+            return None;
+        }
+        match self.first_matching(starts, anchor, forward) {
+            Some(index) => Some(Landing {
+                index,
+                wrapped: Wrapped::No,
+            }),
+            None if forward => Some(Landing {
+                index: 0,
+                wrapped: Wrapped::AtBottom,
+            }),
+            None => Some(Landing {
+                index: starts.len() - 1,
+                wrapped: Wrapped::AtTop,
+            }),
+        }
+    }
+}
+
 /// Where a caret movement lands.
 ///
 /// Lives in memori because it is a POSITIONING concept, not a search one: the

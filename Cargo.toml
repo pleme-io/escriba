@@ -4,6 +4,7 @@ members = [
     "escriba-memori",
     "escriba-core",
     "escriba-madoguchi",
+    "escriba-shirube",
     "escriba-buffer",
     "escriba-config",
     "escriba-mode",
@@ -38,6 +39,7 @@ authors = ["pleme-io"]
 # Workspace-internal — path deps.
 escriba-core    = { path = "escriba-core", version = "0.1.35" }
 escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.35" }
+escriba-shirube = { path = "escriba-shirube", version = "0.1.35" }
 escriba-buffer  = { path = "escriba-buffer", version = "0.1.35" }
 escriba-config  = { path = "escriba-config", version = "0.1.35" }
 escriba-mode    = { path = "escriba-mode", version = "0.1.35" }
