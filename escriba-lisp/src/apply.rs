@@ -39,7 +39,7 @@
 //! runtime against the command registry.
 
 use escriba_command::{Command, CommandRegistry};
-use escriba_core::{Action, Mode, Motion, SearchDirection};
+use escriba_core::{Action, CommentString, Filetype, FiletypeTable, Mode, Motion, SearchDirection};
 use escriba_keymap::{Key, Keymap};
 use escriba_ui::splash::{Splash, SplashEntry};
 
@@ -578,6 +578,29 @@ pub fn apply_plan_to_options(
         }
     }
     report
+}
+
+/// Apply every `(defmode …)` to the live filetype table.
+///
+/// `:commentstring` has parsed and validated since Wave 1 and reached
+/// nothing. This is the consumer. A mode whose commentstring has no `%s`
+/// gets `comment: None` rather than a guess — the malformed string is
+/// dropped, the rest of the mode survives, and the comment verbs decline
+/// instead of producing nonsense.
+pub fn apply_plan_to_filetypes(plan: &ApplyPlan, table: &mut FiletypeTable) -> usize {
+    let mut n = 0;
+    for m in &plan.major_modes {
+        if m.name.is_empty() {
+            continue;
+        }
+        table.insert(Filetype {
+            name: m.name.clone(),
+            extensions: m.extensions.clone(),
+            comment: CommentString::parse(&m.commentstring),
+        });
+        n += 1;
+    }
+    n
 }
 
 /// Lower `(defsplash …)` into the [`Splash`] the renderers paint.

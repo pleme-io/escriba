@@ -102,7 +102,9 @@ pub mod snapshot;
 
 pub use negai::{Continuation, ErrandId, Negai, Register};
 pub use outcome::{Outcome, Verdict};
-pub use snapshot::{BufferView, CursorView, FakeBuffer, FakeSnapshot, SearchView, Snapshot, View};
+pub use snapshot::{
+    BufferView, CursorView, FakeBuffer, FakeSnapshot, SearchView, Snapshot, SyntaxView, View,
+};
 
 /// A capability-typed command body.
 ///
