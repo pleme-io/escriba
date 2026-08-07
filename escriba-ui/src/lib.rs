@@ -11,6 +11,11 @@ pub mod chrome;
 /// three copies of the same centering arithmetic.
 pub mod splash;
 
+/// The gutter — line numbers and finding marks, composed once. The ratatui
+/// face built its own inline and the GPU face had none at all; this is the
+/// same "one model, N faces" repair the status line and splash already had.
+pub mod gutter;
+
 use escriba_core::{BufferId, Position, WindowId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -114,13 +114,25 @@ impl EscribaConfig {
         Self::compile_from_sexp(first)
     }
 
-    pub fn register_all() {
-        tatara_lisp::domain::register::<Self>();
-        tatara_lisp::domain::register::<KeymapDecl>();
-        tatara_lisp::domain::register::<CommandDecl>();
-        tatara_lisp::domain::register::<PluginDecl>();
-        tatara_lisp::domain::register::<MajorMode>();
-        tatara_lisp::domain::register::<MinorMode>();
+    /// Claim escriba's `def…` keywords in the process-wide tatara-lisp
+    /// registry.
+    ///
+    /// Returns the FIRST collision rather than swallowing it. tatara-lisp
+    /// 0.3.14 made `register` fallible for a reason worth restating: one
+    /// keyword belongs to one type per process, and a refusal means some
+    /// other type is already answering to a `def…` form escriba believes it
+    /// owns. Discarding that result — which this function did — leaves the
+    /// editor parsing operator config with the WRONG domain handler and no
+    /// indication anywhere that it happened. Re-registering the same type is
+    /// idempotent upstream, so a repeat call is still `Ok`.
+    pub fn register_all() -> Result<(), tatara_lisp::domain::KeywordCollision> {
+        tatara_lisp::domain::register::<Self>()?;
+        tatara_lisp::domain::register::<KeymapDecl>()?;
+        tatara_lisp::domain::register::<CommandDecl>()?;
+        tatara_lisp::domain::register::<PluginDecl>()?;
+        tatara_lisp::domain::register::<MajorMode>()?;
+        tatara_lisp::domain::register::<MinorMode>()?;
+        Ok(())
     }
 }
 
@@ -156,14 +168,24 @@ impl shikumi::TieredConfig for EscribaConfig {
 
     /// Tier 2 — prescribed: the curated defaults that ship today. These
     /// MIRROR the load-bearing `configs/blnvim-defaults.lisp` baseline the
-    /// editor actually boots (theme `vellum` = `ishou_tokens::FleetTheme::Vellum`;
-    /// line numbers + relative numbers on; tab width 2; no soft wrap;
-    /// statusline on; tabbar off — `showtabline=0`, blnvim parity). The
-    /// `.lisp` remains the load-bearing prescription; this keeps
+    /// editor actually boots (line numbers + relative numbers on; tab width
+    /// 2; no soft wrap; statusline on; tabbar off — `showtabline=0`, blnvim
+    /// parity). The `.lisp` remains the load-bearing prescription; this keeps
     /// `escriba config-show default` honest about what ships.
+    ///
+    /// **The theme is DERIVED, not spelled.** It used to read `"vellum"`
+    /// while `configs/blnvim-defaults.lisp` declared `(deftheme :preset
+    /// "nord")` and the paint path resolved `FleetTheme::prescribed_default()`
+    /// — so `config-show default` named a theme the editor never booted with.
+    /// Sourcing it from ishou means the fleet moving its prescribed theme
+    /// moves this too, with no edit here and no window where they disagree.
     fn prescribed_default() -> Self {
         Self {
-            tema: Some("vellum".into()),
+            tema: Some(
+                ishou_tokens::FleetTheme::prescribed_default()
+                    .preset_name()
+                    .to_string(),
+            ),
             numeros_linha: Some(true),
             numeros_relativos: Some(true),
             largura_tab: Some(2),
@@ -196,7 +218,13 @@ mod tiered_tests {
         // The prescribed default mirrors the shipped blnvim-defaults.lisp so
         // `escriba config-show default` reflects the real boot baseline.
         let p = <EscribaConfig as TieredConfig>::prescribed_default();
-        assert_eq!(p.tema.as_deref(), Some("vellum"));
+        // Asserted against the FLEET, not a literal. A literal here is what
+        // let this report `vellum` for as long as it did: the string was
+        // pinned by a test, so the drift looked deliberate.
+        assert_eq!(
+            p.tema.as_deref(),
+            Some(ishou_tokens::FleetTheme::prescribed_default().preset_name()),
+        );
         assert_eq!(p.numeros_linha, Some(true));
         assert_eq!(p.numeros_relativos, Some(true));
         assert_eq!(p.largura_tab, Some(2));
@@ -210,7 +238,7 @@ mod tiered_tests {
 
     #[test]
     fn escriba_config_resolve_tier_dispatches() {
-        // Bare is zero-opinion; Default pins the vellum theme.
+        // Bare is zero-opinion; Default pins the fleet-prescribed theme.
         let bare = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Bare);
         let default = <EscribaConfig as TieredConfig>::resolve_tier(ConfigTier::Default);
         assert_eq!(bare, <EscribaConfig as TieredConfig>::bare());
@@ -218,7 +246,49 @@ mod tiered_tests {
             default,
             <EscribaConfig as TieredConfig>::prescribed_default()
         );
-        assert_eq!(default.tema.as_deref(), Some("vellum"));
+        assert_eq!(
+            default.tema.as_deref(),
+            Some(ishou_tokens::FleetTheme::prescribed_default().preset_name()),
+        );
+    }
+
+    /// The three places escriba states a default theme must state the SAME
+    /// one: this tiered config, the shipped `configs/blnvim-defaults.lisp`,
+    /// and the paint path's `ChromePalette::prescribed()`.
+    ///
+    /// They disagreed. `config-show default` said `vellum`, the lisp said
+    /// `nord`, and the screen showed Nord — a report that was wrong about
+    /// the editor it describes. Nothing compared them, so nothing caught it.
+    #[test]
+    fn every_statement_of_the_default_theme_agrees() {
+        let fleet = ishou_tokens::FleetTheme::prescribed_default();
+        let from_config = <EscribaConfig as TieredConfig>::prescribed_default()
+            .tema
+            .expect("the prescribed tier names a theme");
+        assert_eq!(
+            from_config,
+            fleet.preset_name(),
+            "the tiered config must name the fleet-prescribed theme",
+        );
+
+        // And the shipped lisp — the load-bearing prescription — must declare
+        // it too. Read from the file the binary bakes in, so an edit there
+        // that forgets this file fails HERE.
+        let lisp = include_str!("../../escriba/configs/blnvim-defaults.lisp");
+        let declared = lisp
+            .lines()
+            .find_map(|l| {
+                let l = l.trim();
+                l.strip_prefix("(deftheme :preset ")
+                    .map(|r| r.trim_end_matches(')').trim().trim_matches('"').to_string())
+            })
+            .expect("the shipped defaults declare a theme");
+        assert_eq!(
+            declared,
+            fleet.preset_name(),
+            "configs/blnvim-defaults.lisp declares a different theme than the \
+             one escriba reports as its default",
+        );
     }
 
     #[test]
@@ -269,7 +339,7 @@ mod tests {
 
     #[test]
     fn register_all_populates_registry() {
-        EscribaConfig::register_all();
+        EscribaConfig::register_all().expect("escriba's own keywords must not collide");
         let kws = tatara_lisp::domain::registered_keywords();
         for keyword in [
             "defescriba",
@@ -281,5 +351,48 @@ mod tests {
         ] {
             assert!(kws.contains(&keyword), "missing keyword: {keyword}");
         }
+    }
+
+    #[test]
+    fn registering_twice_is_idempotent_not_a_collision() {
+        // The registry is process-wide and other tests in this binary also
+        // register. If a repeat call reported a collision, startup would fail
+        // for a program that merely initialised twice.
+        EscribaConfig::register_all().expect("first");
+        EscribaConfig::register_all().expect("a repeat call is idempotent");
+    }
+
+    /// The RED RUN for the collision path: a deliberately-broken input — a
+    /// second type claiming a keyword escriba already owns — must be refused
+    /// and NAMED.
+    ///
+    /// Without this the fallible signature would be decoration: nothing else
+    /// in the suite ever produces an `Err`, so a `register` that silently
+    /// started returning `Ok` on collision would go unnoticed.
+    #[test]
+    fn a_second_type_claiming_an_escriba_keyword_is_refused() {
+        use tatara_lisp::domain::TataraDomain;
+
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        struct Impostor {
+            nome: String,
+        }
+        impl TataraDomain for Impostor {
+            const KEYWORD: &'static str = "defkeymap"; // already KeymapDecl's
+            fn compile_from_args(_args: &[tatara_lisp::Sexp]) -> Result<Self, tatara_lisp::LispError> {
+                Ok(Self {
+                    nome: String::new(),
+                })
+            }
+        }
+
+        EscribaConfig::register_all().expect("escriba's own keywords register");
+        let err = tatara_lisp::domain::register::<Impostor>()
+            .expect_err("a different type must NOT be allowed to take `defkeymap`");
+        assert_eq!(err.keyword, "defkeymap");
+        assert!(
+            err.challenger.contains("Impostor"),
+            "the refusal must name who was turned away: {err}",
+        );
     }
 }

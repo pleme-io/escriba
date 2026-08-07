@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "84915f268f80f20e7d1c820c9c03dbe6e089ad99b3c7b475345480182a4d5fdb",
+  "cargo_lock_sha256": "05056e6e59bb670db09fda50164793906477c388cf20550a4d229577ae78d0bb",
   "manifest_sha256": {
     "Cargo.toml": "79efff32ac40223ba6f5d1b89e57453777e4a1e6a1293c3a2f7eab8a17fe5f20",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
-    "escriba-config/Cargo.toml": "6ed1d0f8b3581268a514afa1f5b0f492fb45a8b1f59d3b14693d73cf3358f247",
+    "escriba-config/Cargo.toml": "bdc9806373b84e894d974130b1d4c766d003274f77404decb6f27bcb90529408",
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
     "escriba-keymap/Cargo.toml": "b3d2c8fbcd6ac024ecb426d765ab727f2f76efc4bd20bae8169d4295b0ca451b",
@@ -17,7 +17,7 @@
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
     "escriba-mode/Cargo.toml": "e1699c281dcc7ed6e07994dd97010a3888ada40fee00cc0dcba70ee87eeeb8c6",
     "escriba-plugin/Cargo.toml": "cec2d70d3abe6eef0685bc38551cdbfa0b9056e91ede7fe2dd139177467dbc38",
-    "escriba-render/Cargo.toml": "d698281ccd087ac42ab0f4e677d13684fa86c8d21190cb9f3373a59230f34282",
+    "escriba-render/Cargo.toml": "d9dab942653d4c83250f0147eac92e2589aaa52af795ad23f9e1e7572a9aced6",
     "escriba-runtime/Cargo.toml": "a7860db8e1862d8804a56901c1379031af1d0972af559c49ab2f167993665a10",
     "escriba-search/Cargo.toml": "840b30efc8b5a826cd50c6b09ef7e6b60a94ca6b7e8e13a2f6d931f054b0ac65",
     "escriba-shirube/Cargo.toml": "e60f6f1678653b7a5750505e7297841758f7416ffbf5a7a9c6c4eda225fb1104",
@@ -1877,6 +1877,18 @@
             "tree": "target"
           },
           {
+            "name": "ishou_tokens",
+            "package_key": "ishou-tokens-0.1.6",
+            "kind": "normal",
+            "features": [
+              "wgpu"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "schemars",
             "package_key": "schemars-0.8.22",
             "kind": "normal",
@@ -2669,6 +2681,16 @@
           {
             "name": "escriba_runtime",
             "package_key": "escriba-runtime-0.1.35",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_shirube",
+            "package_key": "escriba-shirube-0.1.35",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,

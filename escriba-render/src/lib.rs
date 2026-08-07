@@ -17,10 +17,7 @@ pub mod splash;
 pub use gpu::{GpuRenderer, SharedState};
 pub use splash::render_splash_ansi;
 
-use escriba_buffer::BufferSet;
-use escriba_core::Position;
-use escriba_ui::Layout;
-use ishou_tokens::VellumPalette;
+use escriba_runtime::EditorState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,31 +27,62 @@ pub enum RenderTarget {
 }
 
 pub trait Renderer {
-    fn render_frame(&mut self, layout: &Layout, buffers: &BufferSet, cursor: Position) -> String;
+    /// Paint one frame of `state`.
+    ///
+    /// Takes the whole editor rather than `(layout, buffers, cursor)`. Three
+    /// parameters meant three chances to hand this face something that did
+    /// not match the others — and it happened: the binary passed a literal
+    /// `Position::ZERO`, so every `--render=text` dump drew the cursor at 1:1
+    /// no matter where the cursor actually was.
+    fn render_frame(&mut self, state: &EditorState) -> String;
 }
 
 pub struct TextRenderer;
 
 impl Renderer for TextRenderer {
-    fn render_frame(&mut self, layout: &Layout, buffers: &BufferSet, cursor: Position) -> String {
-        let Some(win) = layout.active_window() else {
+    fn render_frame(&mut self, state: &EditorState) -> String {
+        let Some(win) = state.layout.active_window() else {
             return "<no window>\n".to_string();
         };
-        let Some(buf) = buffers.get(win.buffer_id) else {
+        let Some(buf) = state.buffers.get(win.buffer_id) else {
             return "<no buffer>\n".to_string();
         };
+        // The operator's theme, through the ONE seam. This face used to reach
+        // for `VellumPalette::vellum()` directly — the exact hardwiring
+        // `ChromePalette` exists to remove, missed because escriba's notes
+        // named only two faces and there are three.
+        let chrome = state.chrome();
+        let cursor = state.cursor();
+        let world = state.world();
+        let line_count = buf.line_count();
+        // The shared gutter model, so this face's columns match the ratatui
+        // and GPU faces. It had its own seven-column spelling with no mark
+        // cell, which is how a third face drifts without anyone deciding to.
+        let gutter_cols = escriba_ui::gutter::gutter_width(line_count);
+
         let mut out = String::new();
         let top = win.viewport.top_line;
         let left = win.viewport.left_column as usize;
-        let vis_cols = win.viewport.visible_columns as usize;
+        let vis_cols = (win.viewport.visible_columns as usize).saturating_sub(gutter_cols);
         let height = win.viewport.visible_lines.max(10);
         for row in 0..height {
             let ln = top + row;
-            if ln >= buf.line_count() {
+            if ln >= line_count {
                 break;
             }
             let line = buf.line(ln).unwrap_or_default();
             let line = line.trim_end_matches('\n').trim_end_matches('\r');
+            let mark = state.results.worst_on_line(&world, state.active, ln);
+            for cell in escriba_ui::gutter::gutter_cells(ln, mark, line_count) {
+                match cell.role {
+                    escriba_ui::gutter::GutterRole::Mark(sev) => {
+                        push_fg(&mut out, escriba_ui::chrome::severity_color(&chrome, sev));
+                        out.push_str(&cell.text);
+                        out.push_str(RESET);
+                    }
+                    _ => out.push_str(&cell.text),
+                }
+            }
             // Slice the line to the visible horizontal window
             // `[left, left + vis_cols)` — char-based so multibyte text stays
             // aligned. The cursor's on-screen column is computed relative to
@@ -62,76 +90,139 @@ impl Renderer for TextRenderer {
             let visible: Vec<char> = line.chars().skip(left).take(vis_cols).collect();
             if ln == cursor.line && cursor.column as usize >= left {
                 let rel = cursor.column as usize - left;
-                let before: String = visible.iter().take(rel).collect();
-                let under = visible.get(rel).copied().unwrap_or(' ');
-                let rest: String = visible.iter().skip(rel + 1).collect();
-                out.push_str(&format!(
-                    "{:4} │ {before}\x1b[7m{under}\x1b[0m{rest}\n",
-                    ln + 1,
-                ));
+                out.extend(visible.iter().take(rel));
+                out.push_str(INVERT);
+                out.push(visible.get(rel).copied().unwrap_or(' '));
+                out.push_str(RESET);
+                out.extend(visible.iter().skip(rel + 1));
             } else {
-                let visible: String = visible.iter().collect();
-                out.push_str(&format!("{:4} │ {visible}\n", ln + 1));
+                out.extend(visible.iter());
             }
+            out.push('\n');
         }
-        let accent = VellumPalette::vellum().ice_cyan; // Vellum matte accent
-        out.push_str(&format!(
-            "\x1b[7m escriba · {} · {}:{} \x1b[0m\n",
-            accent.hex(),
-            cursor.line + 1,
-            cursor.column + 1,
-        ));
+        out.push_str(INVERT);
+        out.push_str(" escriba · ");
+        out.push_str(&chrome.info.hex());
+        out.push_str(" · ");
+        out.push_str(&(cursor.line + 1).to_string());
+        out.push(':');
+        out.push_str(&(cursor.column + 1).to_string());
+        out.push(' ');
+        out.push_str(RESET);
+        out.push('\n');
         out
     }
+}
+
+/// Reverse video on / all attributes off. Named rather than inlined so the
+/// escape sequences appear once each.
+const INVERT: &str = "\x1b[7m";
+const RESET: &str = "\x1b[0m";
+
+/// Append an SGR truecolor foreground set for `c`.
+///
+/// `write!` into a `String`, not `format!` — ★★ TYPED EMISSION. The
+/// `Display` impls of the three `u8`s are the typed surface; the alternative
+/// this replaces built ANSI by string interpolation.
+fn push_fg(out: &mut String, c: ishou_tokens::Rgb) {
+    use std::fmt::Write as _;
+    // Writing into a String is infallible; the Result exists only because
+    // `fmt::Write` is shared with fallible sinks.
+    let _ = write!(out, "\x1b[38;2;{};{};{}m", c.r, c.g, c.b);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use escriba_buffer::BufferSet;
-    use escriba_core::{BufferId, WindowId};
-    use escriba_ui::{Layout, Rect, Viewport, Window};
+
+    /// An editor holding `text`, with a viewport wide enough that nothing is
+    /// clipped. Built through `EditorState` rather than a hand-assembled
+    /// `Layout` — the point of the signature change is that this face reads
+    /// ONE object, so a test that constructed a second one would be testing
+    /// a configuration the binary can never produce.
+    fn editor(text: &str) -> EditorState {
+        let mut bufs = BufferSet::new();
+        let id = bufs.scratch(text);
+        let mut st = EditorState::new_with_buffer(bufs, id);
+        st.dismiss_splash();
+        if let Some(w) = st.layout.windows.first_mut() {
+            w.viewport.visible_lines = 20;
+            w.viewport.visible_columns = 80;
+        }
+        st
+    }
 
     #[test]
     fn renders_buffer_lines() {
-        let mut bufs = BufferSet::new();
-        let id = bufs.scratch("hello\nworld\nfoo");
-        let _ = BufferId::default();
-        let layout = Layout::single(Window {
-            id: WindowId(1),
-            buffer_id: id,
-            viewport: Viewport {
-                top_line: 0,
-                left_column: 0,
-                visible_lines: 20,
-                visible_columns: 80,
-            },
-            rect: Rect::default(),
-        });
-        let mut r = TextRenderer;
-        // Cursor on line 2 so other lines render without ANSI splitting "hello".
-        let frame = r.render_frame(&layout, &bufs, Position::new(2, 0));
-        assert!(frame.contains("hello"));
-        assert!(frame.contains("world"));
+        // The cursor sits on line 3, so lines 1 and 2 render unbroken. On
+        // the line it occupies, the cursor cell is wrapped in an SGR pair,
+        // which splits the word — that is correct output, not a defect, and
+        // asserting on a word under the cursor tests the escape sequence
+        // rather than the text.
+        let mut st = editor("hello\nworld\nfoo");
+        st.on_key(&escriba_keymap::Key::Char('j'));
+        st.on_key(&escriba_keymap::Key::Char('j'));
+        let frame = TextRenderer.render_frame(&st);
+        assert!(frame.contains("hello"), "{frame:?}");
+        assert!(frame.contains("world"), "{frame:?}");
     }
 
     #[test]
     fn cursor_is_highlighted() {
-        let mut bufs = BufferSet::new();
-        let id = bufs.scratch("hello world");
-        let layout = Layout::single(Window {
-            id: WindowId(1),
-            buffer_id: id,
-            viewport: Viewport {
-                top_line: 0,
-                left_column: 0,
-                visible_lines: 10,
-                visible_columns: 80,
-            },
-            rect: Rect::default(),
-        });
-        let mut r = TextRenderer;
-        let frame = r.render_frame(&layout, &bufs, Position::new(0, 3));
-        assert!(frame.contains("\x1b[7m"));
+        let frame = TextRenderer.render_frame(&editor("hello world"));
+        assert!(frame.contains(INVERT), "{frame:?}");
+    }
+
+    #[test]
+    fn the_cursor_is_drawn_where_the_editor_actually_has_it() {
+        // The bug the signature change fixed: the binary passed a literal
+        // `Position::ZERO`, so this face drew the cursor at 1:1 for every
+        // dump regardless of the real position — and the status line printed
+        // "1:1" to match, which made the report self-consistent and wrong.
+        let mut st = editor("alpha\nbravo\ncharlie\n");
+        st.on_key(&escriba_keymap::Key::Char('j'));
+        st.on_key(&escriba_keymap::Key::Char('j'));
+        assert_eq!(st.cursor().line, 2, "precondition: the cursor moved");
+        let frame = TextRenderer.render_frame(&st);
+        assert!(
+            frame.contains("3:1"),
+            "the status line must report the REAL cursor: {frame:?}",
+        );
+        // And the inverted cell must sit on the third BODY line, not the
+        // first. Counted over body lines only — the status line is itself
+        // inverted, so including it would make any cursor position pass.
+        let body: Vec<&str> = frame.lines().filter(|l| l.contains('\u{2502}')).collect();
+        let cursor_row = body
+            .iter()
+            .position(|l| l.contains(INVERT))
+            .expect("the cursor is painted on some line");
+        assert_eq!(cursor_row, 2, "{frame:?}");
+    }
+
+    #[test]
+    fn the_gutter_matches_the_shared_model() {
+        // Three faces, one gutter. This face used to spell its own seven
+        // columns with no mark cell.
+        let st = editor("one\ntwo\n");
+        let frame = TextRenderer.render_frame(&st);
+        let first = frame.lines().next().expect("a line");
+        let rule = first
+            .chars()
+            .position(|c| c == '\u{2502}')
+            .expect("the gutter rule");
+        assert_eq!(rule + 2, escriba_ui::gutter::gutter_width(2), "{first:?}");
+    }
+
+    #[test]
+    fn the_status_line_reports_the_theme_the_editor_paints() {
+        // Not `VellumPalette::vellum()`, which is what this face read before
+        // and which is a theme escriba no longer defaults to.
+        let st = editor("x");
+        let frame = TextRenderer.render_frame(&st);
+        assert!(
+            frame.contains(&st.chrome().info.hex()),
+            "{frame:?} should carry the editor's own accent",
+        );
     }
 }

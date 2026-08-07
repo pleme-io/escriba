@@ -98,10 +98,12 @@ untestable region.
 
 ## Theming — how escriba paints (2026-07-26)
 
-**One seam: `escriba_ui::chrome::ChromePalette`.** Both faces (the ratatui
-TUI chrome and the GPU backend) resolve every color through it, and it
-resolves through `ishou_tokens::SemanticRoles` — the closed ROLE vocabulary —
-never through a theme's own token spelling. Consequences worth knowing:
+**One seam: `escriba_ui::chrome::ChromePalette`.** All THREE faces (the
+ratatui TUI chrome, the GPU backend, and the ANSI text dump) resolve every
+color through it, and it resolves through `ishou_tokens::SemanticRoles` — the
+closed ROLE vocabulary — never through a theme's own token spelling. *(The
+text face was corrected 2026-08-07: it still read `VellumPalette::vellum()`
+directly, missed because this note said "both faces" when there are three.)* Consequences worth knowing:
 
 - **Colors are named by role, not hue.** `c.info`, not "cyan". On Nord
   `info` is frost blue; on Vellum it was ice cyan; no call site knows or

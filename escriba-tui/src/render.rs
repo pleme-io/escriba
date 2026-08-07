@@ -114,8 +114,15 @@ fn draw_buffer(
     let win = state.layout.active_window();
     let top = win.map_or(0, |w| w.viewport.top_line);
     let left = win.map_or(0, |w| w.viewport.left_column);
-    // Visible width minus the gutter ("{:>4} │ " = 7 columns).
-    let vis_cols = win.map_or(usize::MAX, |w| w.viewport.visible_columns as usize);
+    // The gutter's width derives from the buffer, so every line of THIS
+    // buffer agrees and the text column cannot move while scrolling. The old
+    // comment here claimed a fixed 7 columns; it was never 7 (the mark cell
+    // made it 8) and it was never fixed (a 10 000-line file needs 9).
+    let line_count = buf.line_count();
+    let gutter_cols = escriba_ui::gutter::gutter_width(line_count);
+    let vis_cols = win.map_or(usize::MAX, |w| {
+        (w.viewport.visible_columns as usize).saturating_sub(gutter_cols)
+    });
     let visible = area.height.saturating_sub(2).max(1);
     let cursor = state.cursor();
     // The cursor's on-screen shape is derived from the active mode through
@@ -160,15 +167,12 @@ fn draw_buffer(
             .collect();
         // The worst finding on this line, if any — one cell, always, so a
         // diagnostic arriving does not shift every line sideways.
-        let mark = state
-            .results
-            .on_line(&state.world(), state.active, ln)
-            .first()
-            .map(|f| f.severity);
+        let mark = state.results.worst_on_line(&state.world(), state.active, ln);
         lines.push(line_with_gutter(
             chrome,
             mark,
             ln,
+            line_count,
             &text,
             cursor,
             left as usize,
@@ -193,6 +197,10 @@ fn line_with_gutter(
     chrome: &ChromePalette,
     mark: Option<escriba_shirube::Severity>,
     ln: u32,
+    // The buffer's total line count — the gutter's width derives from it, so
+    // every line of one buffer agrees. Passed in rather than read here so a
+    // test can render a line without standing up an `EditorState`.
+    line_count: u32,
     text: &str,
     cursor: escriba_core::Position,
     left: usize,
@@ -200,19 +208,22 @@ fn line_with_gutter(
     shape: CursorShape,
     highlights: &[(usize, usize)],
 ) -> Line<'static> {
-    // `{n} {mark}│ ` — the mark column is ALWAYS present, blank when there is
-    // nothing to say. A gutter that changes width as findings arrive makes
-    // the whole file jump sideways, which is worse than a coarse glyph.
-    let gutter = format!("{:>4} ", ln + 1);
-    let mut spans = vec![Span::styled(gutter, muted_style(chrome))];
-    match mark {
-        Some(sev) => spans.push(Span::styled(
-            escriba_ui::chrome::severity_mark(sev).to_string(),
-            Style::default().fg(rgb(escriba_ui::chrome::severity_color(chrome, sev))),
-        )),
-        None => spans.push(Span::styled(" ".to_string(), muted_style(chrome))),
-    }
-    spans.push(Span::styled("│ ".to_string(), muted_style(chrome)));
+    // The gutter is COMPOSED by `escriba_ui::gutter`, not here. This face's
+    // only job is to turn each cell's role into a ratatui `Style` — which is
+    // what makes the GPU face able to paint the identical gutter by answering
+    // the same question in its own colours.
+    let mut spans: Vec<Span<'static>> = escriba_ui::gutter::gutter_cells(ln, mark, line_count)
+        .into_iter()
+        .map(|c| {
+            let style = match c.role {
+                escriba_ui::gutter::GutterRole::Mark(sev) => {
+                    Style::default().fg(rgb(escriba_ui::chrome::severity_color(chrome, sev)))
+                }
+                _ => muted_style(chrome),
+            };
+            Span::styled(c.text, style)
+        })
+        .collect();
 
     let chars: Vec<char> = text.chars().collect();
     // The slice of characters actually visible in this window.
@@ -574,6 +585,7 @@ mod tests {
             &chrome(),
             None,
             0,
+            64,
             "hello world",
             escriba_core::Position::new(9, 0), // cursor on another line
             0,
@@ -601,6 +613,7 @@ mod tests {
             &chrome(),
             None,
             0,
+            64,
             "foo bar foo",
             escriba_core::Position::new(9, 0),
             0,
@@ -624,6 +637,7 @@ mod tests {
             &chrome(),
             None,
             0,
+            64,
             "foo bar",
             escriba_core::Position::new(0, 1),
             0,
@@ -645,6 +659,7 @@ mod tests {
             &chrome(),
             None,
             0,
+            64,
             "hello world",
             escriba_core::Position::new(9, 0),
             4,
@@ -670,6 +685,7 @@ mod tests {
             &chrome(),
             None,
             0,
+            64,
             "hello world",
             escriba_core::Position::new(9, 0),
             0,

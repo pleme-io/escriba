@@ -54,6 +54,18 @@ pub struct GpuRenderer {
     /// The shaped main-text glyphon buffer, cached across frames while the
     /// generation is unchanged. `None` before the first paint.
     cached_text: Option<Buffer>,
+    /// The shaped gutter and the pixel width it occupies, cached under the
+    /// SAME generation as `cached_text`. One gate for both, so a frame can
+    /// never show this scroll position's line numbers beside the previous
+    /// one's text.
+    ///
+    /// The width travels WITH the buffer rather than being recomputed at
+    /// draw time. It depends on the buffer's line count, so a frame that
+    /// reuses a cached gutter must offset its text by the width that gutter
+    /// was actually shaped at — recomputing from a line count that has since
+    /// changed is exactly how text lands on top of line numbers for one
+    /// frame after a file grows.
+    cached_gutter: Option<(Buffer, f32)>,
     /// The incremental highlighter for the active buffer's language (M2). Held
     /// across frames so a re-highlight re-lexes only the lines that changed
     /// (hikari's `LineState` fixpoint, `theory/ESCRIBA.md` §X) instead of the
@@ -76,6 +88,7 @@ impl GpuRenderer {
             theme: NordTheme,
             last_gen: EditGen(u64::MAX),
             cached_text: None,
+            cached_gutter: None,
             highlighter: None,
         }
     }
@@ -125,7 +138,7 @@ impl RenderCallback for GpuRenderer {
         //    just mode/cursor for the status line and reuses the cached shaped
         //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
         //    is Some((text, path)) exactly when the generation moved.
-        let (rebuild_input, splash_chunks, mode, status_core, cur_gen, palette) = {
+        let (rebuild_input, gutter_rows, splash_chunks, mode, status_core, cur_gen, palette) = {
             let s = self
                 .state
                 .lock()
@@ -228,8 +241,29 @@ impl RenderCallback for GpuRenderer {
             } else {
                 None
             };
+            // The gutter's rows, gathered under the SAME lock and the same
+            // rebuild gate as the text they sit beside. Computing them in a
+            // second pass would let the two disagree about which lines are on
+            // screen — a mark one row off its finding is worse than no mark.
+            #[allow(clippy::type_complexity)]
+            let gutter_rows: Option<(u32, Vec<(u32, Option<escriba_shirube::Severity>)>)> =
+                rebuild_input.is_some().then(|| {
+                    let win = s.layout.active_window().cloned();
+                    let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
+                    let visible_lines = win
+                        .as_ref()
+                        .map_or(40, |w| w.viewport.visible_lines.max(20));
+                    let world = s.world();
+                    let rows = (0..visible_lines)
+                        .map(|row| top_line + row)
+                        .take_while(|ln| *ln < buf.line_count())
+                        .map(|ln| (ln, s.results.worst_on_line(&world, s.active, ln)))
+                        .collect();
+                    (buf.line_count(), rows)
+                });
             (
                 rebuild_input,
+                gutter_rows,
                 splash_chunks,
                 s.modal.mode(),
                 s.status_model().render(),
@@ -265,6 +299,11 @@ impl RenderCallback for GpuRenderer {
             );
             buffer.shape_until_scroll(&mut ctx.text.font_system, false);
             self.cached_text = Some(buffer);
+            // The start screen has no gutter — it is not a view of a file.
+            // Dropping the cached one matters: without this, dismissing a file
+            // and returning to the splash would leave the last file's line
+            // numbers painted down its left edge.
+            self.cached_gutter = None;
             self.last_gen = cur_gen;
         } else if let Some((text, path, match_bytes)) = rebuild_input {
             let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
@@ -331,6 +370,50 @@ impl RenderCallback for GpuRenderer {
             self.cached_text = Some(buffer);
             self.last_gen = cur_gen;
         }
+        // ── 2b. The gutter, shaped as its OWN glyphon buffer.
+        //
+        // Separate rather than prefixed into the text, and this is the load-
+        // bearing reason: the syntax spans and the search-match ranges are
+        // BYTE offsets into `out`. Prefixing each line with `"  12 │ "` would
+        // shift every one of those offsets, so the highlighter would paint the
+        // wrong spans and search would box the wrong characters. Two areas
+        // keeps one coordinate system per buffer.
+        if let Some((line_count, rows)) = gutter_rows {
+            let base = Attrs::new().family(Family::Monospace);
+            let muted = chrome_glyph(palette.text_dim);
+            let gutter_w = gutter_px(self.font_size, line_count);
+            let mut gutter_buf = Buffer::new(&mut ctx.text.font_system, self.metrics);
+            gutter_buf.set_size(&mut ctx.text.font_system, Some(gutter_w), Some(height));
+            // Owned strings first: `set_rich_text` borrows its slices, so the
+            // runs cannot reference temporaries created inside the same call.
+            let mut owned: Vec<(String, GlyphColor)> = Vec::with_capacity(rows.len() * 5);
+            for (ln, mark) in &rows {
+                for cell in escriba_ui::gutter::gutter_cells(*ln, *mark, line_count) {
+                    let color = match cell.role {
+                        escriba_ui::gutter::GutterRole::Mark(sev) => {
+                            chrome_glyph(escriba_ui::chrome::severity_color(&palette, sev))
+                        }
+                        _ => muted,
+                    };
+                    owned.push((cell.text, color));
+                }
+                owned.push(("\n".to_string(), muted));
+            }
+            let runs: Vec<(&str, Attrs)> = owned
+                .iter()
+                .map(|(t, c)| (t.as_str(), base.clone().color(*c)))
+                .collect();
+            gutter_buf.set_rich_text(
+                &mut ctx.text.font_system,
+                runs,
+                &base,
+                Shaping::Advanced,
+                None,
+            );
+            gutter_buf.shape_until_scroll(&mut ctx.text.font_system, false);
+            self.cached_gutter = Some((gutter_buf, gutter_w));
+        }
+
         let buffer = self
             .cached_text
             .as_ref()
@@ -372,14 +455,20 @@ impl RenderCallback for GpuRenderer {
 
         let status_color = chrome_glyph(palette.info);
 
-        let text_areas = [
+        // The text starts AFTER the gutter when there is one, and at the left
+        // margin when there is not (the start screen). Deriving the offset
+        // from `cached_gutter` rather than from a flag keeps the two from
+        // disagreeing — an indented text column with no gutter beside it would
+        // just look like a broken margin.
+        let text_left = 8.0 + self.cached_gutter.as_ref().map_or(0.0, |(_, w)| *w);
+        let mut text_areas = vec![
             TextArea {
                 buffer,
-                left: 8.0,
+                left: text_left,
                 top: 8.0,
                 scale: 1.0,
                 bounds: TextBounds {
-                    left: 0,
+                    left: text_left as i32,
                     top: 0,
                     right: ctx.width as i32,
                     bottom: (height as i32).max(0),
@@ -402,6 +491,25 @@ impl RenderCallback for GpuRenderer {
                 custom_glyphs: &[],
             },
         ];
+        if let Some((g, gutter_w)) = self.cached_gutter.as_ref() {
+            text_areas.push(TextArea {
+                buffer: g,
+                left: 8.0,
+                top: 8.0,
+                scale: 1.0,
+                // Bounded to its own columns. Without this a line number
+                // wider than the field would spill into the text column and
+                // overprint the first characters of the file.
+                bounds: TextBounds {
+                    left: 0,
+                    top: 0,
+                    right: (8.0 + gutter_w) as i32,
+                    bottom: (height as i32).max(0),
+                },
+                default_color: chrome_glyph(palette.text_dim),
+                custom_glyphs: &[],
+            });
+        }
 
         if let Err(e) = ctx.text.prepare(
             &ctx.gpu.device,
@@ -452,6 +560,11 @@ impl RenderCallback for GpuRenderer {
                 w.rect.width = width;
                 w.rect.height = height;
                 w.viewport.visible_lines = u32::from(grid.rows);
+                // The full grid, NOT minus the gutter. The gutter's width
+                // depends on the buffer's line count, which `resize` has no
+                // business knowing; the subtraction happens in `render`,
+                // where the buffer is in scope. Reserving a guessed width
+                // here would be wrong for every file but one.
                 w.viewport.visible_columns = u32::from(grid.cols);
             }
         }
@@ -526,6 +639,19 @@ pub fn splash_runs<'a>(
         .iter()
         .map(|c| (c.text.as_str(), chrome_glyph(c.role.color(palette))))
         .collect()
+}
+
+/// The gutter's width in PIXELS for a buffer of `line_count` lines.
+///
+/// Uses the same `MONO_ADVANCE_RATIO` estimate `cell_grid` does — so the
+/// gutter and the text agree about how wide a column is, and the text starts
+/// exactly where the gutter stops. The column count comes from
+/// `escriba_ui::gutter::gutter_width`, never restated here: the number of
+/// columns this face RESERVES and the number the shared model PAINTS have to
+/// be the same number, and a second definition is how they stop being.
+#[must_use]
+pub fn gutter_px(font_size: f32, line_count: u32) -> f32 {
+    (font_size * MONO_ADVANCE_RATIO).max(1.0) * escriba_ui::gutter::gutter_width(line_count) as f32
 }
 
 /// The character grid a pixel surface maps to.
