@@ -16,6 +16,7 @@ escriba-mode    = { workspace = true }
 escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }
 escriba-madoguchi = { workspace = true }
+escriba-shirube = { workspace = true }
 escriba-input   = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-vm      = { workspace = true }

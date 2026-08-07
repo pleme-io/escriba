@@ -132,9 +132,6 @@ const INERT: &[&str] = &[
     "test.run-suite",
     "test.toggle-output",
     "test.toggle-summary",
-    // TODO navigation — needs the todo layer.
-    "todo.next",
-    "todo.prev",
     // File tree — needs escriba-tree (Wave 3).
     "tree.toggle",
     // Diagnostics list — needs the LSP client.

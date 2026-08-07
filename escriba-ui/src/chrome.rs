@@ -131,6 +131,43 @@ impl ChromePalette {
     }
 }
 
+/// The colour a finding's severity paints in the gutter.
+///
+/// Roles, not hues — `Error` is the `error` role on every theme, so a theme
+/// change moves the gutter with everything else. Kept here beside
+/// `ChromePalette` rather than in shirube: shirube models WHAT a finding is,
+/// the chrome decides what it LOOKS like, and a model crate that knew about
+/// colour would be answering a question it should not have.
+#[must_use]
+pub fn severity_color(c: &ChromePalette, severity: escriba_shirube::Severity) -> Rgb {
+    use escriba_shirube::Severity;
+    match severity {
+        Severity::Error => c.error,
+        Severity::Warning => c.warning,
+        Severity::Info => c.info,
+        Severity::Hint => c.text_dim,
+    }
+}
+
+/// The single-cell mark a severity shows in the gutter.
+///
+/// One column, always: a gutter whose width changes with content makes every
+/// line shift sideways as diagnostics arrive, which is far worse than a
+/// coarser glyph.
+#[must_use]
+pub const fn severity_mark(severity: escriba_shirube::Severity) -> &'static str {
+    use escriba_shirube::Severity;
+    match severity {
+        Severity::Error => "\u{2716}",   // ✖
+        Severity::Warning => "\u{25b2}", // ▲
+        // NOT U+25CF ●: that is the fleet's `modified` signal on the status
+        // line, and one glyph meaning two things is a reader's problem
+        // whichever one they learn first.
+        Severity::Info => "\u{2022}", // •
+        Severity::Hint => "\u{203a}", // ›
+    }
+}
+
 /// The name of the theme the chrome is prescribed to paint — `"nord"`
 /// today.
 ///

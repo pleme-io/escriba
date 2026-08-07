@@ -158,8 +158,16 @@ fn draw_buffer(
             })
             .filter(|(s, e)| e > s)
             .collect();
+        // The worst finding on this line, if any — one cell, always, so a
+        // diagnostic arriving does not shift every line sideways.
+        let mark = state
+            .results
+            .on_line(&state.world(), state.active, ln)
+            .first()
+            .map(|f| f.severity);
         lines.push(line_with_gutter(
             chrome,
+            mark,
             ln,
             &text,
             cursor,
@@ -183,6 +191,7 @@ fn draw_buffer(
 /// horizontal scroll.
 fn line_with_gutter(
     chrome: &ChromePalette,
+    mark: Option<escriba_shirube::Severity>,
     ln: u32,
     text: &str,
     cursor: escriba_core::Position,
@@ -191,8 +200,19 @@ fn line_with_gutter(
     shape: CursorShape,
     highlights: &[(usize, usize)],
 ) -> Line<'static> {
-    let gutter = format!("{:>4} │ ", ln + 1);
+    // `{n} {mark}│ ` — the mark column is ALWAYS present, blank when there is
+    // nothing to say. A gutter that changes width as findings arrive makes
+    // the whole file jump sideways, which is worse than a coarse glyph.
+    let gutter = format!("{:>4} ", ln + 1);
     let mut spans = vec![Span::styled(gutter, muted_style(chrome))];
+    match mark {
+        Some(sev) => spans.push(Span::styled(
+            escriba_ui::chrome::severity_mark(sev).to_string(),
+            Style::default().fg(rgb(escriba_ui::chrome::severity_color(chrome, sev))),
+        )),
+        None => spans.push(Span::styled(" ".to_string(), muted_style(chrome))),
+    }
+    spans.push(Span::styled("│ ".to_string(), muted_style(chrome)));
 
     let chars: Vec<char> = text.chars().collect();
     // The slice of characters actually visible in this window.
@@ -552,6 +572,7 @@ mod tests {
         // "hello world", match on "world" (cols 6..11), cursor elsewhere.
         let line = line_with_gutter(
             &chrome(),
+            None,
             0,
             "hello world",
             escriba_core::Position::new(9, 0), // cursor on another line
@@ -578,6 +599,7 @@ mod tests {
         // region — this is the case it structurally could not render.
         let line = line_with_gutter(
             &chrome(),
+            None,
             0,
             "foo bar foo",
             escriba_core::Position::new(9, 0),
@@ -600,6 +622,7 @@ mod tests {
         // place the moment you land on a match — which is always, after `n`.
         let line = line_with_gutter(
             &chrome(),
+            None,
             0,
             "foo bar",
             escriba_core::Position::new(0, 1),
@@ -620,6 +643,7 @@ mod tests {
         // Scrolled right by 4: the match at cols 6..11 must shift left by 4.
         let line = line_with_gutter(
             &chrome(),
+            None,
             0,
             "hello world",
             escriba_core::Position::new(9, 0),
@@ -644,6 +668,7 @@ mod tests {
     fn no_highlights_renders_a_plain_line() {
         let line = line_with_gutter(
             &chrome(),
+            None,
             0,
             "hello world",
             escriba_core::Position::new(9, 0),

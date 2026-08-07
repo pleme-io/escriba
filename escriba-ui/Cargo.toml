@@ -18,6 +18,8 @@ schemars       = { workspace = true }
 # both renderers paint with. Pure data (theme -> resolved roles), so it stays
 # inside this crate's "pure state" charter; nothing here renders.
 ishou-tokens   = { workspace = true }
+# Severity -> colour is a CHROME decision; shirube models what a finding is.
+escriba-shirube = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

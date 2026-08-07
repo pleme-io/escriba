@@ -15,6 +15,8 @@ escriba-buffer  = { workspace = true }
 escriba-mode    = { workspace = true }
 escriba-runtime = { workspace = true }
 escriba-ui      = { workspace = true }
+escriba-shirube = { workspace = true }
+escriba-madoguchi = { workspace = true }
 escriba-keymap  = { workspace = true }
 madori          = { workspace = true }
 # Vellum fleet theme — TUI chrome reads BORN ishou tokens. (Inherits

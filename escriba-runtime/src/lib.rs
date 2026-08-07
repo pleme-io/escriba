@@ -153,6 +153,11 @@ pub struct EditorState {
     /// bounded and REPORTED rather than a stack overflow — the difference
     /// between a typed refusal and the editor dying under the operator.
     dispatch_depth: u8,
+    /// Every live result list — diagnostics, hunks, grep hits, TODOs.
+    ///
+    /// Public so a producer outside the runtime can publish into it once the
+    /// courier lands; today the only producer is the marker scan.
+    pub results: escriba_shirube::ListRegistry,
     /// Extension → language facts, populated from `(defmode …)`.
     ///
     /// The consumer `:commentstring` never had. Public so the binary's apply
@@ -322,6 +327,58 @@ impl EditorState {
         })
     }
 
+    /// What the world currently is, for freshness.
+    ///
+    /// One text axis per open buffer. A list sealed against this is fresh
+    /// exactly while the buffers it depends on are unchanged — and a buffer
+    /// that has since CLOSED drops out, which makes lists about it stale
+    /// rather than silently kept.
+    #[must_use]
+    pub fn world(&self) -> escriba_shirube::Anchor {
+        let mut a = escriba_shirube::Anchor::new();
+        for id in self.buffers.ids() {
+            if let Some(b) = self.buffers.get(id) {
+                a = a.on(escriba_shirube::Axis::Text(id, b.text_rev()));
+            }
+        }
+        a
+    }
+
+    /// Move the cursor to the next/previous finding in `list`.
+    ///
+    /// Reports the wrap, because `n`/`N` do and a reader losing their place
+    /// in a long file is the same problem either way.
+    fn walk_list(&mut self, list: &str, forward: bool) {
+        let world = self.world();
+        let Some(result) = self.results.get(list) else {
+            let mut m = String::from("no list named ");
+            m.push_str(list);
+            self.messages.push(m);
+            return;
+        };
+        if result.is_stale(&world) {
+            self.messages
+                .push("that list is out of date — run it again".to_string());
+            return;
+        }
+        let here = self.cursor().line;
+        let Some(found) = result.step(&world, here, forward, escriba_shirube::Bound::Exclusive)
+        else {
+            let mut m = String::from("no entries in ");
+            m.push_str(list);
+            self.messages.push(m);
+            return;
+        };
+        let to = found.site.range.start;
+        let msg = found.message.clone();
+        // A far jump, so it belongs in the jumplist — `<C-o>` must come back
+        // from a `]t` exactly as it comes back from an `n`.
+        self.jumps.push(self.cursor());
+        let clamped = self.buffers.get(self.active).map_or(to, |b| b.clamp(to));
+        self.set_cursor(clamped);
+        self.messages.push(msg);
+    }
+
     /// Close a buffer, keeping "there is always an active buffer" true.
     ///
     /// The invariant is the whole reason this is not just
@@ -473,6 +530,12 @@ impl EditorState {
             }
             Negai::InsertText(text) => self.insert_text(&text),
             Negai::RunCommand { name, args } => self.run_command(&name, &args),
+            Negai::PublishFindings { list, findings } => {
+                let world = self.world();
+                self.results
+                    .publish(list, escriba_shirube::ResultList::new(findings, world));
+            }
+            Negai::WalkList { list, forward } => self.walk_list(&list, forward),
             Negai::Message(m) => self.messages.push(m),
             Negai::Quit => self.quit_requested = true,
             // Both suspend the dispatch and need machinery that does not
@@ -652,6 +715,7 @@ impl EditorState {
             // hand-written theme name, so a fleet re-point lands for free.
             dispatch_depth: 0,
             filetypes: escriba_core::FiletypeTable::new(),
+            results: escriba_shirube::ListRegistry::new(),
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,
