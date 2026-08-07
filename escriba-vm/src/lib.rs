@@ -9,19 +9,20 @@
 //!   from a [`EditorSnapshot`] captured *before* eval, so the host owns
 //!   no borrows and satisfies `Interpreter<H>`'s `H: 'static` bound;
 //! - **writes** (`message`, `insert`, `set-option`, `run-command`) push
-//!   typed [`HostEffect`]s onto an accumulating log.
+//!   typed [`Negai`](escriba_madoguchi::Negai) slips onto an accumulating log.
 //!
 //! The effect boundary is the **sandbox seam** (the "terreiro"): Lisp
 //! can never corrupt editor state directly — it can only request typed,
 //! validated mutations that the runtime applies after eval. It is also
 //! the seam through which polyglot **WASM/WASI** plugins are hosted: a
 //! plugin authored in any language is driven by the same tatara-lisp
-//! host and emits the same typed effects, so the editor's apply path is
+//! host and emits the same typed slips, so the editor's apply path is
 //! identical regardless of plugin language.
 //!
 //! This is the imperative tier of escriba's two-tier programmability
 //! model — the declarative tier is `escriba-lisp`'s def-forms.
 
+use escriba_madoguchi::Negai;
 use serde::{Deserialize, Serialize};
 use tatara_lisp_eval::{Arity, Interpreter, Value, install_full_stdlib_with};
 use thiserror::Error;
@@ -34,22 +35,13 @@ pub enum VmError {
     Eval(#[from] tatara_lisp_eval::EvalError),
 }
 
-/// A typed, validated editor mutation requested by Lisp code. The
-/// runtime drains these after eval and applies them — Lisp never
-/// touches `EditorState` directly. New capabilities are one variant
-/// here + one native fn in [`register_editor_fns`] + one apply arm in
-/// the runtime; nothing else.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HostEffect {
-    /// Show a message (status line / `:messages`).
-    Message(String),
-    /// Run a registered editor command by name.
-    RunCommand { name: String, args: Vec<String> },
-    /// Set an editor option.
-    SetOption { name: String, value: String },
-    /// Insert text at the cursor.
-    InsertText(String),
-}
+// NOTE: `HostEffect` lived here — Message / RunCommand / SetOption /
+// InsertText. It was a THIRD mutation vocabulary beside the Action executor
+// and the slip interpreter, with its own `apply_host_effects` in the runtime
+// re-implementing message-push, option-insert and insert-text. That is the
+// exact shape that let `u` and `:undo` drift apart in M3, waiting to happen
+// again. The VM now emits `escriba_madoguchi::Negai` and the interpreter is
+// the single implementation.
 
 /// Read-side snapshot of editor state, captured before eval so Lisp can
 /// query without borrowing live state. Integer fields are `i64` to
@@ -69,7 +61,7 @@ pub struct EditorSnapshot {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EscribaHost {
     pub snapshot: EditorSnapshot,
-    pub effects: Vec<HostEffect>,
+    pub effects: Vec<Negai>,
 }
 
 impl EscribaHost {
@@ -89,7 +81,7 @@ impl EscribaHost {
 
     /// Drain the accumulated effects, leaving the log empty — the
     /// runtime calls this after eval to apply them.
-    pub fn take_effects(&mut self) -> Vec<HostEffect> {
+    pub fn take_effects(&mut self) -> Vec<Negai> {
         std::mem::take(&mut self.effects)
     }
 }
@@ -138,21 +130,21 @@ fn register_editor_fns(interp: &mut Interpreter<EscribaHost>) {
     interp.register_typed1(
         "message",
         |h: &mut EscribaHost, s: String| -> tatara_lisp_eval::Result<String> {
-            h.effects.push(HostEffect::Message(s.clone()));
+            h.effects.push(Negai::Message(s.clone()));
             Ok(s)
         },
     );
     interp.register_typed1(
         "insert",
         |h: &mut EscribaHost, s: String| -> tatara_lisp_eval::Result<()> {
-            h.effects.push(HostEffect::InsertText(s));
+            h.effects.push(Negai::InsertText(s));
             Ok(())
         },
     );
     interp.register_typed2(
         "set-option",
         |h: &mut EscribaHost, name: String, value: String| -> tatara_lisp_eval::Result<()> {
-            h.effects.push(HostEffect::SetOption { name, value });
+            h.effects.push(Negai::SetOption { name, value });
             Ok(())
         },
     );
@@ -170,7 +162,7 @@ fn register_editor_fns(interp: &mut Interpreter<EscribaHost>) {
                 )
             })?;
             let rest = args[1..].iter().filter_map(value_as_string).collect();
-            h.effects.push(HostEffect::RunCommand { name, args: rest });
+            h.effects.push(Negai::RunCommand { name, args: rest });
             Ok(Value::Nil)
         },
     );
@@ -243,10 +235,7 @@ mod tests {
         let mut host = EscribaHost::new();
         vm.eval(r#"(message "hello from lisp")"#, &mut host)
             .unwrap();
-        assert_eq!(
-            host.effects,
-            vec![HostEffect::Message("hello from lisp".into())]
-        );
+        assert_eq!(host.effects, vec![Negai::Message("hello from lisp".into())]);
     }
 
     #[test]
@@ -257,7 +246,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             host.effects,
-            vec![HostEffect::RunCommand {
+            vec![Negai::RunCommand {
                 name: "open".into(),
                 args: vec!["README.md".into()],
             }]
@@ -274,11 +263,11 @@ mod tests {
         assert_eq!(
             host.effects,
             vec![
-                HostEffect::SetOption {
+                Negai::SetOption {
                     name: "number".into(),
                     value: "true".into(),
                 },
-                HostEffect::InsertText("hello".into()),
+                Negai::InsertText("hello".into()),
             ]
         );
     }
@@ -297,7 +286,7 @@ mod tests {
             &mut host,
         )
         .unwrap();
-        assert_eq!(host.effects, vec![HostEffect::Message("below-top".into())]);
+        assert_eq!(host.effects, vec![Negai::Message("below-top".into())]);
     }
 
     #[test]
@@ -309,8 +298,8 @@ mod tests {
         assert_eq!(
             host.effects,
             vec![
-                HostEffect::Message("first".into()),
-                HostEffect::RunCommand {
+                Negai::Message("first".into()),
+                Negai::RunCommand {
                     name: "save".into(),
                     args: vec![],
                 },

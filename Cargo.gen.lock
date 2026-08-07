@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "f15a2d660d0aa09b1ec1715f2fa15eb4db6a7661336d7cac442eb8d8c2503c10",
+  "cargo_lock_sha256": "734411a0faa3781e158ddf7664474426782bfd7307643ae455ea890eec559c91",
   "manifest_sha256": {
     "Cargo.toml": "9d7464ff36734a2b4f73a317a8923b587c1f4eddf2ad5bf90a45e6ee81a842f2",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -24,7 +24,7 @@
     "escriba-ts/Cargo.toml": "95cdcedddba77884e2f39aeaa78c56f195d05e0591a38c114ff969924e20112b",
     "escriba-tui/Cargo.toml": "864325147949ab99a5980dd2f73b14e9b4904c13291d0cfdeb56a9a7a415de92",
     "escriba-ui/Cargo.toml": "673e749c2850c0101bec29a2656a55ec1818e906f38b5fd616becfcbb7fe02ac",
-    "escriba-vm/Cargo.toml": "20375ca6258a7f3655e97f214cd62e3a7fea2e890668a6788d4b25f0b8028567",
+    "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
     "escriba/Cargo.toml": "e462114acc7a1ca40c6c106a4970e87ab744fad06a2a32a409d22c9a35aa65dd"
   },
   "target_resolves": {
@@ -3228,6 +3228,16 @@
           {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.34",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_madoguchi",
+            "package_key": "escriba-madoguchi-0.1.34",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
