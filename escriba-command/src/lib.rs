@@ -15,6 +15,16 @@ use thiserror::Error;
 pub enum CommandError {
     #[error("command not found: {0}")]
     NotFound(String),
+    /// A registered command whose action symbol nothing implements yet.
+    ///
+    /// Distinct from [`NotFound`](Self::NotFound), and the distinction is the
+    /// point: `NotFound` means the operator typed a name that does not exist,
+    /// while `Unhandled` means the editor ADVERTISED a binding — it is in
+    /// `--commands`, it is in the keymap, `--list-rc` counts it — and then did
+    /// nothing. The second is the more misleading of the two and used to be
+    /// the silent one.
+    #[error("action `{0}` is declared but not implemented yet")]
+    Unhandled(String),
     #[error("command failed: {0}")]
     Failed(String),
     #[error("buffer: {0}")]
@@ -226,10 +236,20 @@ fn run_action(sym: &str, ctx: &mut EditContext<'_>, args: &[String]) -> Result<(
         "buffer.redo" => cmd_redo(ctx, args),
         "buffer.info" => cmd_buffer_info(ctx, args),
         "editor.quit" => cmd_quit(ctx, args),
-        // Not-yet-implemented action namespace. Registered + invokable
-        // but inert until the relevant wave (pickers, plugin actions,
-        // tatara-lisp thunks) wires it. Inert, never fatal.
-        _ => Ok(()),
+        // The not-yet-implemented action namespace — 85 shipped keybindings
+        // land here today (see escriba/tests/action_resolution.rs, which pins
+        // the exact inventory).
+        //
+        // This used to be `_ => Ok(())`: an unknown action reported SUCCESS.
+        // Combined with the runtime discarding the result, a dead keybinding
+        // was indistinguishable from a working one at the keyboard — and,
+        // worse, indistinguishable to any future code trying to verify that a
+        // subsystem had been wired. Every "I wired X" claim was unfalsifiable.
+        //
+        // Still NOT fatal: the runtime reports it and carries on. Inert and
+        // SILENT was the defect; inert and ANNOUNCED is correct behaviour for
+        // a capability that genuinely has not landed yet.
+        _ => Err(CommandError::Unhandled(sym.to_string())),
     }
 }
 
@@ -373,10 +393,17 @@ mod tests {
     }
 
     #[test]
-    fn unknown_action_symbol_is_inert_not_fatal() {
-        // An action symbol with no built-in (a future picker/plugin
-        // action) is registered + invokable but does nothing — it must
-        // never error, so a deferred keybind can't dead-end loudly.
+    fn unknown_action_symbol_is_reported_not_silent() {
+        // This test used to assert the DEFECT. It read "it must never error,
+        // so a deferred keybind can't dead-end loudly" and called `.expect()`
+        // — pinning `_ => Ok(())`, under which a dead keybinding and a working
+        // one produced identical results at every layer.
+        //
+        // Inert is still correct: `picker.files` genuinely has not landed.
+        // SILENT was never correct. The distinction the fix draws is between
+        // a capability that is absent (say so) and one that worked (say
+        // nothing) — and it must be `Unhandled`, not `NotFound`: the command
+        // IS registered, which is precisely what makes the silence misleading.
         let mut r = CommandRegistry::new();
         r.register(Command::action("pick", "Pick a file", "picker.files"));
         let mut bufs = BufferSet::new();
@@ -388,8 +415,16 @@ mod tests {
             state: &mut state,
             quit_requested: &mut quit,
         };
-        r.run("pick", &mut ctx, &[])
-            .expect("unknown action is inert");
+        let err = r
+            .run("pick", &mut ctx, &[])
+            .expect_err("an unimplemented action must report, not report success");
+        assert!(
+            matches!(&err, CommandError::Unhandled(s) if s == "picker.files"),
+            "expected Unhandled(picker.files), got {err:?}",
+        );
+        // Still not fatal — the registry returns, the editor lives on. The
+        // runtime turns this into a status-line message, never a crash.
+        assert!(r.contains("pick"), "the command survives its own failure");
     }
 
     #[test]
@@ -415,11 +450,22 @@ mod tests {
                 state: &mut state,
                 quit_requested: &mut quit,
             };
-            r.run("alias", &mut ctx, &[]).expect("alias runs inertly");
+            let err = r
+                .run("alias", &mut ctx, &[])
+                .expect_err("a command-name alias resolves nothing, and says so");
+            assert!(
+                matches!(&err, CommandError::Unhandled(s) if s == "save"),
+                "expected Unhandled(save), got {err:?}",
+            );
         }
+        // The load-bearing half, unchanged: `:action` takes action SYMBOLS,
+        // not command names, and run_action does NOT recurse into the
+        // registry. The buffer staying dirty is the proof that `save` never
+        // fired. What changed is that the non-recursion is now REPORTED
+        // rather than looking like a successful save.
         assert!(
             bufs.get(id).unwrap().modified,
-            "command-name alias must be inert — save did not fire (no recursion)",
+            "command-name alias must not recurse — save must not have fired",
         );
     }
 

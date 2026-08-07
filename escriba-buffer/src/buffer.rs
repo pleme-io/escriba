@@ -346,7 +346,60 @@ impl BufferSet {
         BufferId(self.next_id)
     }
 
+    /// The buffer already holding `path`, if one is open.
+    ///
+    /// DERIVED, deliberately — not a cached `HashMap<PathBuf, BufferId>`.
+    /// An index would be a second source of truth for "which buffer holds
+    /// this file", and [`Buffer::save_as`] is reachable through
+    /// [`get_mut`](Self::get_mut), so that index could silently desync the
+    /// moment anyone renames a buffer. A scan over the open buffers cannot
+    /// desync because there is nothing to keep in sync; an editor holds tens
+    /// of buffers, not millions, so the cost is noise.
+    ///
+    /// Comparison is canonical where the filesystem allows it, so `./foo.rs`,
+    /// `foo.rs` and an absolute path are one file. A path that cannot be
+    /// canonicalised (it does not exist yet — opening a NEW file) falls back
+    /// to a literal comparison, which is the best answer available.
+    #[must_use]
+    pub fn find_by_path(&self, path: impl AsRef<Path>) -> Option<BufferId> {
+        let want = path.as_ref();
+        let want_canon = std::fs::canonicalize(want).ok();
+        self.buffers
+            .iter()
+            .find(|(_, b)| {
+                let Some(have) = b.path.as_deref() else {
+                    return false;
+                };
+                match (&want_canon, std::fs::canonicalize(have).ok()) {
+                    (Some(a), Some(b)) => *a == b,
+                    // Either side unresolvable: fall back to the literal
+                    // path. Never claim a match on weaker evidence than that.
+                    _ => have == want,
+                }
+            })
+            .map(|(id, _)| *id)
+    }
+
+    /// Open `path`, or return the buffer already holding it.
+    ///
+    /// This USED to mint a new id unconditionally, so opening the same file
+    /// twice produced two independent buffers with divergent undo stacks and
+    /// modified flags — edits split between them, and whichever saved last
+    /// won. It was latent only because nothing but the initial CLI argument
+    /// called it; a picker, `files.open`, or a goto-definition makes it
+    /// reachable immediately.
+    ///
+    /// Tier: **only-mitigated**, and honestly so. Duplicate-by-`open` is now
+    /// unreachable, but `BufferSet` does not own path assignment — a caller
+    /// holding two `get_mut` handles can still `save_as` them onto one path.
+    /// Making that unrepresentable means moving path mutation behind this
+    /// type, which belongs with the `madoguchi` dispatch seam (see
+    /// `docs/backlog-plan.md` §V Phase 1), not here.
     pub fn open(&mut self, path: impl AsRef<Path>) -> Result<BufferId, BufferError> {
+        let path = path.as_ref();
+        if let Some(existing) = self.find_by_path(path) {
+            return Ok(existing);
+        }
         let id = self.next_id();
         let buf = Buffer::open(id, path)?;
         self.buffers.insert(id, buf);

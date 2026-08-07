@@ -216,6 +216,42 @@ const fn is_repeat_storm_candidate(key: &Key) -> bool {
     )
 }
 
+/// Turn a command failure into the sentence an operator should read.
+///
+/// The two failures mean genuinely different things and must not be reported
+/// the same way:
+///
+/// - `:flurb` — the operator typed a name that does not exist. "command not
+///   found" is exactly right; it says *you* made a typo.
+/// - `<leader>ff` bound to `picker.files` — escriba's OWN shipped config
+///   declares this, `--list-rc` counts it, and it is not built yet. Telling
+///   the operator "command not found" blames them for a gap we shipped.
+///
+/// The discriminator is the dotted form. `:action` takes action SYMBOLS
+/// (`picker.files`), never command names — that boundary is already pinned by
+/// `action_naming_a_command_is_inert_not_recursive` in escriba-command. So a
+/// dotted name that reached dispatch and resolved to nothing is a declared
+/// capability with no implementation, which is precisely what the 85 entries
+/// in `escriba/tests/action_resolution.rs` are.
+fn describe_command_failure(name: &str, e: &escriba_command::CommandError) -> String {
+    use escriba_command::CommandError as E;
+    match e {
+        // Already the right words — the registry knew it was declared.
+        E::Unhandled(_) => e.to_string(),
+        E::NotFound(n) if n.contains('.') => {
+            let mut m = String::with_capacity(n.len() + 48);
+            m.push('`');
+            m.push_str(n);
+            m.push_str("` is declared but not implemented yet");
+            m
+        }
+        _ => {
+            let _ = name;
+            e.to_string()
+        }
+    }
+}
+
 /// What committing the open search prompt did.
 ///
 /// The two commit paths — bare `/` and operated `d/` — used to own private
@@ -1657,14 +1693,27 @@ impl EditorState {
         }
         let active = Some(self.active);
         let mut quit = false;
-        {
+        let outcome = {
             let mut ctx = EditContext {
                 buffers: &mut self.buffers,
                 active,
                 state: &mut self.modal,
                 quit_requested: &mut quit,
             };
-            let _ = self.commands.run(name, &mut ctx, args);
+            self.commands.run(name, &mut ctx, args)
+        };
+        // This was `let _ = …`. The registry reported failure and the runtime
+        // threw it away, so a command that did not exist and a command that
+        // did the right thing produced identical, silent frames.
+        //
+        // Reported, never fatal: a failed command must not take the editor
+        // down, but it must not be invisible either. `messages` is what the
+        // status line renders (`StatusModel::message`), so this reaches the
+        // operator on all three faces through the one shared model.
+        if let Err(e) = outcome {
+            self.messages.push(describe_command_failure(name, &e));
+            self.damage = self.damage.join(Damage::Viewport);
+            self.bump_gen();
         }
         // The command's typed quit signal — no string sentinel, no
         // mode-specific buffer to clear.
