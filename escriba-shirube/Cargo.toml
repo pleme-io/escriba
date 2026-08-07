@@ -1,0 +1,19 @@
+[package]
+name = "escriba-shirube"
+description = "The waymark (標) — one typed located finding, and the named lists of them you walk. Diagnostics, git hunks, test results, grep hits, TODOs and conflicts are one shape."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+escriba-core   = { workspace = true }
+escriba-buffer = { workspace = true }
+# Navigation reuses the stepper that drives `n`/`N` rather than growing a
+# second one that agrees with it only for now.
+escriba-memori = { workspace = true }
+
+[lints]
+workspace = true
