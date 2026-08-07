@@ -31,15 +31,20 @@ pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
         .constraints([Constraint::Min(3), Constraint::Length(1)])
         .split(area);
 
+    // The operator's theme, resolved once per frame and handed to every
+    // painter. Read from the EDITOR, not from the fleet default — that is
+    // what makes `(deftheme :preset …)` reach the screen.
+    let chrome = state.chrome();
+
     // The start screen replaces the buffer pane rather than overlaying it:
     // there is nothing behind it worth showing (escriba only raises it on
     // an empty scratch buffer), and an overlay would have to reason about
     // what it is covering.
     match state.splash() {
-        Some(splash) => draw_splash(f, chunks[0], splash),
-        None => draw_buffer(f, chunks[0], state),
+        Some(splash) => draw_splash(f, chunks[0], splash, &chrome),
+        None => draw_buffer(f, chunks[0], state, &chrome),
     }
-    draw_status_line(f, chunks[1], state);
+    draw_status_line(f, chunks[1], state, &chrome);
 }
 
 /// Paint the start screen.
@@ -52,8 +57,8 @@ fn draw_splash(
     f: &mut Frame<'_>,
     area: ratatui::layout::Rect,
     splash: &escriba_ui::splash::Splash,
+    chrome: &ChromePalette,
 ) {
-    let chrome = ChromePalette::prescribed();
     let ground = Style::default()
         .fg(rgb(chrome.text))
         .bg(rgb(chrome.background));
@@ -66,7 +71,7 @@ fn draw_splash(
             .map(|s| {
                 Span::styled(
                     s.text.clone(),
-                    ground.fg(rgb(s.role.color(&chrome))).add_modifier(
+                    ground.fg(rgb(s.role.color(chrome))).add_modifier(
                         // The wordmark and the menu keys carry the weight;
                         // everything else stays quiet so they can.
                         if matches!(
@@ -92,9 +97,17 @@ fn draw_splash(
     }
 }
 
-fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorState) {
+fn draw_buffer(
+    f: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    state: &EditorState,
+    chrome: &ChromePalette,
+) {
     let Some(buf) = state.buffers.get(state.active) else {
-        f.render_widget(Paragraph::new("<no buffer>").style(error_style()), area);
+        f.render_widget(
+            Paragraph::new("<no buffer>").style(error_style(chrome)),
+            area,
+        );
         return;
     };
 
@@ -146,6 +159,7 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
             .filter(|(s, e)| e > s)
             .collect();
         lines.push(line_with_gutter(
+            chrome,
             ln,
             &text,
             cursor,
@@ -158,7 +172,7 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
 
     let block = Block::default()
         .borders(Borders::NONE)
-        .style(buffer_style());
+        .style(buffer_style(chrome));
     f.render_widget(Paragraph::new(lines).block(block), area);
 }
 
@@ -168,6 +182,7 @@ fn draw_buffer(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorSta
 /// column is computed relative to `left` so the cursor glyph tracks the
 /// horizontal scroll.
 fn line_with_gutter(
+    chrome: &ChromePalette,
     ln: u32,
     text: &str,
     cursor: escriba_core::Position,
@@ -177,7 +192,7 @@ fn line_with_gutter(
     highlights: &[(usize, usize)],
 ) -> Line<'static> {
     let gutter = format!("{:>4} │ ", ln + 1);
-    let mut spans = vec![Span::styled(gutter, muted_style())];
+    let mut spans = vec![Span::styled(gutter, muted_style(chrome))];
 
     let chars: Vec<char> = text.chars().collect();
     // The slice of characters actually visible in this window.
@@ -192,7 +207,7 @@ fn line_with_gutter(
         for col in hs..he {
             if col >= left {
                 if let Some(slot) = cell_styles.get_mut(col - left) {
-                    *slot = Some(search_match_style());
+                    *slot = Some(search_match_style(chrome));
                 }
             }
         }
@@ -206,11 +221,11 @@ fn line_with_gutter(
     if let Some(rel) = cursor_here {
         if rel >= visible.len() {
             push_runs(&mut spans, &visible, &cell_styles);
-            spans.extend(cursor_spans(' ', shape));
+            spans.extend(cursor_spans(chrome, ' ', shape));
             return Line::from(spans);
         }
         push_runs(&mut spans, &visible[..rel], &cell_styles[..rel]);
-        spans.extend(cursor_spans(visible[rel], shape));
+        spans.extend(cursor_spans(chrome, visible[rel], shape));
         push_runs(&mut spans, &visible[rel + 1..], &cell_styles[rel + 1..]);
     } else {
         push_runs(&mut spans, &visible, &cell_styles);
@@ -248,18 +263,23 @@ fn push_runs(spans: &mut Vec<Span<'static>>, chars: &[char], styles: &[Option<St
 ///   (Insert mode's between-glyphs caret), the glyph itself left plain.
 /// - [`CursorShape::Underline`]: the glyph with an underline modifier
 ///   (Visual mode), so the highlighted selection stays readable.
-fn cursor_spans(under: char, shape: CursorShape) -> Vec<Span<'static>> {
+fn cursor_spans(c: &ChromePalette, under: char, shape: CursorShape) -> Vec<Span<'static>> {
     match shape {
-        CursorShape::Block => vec![Span::styled(under.to_string(), cursor_block_style())],
+        CursorShape::Block => vec![Span::styled(under.to_string(), cursor_block_style(c))],
         CursorShape::Bar => vec![
-            Span::styled("▏".to_string(), cursor_bar_style()),
+            Span::styled("▏".to_string(), cursor_bar_style(c)),
             Span::raw(under.to_string()),
         ],
-        CursorShape::Underline => vec![Span::styled(under.to_string(), cursor_underline_style())],
+        CursorShape::Underline => vec![Span::styled(under.to_string(), cursor_underline_style(c))],
     }
 }
 
-fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &EditorState) {
+fn draw_status_line(
+    f: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    state: &EditorState,
+    chrome: &ChromePalette,
+) {
     // ONE model, read once. The pill and the prompt both derive from it, so
     // they cannot describe two different states of the same editor.
     let model = state.status_model();
@@ -284,7 +304,7 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
     pill.push(' ');
     pill.push_str(model.mode_label());
     pill.push(' ');
-    let mode_span = Span::styled(pill, pill_style_for(&model, state.modal.mode()));
+    let mode_span = Span::styled(pill, pill_style_for(chrome, &model, state.modal.mode()));
 
     // vim puts the command line bottom-LEFT, where the eye already is. This
     // prompt used to render at the far RIGHT, wedged between the match count
@@ -295,7 +315,7 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
         let mut line = String::from(" ");
         model.render_prompt_into(&mut line);
         line.push(' ');
-        Span::styled(line, cmd_style())
+        Span::styled(line, cmd_style(chrome))
     } else {
         let path = state
             .buffers
@@ -308,9 +328,12 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
         } else {
             String::new()
         };
-        Span::styled(format!(" {path}{modified_indicator} "), status_style())
+        Span::styled(
+            format!(" {path}{modified_indicator} "),
+            status_style(chrome),
+        )
     };
-    let pos_span = Span::styled(format!(" {pos} "), status_style());
+    let pos_span = Span::styled(format!(" {pos} "), status_style(chrome));
 
     // `[3/17]`. Both halves were already computed by the engine and both were
     // discarded; the denominator is what turns "press n until it looks right"
@@ -323,7 +346,7 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
         let mut c = String::from(" ");
         count.render_into(&mut c);
         c.push(' ');
-        Span::styled(c, status_style())
+        Span::styled(c, status_style(chrome))
     };
 
     // Layout: [pill] [prompt-or-path] … (flex) … [count] [pos]
@@ -339,7 +362,7 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
         count_span,
         pos_span,
     ]);
-    f.render_widget(Paragraph::new(line).style(status_style()), area);
+    f.render_widget(Paragraph::new(line).style(status_style(chrome)), area);
 }
 
 // ─── Styles — Vellum (warm aged-paper Nord-matte) ───────────────────────
@@ -350,29 +373,25 @@ fn draw_status_line(f: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Edit
 // never by a theme's own token spelling, which is what lets the theme change
 // without touching a single call site here.
 //
-// `ChromePalette::prescribed()` is cheap (plain struct construction from
-// ishou role bindings); the per-call cost is negligible at the
-// once-per-frame cadence these helpers run at.
-//
-// NOTE: these read the FLEET-PRESCRIBED theme, not a per-buffer
-// `(deftheme :preset …)`. Threading the operator's chosen theme down to the
-// paint path is the remaining half of the theming work — the seam now exists
-// (`ChromePalette::for_theme`), but nothing calls it with a config value yet.
+// Each helper takes the LIVE palette rather than reading
+// `ChromePalette::prescribed()` for itself. That parameter is the whole
+// theming fix: while these read the prescribed value directly, an operator
+// could author `(deftheme :preset "vellum")`, watch it parse, validate and
+// resolve to a real `FleetTheme` — and see the editor paint Nord anyway,
+// because nothing downstream consumed it. A palette that arrives as an
+// argument cannot be ignored.
 
-fn buffer_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn buffer_style(c: &ChromePalette) -> Style {
     Style::default().fg(rgb(c.text)).bg(rgb(c.background))
 }
 
-fn muted_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn muted_style(c: &ChromePalette) -> Style {
     Style::default().fg(rgb(c.text_dim)) // comment / gutter
 }
 
 /// Block cursor (Normal / Command) — dark glyph filled onto the cursor
 /// color, the "you are here" cell.
-fn cursor_block_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn cursor_block_style(c: &ChromePalette) -> Style {
     Style::default()
         .fg(rgb(c.background)) // ground-colored text on the cursor
         .bg(rgb(c.cursor))
@@ -381,8 +400,7 @@ fn cursor_block_style() -> Style {
 
 /// Bar cursor (Insert) — the thin vertical caret drawn between glyphs,
 /// colored in the cursor accent.
-fn cursor_bar_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn cursor_bar_style(c: &ChromePalette) -> Style {
     Style::default()
         .fg(rgb(c.cursor))
         .add_modifier(Modifier::BOLD)
@@ -397,37 +415,32 @@ fn cursor_bar_style() -> Style {
 /// distinguishable when the cursor sits ON a match) or with `error`. Sourced
 /// from ChromePalette so it follows the fleet theme like every other style
 /// here — a hardcoded hex would be the one span that ignores the theme.
-fn search_match_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn search_match_style(c: &ChromePalette) -> Style {
     Style::default().fg(rgb(c.background)).bg(rgb(c.warning))
 }
 
-fn cursor_underline_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn cursor_underline_style(c: &ChromePalette) -> Style {
     Style::default()
         .fg(rgb(c.cursor))
         .add_modifier(Modifier::UNDERLINED)
         .add_modifier(Modifier::BOLD)
 }
 
-fn status_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn status_style(c: &ChromePalette) -> Style {
     // Was a raw `Color::Rgb(0xCD, 0xC7, 0xB6)` literal ("statusline_fg,
     // Vellum extra") — the one genuinely hardcoded color in this file, and
     // dead weight the moment the theme moved. It is now the `text` role.
     Style::default().fg(rgb(c.text)).bg(rgb(c.surface))
 }
 
-fn cmd_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn cmd_style(c: &ChromePalette) -> Style {
     Style::default()
         .fg(rgb(c.warning))
         .bg(rgb(c.surface))
         .add_modifier(Modifier::BOLD)
 }
 
-fn error_style() -> Style {
-    let c = ChromePalette::prescribed();
+fn error_style(c: &ChromePalette) -> Style {
     Style::default().fg(rgb(c.error)).bg(rgb(c.background))
 }
 
@@ -446,8 +459,7 @@ fn mode_signal(sig: &EscribaSignals, mode: escriba_core::Mode) -> &ishou_tokens:
     }
 }
 
-fn mode_style_for(mode: escriba_core::Mode) -> Style {
-    let c = ChromePalette::prescribed();
+fn mode_style_for(c: &ChromePalette, mode: escriba_core::Mode) -> Style {
     // Mode pills — ground-colored text on a role-colored field:
     // Normal info, Insert success, Visual accent, Command warning. Naming
     // the ROLE rather than the hue is what keeps these correct across
@@ -471,21 +483,33 @@ fn mode_style_for(mode: escriba_core::Mode) -> Style {
 /// alone paints them identically — same colour, and (before this) the same
 /// `: COMMAND` text. The search gets the accent field so the two prompts are
 /// distinguishable at a glance, not only by reading the label.
-fn pill_style_for(model: &escriba_runtime::StatusModel<'_>, mode: escriba_core::Mode) -> Style {
+fn pill_style_for(
+    c: &ChromePalette,
+    model: &escriba_runtime::StatusModel<'_>,
+    mode: escriba_core::Mode,
+) -> Style {
     if model.prompt.is_search() {
-        let c = ChromePalette::prescribed();
         return Style::default()
             .fg(rgb(c.background))
             .bg(rgb(c.accent))
             .add_modifier(Modifier::BOLD);
     }
-    mode_style_for(mode)
+    mode_style_for(c, mode)
 }
 
 #[cfg(test)]
 mod tests {
 
     // ── search highlight rendering ────────────────────────────────────
+
+    /// The palette the render tests paint with. A FIXED theme, not the
+    /// live one: these assert LAYOUT and span structure, and pinning them
+    /// to whatever the fleet currently prescribes would make them rewrite
+    /// themselves on every theme move (which is exactly what happened to
+    /// the mode-pill test before it started asserting roles).
+    fn chrome() -> ChromePalette {
+        ChromePalette::prescribed()
+    }
 
     fn styles_of(spans: &[Span<'static>]) -> Vec<(String, bool)> {
         // (text, is-highlighted) — comparing against the exact Style would
@@ -495,7 +519,7 @@ mod tests {
             .map(|sp| {
                 (
                     sp.content.to_string(),
-                    sp.style.bg == search_match_style().bg,
+                    sp.style.bg == search_match_style(&chrome()).bg,
                 )
             })
             .collect()
@@ -507,7 +531,7 @@ mod tests {
         let chars: Vec<char> = "aaaabbbb".chars().collect();
         let mut styles = vec![None; 8];
         for slot in styles.iter_mut().take(4) {
-            *slot = Some(search_match_style());
+            *slot = Some(search_match_style(&chrome()));
         }
         let mut spans = vec![];
         push_runs(&mut spans, &chars, &styles);
@@ -527,6 +551,7 @@ mod tests {
     fn a_match_is_painted_and_the_rest_is_not() {
         // "hello world", match on "world" (cols 6..11), cursor elsewhere.
         let line = line_with_gutter(
+            &chrome(),
             0,
             "hello world",
             escriba_core::Position::new(9, 0), // cursor on another line
@@ -552,6 +577,7 @@ mod tests {
         // The old before/cursor/after split could express only ONE styled
         // region — this is the case it structurally could not render.
         let line = line_with_gutter(
+            &chrome(),
             0,
             "foo bar foo",
             escriba_core::Position::new(9, 0),
@@ -573,6 +599,7 @@ mod tests {
         // A highlight must never swallow the cursor cell, or you lose your
         // place the moment you land on a match — which is always, after `n`.
         let line = line_with_gutter(
+            &chrome(),
             0,
             "foo bar",
             escriba_core::Position::new(0, 1),
@@ -592,6 +619,7 @@ mod tests {
     fn highlights_respect_horizontal_scroll() {
         // Scrolled right by 4: the match at cols 6..11 must shift left by 4.
         let line = line_with_gutter(
+            &chrome(),
             0,
             "hello world",
             escriba_core::Position::new(9, 0),
@@ -615,6 +643,7 @@ mod tests {
     #[test]
     fn no_highlights_renders_a_plain_line() {
         let line = line_with_gutter(
+            &chrome(),
             0,
             "hello world",
             escriba_core::Position::new(9, 0),
@@ -672,26 +701,23 @@ mod tests {
     #[test]
     fn cursor_spans_render_per_mode_shape() {
         // Block: a single span styled with the cursor BG (block fill).
-        let block = cursor_spans('a', CursorShape::Block);
+        let block = cursor_spans(&chrome(), 'a', CursorShape::Block);
         assert_eq!(block.len(), 1);
         assert_eq!(block[0].content, "a");
         // The cursor ROLE, not a theme's own token — this assertion used to
         // name `VellumPalette::vellum().green_bright`, which pinned the test
         // to one theme and would have had to change on every theme move.
-        assert_eq!(
-            block[0].style.bg,
-            Some(rgb(ChromePalette::prescribed().cursor))
-        );
+        assert_eq!(block[0].style.bg, Some(rgb(chrome().cursor)));
 
         // Bar: a thin caret span BEFORE the (unstyled) glyph.
-        let bar = cursor_spans('a', CursorShape::Bar);
+        let bar = cursor_spans(&chrome(), 'a', CursorShape::Bar);
         assert_eq!(bar.len(), 2);
         assert_eq!(bar[0].content, "▏");
         assert_eq!(bar[1].content, "a");
         assert_eq!(bar[1].style.bg, None, "bar leaves the glyph cell unfilled");
 
         // Underline: one glyph span carrying the UNDERLINED modifier.
-        let under = cursor_spans('a', CursorShape::Underline);
+        let under = cursor_spans(&chrome(), 'a', CursorShape::Underline);
         assert_eq!(under.len(), 1);
         assert!(under[0].style.add_modifier.contains(Modifier::UNDERLINED));
     }
@@ -733,7 +759,7 @@ mod tests {
     #[test]
     fn buffer_ground_is_the_prescribed_chrome() {
         let c = ChromePalette::prescribed();
-        assert_eq!(buffer_style().bg, Some(rgb(c.background)));
-        assert_eq!(buffer_style().fg, Some(rgb(c.text)));
+        assert_eq!(buffer_style(&c).bg, Some(rgb(c.background)));
+        assert_eq!(buffer_style(&c).fg, Some(rgb(c.text)));
     }
 }

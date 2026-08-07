@@ -45,14 +45,6 @@ pub struct GpuRenderer {
     eco: Ecosystem,
     /// Nord syntax theme (HlClass→Rgb).
     theme: NordTheme,
-    /// The resolved CHROME palette this renderer paints with.
-    ///
-    /// Held as state rather than re-derived per paint site, so a theme is
-    /// a VALUE the renderer owns and `set_theme` can change at runtime.
-    /// Every site previously called `ChromePalette::prescribed()` directly,
-    /// which hardwired the paint path to the FLEET default and made
-    /// `(deftheme :preset …)` inert no matter what the operator authored.
-    chrome: ChromePalette,
     /// The refresh generation of the currently-cached text buffer — the seal
     /// (`theory/ESCRIBA.md` §Refresh-Seal). When `EditorState::edit_gen()`
     /// still equals this, the cached shaped buffer is reused verbatim: no
@@ -82,30 +74,32 @@ impl GpuRenderer {
             metrics: Metrics::new(font_size, line_height),
             eco: build_ecosystem(),
             theme: NordTheme,
-            // Nord (the fleet prescribed default) until a config resolves
-            // otherwise — never a hand-written constant, so a fleet
-            // re-point lands here for free.
-            chrome: ChromePalette::prescribed(),
             last_gen: EditGen(u64::MAX),
             cached_text: None,
             highlighter: None,
         }
     }
 
-    /// Point the renderer at a theme — the wiring that makes
+    /// Point the editor at a theme — the wiring that makes
     /// `(deftheme :preset …)` real.
     ///
-    /// `ChromePalette::for_theme` is total over `FleetTheme` (no wildcard
-    /// arm), so a theme added upstream fails this to compile rather than
-    /// silently painting the wrong thing.
+    /// Writes THROUGH to the shared `EditorState`, which is the single
+    /// owner of the theme. A renderer-local copy would be a second answer
+    /// to "what colour is this editor", and the TUI face would not see it.
     pub fn set_theme(&mut self, theme: ishou_tokens::FleetTheme) {
-        self.chrome = ChromePalette::for_theme(theme);
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .set_theme(theme);
     }
 
-    /// The palette currently painted with.
+    /// The palette currently painted with — read from the editor.
     #[must_use]
     pub fn chrome(&self) -> ChromePalette {
-        self.chrome
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .chrome()
     }
 
     /// Builder form of [`Self::set_theme`].
@@ -131,7 +125,7 @@ impl RenderCallback for GpuRenderer {
         //    just mode/cursor for the status line and reuses the cached shaped
         //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
         //    is Some((text, path)) exactly when the generation moved.
-        let (rebuild_input, splash_chunks, mode, status_core, cur_gen) = {
+        let (rebuild_input, splash_chunks, mode, status_core, cur_gen, palette) = {
             let s = self
                 .state
                 .lock()
@@ -150,11 +144,8 @@ impl RenderCallback for GpuRenderer {
                 .then(|| s.splash())
                 .flatten()
                 .map(|sp| {
-                    let cell_w = (self.font_size * 0.6).max(1.0);
-                    let cols = (ctx.width as f32 / cell_w).max(1.0) as u16;
-                    let rows =
-                        ((ctx.height as f32 - self.line_height) / self.line_height).max(1.0) as u16;
-                    sp.screen_chunks(cols, rows)
+                    let grid = cell_grid(ctx.width, ctx.height, self.font_size, self.line_height);
+                    sp.screen_chunks(grid.cols, grid.rows)
                 })
                 .filter(|c| !c.is_empty());
             let rebuild = rebuild && splash_chunks.is_none();
@@ -243,6 +234,7 @@ impl RenderCallback for GpuRenderer {
                 s.modal.mode(),
                 s.status_model().render(),
                 cur_gen,
+                s.chrome(),
             )
         };
 
@@ -251,7 +243,6 @@ impl RenderCallback for GpuRenderer {
         //    (theory/ESCRIBA.md §Refresh-Seal): highlight + set_rich_text +
         //    shape — the frame's dominant cost — run once per edit, never
         //    per vsync.
-        let palette = self.chrome;
         let fg = chrome_glyph(palette.text);
         let width = ctx.width as f32;
         let height = ctx.height as f32 - self.line_height; // reserve bottom row for status
@@ -261,14 +252,9 @@ impl RenderCallback for GpuRenderer {
             let base = Attrs::new().family(Family::Monospace);
             let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
             buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
-            let runs: Vec<(&str, Attrs)> = chunks
-                .iter()
-                .map(|c| {
-                    (
-                        c.text.as_str(),
-                        base.clone().color(chrome_glyph(c.role.color(&palette))),
-                    )
-                })
+            let runs: Vec<(&str, Attrs)> = splash_runs(&chunks, &palette)
+                .into_iter()
+                .map(|(text, color)| (text, base.clone().color(color)))
                 .collect();
             buffer.set_rich_text(
                 &mut ctx.text.font_system,
@@ -312,7 +298,7 @@ impl RenderCallback for GpuRenderer {
             // non-overlapping and sorted, which is what set_rich_text
             // requires — splitting a partition preserves that, replacing it
             // would not.
-            let search_color = chrome_glyph(self.chrome.warning);
+            let search_color = chrome_glyph(palette.warning);
             let runs: Vec<(&str, Attrs)> = spans
                 .iter()
                 .flat_map(|sp| {
@@ -442,7 +428,7 @@ impl RenderCallback for GpuRenderer {
                     view: ctx.surface_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(ground_bg()),
+                        load: wgpu::LoadOp::Clear(ground_bg(&palette)),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -459,19 +445,14 @@ impl RenderCallback for GpuRenderer {
 
     fn resize(&mut self, width: u32, height: u32) {
         if let Ok(mut s) = self.state.lock() {
-            // Monospace cell width estimate — glyphon advance for the
-            // Family::Monospace face is ≈ 0.6 × font_size. Used to derive a
-            // visible-column count so the horizontal-scroll window tracks the
-            // real window width (mirrors the visible-line derivation below).
-            let cell_w = (self.font_size * 0.6).max(1.0);
+            // The SAME grid the start screen is laid out on — one estimate,
+            // one status-row reservation, one place to fix either.
+            let grid = cell_grid(width, height, self.font_size, self.line_height);
             for w in &mut s.layout.windows {
                 w.rect.width = width;
                 w.rect.height = height;
-                // Rough visible-line count from height / line_height.
-                let lh = self.line_height.max(1.0);
-                w.viewport.visible_lines = ((height as f32 / lh).max(1.0) as u32).saturating_sub(1);
-                // Rough visible-column count from width / cell_width.
-                w.viewport.visible_columns = (width as f32 / cell_w).max(1.0) as u32;
+                w.viewport.visible_lines = u32::from(grid.rows);
+                w.viewport.visible_columns = u32::from(grid.cols);
             }
         }
     }
@@ -521,8 +502,78 @@ pub fn build_ecosystem() -> Ecosystem {
     eco
 }
 
-/// Utility — clear the frame to Nord background. Used on error paths.
+/// Pair each start-screen chunk with the colour its ROLE resolves to under
+/// `palette` — the GPU face's half of the role→paint mapping, extracted so
+/// it can be tested without a device.
+///
+/// This is the piece of the splash path that can be wrong in a way glyphon
+/// would not notice: a mis-mapped role paints the menu keys as body text and
+/// renders perfectly. The plumbing either side (buffer sizing, shaping) is
+/// upstream's contract; this is ours.
+///
+/// Borrows from `chunks`, so the returned slices concatenate to exactly the
+/// screen — the coverage-complete partition `set_rich_text` requires.
+///
+/// Public so `tests/gpu_logic.rs` can assert on the REAL mapping rather
+/// than on a reconstruction of it; a test that rebuilt this from
+/// `screen_chunks` would pass even if the renderer stopped calling it.
+#[must_use]
+pub fn splash_runs<'a>(
+    chunks: &'a [escriba_ui::splash::SplashSpan],
+    palette: &ChromePalette,
+) -> Vec<(&'a str, GlyphColor)> {
+    chunks
+        .iter()
+        .map(|c| (c.text.as_str(), chrome_glyph(c.role.color(palette))))
+        .collect()
+}
+
+/// The character grid a pixel surface maps to.
+///
+/// Both the viewport (how many buffer lines and columns fit) and the start
+/// screen (what canvas to centre on) need this, and they used to compute it
+/// separately: `resize` divided height by line-height and subtracted a row,
+/// `render` subtracted a line-height and then divided. Same intent, two
+/// spellings, two places to get the status-row reservation wrong.
+///
+/// Pure and total — no GPU, no state — which is what makes the one piece of
+/// arithmetic in the GPU face that can actually be WRONG testable without a
+/// device. The `0.6` is glyphon's monospace advance ratio for
+/// `Family::Monospace`: an estimate, and the honest reason the start screen
+/// centres approximately rather than exactly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CellGrid {
+    pub cols: u16,
+    pub rows: u16,
+}
+
+/// Advance-to-font-size ratio for glyphon's monospace face.
+const MONO_ADVANCE_RATIO: f32 = 0.6;
+
+#[must_use]
+pub fn cell_grid(width_px: u32, height_px: u32, font_size: f32, line_height: f32) -> CellGrid {
+    let cell_w = (font_size * MONO_ADVANCE_RATIO).max(1.0);
+    let cell_h = line_height.max(1.0);
+    let cols = (width_px as f32 / cell_w).floor().max(1.0);
+    // One row is reserved for the status line, which is drawn as its own
+    // text area below the main pane. Reserved ONCE, here, so no caller can
+    // forget it or subtract it twice.
+    let rows = (height_px as f32 / cell_h).floor().max(2.0) - 1.0;
+    CellGrid {
+        cols: cols.min(f32::from(u16::MAX)) as u16,
+        rows: rows.min(f32::from(u16::MAX)) as u16,
+    }
+}
+
+/// Utility — clear the frame to the ground colour. Used on error paths.
+///
+/// This one legitimately paints the FLEET-PRESCRIBED ground rather than the
+/// operator's: it runs when the editor state could not be read (no active
+/// buffer, a failed glyphon prepare), which is exactly when the operator's
+/// theme is unknowable. A dark frame in the default theme beats a panic or
+/// an undefined surface.
 fn clear_frame(ctx: &mut RenderContext<'_>) {
+    let palette = ChromePalette::prescribed();
     let mut encoder = ctx
         .gpu
         .device
@@ -536,7 +587,7 @@ fn clear_frame(ctx: &mut RenderContext<'_>) {
                 view: ctx.surface_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(ground_bg()),
+                    load: wgpu::LoadOp::Clear(ground_bg(&palette)),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -552,9 +603,8 @@ fn clear_frame(ctx: &mut RenderContext<'_>) {
 /// theme's `background` role. Gamma-correct: the sRGB token is promoted
 /// through `ishou_tokens`' typed sRGB→linear path so it composites
 /// correctly on the linear-storage surface.
-fn ground_bg() -> wgpu::Color {
-    let c = ChromePalette::prescribed().background;
-    Srgb::from(c).to_linear().with_alpha(1.0).into()
+fn ground_bg(c: &ChromePalette) -> wgpu::Color {
+    Srgb::from(c.background).to_linear().with_alpha(1.0).into()
 }
 
 /// ishou `Rgb` → glyphon `Color` (sRGB u8 RGBA, opaque). Theme-agnostic —
@@ -614,8 +664,7 @@ fn hl_to_glyph(c: HlRgb) -> GlyphColor {
 /// glance-readable color. Named by ROLE so the hue follows the active theme:
 /// Normal info, Insert success, Visual accent, Command warning.
 #[must_use]
-pub fn mode_color(mode: Mode) -> Rgb {
-    let c = ChromePalette::prescribed();
+pub fn mode_color(c: &ChromePalette, mode: Mode) -> Rgb {
     match mode {
         Mode::Insert => c.success,
         Mode::Command => c.warning,
@@ -758,7 +807,7 @@ mod tests {
 
     #[test]
     fn ground_is_the_prescribed_theme_promoted_to_linear() {
-        let bg = ground_bg();
+        let bg = ground_bg(&ChromePalette::prescribed());
         // Was pinned to Vellum's warm parchment (night0 #16140E, r >= g >= b).
         // The prescribed theme is now Nord, whose ground is COOL (b >= r), so
         // the old warmth assertion was theme-specific and had to go. What is
@@ -817,9 +866,9 @@ mod tests {
 
     #[test]
     fn mode_colors_differ_by_mode() {
-        let n = mode_color(Mode::Normal);
-        let i = mode_color(Mode::Insert);
-        let v = mode_color(Mode::Visual);
+        let n = mode_color(&ChromePalette::prescribed(), Mode::Normal);
+        let i = mode_color(&ChromePalette::prescribed(), Mode::Insert);
+        let v = mode_color(&ChromePalette::prescribed(), Mode::Visual);
         assert_ne!((n.r, n.g, n.b), (i.r, i.g, i.b));
         assert_ne!((n.r, n.g, n.b), (v.r, v.g, v.b));
     }
@@ -844,22 +893,22 @@ mod tests {
     fn mode_colors_are_role_pills() {
         let c = ChromePalette::prescribed();
         assert_eq!(
-            mode_color(Mode::Normal).hex(),
+            mode_color(&ChromePalette::prescribed(), Mode::Normal).hex(),
             c.info.hex(),
             "Normal = info"
         );
         assert_eq!(
-            mode_color(Mode::Insert).hex(),
+            mode_color(&ChromePalette::prescribed(), Mode::Insert).hex(),
             c.success.hex(),
             "Insert = success"
         );
         assert_eq!(
-            mode_color(Mode::Visual).hex(),
+            mode_color(&ChromePalette::prescribed(), Mode::Visual).hex(),
             c.accent.hex(),
             "Visual = accent"
         );
         assert_eq!(
-            mode_color(Mode::Command).hex(),
+            mode_color(&ChromePalette::prescribed(), Mode::Command).hex(),
             c.warning.hex(),
             "Command = warning"
         );
@@ -869,7 +918,7 @@ mod tests {
         let mut seen = std::collections::BTreeSet::new();
         for m in [Mode::Normal, Mode::Insert, Mode::Visual, Mode::Command] {
             assert!(
-                seen.insert(mode_color(m).hex()),
+                seen.insert(mode_color(&ChromePalette::prescribed(), m).hex()),
                 "{m:?} duplicates another pill"
             );
         }

@@ -20,10 +20,20 @@
 ;; Or copy into place:   cp … ~/.escribarc.lisp
 
 ;; ═════ Theme ══════════════════════════════════════════════════════
-;; The pleme-io fleet theme is "Vellum" — warm aged-paper Nord-matte
-;; (mirrors `ishou_tokens::FleetTheme::Vellum`). The escriba-nord caixa
-;; provides the classic Nord palette for `(deftheme :preset "nord")`.
-(deftheme :preset "vellum")
+;; The fleet-prescribed theme — `ishou_tokens::FleetTheme::prescribed_default()`,
+;; today PlemeDark, whose operator-facing spelling is "nord". This is what
+;; the two `convergence::Guard` tests enforce escriba must paint.
+;;
+;; This line USED to say "vellum", left over from before the fleet moved,
+;; and nothing caught it because nothing consumed it: every paint site
+;; called `ChromePalette::prescribed()` for itself, so the editor painted
+;; Nord regardless of what was declared here. Wiring `(deftheme …)` into
+;; the paint path is what turned the stale declaration into a visible
+;; contradiction — `theme_declaration_agrees_with_the_fleet_default` now
+;; keeps the two from drifting apart again.
+;;
+;; Vellum is still shipped, as an opt-in: `--rc escriba/configs/vellum.lisp`.
+(deftheme :preset "nord")
 
 ;; ═════ Options ════════════════════════════════════════════════════
 ;; Mirror the `:set` commands every blnvim user gets implicitly.

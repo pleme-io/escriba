@@ -30,7 +30,13 @@
 //! carries Nord. Neither alone is total over `FleetTheme`, which is exactly
 //! why the selection lives here instead of at each call site.
 
-use ishou_tokens::{ColorPalette, FleetTheme, Rgb, SemanticRoles, VellumPalette};
+use ishou_tokens::{ColorPalette, Rgb, SemanticRoles, VellumPalette};
+
+/// Re-exported at the seam so a consumer that only needs to NAME a theme
+/// (the runtime holding one, a renderer switching to one) does not take a
+/// direct `ishou-tokens` dependency for a single enum. The theme→colour
+/// mapping lives here; so should the vocabulary for asking about it.
+pub use ishou_tokens::FleetTheme;
 
 /// The concrete colors escriba's chrome needs, already resolved for one
 /// theme. Field names are ROLES (what the color means), never palette keys
