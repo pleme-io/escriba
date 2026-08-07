@@ -21,13 +21,14 @@ use std::collections::HashMap;
 use awase::KeyRepeatGate;
 use escriba_buffer::BufferSet;
 use escriba_buffer::TextRev;
-use escriba_command::{CommandRegistry, EditContext};
+use escriba_command::CommandRegistry;
 use escriba_core::{
     Action, Anchored, Bound, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList,
     Mode, Motion, Operator, Position, Range, TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
+use escriba_madoguchi::{Negai, Outcome};
 use escriba_mode::ModalState;
 use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
 use escriba_ui::chrome::{ChromePalette, FleetTheme};
@@ -170,6 +171,150 @@ enum SplashKey {
     /// means whatever it normally means. Anything else would make the
     /// first keystroke after boot vanish.
     Dismissed,
+}
+
+// ─── The counter, and the one place slips become mutations ───────────────
+
+/// `EditorState` read through the counter.
+///
+/// Borrowed, never copied: building it is free, so a command dispatch does
+/// not pay for a snapshot of the buffers.
+pub struct EditorWindow<'a> {
+    state: &'a EditorState,
+}
+
+impl escriba_madoguchi::CursorView for EditorWindow<'_> {
+    fn position(&self) -> Position {
+        self.state.cursor()
+    }
+    fn mode(&self) -> Mode {
+        self.state.modal.mode()
+    }
+}
+
+impl escriba_madoguchi::Snapshot for EditorWindow<'_> {
+    fn active(&self) -> Option<&dyn escriba_madoguchi::BufferView> {
+        self.buffer(self.state.active)
+    }
+    fn buffer(&self, id: BufferId) -> Option<&dyn escriba_madoguchi::BufferView> {
+        self.state
+            .buffers
+            .get(id)
+            .map(|b| b as &dyn escriba_madoguchi::BufferView)
+    }
+    fn buffer_ids(&self) -> Vec<BufferId> {
+        self.state.buffers.ids()
+    }
+    fn cursor(&self) -> &dyn escriba_madoguchi::CursorView {
+        self
+    }
+    fn option(&self, name: &str) -> Option<&str> {
+        self.state.options.get(name).map(String::as_str)
+    }
+}
+
+impl EditorState {
+    /// A read-only window onto this editor.
+    #[must_use]
+    pub fn window(&self) -> EditorWindow<'_> {
+        EditorWindow { state: self }
+    }
+
+    /// Honour an [`Outcome`] — the ONLY place slips become mutations.
+    ///
+    /// Every `&mut self` in the dispatch path lives here. A command cannot
+    /// reach editor state, so if the editor ends up in a state nobody
+    /// designed, this function is where it happened; that narrowing is the
+    /// whole return on the seam.
+    ///
+    /// A failed outcome's slips are DROPPED rather than half-applied: a
+    /// handler that reported failure has no business also mutating, and
+    /// applying part of what it asked for is how an editor reaches a state
+    /// nobody designed.
+    pub fn interpret(&mut self, outcome: Outcome) {
+        if let Some(m) = outcome.verdict.message() {
+            self.messages.push(m.to_string());
+            self.damage = self.damage.join(Damage::Viewport);
+            self.bump_gen();
+        }
+        if outcome.verdict.is_failure() {
+            return;
+        }
+        for slip in outcome.slips {
+            self.honour(slip);
+        }
+    }
+
+    /// Apply one slip. Total over `Negai`: a new request variant is a
+    /// compile error here rather than a request that is silently ignored,
+    /// which is the same failure Phase 0 removed one layer up.
+    fn honour(&mut self, slip: Negai) {
+        let touches_text = slip.touches_text();
+        match slip {
+            Negai::Edit { buffer, edit } => {
+                if let Some(b) = self.buffers.get_mut(buffer) {
+                    let _ = b.apply(&edit);
+                }
+            }
+            Negai::SetCursor { buffer, to } => {
+                // Clamping is the interpreter's job, exactly so that no
+                // handler has to re-implement it and get it wrong.
+                let clamped = self.buffers.get(buffer).map_or(to, |b| b.clamp(to));
+                self.set_cursor(clamped);
+            }
+            Negai::EnterMode(m) => self.modal.enter(m),
+            Negai::FocusBuffer(id) => {
+                if self.buffers.get(id).is_some() {
+                    self.active = id;
+                }
+            }
+            Negai::OpenPath(path) => match self.buffers.open(&path) {
+                Ok(id) => self.active = id,
+                Err(e) => self.messages.push(e.to_string()),
+            },
+            Negai::CloseBuffer(_) => {
+                // BufferSet has no close() yet; M5 lands it with
+                // buffer.delete. Announced rather than silently ignored.
+                self.messages
+                    .push("closing buffers is not implemented yet".to_string());
+            }
+            Negai::Save { buffer } => {
+                if let Some(b) = self.buffers.get_mut(buffer) {
+                    if let Err(e) = b.save() {
+                        self.messages.push(e.to_string());
+                    }
+                }
+            }
+            Negai::Undo { buffer } => {
+                if let Some(b) = self.buffers.get_mut(buffer) {
+                    let _ = b.undo();
+                }
+            }
+            Negai::Redo { buffer } => {
+                if let Some(b) = self.buffers.get_mut(buffer) {
+                    let _ = b.redo();
+                }
+            }
+            Negai::Yank { text, .. } => self.register = Some(text),
+            Negai::ClearSearchHighlight => self.search.clear_highlight(),
+            Negai::Message(m) => self.messages.push(m),
+            Negai::Quit => self.quit_requested = true,
+            // Both suspend the dispatch and need machinery that does not
+            // exist yet — the courier (Phase 5) and the AwaitKey resume
+            // (M3). Announced, never silently dropped: a slip that vanishes
+            // is the class Phase 0 sealed.
+            Negai::Errand(_) | Negai::AwaitKey { .. } => {
+                self.messages
+                    .push("deferred work is not wired yet".to_string());
+            }
+        }
+        self.damage = self.damage.join(if touches_text {
+            Damage::Full
+        } else {
+            Damage::Viewport
+        });
+        self.bump_gen();
+    }
 }
 
 /// Outcome of feeding one key to the multi-key pending-stroke loop.
@@ -1671,15 +1816,6 @@ impl EditorState {
     }
 
     fn run_command(&mut self, name: &str, args: &[String]) {
-        // `:noh` is handled here rather than in the command registry because
-        // it mutates SearchState, which EditContext does not expose (and
-        // should not — the registry's contract is buffers + modal state).
-        // Without it there is no way to turn highlights off, which makes
-        // hlsearch actively unpleasant rather than useful.
-        if matches!(name, "noh" | "nohl" | "nohlsearch") {
-            self.search.clear_highlight();
-            return;
-        }
         // Lazy-activation seam (lazy.nvim `cmd =` model): a user plugin
         // gated on `Command: <name>` has its entry applied the first time
         // that command runs, BEFORE dispatch — so the activated plugin
@@ -1691,34 +1827,24 @@ impl EditorState {
                 self.apply_plugin_entry(&src);
             }
         }
-        let active = Some(self.active);
-        let mut quit = false;
+        // Read through the counter, then interpret. Two immutable borrows of
+        // `self` (the window and the registry) coexist; the `&mut` comes
+        // afterwards, once the outcome is owned. That sequencing IS the
+        // seam: there is no moment where a command body and `&mut self` are
+        // live at the same time.
         let outcome = {
-            let mut ctx = EditContext {
-                buffers: &mut self.buffers,
-                active,
-                state: &mut self.modal,
-                quit_requested: &mut quit,
-            };
-            self.commands.run(name, &mut ctx, args)
+            let window = self.window();
+            self.commands.run(name, &window, args)
         };
-        // This was `let _ = …`. The registry reported failure and the runtime
-        // threw it away, so a command that did not exist and a command that
-        // did the right thing produced identical, silent frames.
-        //
-        // Reported, never fatal: a failed command must not take the editor
-        // down, but it must not be invisible either. `messages` is what the
-        // status line renders (`StatusModel::message`), so this reaches the
-        // operator on all three faces through the one shared model.
-        if let Err(e) = outcome {
-            self.messages.push(describe_command_failure(name, &e));
-            self.damage = self.damage.join(Damage::Viewport);
-            self.bump_gen();
-        }
-        // The command's typed quit signal — no string sentinel, no
-        // mode-specific buffer to clear.
-        if quit {
-            self.quit_requested = true;
+        match outcome {
+            Ok(o) => self.interpret(o),
+            // Reported, never fatal (Phase 0). A failed command must not
+            // take the editor down, but it must not be invisible either.
+            Err(e) => {
+                self.messages.push(describe_command_failure(name, &e));
+                self.damage = self.damage.join(Damage::Viewport);
+                self.bump_gen();
+            }
         }
     }
 

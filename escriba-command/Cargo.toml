@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 escriba-core   = { workspace = true }
+escriba-madoguchi = { workspace = true }
 escriba-buffer = { workspace = true }
 escriba-mode   = { workspace = true }
 serde          = { workspace = true }

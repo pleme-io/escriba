@@ -202,3 +202,34 @@ impl Snapshot for FakeSnapshot {
             .map(|(_, v)| v.as_str())
     }
 }
+
+// ─── The real editor's buffers ───────────────────────────────────────────
+
+/// `escriba_buffer::Buffer` read through the counter.
+///
+/// The impl lives HERE rather than in `escriba-buffer` so the buffer crate
+/// stays ignorant of the dispatch seam: the seam knows the editor's types,
+/// the editor's types do not know the seam. It also means `Snapshot` can hand
+/// back `&dyn BufferView` borrowed straight from the `BufferSet` — no wrapper
+/// to store, no temporary to outlive.
+impl BufferView for escriba_buffer::Buffer {
+    fn id(&self) -> BufferId {
+        self.id
+    }
+    fn path(&self) -> Option<&std::path::Path> {
+        self.path.as_deref()
+    }
+    fn line_count(&self) -> u32 {
+        escriba_buffer::Buffer::line_count(self)
+    }
+    fn line(&self, n: u32) -> Option<String> {
+        escriba_buffer::Buffer::line(self, n)
+            .map(|l| l.trim_end_matches('\n').trim_end_matches('\r').to_string())
+    }
+    fn is_modified(&self) -> bool {
+        self.modified
+    }
+    fn text(&self) -> String {
+        self.to_string()
+    }
+}
