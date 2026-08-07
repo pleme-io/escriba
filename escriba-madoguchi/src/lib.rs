@@ -95,13 +95,79 @@
 
 extern crate self as escriba_madoguchi;
 
+pub mod cap;
 pub mod negai;
 pub mod outcome;
 pub mod snapshot;
 
 pub use negai::{Continuation, ErrandId, Negai, Register};
 pub use outcome::{Outcome, Verdict};
-pub use snapshot::{BufferView, CursorView, FakeBuffer, FakeSnapshot, Snapshot};
+pub use snapshot::{BufferView, CursorView, FakeBuffer, FakeSnapshot, SearchView, Snapshot, View};
+
+/// A capability-typed command body.
+///
+/// Implementors declare what they READ as an associated type, so the
+/// capability set is part of the command's definition rather than something
+/// a caller remembers to pass. [`erase`] turns one into the plain function
+/// pointer the registry stores — no boxing, no allocation, no dynamic
+/// dispatch beyond the `&dyn Snapshot` that was already there.
+///
+/// ```
+/// use escriba_madoguchi::{caps, cap::Buffers, erase, Native, Outcome, View};
+///
+/// struct Info;
+/// impl Native for Info {
+///     type Reads = caps!(Buffers);
+///     fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+///         match v.buffers().active() {
+///             Some(_) => Outcome::nothing(),
+///             None => Outcome::declined("no active buffer"),
+///         }
+///     }
+/// }
+/// let f = erase::<Info>();
+/// assert!(f(&escriba_madoguchi::FakeSnapshot::default(), &[]).verdict.message().is_some());
+/// ```
+pub trait Native {
+    /// The capabilities this command reads. `caps!()` for none.
+    type Reads;
+    fn run(view: &View<'_, Self::Reads>, args: &[String]) -> Outcome;
+}
+
+/// A handler that declares NO capabilities can read nothing at all.
+///
+/// This is not a rounding of "reads very little" — `caps!()` is `Nil`, which
+/// has no `Has` impl, so every accessor on its view is unbuildable. Both
+/// `quit` and `:noh` are genuinely in this class, having been handed
+/// `&mut BufferSet` under the old `EditContext` to set one bool and clear
+/// one flag respectively.
+///
+/// ```compile_fail
+/// use escriba_madoguchi::{caps, Native, Outcome, View};
+///
+/// struct Quit;
+/// impl Native for Quit {
+///     type Reads = caps!();               // reads nothing
+///     fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+///         let _ = v.buffers();            // does not compile
+///         Outcome::nothing()
+///     }
+/// }
+/// ```
+///
+/// Erase a [`Native`] into the registry's function pointer.
+///
+/// The capability set is discharged HERE, at the boundary: inside `T::run`
+/// the narrowing is enforced by the type system, and outside it the registry
+/// stores one uniform `fn`. Nothing about the erasure widens what the
+/// handler could reach — it only forgets what the registry never needed.
+#[must_use]
+pub fn erase<T: Native>() -> fn(&dyn Snapshot, &[String]) -> Outcome {
+    fn shim<T: Native>(snap: &dyn Snapshot, args: &[String]) -> Outcome {
+        T::run(&View::new(snap), args)
+    }
+    shim::<T>
+}
 
 /// A handler: a pure function from what it can see to what it wants done.
 ///

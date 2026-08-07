@@ -1,11 +1,11 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "3e219c6261b86d1295d99c0ea83c0dd7d6597104ead46463a1ffccc5dbf8befb",
+  "cargo_lock_sha256": "f15a2d660d0aa09b1ec1715f2fa15eb4db6a7661336d7cac442eb8d8c2503c10",
   "manifest_sha256": {
     "Cargo.toml": "9d7464ff36734a2b4f73a317a8923b587c1f4eddf2ad5bf90a45e6ee81a842f2",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
-    "escriba-command/Cargo.toml": "3b882ec45d9047a27ef59b9cc2751be0ae8fddeb25edf1c3f97f5d7c1f1df52a",
+    "escriba-command/Cargo.toml": "a508c51944c8322367933e850b32c11866601eccce858517e81e9b8174fa1995",
     "escriba-config/Cargo.toml": "6ed1d0f8b3581268a514afa1f5b0f492fb45a8b1f59d3b14693d73cf3358f247",
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
@@ -1786,16 +1786,6 @@
       "escriba-command-0.1.34": {
         "runtime_dependencies": [
           {
-            "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.34",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.34",
             "kind": "normal",
@@ -1808,16 +1798,6 @@
           {
             "name": "escriba_madoguchi",
             "package_key": "escriba-madoguchi-0.1.34",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.34",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,

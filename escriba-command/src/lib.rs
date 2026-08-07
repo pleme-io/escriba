@@ -5,8 +5,8 @@ extern crate self as escriba_command;
 use std::collections::HashMap;
 
 use escriba_core::BufferId;
-use escriba_madoguchi::{BufferView, Negai, Outcome, Snapshot};
-use escriba_mode::ModalState;
+use escriba_madoguchi::cap::Buffers;
+use escriba_madoguchi::{BufferView, Native, Negai, Outcome, Snapshot, View, caps, erase};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -27,8 +27,10 @@ pub enum CommandError {
     Unhandled(String),
     #[error("command failed: {0}")]
     Failed(String),
-    #[error("buffer: {0}")]
-    Buffer(#[from] escriba_buffer::BufferError),
+    // NOTE: there was a `Buffer(#[from] BufferError)` variant here. The M2
+    // port made it dead: a command no longer performs I/O, so it cannot
+    // produce a buffer error. Save/undo/redo failures now surface from the
+    // interpreter, which is the thing that actually touches the filesystem.
 }
 
 pub type Result<T> = std::result::Result<T, CommandError>;
@@ -137,9 +139,9 @@ impl CommandRegistry {
         r.register(Command::native(
             "save",
             "Write the active buffer to disk",
-            cmd_save,
+            erase::<Save>(),
         ));
-        r.register(Command::native("quit", "Exit the editor", cmd_quit));
+        r.register(Command::native("quit", "Exit the editor", erase::<Quit>()));
         for alias in ["noh", "nohl", "nohlsearch"] {
             r.register(Command::action(
                 alias,
@@ -147,16 +149,20 @@ impl CommandRegistry {
                 "search.clear-highlight",
             ));
         }
-        r.register(Command::native("undo", "Undo the last change", cmd_undo));
+        r.register(Command::native(
+            "undo",
+            "Undo the last change",
+            erase::<Undo>(),
+        ));
         r.register(Command::native(
             "redo",
             "Redo the last undone change",
-            cmd_redo,
+            erase::<Redo>(),
         ));
         r.register(Command::native(
             "buffer-info",
             "Print the active buffer summary",
-            cmd_buffer_info,
+            erase::<Info>(),
         ));
         r
     }
@@ -226,13 +232,13 @@ impl CommandRegistry {
 /// Resolve a dotted action symbol to a built-in body.
 fn run_action(sym: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome> {
     match sym {
-        "buffer.save" | "buffer.write" => Ok(cmd_save(snap, args)),
-        "buffer.write-all" => Ok(cmd_write_all(snap, args)),
-        "buffer.undo" => Ok(cmd_undo(snap, args)),
-        "buffer.redo" => Ok(cmd_redo(snap, args)),
-        "buffer.info" => Ok(cmd_buffer_info(snap, args)),
-        "editor.quit" => Ok(cmd_quit(snap, args)),
-        "search.clear-highlight" => Ok(cmd_noh(snap, args)),
+        "buffer.save" | "buffer.write" => Ok(erase::<Save>()(snap, args)),
+        "buffer.write-all" => Ok(erase::<WriteAll>()(snap, args)),
+        "buffer.undo" => Ok(erase::<Undo>()(snap, args)),
+        "buffer.redo" => Ok(erase::<Redo>()(snap, args)),
+        "buffer.info" => Ok(erase::<Info>()(snap, args)),
+        "editor.quit" => Ok(erase::<Quit>()(snap, args)),
+        "search.clear-highlight" => Ok(erase::<Noh>()(snap, args)),
         // The not-yet-implemented namespace — 85 shipped keybindings land
         // here (escriba/tests/action_resolution.rs pins the inventory).
         // Inert and ANNOUNCED; see CommandError::Unhandled.
@@ -244,68 +250,70 @@ fn run_action(sym: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome
 ///
 /// "No buffer" is a DECLINE, not a failure: it is a legitimate state (boot,
 /// every `--no-defaults` run) and the operator did nothing wrong.
-fn active_or_decline(snap: &dyn Snapshot) -> std::result::Result<BufferId, Outcome> {
-    snap.active()
+fn active_or_decline(b: &escriba_madoguchi::snapshot::Buffers<'_>) -> Result2<BufferId> {
+    b.active()
         .map(BufferView::id)
         .ok_or_else(|| Outcome::declined("no active buffer"))
 }
 
+type Result2<T> = std::result::Result<T, Outcome>;
+
 /// Save every modified, path-backed buffer.
 ///
-/// Best-effort BY CONSTRUCTION now: one slip per buffer, applied
-/// independently, so one buffer's permission error cannot abort the rest.
-/// Scratch buffers have no path and are skipped.
-fn cmd_write_all(snap: &dyn Snapshot, _args: &[String]) -> Outcome {
-    let slips: Vec<Negai> = snap
-        .buffer_ids()
-        .into_iter()
-        .filter(|id| {
-            snap.buffer(*id)
-                .is_some_and(|b| b.is_modified() && b.path().is_some())
-        })
-        .map(|buffer| Negai::Save { buffer })
-        .collect();
-    if slips.is_empty() {
-        return Outcome::declined("no modified files");
-    }
-    Outcome::did(slips)
-}
-
-fn cmd_save(snap: &dyn Snapshot, _args: &[String]) -> Outcome {
-    match active_or_decline(snap) {
-        Ok(buffer) => Outcome::did(vec![Negai::Save { buffer }]),
-        Err(o) => o,
+/// Best-effort BY CONSTRUCTION: one slip per buffer, applied independently,
+/// so one buffer's permission error cannot abort the rest. Scratch buffers
+/// have no path and are skipped.
+struct WriteAll;
+impl Native for WriteAll {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _args: &[String]) -> Outcome {
+        let b = v.buffers();
+        let slips: Vec<Negai> = b
+            .ids()
+            .into_iter()
+            .filter(|id| {
+                b.get(*id)
+                    .is_some_and(|x| x.is_modified() && x.path().is_some())
+            })
+            .map(|buffer| Negai::Save { buffer })
+            .collect();
+        if slips.is_empty() {
+            return Outcome::declined("no modified files");
+        }
+        Outcome::did(slips)
     }
 }
 
-/// `:noh` — the command that proves the seam.
-///
-/// It lived as a hard-coded branch inside `EditorState::run_command`,
-/// bypassing the registry entirely, because the old `EditContext` exposed
-/// buffers and modal state and nothing else. It is now an ordinary command
-/// returning an ordinary slip, and the special case is deleted.
-fn cmd_noh(_snap: &dyn Snapshot, _: &[String]) -> Outcome {
-    Outcome::did(vec![Negai::ClearSearchHighlight])
-}
-
-fn cmd_quit(_snap: &dyn Snapshot, _: &[String]) -> Outcome {
-    // Was `*ctx.quit_requested = true` — a command reaching into a borrowed
-    // flag. Now a request like any other, and the interpreter decides (it is
-    // the thing that knows about unsaved buffers).
-    Outcome::did(vec![Negai::Quit])
-}
-
-fn cmd_undo(snap: &dyn Snapshot, _: &[String]) -> Outcome {
-    match active_or_decline(snap) {
-        Ok(buffer) => Outcome::did(vec![Negai::Undo { buffer }]),
-        Err(o) => o,
+struct Save;
+impl Native for Save {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        match active_or_decline(&v.buffers()) {
+            Ok(buffer) => Outcome::did(vec![Negai::Save { buffer }]),
+            Err(o) => o,
+        }
     }
 }
 
-fn cmd_redo(snap: &dyn Snapshot, _: &[String]) -> Outcome {
-    match active_or_decline(snap) {
-        Ok(buffer) => Outcome::did(vec![Negai::Redo { buffer }]),
-        Err(o) => o,
+struct Undo;
+impl Native for Undo {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        match active_or_decline(&v.buffers()) {
+            Ok(buffer) => Outcome::did(vec![Negai::Undo { buffer }]),
+            Err(o) => o,
+        }
+    }
+}
+
+struct Redo;
+impl Native for Redo {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        match active_or_decline(&v.buffers()) {
+            Ok(buffer) => Outcome::did(vec![Negai::Redo { buffer }]),
+            Err(o) => o,
+        }
     }
 }
 
@@ -313,22 +321,57 @@ fn cmd_redo(snap: &dyn Snapshot, _: &[String]) -> Outcome {
 ///
 /// This used to `eprintln!`. From a TUI holding the alternate screen that
 /// writes straight through the ratatui frame and corrupts it — a latent bug
-/// the port removes for free, because a command's only way to say something
+/// the port removed for free, because a command's only way to say something
 /// is now `Negai::Message`, which lands on the status line.
-fn cmd_buffer_info(snap: &dyn Snapshot, _: &[String]) -> Outcome {
-    let Some(buf) = snap.active() else {
-        return Outcome::declined("no active buffer");
-    };
-    let mut m = String::with_capacity(48);
-    m.push_str("buffer ");
-    m.push_str(&buf.id().0.to_string());
-    m.push_str(" — ");
-    m.push_str(&buf.line_count().to_string());
-    m.push_str(" line(s)");
-    if buf.is_modified() {
-        m.push_str(" [modified]");
+struct Info;
+impl Native for Info {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        let mut m = String::with_capacity(48);
+        m.push_str("buffer ");
+        m.push_str(&buf.id().0.to_string());
+        m.push_str(" — ");
+        m.push_str(&buf.line_count().to_string());
+        m.push_str(" line(s)");
+        if buf.is_modified() {
+            m.push_str(" [modified]");
+        }
+        Outcome::did(vec![Negai::Message(m)])
     }
-    Outcome::did(vec![Negai::Message(m)])
+}
+
+/// Quit reads NOTHING.
+///
+/// Worth pausing on: under the old `EditContext` this function was handed
+/// `&mut BufferSet` and `&mut ModalState` in order to set one bool. Its
+/// capability set is now literally empty, and the type system enforces that
+/// — `caps!()` proves no membership, so every accessor on its view is
+/// unbuildable.
+struct Quit;
+impl Native for Quit {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::Quit])
+    }
+}
+
+/// `:noh` — the command that proves the seam, and it also reads nothing.
+///
+/// It lived as a hard-coded branch inside `EditorState::run_command`,
+/// bypassing the registry entirely, because the old `EditContext` exposed
+/// buffers and modal state and could not reach `SearchState`. It is now an
+/// ordinary command asking for an ordinary slip, and it turns out not to
+/// need a view at all — it does not READ the search, it asks to change it.
+struct Noh;
+impl Native for Noh {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::ClearSearchHighlight])
+    }
 }
 
 #[cfg(test)]

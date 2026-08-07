@@ -192,6 +192,24 @@ impl escriba_madoguchi::CursorView for EditorWindow<'_> {
     }
 }
 
+impl escriba_madoguchi::SearchView for EditorWindow<'_> {
+    fn pattern(&self) -> Option<&str> {
+        self.state.search.committed_pattern()
+    }
+    fn match_count(&self) -> Option<usize> {
+        // `None` means "nothing committed", which is not the same as zero
+        // matches — a distinction the status line already makes and that a
+        // handler must not have to re-derive.
+        self.state
+            .search
+            .committed_pattern()
+            .map(|_| self.state.search.match_count())
+    }
+    fn is_prompting(&self) -> bool {
+        self.state.search.is_prompting()
+    }
+}
+
 impl escriba_madoguchi::Snapshot for EditorWindow<'_> {
     fn active(&self) -> Option<&dyn escriba_madoguchi::BufferView> {
         self.buffer(self.state.active)
@@ -210,6 +228,9 @@ impl escriba_madoguchi::Snapshot for EditorWindow<'_> {
     }
     fn option(&self, name: &str) -> Option<&str> {
         self.state.options.get(name).map(String::as_str)
+    }
+    fn search(&self) -> &dyn escriba_madoguchi::SearchView {
+        self
     }
 }
 
