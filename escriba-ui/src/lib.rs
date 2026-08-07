@@ -11,6 +11,11 @@ pub mod chrome;
 /// three copies of the same centering arithmetic.
 pub mod splash;
 
+/// Syntax colours resolved through ishou, so a theme change recolours the
+/// CODE and not just the frame. hikari ships one hardcoded Nord table; this
+/// reproduces it on the fleet default and extends it to every theme.
+pub mod syntax;
+
 /// The gutter — line numbers and finding marks, composed once. The ratatui
 /// face built its own inline and the GPU face had none at all; this is the
 /// same "one model, N faces" repair the status line and splash already had.

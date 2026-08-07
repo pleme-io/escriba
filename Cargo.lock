@@ -1076,6 +1076,7 @@ dependencies = [
  "escriba-core",
  "escriba-mode",
  "escriba-shirube",
+ "hikari-core",
  "ishou-tokens",
  "pretty_assertions",
  "schemars",

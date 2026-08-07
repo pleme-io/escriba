@@ -23,8 +23,12 @@ use glyphon::{Attrs, Buffer, Color as GlyphColor, Family, Metrics, Shaping, Text
 use ishou_tokens::{EscribaSignals, Rgb, SignalMode, Srgb};
 use madori::{RenderCallback, RenderContext};
 // hikari (光) — the fleet syntax-highlighting spine. path→Box<dyn Highlighter>,
-// coverage-complete HlClass span partition, HlClass→Rgb via NordTheme.
-use hikari_core::{Ecosystem, Language, NordTheme, Rgb as HlRgb, Theme};
+// coverage-complete HlClass span partition. HlClass→Rgb resolves through
+// `escriba_ui::syntax::ChromeSyntax`, NOT hikari's hardcoded `NordTheme`:
+// this face used to hold one by value, so picking Vellum recoloured the frame
+// and left the code Nord.
+use escriba_ui::syntax::ChromeSyntax;
+use hikari_core::{Ecosystem, Language, Rgb as HlRgb, Theme};
 
 /// Shared handle to the editor state — both the GPU renderer (reads) and
 /// the madori `on_event` callback (writes) hold one.
@@ -43,8 +47,6 @@ pub struct GpuRenderer {
     metrics: Metrics,
     /// hikari highlight registry (built once — resolves path→Highlighter).
     eco: Ecosystem,
-    /// Nord syntax theme (HlClass→Rgb).
-    theme: NordTheme,
     /// The refresh generation of the currently-cached text buffer — the seal
     /// (`theory/ESCRIBA.md` §Refresh-Seal). When `EditorState::edit_gen()`
     /// still equals this, the cached shaped buffer is reused verbatim: no
@@ -85,7 +87,6 @@ impl GpuRenderer {
             line_height,
             metrics: Metrics::new(font_size, line_height),
             eco: build_ecosystem(),
-            theme: NordTheme,
             last_gen: EditGen(u64::MAX),
             cached_text: None,
             cached_gutter: None,
@@ -338,10 +339,16 @@ impl RenderCallback for GpuRenderer {
             // requires — splitting a partition preserves that, replacing it
             // would not.
             let search_color = chrome_glyph(palette.warning);
+            // The code's colours come from the SAME palette as the chrome's,
+            // so a `(deftheme :preset …)` recolours both together. Built here
+            // rather than held on the renderer: a stored copy would be one
+            // more thing to remember to update on a theme change, and the
+            // last one that was stored is exactly why code stayed Nord.
+            let syntax_theme = ChromeSyntax::new(palette);
             let runs: Vec<(&str, Attrs)> = spans
                 .iter()
                 .flat_map(|sp| {
-                    let syntax = base.clone().color(hl_to_glyph(self.theme.color(sp.class)));
+                    let syntax = base.clone().color(hl_to_glyph(syntax_theme.color(sp.class)));
                     split_on_matches(sp.span.range(), &match_bytes)
                         .into_iter()
                         .filter_map(|(r, is_match)| {

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "05056e6e59bb670db09fda50164793906477c388cf20550a4d229577ae78d0bb",
+  "cargo_lock_sha256": "8ebebb7e8e20d30cb2dd162c8dcf86dbcfb82de913fc785c25eca90ffd280fc3",
   "manifest_sha256": {
     "Cargo.toml": "79efff32ac40223ba6f5d1b89e57453777e4a1e6a1293c3a2f7eab8a17fe5f20",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -24,7 +24,7 @@
     "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
     "escriba-ts/Cargo.toml": "95cdcedddba77884e2f39aeaa78c56f195d05e0591a38c114ff969924e20112b",
     "escriba-tui/Cargo.toml": "21df101f0751d85fb39c399f9ae349f777f13606479bcbba3f0065186be8b018",
-    "escriba-ui/Cargo.toml": "e0450d835552121853ae1cb4dc6baf429e85385cbf44f3de286b7fc676690e83",
+    "escriba-ui/Cargo.toml": "d0b183199be882f032677db0bb0844783b22e2e7d2669f6621e800a592865bd6",
     "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
     "escriba/Cargo.toml": "e462114acc7a1ca40c6c106a4970e87ab744fad06a2a32a409d22c9a35aa65dd"
   },
@@ -3295,6 +3295,16 @@
           {
             "name": "escriba_shirube",
             "package_key": "escriba-shirube-0.1.35",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "hikari_core",
+            "package_key": "hikari-core-0.1.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,

@@ -67,6 +67,29 @@ pub struct ChromePalette {
     pub info: Rgb,
     /// Accent — also the Visual-mode pill.
     pub accent: Rgb,
+
+    // ── Roles the SYNTAX theme needs (`super::syntax`) ────────────────
+    //
+    // Added so `HlClass` can resolve through ishou for every theme instead
+    // of being pinned to hikari's one hardcoded Nord table. They are ishou
+    // roles like the ten above — not a syntax-specific colour list — so a
+    // theme swap moves the code colours with the chrome.
+    /// Brightest body text — punctuation.
+    pub text_bright: Rgb,
+    /// Secondary body text — plain code, identifiers.
+    pub text_muted: Rgb,
+    /// Primary interactive colour — function names.
+    pub primary: Rgb,
+    /// Links — keywords and operators.
+    pub link: Rgb,
+    /// Structural-only accent, never body text — hyperlinks, hints.
+    pub structural: Rgb,
+    /// AGENT-RESERVED accent — numerics, attributes, keyword-args.
+    pub agent: Rgb,
+    /// Search-current background — escapes and specials.
+    pub search: Rgb,
+    /// Selection background.
+    pub selection: Rgb,
 }
 
 impl ChromePalette {
@@ -100,7 +123,7 @@ impl ChromePalette {
     /// "these two chromes are the same" — used by tests and available to
     /// consumers that need to diff or log a resolved theme.
     #[must_use]
-    pub fn hex_tuple(&self) -> [(&'static str, String); 10] {
+    pub fn hex_tuple(&self) -> [(&'static str, String); 18] {
         [
             ("background", self.background.hex()),
             ("surface", self.surface.hex()),
@@ -112,6 +135,14 @@ impl ChromePalette {
             ("success", self.success.hex()),
             ("info", self.info.hex()),
             ("accent", self.accent.hex()),
+            ("text_bright", self.text_bright.hex()),
+            ("text_muted", self.text_muted.hex()),
+            ("primary", self.primary.hex()),
+            ("link", self.link.hex()),
+            ("structural", self.structural.hex()),
+            ("agent", self.agent.hex()),
+            ("search", self.search.hex()),
+            ("selection", self.selection.hex()),
         ]
     }
 
@@ -127,6 +158,14 @@ impl ChromePalette {
             success: r.get(roles.success),
             info: r.get(roles.info),
             accent: r.get(roles.accent),
+            text_bright: r.get(roles.text_bright),
+            text_muted: r.get(roles.text_muted),
+            primary: r.get(roles.primary),
+            link: r.get(roles.link),
+            structural: r.get(roles.structural),
+            agent: r.get(roles.agent),
+            search: r.get(roles.search),
+            selection: r.get(roles.selection),
         }
     }
 }
