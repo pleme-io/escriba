@@ -118,10 +118,10 @@ fn the_shipped_screen_fits_a_classic_80x24_terminal_intact() {
 
 #[test]
 fn the_footer_names_the_theme_that_is_actually_painted() {
-    // Sourced from the paint seam, not from `(deftheme :preset …)`. The
-    // shipped baseline declares "vellum" and a plugin caixa overrides it;
-    // what ends up on screen is whatever the FLEET prescribes, and the
-    // footer has to agree with the pixels, not with the declaration.
+    // Read from the EDITOR's theme, not from the fleet default and not
+    // from `plan.theme`. Those three agree today — the shipped rc declares
+    // the fleet theme and it is wired through — but the footer has to
+    // follow the pixels, so it is sourced from the value the faces paint.
     let out = plain(&run(&["--render=text", "--height=30"]));
     let painted = escriba_ui::chrome::prescribed_theme_name();
     let footer = out
@@ -131,6 +131,52 @@ fn the_footer_names_the_theme_that_is_actually_painted() {
     assert!(
         footer.contains(painted),
         "footer must name the painted theme ({painted}): {footer:?}",
+    );
+}
+
+#[test]
+fn a_user_rc_theme_reaches_the_rendered_output() {
+    // End to end, through the real binary: an operator authoring a theme
+    // must see different bytes come out. This is the whole point of the
+    // `(deftheme …)` wiring — before it, both runs produced identical
+    // colour sequences because every paint site read the fleet default.
+    let dir = empty_rc().with_file_name("theme-rcs");
+    std::fs::create_dir_all(&dir).expect("scratch dir");
+    let shot = |preset: &str| {
+        let rc = dir.join(format!("{preset}.lisp"));
+        std::fs::write(&rc, format!("(deftheme :preset {preset:?})\n")).expect("write rc");
+        let out = escriba()
+            .args(["--render=text", "--height=24"])
+            .env("ESCRIBARC", &rc)
+            .env("ESCRIBA_PLUGINS_DIR", "/nonexistent-escriba-plugins")
+            .output()
+            .expect("escriba runs");
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+
+    let nord = shot("nord");
+    let vellum = shot("vellum");
+    assert_ne!(
+        nord, vellum,
+        "two themes produced byte-identical output — (deftheme …) is inert again",
+    );
+    // It is the SAME screen, recoloured — the layout must not shift. The
+    // footer is the one line allowed to differ, because it names the theme.
+    let body = |s: &str| {
+        plain(s)
+            .lines()
+            .filter(|l| !l.contains("plugins"))
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        body(&nord),
+        body(&vellum),
+        "a theme change must recolour, not relayout",
+    );
+    assert!(
+        plain(&vellum).contains("vellum") && plain(&nord).contains("nord"),
+        "the footer must name the operator's theme",
     );
 }
 

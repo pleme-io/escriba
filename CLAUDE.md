@@ -70,6 +70,32 @@ period this was broken.
 "search-forward"` silently became a lookup for a command that does not
 exist.
 
+## Test coverage of the GPU face — what is and isn't claimed
+
+`GpuRenderer::render` needs a live `madori::RenderContext` (wgpu device +
+surface view), so it cannot run under `cargo test`. Rather than leave the
+whole face uncovered, the parts that can actually be WRONG were extracted
+into pure functions and tested in `escriba-render/tests/gpu_logic.rs`:
+
+- **`cell_grid(w_px, h_px, font_size, line_height)`** — the pixel→character
+  conversion. This was duplicated: `resize` divided by line-height then
+  subtracted a row, `render` subtracted a line-height then divided. Same
+  intent, two spellings, two chances to reserve the status row wrong. Now
+  one function, covering degenerate surfaces (0×0 on minimise), degenerate
+  font metrics (`with_font_size` is public and unvalidated), and
+  monotonicity under resize.
+- **`splash_runs(chunks, palette)`** — the role→colour mapping. A mis-mapped
+  role paints menu keys as body text and renders perfectly; glyphon cannot
+  notice, so this is where the check has to live. Public *so the test calls
+  the real function* — a test that rebuilt the mapping would keep passing
+  after the renderer stopped calling it.
+
+**The honest claim is "the GPU face's LOGIC is tested", not "the GPU face is
+tested".** What remains uncovered is glyphon/wgpu call sequencing — buffer
+sizing, shaping, encoder submission — which is upstream's contract. If you
+add branching logic to `render()`, extract it rather than growing the
+untestable region.
+
 ## Theming — how escriba paints (2026-07-26)
 
 **One seam: `escriba_ui::chrome::ChromePalette`.** Both faces (the ratatui
@@ -96,12 +122,33 @@ and both guards went RED (`theme drift — actual Vellum != fleet PlemeDark`).
 `(deftheme :preset …)` had the same defect from the other side: it resolved
 to a real `FleetTheme` that **nothing outside tests consumed**.
 
-**Tier-honest, still open:** the paint path reads
-`ChromePalette::prescribed()` — the FLEET theme — not the operator's
-`(deftheme :preset …)`. The seam to fix that now exists
-(`ChromePalette::for_theme`), but nothing threads a config value into it, so
-**live theme-switch remains inert**. That is the remaining half; it is a
-wiring job (config → renderer), not a redesign.
+**Closed 2026-08-07 — `(deftheme :preset …)` now reaches the pixels.**
+The paint path used to read `ChromePalette::prescribed()` at every site, so
+an operator could author `(deftheme :preset "vellum")`, watch `--list-rc`
+report it, and see Nord on screen. The fix, in three parts:
+
+- **`EditorState` owns the theme** (`theme` + resolved `chrome`), so there
+  is ONE answer to "what colour is this editor" and every face reads it.
+  `set_theme` bumps the refresh generation — without that the GPU face
+  keeps its cached shaped buffer and the old colours stay up until an
+  unrelated edit invalidates it.
+- **Every paint site takes the palette as an ARGUMENT.** The TUI style
+  helpers and the GPU's `ground_bg` / `mode_color` no longer reach for the
+  default themselves. A palette that arrives as a parameter cannot be
+  ignored; one fetched inside the function always could be.
+- **The binary applies `plan.theme.resolve()`** before anything paints.
+
+`clear_frame` still paints the prescribed ground, correctly: it runs when
+state could not be read, which is exactly when the operator's theme is
+unknowable.
+
+**What wiring it surfaced:** the shipped rc declared `(deftheme :preset
+"vellum")` — stale since the fleet moved to Nord, and invisible for as long
+as nothing consumed it. It now says `nord`, and
+`theme_declaration_agrees_with_the_fleet_default` asserts the declaration
+against `FleetTheme::prescribed_default()` rather than against a literal,
+so a fleet re-point fails in the one file that decides it. Vellum remains
+opt-in via `--rc escriba/configs/vellum.lisp`.
 
 skip-fleet-convergence-guard: EscribaConfig (escriba-config/src/lib.rs)
 exposes NO `font_family` / `font_size` / `cursor` fields that participate
@@ -123,15 +170,26 @@ introduces typed `font_family` / `font_size` / `cursor` fields.
 (`catalog_bundle.rs`) — applied at boot unless `--no-defaults`. The
 default mirrors blackmatter-nvim (blnvim): leader `,` (blnvim parity),
 tab-width 2, ~19 `:set` options, `<C-s>` save, 14 tree-sitter major
-modes, the Vellum (Nord-matte) theme, ~30 highlights. **Tier-honest
-parity gap:** the WIRED def-form set is `defcmd`/`defoption`/`defkeybind`
-/`defmode` only — so the ~40 catalog plugins that declare picker/LSP/git/
-completion/formatter/diagnostic keybinds, and the operator-edit verbs
-(`dw`/`ciw`/paste/search), are **bound-but-inert** until their subsystem
-waves land (a running LSP client, a picker, a git layer, a `tema`→palette
-renderer for live theme-switch). Closing those = escriba feature-work,
-not a config change. See `theory`-side analysis or run
-`escriba config-show default`.
+modes, the fleet-prescribed theme (Nord), ~30 highlights, and the start
+screen. **Tier-honest parity gap:** the WIRED def-form set is
+`defcmd`/`defoption`/`defkeybind`/`defmode`/`deftheme`/`defsplash` — so
+the ~40 catalog plugins that declare picker/LSP/git/completion/formatter/
+diagnostic keybinds, and the operator-edit verbs (`dw`/`ciw`/paste), are
+**bound-but-inert** until their subsystem waves land (a running LSP
+client, a picker, a git layer). Closing those = escriba feature-work, not
+a config change.
+
+**That inert set is no longer a prose claim.** `escriba/tests/action_resolution.rs`
+pins the exact 85 shipped keybind actions that resolve to neither a typed
+`Action` nor a registered command, and asserts SET EQUALITY — so a typo
+fails (it is not in the list) and wiring a subsystem also fails until its
+names are removed. The `:action` fallback to `Action::Command` is
+load-bearing (it is how a plugin command resolves later) and is exactly
+what makes a typo and a not-yet-wired subsystem indistinguishable at
+parse, apply and dispatch time; the list is what tells them apart. Start
+screen entries are held to the stricter bar of zero unresolvable, because
+an inert keybind is invisible until pressed while an inert menu entry is
+printed as an offer.
 
 **Operator-over-motion engine (2026-06-26, shipped):** the vim
 `{operator}{motion}` verbs (`dw`/`c$`/`y0`) execute in `escriba-runtime`

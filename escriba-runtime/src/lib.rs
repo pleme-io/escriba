@@ -30,6 +30,7 @@ use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
 use escriba_mode::ModalState;
 use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
+use escriba_ui::chrome::{ChromePalette, FleetTheme};
 use escriba_ui::splash::Splash;
 use escriba_ui::{Layout, Rect, Viewport, Window};
 use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, HostEffect, VmError};
@@ -131,6 +132,19 @@ pub struct EditorState {
     /// always covers the changed region (`Damage ⊇ changed`); the renderer
     /// drains it with [`take_damage`](Self::take_damage) to scope its work.
     damage: Damage,
+    /// The theme every face paints with.
+    ///
+    /// ONE owner. Before this, `(deftheme :preset …)` parsed, validated,
+    /// resolved to a real `FleetTheme` — and then nothing consumed it,
+    /// because each renderer called `ChromePalette::prescribed()` at every
+    /// paint site. The declaration was honoured on paper only. Holding it
+    /// here means a face reads the operator's theme the same way it reads
+    /// the cursor: from the state, per frame.
+    theme: FleetTheme,
+    /// `theme` resolved to concrete colours — cached because it is a plain
+    /// `Copy` struct read many times per frame, and re-derived only in
+    /// [`set_theme`](Self::set_theme), so the two cannot disagree.
+    chrome: ChromePalette,
     /// The start screen, while it is up.
     ///
     /// `Some` only between boot and the first keypress, and only when the
@@ -283,8 +297,41 @@ impl EditorState {
             plugin_host: PluginHost::default(),
             edit_gen: EditGen::default(),
             damage: Damage::None,
+            // The FLEET default until an rc says otherwise — never a
+            // hand-written theme name, so a fleet re-point lands for free.
+            theme: FleetTheme::prescribed_default(),
+            chrome: ChromePalette::prescribed(),
             splash: None,
         }
+    }
+
+    /// The theme this editor is set to.
+    #[must_use]
+    pub const fn theme(&self) -> FleetTheme {
+        self.theme
+    }
+
+    /// The colours every face paints with — read once per frame.
+    #[must_use]
+    pub const fn chrome(&self) -> ChromePalette {
+        self.chrome
+    }
+
+    /// Point the editor at a theme. The wiring that makes
+    /// `(deftheme :preset …)` real.
+    ///
+    /// Bumps the refresh generation, because a theme change repaints
+    /// everything: the GPU face caches its shaped buffer against that
+    /// generation and would otherwise keep the old colours until an
+    /// unrelated edit happened to invalidate it.
+    pub fn set_theme(&mut self, theme: FleetTheme) {
+        if self.theme == theme {
+            return;
+        }
+        self.theme = theme;
+        self.chrome = ChromePalette::for_theme(theme);
+        self.damage = self.damage.join(Damage::Viewport);
+        self.bump_gen();
     }
 
     /// The start screen, if one is up. Renderers paint this INSTEAD of the

@@ -372,6 +372,20 @@ pub fn run() -> Result<()> {
         );
     }
 
+    // Apply the operator's theme BEFORE anything paints. `(deftheme :preset
+    // …)` has always parsed, validated and resolved to a real `FleetTheme`;
+    // until now nothing consumed the result, because every paint site
+    // called `ChromePalette::prescribed()` for itself. This one line is the
+    // consumer. Absent a `deftheme`, the state keeps the fleet default.
+    if let Some(theme) = &plan.theme {
+        state.set_theme(theme.resolve());
+        tracing::info!(
+            "theme: {} -> {:?}",
+            theme.effective_preset(),
+            theme.resolve()
+        );
+    }
+
     // Raise the start screen — but only when escriba was given nothing to
     // open. `escriba foo.rs` means "show me foo.rs", and a welcome screen
     // in front of a file you asked for is a keystroke tax, not a welcome.
@@ -379,7 +393,7 @@ pub fn run() -> Result<()> {
         && !args.no_splash
         && let Some(mut splash) = escriba_lisp::apply_plan_to_splash(&plan)
     {
-        splash.facts = splash_facts(&plan);
+        splash.facts = splash_facts(&plan, state.theme());
         state.set_splash(splash);
     }
 
@@ -421,7 +435,10 @@ fn run_tui(state: EditorState) -> Result<()> {
 /// Derived from the plan the editor ACTUALLY booted with, not from a
 /// static string: a strip that claims 45 plugins while the operator
 /// disabled half of them is a lie that nobody would notice.
-fn splash_facts(plan: &escriba_lisp::ApplyPlan) -> Vec<String> {
+fn splash_facts(
+    plan: &escriba_lisp::ApplyPlan,
+    theme: escriba_ui::chrome::FleetTheme,
+) -> Vec<String> {
     let mut facts = Vec::with_capacity(4);
     let mut version = String::from("v");
     version.push_str(env!("CARGO_PKG_VERSION"));
@@ -437,10 +454,11 @@ fn splash_facts(plan: &escriba_lisp::ApplyPlan) -> Vec<String> {
             facts.push(f);
         }
     }
-    // The theme the renderers ACTUALLY paint, read from the paint seam —
-    // not `plan.theme`, which is what the rc DECLARED. Those are still
-    // two different values (see `chrome::prescribed_theme_name`).
-    facts.push(escriba_ui::chrome::prescribed_theme_name().to_string());
+    // The theme the editor is SET to — which, now that `(deftheme …)` is
+    // wired, is also the one being painted. It is still read from the
+    // editor rather than from `plan.theme`, so if the two ever diverge
+    // again the footer follows the pixels.
+    facts.push(theme.preset_name().to_string());
     facts
 }
 
@@ -453,7 +471,7 @@ fn run_text(state: EditorState, height: u32) -> Result<()> {
         // canvas `--height` gives the buffer, at a conventional 80 columns.
         let frame = escriba_render::render_splash_ansi(
             splash,
-            &escriba_ui::chrome::ChromePalette::prescribed(),
+            &state.chrome(),
             80,
             u16::try_from(height).unwrap_or(u16::MAX),
         );
@@ -1074,15 +1092,48 @@ mod theme_tests {
     /// blnvim defaults.
     const VELLUM_RC: &str = include_str!("../configs/vellum.lisp");
 
+    /// The shipped rc must DECLARE the theme the fleet PRESCRIBES.
+    ///
+    /// This replaces a test that pinned the literal `"vellum"` — which is
+    /// what let the declaration go stale. When the fleet moved to Nord, the
+    /// rc kept saying vellum and this test kept passing, because it was
+    /// asserting the rc against itself rather than against the fleet. It
+    /// stayed invisible for as long as `(deftheme …)` was inert; the moment
+    /// the declaration reached the paint path it would have flipped
+    /// escriba's default appearance out from under everyone.
+    ///
+    /// Asserted against `prescribed_default()`, never a literal, so a fleet
+    /// re-point fails HERE — one line to change, in the file that decides
+    /// it — instead of silently diverging from the convergence guards that
+    /// enforce what gets painted.
     #[test]
-    fn bundled_default_rc_applies_and_selects_vellum() {
+    fn theme_declaration_agrees_with_the_fleet_default() {
         let plan = escriba_lisp::apply_source(super::DEFAULT_RC)
             .expect("bundled blnvim-defaults.lisp must apply cleanly");
-        // The fleet theme is the active preset.
+        let declared = plan.theme.as_ref().expect("the baseline declares a theme");
         assert_eq!(
-            plan.theme.as_ref().map(|t| t.preset.as_str()),
-            Some("vellum"),
-            "default rc must select the Vellum fleet theme",
+            declared.resolve(),
+            escriba_ui::chrome::FleetTheme::prescribed_default(),
+            "shipped rc declares `{}`, but the fleet prescribes `{}` — the \
+             two convergence guards enforce the fleet value, so this rc \
+             would paint against them",
+            declared.effective_preset(),
+            escriba_ui::chrome::prescribed_theme_name(),
+        );
+    }
+
+    /// And it must survive the full composite — a plugin caixa is free to
+    /// declare a theme, and last-writer-wins means one could silently take
+    /// the default over.
+    #[test]
+    fn the_composite_plan_still_lands_on_the_fleet_theme() {
+        let plan = super::default_plan(false).expect("shipped defaults parse");
+        let theme = plan.theme.as_ref().expect("a theme survives the merge");
+        assert_eq!(
+            theme.resolve(),
+            escriba_ui::chrome::FleetTheme::prescribed_default(),
+            "a bundled caixa overrode the default theme to `{}`",
+            theme.effective_preset(),
         );
     }
 
