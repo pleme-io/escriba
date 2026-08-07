@@ -153,6 +153,11 @@ pub struct EditorState {
     /// bounded and REPORTED rather than a stack overflow — the difference
     /// between a typed refusal and the editor dying under the operator.
     dispatch_depth: u8,
+    /// Extension → language facts, populated from `(defmode …)`.
+    ///
+    /// The consumer `:commentstring` never had. Public so the binary's apply
+    /// pass can fill it the way it fills the keymap and the option store.
+    pub filetypes: escriba_core::FiletypeTable,
     /// The start screen, while it is up.
     ///
     /// `Some` only between boot and the first keypress, and only when the
@@ -199,6 +204,13 @@ impl escriba_madoguchi::CursorView for EditorWindow<'_> {
     }
 }
 
+impl escriba_madoguchi::SyntaxView for EditorWindow<'_> {
+    fn filetype(&self) -> Option<&escriba_core::Filetype> {
+        let path = self.state.buffers.get(self.state.active)?.path.as_deref()?;
+        self.state.filetypes.resolve(path)
+    }
+}
+
 impl escriba_madoguchi::SearchView for EditorWindow<'_> {
     fn pattern(&self) -> Option<&str> {
         self.state.search.committed_pattern()
@@ -237,6 +249,9 @@ impl escriba_madoguchi::Snapshot for EditorWindow<'_> {
         self.state.options.get(name).map(String::as_str)
     }
     fn search(&self) -> &dyn escriba_madoguchi::SearchView {
+        self
+    }
+    fn syntax(&self) -> &dyn escriba_madoguchi::SyntaxView {
         self
     }
 }
@@ -636,6 +651,7 @@ impl EditorState {
             // The FLEET default until an rc says otherwise — never a
             // hand-written theme name, so a fleet re-point lands for free.
             dispatch_depth: 0,
+            filetypes: escriba_core::FiletypeTable::new(),
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,

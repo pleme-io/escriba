@@ -334,9 +334,12 @@ pub fn run() -> Result<()> {
     // `<leader>` is resolved at bind time, so the leader must be set
     // first or every `<leader>…` sequence binds under the wrong prefix.
     apply_leader_option(&mut state);
+    // `:commentstring` finally reaches live state — see escriba-core's
+    // filetype table. Before this, `defmode` validated it and nothing read it.
+    let ft_count = escriba_lisp::apply_plan_to_filetypes(&plan, &mut state.filetypes);
     let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
     tracing::info!(
-        "plan applied: {}; keymap={}; {}; {}",
+        "plan applied: {}; keymap={}; {}; {}; filetypes={ft_count}",
         plan.summary(),
         report.summary(),
         cmd_report.summary(),

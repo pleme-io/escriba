@@ -5,7 +5,7 @@ extern crate self as escriba_command;
 use std::collections::HashMap;
 
 use escriba_core::BufferId;
-use escriba_madoguchi::cap::Buffers;
+use escriba_madoguchi::cap::{Buffers, Cursor, Syntax};
 use escriba_madoguchi::{BufferView, Native, Negai, Outcome, Snapshot, View, caps, erase};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -161,6 +161,13 @@ impl CommandRegistry {
             "Close the active buffer",
             erase::<BufferDelete>(),
         ));
+        for name in ["comment.toggle-line", "comment.toggle-block"] {
+            r.register(Command::native(
+                name,
+                "Toggle the comment on the current line",
+                erase::<CommentToggle>(),
+            ));
+        }
         for alias in ["noh", "nohl", "nohlsearch"] {
             r.register(Command::action(
                 alias,
@@ -399,6 +406,66 @@ impl Native for BufferDelete {
             Ok(buffer) => Outcome::did(vec![Negai::CloseBuffer(buffer)]),
             Err(o) => o,
         }
+    }
+}
+
+/// `comment.toggle-line` / `comment.toggle-block` — the first commands to
+/// need TWO capabilities, and the first consumer of `:commentstring`.
+///
+/// Toggle, not comment: if the line is already commented it is uncommented.
+/// A one-way "comment" verb makes the same keystroke mean two things
+/// depending on state, which is how you end up with `//// x`.
+struct CommentToggle;
+impl Native for CommentToggle {
+    type Reads = caps!(Buffers, Cursor, Syntax);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let Some(ft) = v.syntax().filetype() else {
+            return Outcome::declined("no filetype for this buffer");
+        };
+        let Some(comment) = ft.comment.as_ref() else {
+            let mut m = String::from("no comment syntax for ");
+            m.push_str(&ft.name);
+            return Outcome::declined(m);
+        };
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        let line_no = v.cursor().position().line;
+        let Some(line) = buf.line(line_no) else {
+            return Outcome::declined("cursor past the end of the buffer");
+        };
+        // An empty line has nothing to comment, and commenting it would
+        // leave a bare marker the next toggle cannot recognise as content.
+        if line.trim().is_empty() {
+            return Outcome::declined("nothing on this line");
+        }
+
+        // Indentation is preserved: a comment marker inserted before the
+        // indent would destroy the alignment the code is relying on.
+        let indent_len = line.len() - line.trim_start().len();
+        let (indent, body) = line.split_at(indent_len);
+        let toggled = match comment.strip(body) {
+            Some(uncommented) => uncommented.to_string(),
+            None => comment.wrap(body),
+        };
+        let mut text = String::with_capacity(indent.len() + toggled.len());
+        text.push_str(indent);
+        text.push_str(&toggled);
+
+        Outcome::did(vec![Negai::Edit {
+            buffer: buf.id(),
+            edit: escriba_core::Edit {
+                range: escriba_core::Range::new(
+                    escriba_core::Position::new(line_no, 0),
+                    escriba_core::Position::new(
+                        line_no,
+                        u32::try_from(line.chars().count()).unwrap_or(u32::MAX),
+                    ),
+                ),
+                kind: escriba_core::EditKind::Replace { text },
+            },
+        }])
     }
 }
 

@@ -36,9 +36,10 @@ use escriba_core::Action;
 /// Shipped keybind actions that resolve to no typed action AND no
 /// registered command.
 ///
-/// This list only ever SHRINKS. `buffer.{next,prev,delete}` left it in
-/// madoguchi M5 — the first three, and the moment the ratchet was shown to
-/// turn downward rather than merely hold. Every one is a real capability awaiting its
+/// This list only ever SHRINKS. `buffer.{next,prev,delete}` and
+/// `comment.toggle-{line,block}` left it in madoguchi M5 — the first five,
+/// and the moment the ratchet was shown to turn downward rather than merely
+/// hold. Every one is a real capability awaiting its
 /// subsystem wave (a running LSP client, a picker, a git layer, DAP, …),
 /// not a mistake. Grouped by the subsystem that will retire it.
 const INERT: &[&str] = &[
@@ -48,9 +49,6 @@ const INERT: &[&str] = &[
     // Completion — needs a completion engine.
     "cmp.abort",
     "cmp.complete",
-    // Commenting — needs the comment layer.
-    "comment.toggle-block",
-    "comment.toggle-line",
     // Merge conflicts — needs the git layer.
     "conflict.choose-both",
     "conflict.choose-ours",

@@ -70,9 +70,21 @@ pub trait Snapshot {
     /// The search session — the view `EditContext` could not reach, and the
     /// reason `:noh` was special-cased inside the runtime for so long.
     fn search(&self) -> &dyn SearchView;
+    /// Language facts for the active buffer.
+    fn syntax(&self) -> &dyn SyntaxView;
 }
 
 // ─── The capability-narrowed window ──────────────────────────────────────
+
+/// Read the active buffer's language facts.
+pub trait SyntaxView {
+    /// The filetype resolved for the ACTIVE buffer, if any.
+    ///
+    /// Resolution is the editor's job, not the handler's: a command that
+    /// re-derived the filetype from the path would be a second answer to
+    /// "what language is this", free to disagree with the highlighter.
+    fn filetype(&self) -> Option<&escriba_core::Filetype>;
+}
 
 /// Read the search session.
 pub trait SearchView {
@@ -145,6 +157,15 @@ impl<'a, C> View<'a, C> {
     {
         self.snap.search()
     }
+
+    /// Read the active buffer's language facts. Requires
+    /// [`Syntax`](cap::Syntax).
+    pub fn syntax<I>(&self) -> &dyn SyntaxView
+    where
+        C: cap::Has<cap::Syntax, I>,
+    {
+        self.snap.syntax()
+    }
 }
 
 /// The buffer half of a [`View`], handed out only against a `Buffers` proof.
@@ -189,6 +210,7 @@ pub struct FakeSnapshot {
     pub pattern: Option<String>,
     pub match_count: Option<usize>,
     pub prompting: bool,
+    pub filetype: Option<escriba_core::Filetype>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -270,6 +292,16 @@ impl FakeSnapshot {
     }
 
     #[must_use]
+    pub fn of_type(mut self, name: &str, commentstring: &str) -> Self {
+        self.filetype = Some(escriba_core::Filetype {
+            name: name.to_string(),
+            extensions: Vec::new(),
+            comment: escriba_core::CommentString::parse(commentstring),
+        });
+        self
+    }
+
+    #[must_use]
     pub fn searching(mut self, pattern: impl Into<String>, matches: usize) -> Self {
         self.pattern = Some(pattern.into());
         self.match_count = Some(matches);
@@ -280,6 +312,12 @@ impl FakeSnapshot {
     pub fn with_option(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
         self.options.push((k.into(), v.into()));
         self
+    }
+}
+
+impl SyntaxView for FakeSnapshot {
+    fn filetype(&self) -> Option<&escriba_core::Filetype> {
+        self.filetype.as_ref()
     }
 }
 
@@ -330,6 +368,9 @@ impl Snapshot for FakeSnapshot {
             .map(|(_, v)| v.as_str())
     }
     fn search(&self) -> &dyn SearchView {
+        self
+    }
+    fn syntax(&self) -> &dyn SyntaxView {
         self
     }
 }

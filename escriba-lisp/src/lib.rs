@@ -110,8 +110,8 @@ mod workflow;
 pub use abbrev::AbbrevSpec;
 pub use apply::{
     ApplyReport, CommandApplyReport, GrammarApplyReport, OptionApplyReport, apply_plan_to_commands,
-    apply_plan_to_grammar_extensions, apply_plan_to_keymap, apply_plan_to_options,
-    apply_plan_to_splash, parse_leader_key, resolve_action,
+    apply_plan_to_filetypes, apply_plan_to_grammar_extensions, apply_plan_to_keymap,
+    apply_plan_to_options, apply_plan_to_splash, parse_leader_key, resolve_action,
 };
 pub use attest::{
     AttestResult, AttestSpec, KNOWN_KINDS as ATTEST_KINDS, KNOWN_SEVERITIES as ATTEST_SEVERITIES,

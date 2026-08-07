@@ -58,6 +58,10 @@ pub struct Options;
 #[derive(Debug, Clone, Copy)]
 pub struct Search;
 
+/// Read the active buffer's language facts — filetype and comment syntax.
+#[derive(Debug, Clone, Copy)]
+pub struct Syntax;
+
 // ─── Type-level list ─────────────────────────────────────────────────────
 
 /// The empty capability list — a handler that reads nothing.
