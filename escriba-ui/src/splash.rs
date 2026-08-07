@@ -572,7 +572,11 @@ mod tests {
 
     #[test]
     fn screen_chunks_are_a_complete_partition() {
-        // glyphon's set_rich_text needs every byte covered exactly once.
+        // The GPU face feeds this straight into glyphon's `set_rich_text`,
+        // which concatenates the chunks and requires that the result BE the
+        // text — every byte covered exactly once, no gaps, no overlaps. A
+        // gap here is a hole in the rendered screen, on the one face that
+        // cannot be tested headlessly.
         let s = sample();
         let chunks = s.screen_chunks(80, 24);
         assert!(!chunks.is_empty());
@@ -580,6 +584,45 @@ mod tests {
             chunks.iter().all(|c| !c.text.is_empty()),
             "an empty chunk is a wasted span",
         );
+
+        // Byte-exact: the concatenation must reproduce the laid-out screen
+        // line for line, including the padding that positions each row.
+        let joined: String = chunks.iter().map(|c| c.text.as_str()).collect();
+        let mut expected = String::new();
+        let mut cursor_row = 0u16;
+        for r in s.rows(80, 24) {
+            for _ in cursor_row..r.row {
+                expected.push('\n');
+            }
+            cursor_row = r.row + 1;
+            for _ in 0..r.col {
+                expected.push(' ');
+            }
+            expected.push_str(&r.plain());
+            expected.push('\n');
+        }
+        assert_eq!(joined, expected, "chunk stream is not the laid-out screen");
+    }
+
+    #[test]
+    fn no_chunk_line_exceeds_the_canvas_width() {
+        // A line longer than the canvas wraps on the GPU face (glyphon has
+        // no clipping of its own), which would silently push every row below
+        // it out of place.
+        for (w, h) in [(120u16, 40u16), (80, 24), (40, 12), (24, 10)] {
+            let joined: String = sample()
+                .screen_chunks(w, h)
+                .iter()
+                .map(|c| c.text.as_str())
+                .collect();
+            for line in joined.lines() {
+                assert!(
+                    line.chars().count() <= w as usize,
+                    "line of {} cells on a {w}-wide canvas: {line:?}",
+                    line.chars().count(),
+                );
+            }
+        }
     }
 
     #[test]

@@ -214,6 +214,24 @@ mod tests {
         }
     }
 
+    /// The name we TELL an operator must be the theme we PAINT.
+    ///
+    /// The start screen's footer prints this. It would have been easy to
+    /// source it from the rc's `(deftheme :preset …)` instead — and that
+    /// would be a lie the moment the declared and painted themes diverge,
+    /// which today they always can, because nothing threads the authored
+    /// theme into the paint path yet.
+    #[test]
+    fn the_reported_theme_name_is_the_one_actually_painted() {
+        assert_eq!(
+            prescribed_theme_name(),
+            FleetTheme::prescribed_default().preset_name(),
+        );
+        // And it names a theme whose chrome is what `prescribed()` resolves.
+        let by_name = ChromePalette::for_theme(FleetTheme::prescribed_default());
+        assert_eq!(by_name.hex_tuple(), ChromePalette::prescribed().hex_tuple());
+    }
+
     /// Themes must actually differ — if two arms resolved identically the
     /// selection would be decorative.
     #[test]
