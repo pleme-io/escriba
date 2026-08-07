@@ -121,6 +121,12 @@ pub struct SearchPattern {
 }
 
 impl SearchPattern {
+    /// The pattern as the operator typed it.
+    #[must_use]
+    pub fn source(&self) -> &str {
+        &self.raw
+    }
+
     /// Compile `raw` under `case`.
     ///
     /// # Errors

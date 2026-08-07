@@ -809,10 +809,8 @@ dependencies = [
 name = "escriba-command"
 version = "0.1.34"
 dependencies = [
- "escriba-buffer",
  "escriba-core",
  "escriba-madoguchi",
- "escriba-mode",
  "pretty_assertions",
  "schemars",
  "serde",

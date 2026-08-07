@@ -11,8 +11,6 @@ authors.workspace = true
 [dependencies]
 escriba-core   = { workspace = true }
 escriba-madoguchi = { workspace = true }
-escriba-buffer = { workspace = true }
-escriba-mode   = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
 schemars       = { workspace = true }

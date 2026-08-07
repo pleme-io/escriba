@@ -24,7 +24,11 @@
 //! to COMPILE. The views are already split by concern here so that narrowing
 //! is a type-level change rather than a re-carve of the surface.
 
+use std::marker::PhantomData;
+
 use escriba_core::{BufferId, Mode, Position};
+
+use crate::cap;
 
 /// What a handler can learn about one buffer.
 pub trait BufferView {
@@ -63,6 +67,108 @@ pub trait Snapshot {
     fn cursor(&self) -> &dyn CursorView;
     /// An editor option (`number`, `tabstop`, `mapleader`, …).
     fn option(&self, name: &str) -> Option<&str>;
+    /// The search session — the view `EditContext` could not reach, and the
+    /// reason `:noh` was special-cased inside the runtime for so long.
+    fn search(&self) -> &dyn SearchView;
+}
+
+// ─── The capability-narrowed window ──────────────────────────────────────
+
+/// Read the search session.
+pub trait SearchView {
+    /// The committed pattern, if one has been searched for.
+    fn pattern(&self) -> Option<&str>;
+    /// How many matches the committed pattern has, if it is known.
+    fn match_count(&self) -> Option<usize>;
+    /// Is a `/` or `?` prompt open right now?
+    fn is_prompting(&self) -> bool;
+}
+
+/// A [`Snapshot`] narrowed to the capabilities `C`.
+///
+/// This is what a handler actually receives. Each accessor carries a
+/// `C: Has<Cap, _>` bound, so reaching for a view the handler did not
+/// declare is a missing trait impl — a compile error, not a runtime check
+/// and not a convention.
+///
+/// Zero-cost: it is one reference plus a `PhantomData`. Narrowing is
+/// entirely a type-level act; nothing is copied, hidden or wrapped at
+/// runtime, and the underlying `Snapshot` is the same object the
+/// interpreter built.
+pub struct View<'a, C> {
+    snap: &'a dyn Snapshot,
+    _caps: PhantomData<C>,
+}
+
+impl<'a, C> View<'a, C> {
+    /// Narrow a snapshot to `C`.
+    ///
+    /// Callable by anyone, and that is fine: narrowing can only ever REMOVE
+    /// reach. The interesting direction — widening — is impossible, because
+    /// there is no method that returns the underlying `&dyn Snapshot`.
+    #[must_use]
+    pub const fn new(snap: &'a dyn Snapshot) -> Self {
+        Self {
+            snap,
+            _caps: PhantomData,
+        }
+    }
+
+    /// Read open buffers. Requires [`Buffers`](cap::Buffers).
+    pub fn buffers<I>(&self) -> Buffers<'_>
+    where
+        C: cap::Has<cap::Buffers, I>,
+    {
+        Buffers { snap: self.snap }
+    }
+
+    /// Read cursor position and mode. Requires [`Cursor`](cap::Cursor).
+    pub fn cursor<I>(&self) -> &dyn CursorView
+    where
+        C: cap::Has<cap::Cursor, I>,
+    {
+        self.snap.cursor()
+    }
+
+    /// Read an editor option. Requires [`Options`](cap::Options).
+    pub fn option<I>(&self, name: &str) -> Option<&str>
+    where
+        C: cap::Has<cap::Options, I>,
+    {
+        self.snap.option(name)
+    }
+
+    /// Read the search session. Requires [`Search`](cap::Search).
+    pub fn search<I>(&self) -> &dyn SearchView
+    where
+        C: cap::Has<cap::Search, I>,
+    {
+        self.snap.search()
+    }
+}
+
+/// The buffer half of a [`View`], handed out only against a `Buffers` proof.
+///
+/// A separate type rather than methods on `View` so that the proof is
+/// discharged ONCE, at `.buffers()`, instead of being re-proved on every
+/// call — which keeps handler bodies readable.
+pub struct Buffers<'a> {
+    snap: &'a dyn Snapshot,
+}
+
+impl Buffers<'_> {
+    #[must_use]
+    pub fn active(&self) -> Option<&dyn BufferView> {
+        self.snap.active()
+    }
+    #[must_use]
+    pub fn get(&self, id: escriba_core::BufferId) -> Option<&dyn BufferView> {
+        self.snap.buffer(id)
+    }
+    #[must_use]
+    pub fn ids(&self) -> Vec<escriba_core::BufferId> {
+        self.snap.buffer_ids()
+    }
 }
 
 // ─── Test double ─────────────────────────────────────────────────────────
@@ -80,6 +186,9 @@ pub struct FakeSnapshot {
     pub position: Position,
     pub mode: Mode,
     pub options: Vec<(String, String)>,
+    pub pattern: Option<String>,
+    pub match_count: Option<usize>,
+    pub prompting: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -161,9 +270,28 @@ impl FakeSnapshot {
     }
 
     #[must_use]
+    pub fn searching(mut self, pattern: impl Into<String>, matches: usize) -> Self {
+        self.pattern = Some(pattern.into());
+        self.match_count = Some(matches);
+        self
+    }
+
+    #[must_use]
     pub fn with_option(mut self, k: impl Into<String>, v: impl Into<String>) -> Self {
         self.options.push((k.into(), v.into()));
         self
+    }
+}
+
+impl SearchView for FakeSnapshot {
+    fn pattern(&self) -> Option<&str> {
+        self.pattern.as_deref()
+    }
+    fn match_count(&self) -> Option<usize> {
+        self.match_count
+    }
+    fn is_prompting(&self) -> bool {
+        self.prompting
     }
 }
 
@@ -200,6 +328,9 @@ impl Snapshot for FakeSnapshot {
             .iter()
             .find(|(k, _)| k == name)
             .map(|(_, v)| v.as_str())
+    }
+    fn search(&self) -> &dyn SearchView {
+        self
     }
 }
 

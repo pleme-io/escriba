@@ -194,6 +194,26 @@ impl SearchState {
         self.prompt.as_ref()
     }
 
+    /// The COMMITTED pattern's text — what `n`/`N` repeat.
+    ///
+    /// Distinct from the live prompt (`prompt().text()`), which is discarded
+    /// on cancel. A reader wanting "what is the editor searching for" wants
+    /// this one.
+    #[must_use]
+    pub fn committed_pattern(&self) -> Option<&str> {
+        self.pattern.as_ref().map(SearchPattern::source)
+    }
+
+    /// How many matches the committed pattern has.
+    ///
+    /// Not `highlights().len()`: that is empty after `:noh`, which clears the
+    /// HIGHLIGHT without forgetting the pattern. Conflating them would make
+    /// `:noh` look like "no matches".
+    #[must_use]
+    pub fn match_count(&self) -> usize {
+        self.matches.len()
+    }
+
     #[must_use]
     pub const fn is_prompting(&self) -> bool {
         self.prompt.is_some()
