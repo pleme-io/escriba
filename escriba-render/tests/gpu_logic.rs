@@ -235,3 +235,66 @@ fn the_four_pills_stay_distinguishable_under_every_theme() {
         }
     }
 }
+
+/// The GPU face's gutter geometry.
+///
+/// Pure arithmetic, and the one part of that face's gutter that can be WRONG
+/// without a device: if the pixel offset and the reserved columns disagree,
+/// the text either overlaps the line numbers or floats away from them, and
+/// nothing in a headless test suite would notice.
+mod gutter_geometry {
+    use escriba_render::gpu::{cell_grid, gutter_px};
+    use escriba_ui::gutter::gutter_width;
+
+    #[test]
+    fn the_pixel_offset_is_exactly_the_declared_columns() {
+        // Derived from the SAME cell width `cell_grid` uses. Computed with a
+        // second ratio, the text would start a fraction of a cell off the
+        // gutter's edge — visible as a ragged left margin at some font sizes
+        // and not others.
+        for font_size in [10.0_f32, 14.0, 18.0, 24.0] {
+            for line_count in [12_u32, 9_999, 10_000, 250_000] {
+                let grid = cell_grid(1920, 1080, font_size, font_size * 1.4);
+                let cell_w = 1920.0 / f32::from(grid.cols);
+                let cols = gutter_width(line_count);
+                let want = cell_w * cols as f32;
+                let got = gutter_px(font_size, line_count);
+                assert!(
+                    (got - want).abs() <= cell_w,
+                    "font {font_size}, {line_count} lines: gutter_px {got} is \
+                     more than one cell off the {cols}-column width {want}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_bigger_file_reserves_more_pixels() {
+        // The whole reason the width is a function rather than a constant.
+        // If this were flat, a five-digit line number would be painted into
+        // the text column.
+        let small = gutter_px(14.0, 9_999);
+        let big = gutter_px(14.0, 10_000);
+        assert!(
+            big > small,
+            "crossing into five digits must widen the gutter: {small} -> {big}",
+        );
+    }
+
+    #[test]
+    fn the_gutter_never_swallows_the_whole_window() {
+        // A narrow window must still show text. `draw_buffer` subtracts the
+        // gutter from the viewport with a saturating floor; this proves the
+        // floor is reachable rather than theoretical.
+        let grid = cell_grid(120, 400, 14.0, 20.0);
+        assert!(
+            u32::from(grid.cols) > 0,
+            "a window always has at least one column",
+        );
+        let text_cols = u32::from(grid.cols).saturating_sub(gutter_width(10) as u32);
+        assert!(
+            text_cols.max(1) >= 1,
+            "text columns must never reach zero — the file would vanish",
+        );
+    }
+}

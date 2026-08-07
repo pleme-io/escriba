@@ -689,6 +689,10 @@ mod tests {
     }
 
     #[test]
+    // `N` is a DIFFERENT vim key from `n`, and the test name says which
+    // pair it covers. Renaming to snake case would make two distinct
+    // bindings read as one.
+    #[allow(non_snake_case)]
     fn n_and_N_move_opposite_ways() {
         let s = committed("foo");
         let fwd = s.repeat(0, false).unwrap();
@@ -698,6 +702,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
     fn N_after_a_backward_search_goes_forward() {
         let mut s = SearchState::new(CaseMode::Sensitive);
         s.open(Direction::Backward, 0);
@@ -988,6 +993,8 @@ mod tests {
     }
 
     #[test]
+    // CHARS is shouted because the byte/char confusion is the bug.
+    #[allow(non_snake_case)]
     fn the_caret_counts_CHARS_not_bytes() {
         // A byte caret lands mid-codepoint the first time anyone searches for
         // an accented word, and `String::insert` then panics.

@@ -149,24 +149,10 @@ pub fn severity_color(c: &ChromePalette, severity: escriba_shirube::Severity) ->
     }
 }
 
-/// The single-cell mark a severity shows in the gutter.
-///
-/// One column, always: a gutter whose width changes with content makes every
-/// line shift sideways as diagnostics arrive, which is far worse than a
-/// coarser glyph.
-#[must_use]
-pub const fn severity_mark(severity: escriba_shirube::Severity) -> &'static str {
-    use escriba_shirube::Severity;
-    match severity {
-        Severity::Error => "\u{2716}",   // ✖
-        Severity::Warning => "\u{25b2}", // ▲
-        // NOT U+25CF ●: that is the fleet's `modified` signal on the status
-        // line, and one glyph meaning two things is a reader's problem
-        // whichever one they learn first.
-        Severity::Info => "\u{2022}", // •
-        Severity::Hint => "\u{203a}", // ›
-    }
-}
+// The GLYPH a severity shows lives in `super::gutter::mark_glyph`, not here.
+// Chrome answers "what colour"; the gutter answers "what characters". Both
+// answers used to live in this file, which meant two definitions of one table
+// and a coin-flip about which a new face would call.
 
 /// The name of the theme the chrome is prescribed to paint — `"nord"`
 /// today.

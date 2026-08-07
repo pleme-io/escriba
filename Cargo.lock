@@ -824,6 +824,7 @@ name = "escriba-config"
 version = "0.1.35"
 dependencies = [
  "escriba-core",
+ "ishou-tokens",
  "pretty_assertions",
  "schemars",
  "serde",
@@ -968,8 +969,10 @@ version = "0.1.35"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
+ "escriba-keymap",
  "escriba-mode",
  "escriba-runtime",
+ "escriba-shirube",
  "escriba-ui",
  "garasu",
  "glyphon",

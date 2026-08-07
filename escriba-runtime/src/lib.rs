@@ -2282,6 +2282,8 @@ mod tests {
     }
 
     #[test]
+    // `N` is a DIFFERENT vim key from `n` — see escriba-search.
+    #[allow(non_snake_case)]
     fn n_and_N_walk_matches_in_both_directions() {
         let mut st = new_state_with("foo\nbar\nfoo\nbaz\nfoo\n");
         type_search(&mut st, SearchDirection::Forward, "foo");

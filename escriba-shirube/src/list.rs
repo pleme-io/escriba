@@ -28,7 +28,7 @@ use std::collections::BTreeMap;
 use escriba_memori::Bound;
 
 use crate::anchor::Anchor;
-use crate::finding::Finding;
+use crate::finding::{Finding, Severity};
 
 /// A named list of findings, sealed with what it was computed against.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -194,6 +194,29 @@ impl ListRegistry {
             .collect();
         hits.sort_by_key(|f| f.severity);
         hits
+    }
+
+    /// The severity a gutter should paint on `line` — the WORST of everything
+    /// found there, or `None`.
+    ///
+    /// Exists so a face never has to know that `on_line` happens to be sorted
+    /// worst-first. Both faces asked `on_line(..).first()`, which is correct
+    /// only because of an ordering decision made in another file; the day one
+    /// of them reached for `.last()` or the sort changed, an error would have
+    /// quietly hidden behind a hint on one face and not the other.
+    #[must_use]
+    pub fn worst_on_line(
+        &self,
+        world: &Anchor,
+        buffer: escriba_core::BufferId,
+        line: u32,
+    ) -> Option<Severity> {
+        self.lists
+            .values()
+            .flat_map(|l| l.fresh(world))
+            .filter(|f| f.site.buffer == Some(buffer) && f.site.line() == line)
+            .map(|f| f.severity)
+            .min()
     }
 }
 

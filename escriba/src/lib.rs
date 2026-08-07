@@ -23,7 +23,6 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use escriba_buffer::BufferSet;
 use escriba_command::CommandRegistry;
-use escriba_core::Position;
 use escriba_keymap::Keymap;
 use escriba_render::{GpuRenderer, Renderer, TextRenderer};
 use escriba_runtime::EditorState;
@@ -298,7 +297,12 @@ pub fn run() -> Result<()> {
         return run_list_rc(args.rc.as_deref());
     }
 
-    escriba_config::EscribaConfig::register_all();
+    // A collision here is a PROGRAMMING error — two escriba types claiming
+    // one `def…` keyword — not something an operator can act on. It still
+    // gets reported rather than swallowed, because the alternative is an
+    // editor that silently reads config through the wrong domain handler.
+    escriba_config::EscribaConfig::register_all()
+        .map_err(|c| anyhow::anyhow!("tatara-lisp keyword registration: {c}"))?;
 
     let mut buffers = BufferSet::new();
     let active_id = if let Some(path) = &args.file {
@@ -483,13 +487,17 @@ fn run_text(state: EditorState, height: u32) -> Result<()> {
             return Ok(());
         }
     }
-    // Override viewport height from CLI.
-    let mut layout = state.layout.clone();
-    if let Some(w) = layout.windows.iter_mut().find(|w| w.id == layout.active) {
+    // Override viewport height from CLI. Mutated on the STATE the renderer
+    // reads, not on a clone handed to it separately — a cloned layout was
+    // how this face came to be painted from a different view of the editor
+    // than the cursor it was given.
+    let mut state = state;
+    let active = state.layout.active;
+    if let Some(w) = state.layout.windows.iter_mut().find(|w| w.id == active) {
         w.viewport.visible_lines = height;
     }
     let mut renderer = TextRenderer;
-    let frame = renderer.render_frame(&layout, &state.buffers, Position::ZERO);
+    let frame = renderer.render_frame(&state);
     print!("{frame}");
     Ok(())
 }

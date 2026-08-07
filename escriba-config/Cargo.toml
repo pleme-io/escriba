@@ -20,6 +20,12 @@ thiserror          = { workspace = true }
 # this crate; the impl + contract tests live in src/lib.rs.
 shikumi            = { workspace = true }
 
+# The theming framework. escriba's default theme is DERIVED from
+# `FleetTheme::prescribed_default()`, never spelled as a literal — a literal
+# is how `config-show default` came to report `vellum` while the editor
+# booted `nord`.
+ishou-tokens = { workspace = true }
+
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 
