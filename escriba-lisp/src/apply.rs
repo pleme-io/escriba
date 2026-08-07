@@ -39,8 +39,9 @@
 //! runtime against the command registry.
 
 use escriba_command::{Command, CommandRegistry};
-use escriba_core::{Action, Mode, Motion};
+use escriba_core::{Action, Mode, Motion, SearchDirection};
 use escriba_keymap::{Key, Keymap};
+use escriba_ui::splash::{Splash, SplashEntry};
 
 use crate::{ApplyPlan, KeybindSpec, LispError, LispResult};
 
@@ -403,7 +404,16 @@ fn single_char(s: &str) -> Option<char> {
 /// Resolve an action string into an [`Action`]. Known strings map to
 /// typed variants; everything else becomes a [`Action::Command`]
 /// handoff (the registry resolves it at dispatch time).
-fn resolve_action(name: &str) -> (Action, bool) {
+///
+/// Returns `(action, deferred)` — `deferred` marks the command-registry
+/// fallback, so a caller can report "this will resolve later" rather
+/// than pretending it resolved now.
+///
+/// Public because `:action` is not a keybind-only field: `defsplash`
+/// entries carry one too, and TWO resolvers would mean `"quit"` could
+/// come to mean two things.
+#[must_use]
+pub fn resolve_action(name: &str) -> (Action, bool) {
     // Keep the table alphabetised per family to make additions obvious.
     match name {
         // ── Mode transitions ───────────────────────────────────────
@@ -440,6 +450,12 @@ fn resolve_action(name: &str) -> (Action, bool) {
         "end-of-defun" => (Action::Move(Motion::EndOfDefun), false),
         "beginning-of-sexp" => (Action::Move(Motion::BeginningOfSexp), false),
         "end-of-sexp" => (Action::Move(Motion::EndOfSexp), false),
+
+        // ── Search ─────────────────────────────────────────────────
+        "search-forward" => (Action::SearchOpen(SearchDirection::Forward), false),
+        "search-backward" => (Action::SearchOpen(SearchDirection::Backward), false),
+        "search-next" => (Action::SearchRepeat { reverse: false }, false),
+        "search-prev" => (Action::SearchRepeat { reverse: true }, false),
 
         // ── Editor-wide actions ────────────────────────────────────
         "undo" => (Action::Undo, false),
@@ -564,10 +580,125 @@ pub fn apply_plan_to_options(
     report
 }
 
+/// Lower `(defsplash …)` into the [`Splash`] the renderers paint.
+///
+/// Returns `None` when the plan declares no splash, or declares one
+/// with `:disabled #t` — a retired screen, per MODULARIZE-DON'T-DELETE,
+/// keeps its declaration and loses only its effect.
+///
+/// Entry actions resolve through [`resolve_action`], the same table
+/// `defkeybind` uses, so a menu entry and a key bound to the same
+/// action string dispatch identically.
+///
+/// `facts` is filled by the caller (the binary), not here: the footer
+/// states what THIS build actually is — version, plugin count, theme —
+/// and none of that is knowable from a parsed plan alone.
+#[must_use]
+pub fn apply_plan_to_splash(plan: &ApplyPlan) -> Option<Splash> {
+    let spec = plan.splash.as_ref().filter(|s| s.is_enabled())?;
+    Some(Splash {
+        art: spec.art.clone(),
+        tagline: spec.tagline.clone(),
+        entries: spec
+            .resolved_entries()
+            .map(|(key, e)| SplashEntry {
+                key,
+                label: e.label.clone(),
+                action: resolve_action(&e.action).0,
+            })
+            .collect(),
+        facts: Vec::new(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::apply_source;
+
+    // ── defsplash → Splash ────────────────────────────────────────
+
+    const SPLASH_RC: &str = r#"
+        (defsplash :tagline "a modal editor"
+                   :art ("  ___" " |___|")
+                   :entries ((:key "e" :label "start editing" :action "normal")
+                             (:key "/" :label "search"        :action "search-forward")
+                             (:key "f" :label "find file"     :action "picker.files")
+                             (:key "q" :label "quit"          :action "quit")))
+    "#;
+
+    #[test]
+    fn splash_lowers_art_tagline_and_entries() {
+        let splash = apply_plan_to_splash(&apply_source(SPLASH_RC).unwrap())
+            .expect("an enabled defsplash yields a Splash");
+        assert_eq!(splash.art.len(), 2);
+        assert_eq!(splash.tagline, "a modal editor");
+        assert_eq!(splash.entries.len(), 4);
+        assert_eq!(splash.entries[0].key, 'e');
+        assert_eq!(splash.entries[0].label, "start editing");
+    }
+
+    #[test]
+    fn splash_entry_actions_use_the_keybind_resolver() {
+        let splash = apply_plan_to_splash(&apply_source(SPLASH_RC).unwrap()).unwrap();
+        // Typed variants where the table knows the name…
+        assert_eq!(splash.entry_for('q').unwrap().action, Action::Quit);
+        assert_eq!(
+            splash.entry_for('e').unwrap().action,
+            Action::ChangeMode(Mode::Normal),
+        );
+        assert_eq!(
+            splash.entry_for('/').unwrap().action,
+            Action::SearchOpen(SearchDirection::Forward),
+        );
+        // …and the SAME command-registry handoff a keybind gets when it
+        // doesn't. An entry naming a plugin command is legal and defers.
+        assert_eq!(
+            splash.entry_for('f').unwrap().action,
+            Action::Command {
+                name: "picker.files".to_string(),
+                args: Vec::new(),
+            },
+        );
+    }
+
+    #[test]
+    fn a_disabled_splash_is_declared_but_inert() {
+        let plan = apply_source(r#"(defsplash :disabled #t :tagline "hidden")"#).unwrap();
+        assert!(plan.splash.is_some(), "the declaration survives");
+        assert!(
+            apply_plan_to_splash(&plan).is_none(),
+            "…but produces no screen",
+        );
+    }
+
+    #[test]
+    fn no_defsplash_means_no_splash() {
+        assert!(apply_plan_to_splash(&ApplyPlan::default()).is_none());
+    }
+
+    #[test]
+    fn search_action_strings_resolve_to_typed_variants() {
+        // These were missing from the table, which meant `:action
+        // "search-forward"` silently became a command-registry lookup
+        // for a command that does not exist.
+        for (name, expected) in [
+            (
+                "search-forward",
+                Action::SearchOpen(SearchDirection::Forward),
+            ),
+            (
+                "search-backward",
+                Action::SearchOpen(SearchDirection::Backward),
+            ),
+            ("search-next", Action::SearchRepeat { reverse: false }),
+            ("search-prev", Action::SearchRepeat { reverse: true }),
+        ] {
+            let (action, deferred) = resolve_action(name);
+            assert_eq!(action, expected, "{name}");
+            assert!(!deferred, "{name} must not defer to the command registry");
+        }
+    }
 
     #[test]
     fn parse_single_char_token() {

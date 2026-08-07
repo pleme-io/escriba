@@ -10,8 +10,12 @@ extern crate self as escriba_render;
 
 pub mod gpu;
 pub mod langs;
+/// The start screen, painted as ANSI. Layout comes from
+/// `escriba_ui::splash`; this face only colors it.
+pub mod splash;
 
 pub use gpu::{GpuRenderer, SharedState};
+pub use splash::render_splash_ansi;
 
 use escriba_buffer::BufferSet;
 use escriba_core::Position;

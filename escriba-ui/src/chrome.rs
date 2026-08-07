@@ -125,6 +125,21 @@ impl ChromePalette {
     }
 }
 
+/// The name of the theme the chrome is prescribed to paint — `"nord"`
+/// today.
+///
+/// Reported by anything that TELLS an operator which theme they are
+/// looking at (the start screen's footer). Deliberately sourced from the
+/// paint seam rather than from a `(deftheme :preset …)` declaration:
+/// those are still two different values — threading the authored theme
+/// into the paint path is the open half of escriba's theming — and a
+/// report built on the declaration would name a theme that is not on
+/// screen the moment they diverge.
+#[must_use]
+pub fn prescribed_theme_name() -> &'static str {
+    FleetTheme::prescribed_default().preset_name()
+}
+
 /// Which ishou palette a role key is looked up in. Kept private: the theme
 /// → palette pairing is this module's job, not a caller's.
 enum Resolver {

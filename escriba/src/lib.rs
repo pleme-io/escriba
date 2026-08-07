@@ -112,6 +112,13 @@ struct Args {
     /// via `ESCRIBA_NO_DEFAULTS=1` so home-manager can toggle it.
     #[arg(long, env = "ESCRIBA_NO_DEFAULTS")]
     no_defaults: bool,
+    /// Skip the start screen and go straight to the buffer. The screen
+    /// only ever appears when no file was named, so this matters for a
+    /// bare `escriba`; `ESCRIBA_NO_SPLASH=1` is the home-manager form.
+    /// A permanent preference belongs in the rc as
+    /// `(defsplash :disabled #t)`.
+    #[arg(long, env = "ESCRIBA_NO_SPLASH")]
+    no_splash: bool,
     /// Render backend. Default is `tui` so `escriba` behaves like
     /// nvim — runs inside your terminal. `gpu` opens a madori+garasu
     /// window; `text` emits a one-shot ANSI dump (for CI / headless).
@@ -365,6 +372,17 @@ pub fn run() -> Result<()> {
         );
     }
 
+    // Raise the start screen — but only when escriba was given nothing to
+    // open. `escriba foo.rs` means "show me foo.rs", and a welcome screen
+    // in front of a file you asked for is a keystroke tax, not a welcome.
+    if args.file.is_none()
+        && !args.no_splash
+        && let Some(mut splash) = escriba_lisp::apply_plan_to_splash(&plan)
+    {
+        splash.facts = splash_facts(&plan);
+        state.set_splash(splash);
+    }
+
     // Wire user-installed caixa plugins from the plugins dir: eager ones
     // apply now; lazy ones register for trigger-gated activation. (The
     // bundled default catalog is already in `plan` — baked, eager.)
@@ -398,7 +416,52 @@ fn run_tui(state: EditorState) -> Result<()> {
     escriba_tui::run(state).context("tui loop exited")
 }
 
+/// The footer strip on the start screen.
+///
+/// Derived from the plan the editor ACTUALLY booted with, not from a
+/// static string: a strip that claims 45 plugins while the operator
+/// disabled half of them is a lie that nobody would notice.
+fn splash_facts(plan: &escriba_lisp::ApplyPlan) -> Vec<String> {
+    let mut facts = Vec::with_capacity(4);
+    let mut version = String::from("v");
+    version.push_str(env!("CARGO_PKG_VERSION"));
+    facts.push(version);
+    for (label, n) in [
+        ("plugins", plan.plugins.len()),
+        ("keybinds", plan.keybinds.len()),
+    ] {
+        if n > 0 {
+            let mut f = n.to_string();
+            f.push(' ');
+            f.push_str(label);
+            facts.push(f);
+        }
+    }
+    // The theme the renderers ACTUALLY paint, read from the paint seam —
+    // not `plan.theme`, which is what the rc DECLARED. Those are still
+    // two different values (see `chrome::prescribed_theme_name`).
+    facts.push(escriba_ui::chrome::prescribed_theme_name().to_string());
+    facts
+}
+
 fn run_text(state: EditorState, height: u32) -> Result<()> {
+    // A one-shot dump of the start screen is the honest snapshot when the
+    // screen is what an interactive run would show — CI and `--render=text`
+    // must not disagree with the face a human sees.
+    if let Some(splash) = state.splash() {
+        // The text face has no terminal to ask, so it renders on the same
+        // canvas `--height` gives the buffer, at a conventional 80 columns.
+        let frame = escriba_render::render_splash_ansi(
+            splash,
+            &escriba_ui::chrome::ChromePalette::prescribed(),
+            80,
+            u16::try_from(height).unwrap_or(u16::MAX),
+        );
+        if !frame.is_empty() {
+            print!("{frame}");
+            return Ok(());
+        }
+    }
     // Override viewport height from CLI.
     let mut layout = state.layout.clone();
     if let Some(w) = layout.windows.iter_mut().find(|w| w.id == layout.active) {
@@ -949,6 +1012,22 @@ fn print_wiring_status(plan: &escriba_lisp::ApplyPlan) {
         km_report.keybinds_sequences,
         km_report.warnings.len(),
     );
+    match escriba_lisp::apply_plan_to_splash(plan) {
+        Some(splash) => println!(
+            "  {} defsplash     WIRED      art_lines={} entries={} (shown when no file is named)",
+            form_glyph("splash"),
+            splash.art.len(),
+            splash.entries.len(),
+        ),
+        None if plan.splash.is_some() => println!(
+            "  {} defsplash     declared, `:disabled #t` — no start screen",
+            form_glyph("splash"),
+        ),
+        None => println!(
+            "  {} defsplash     absent     — no start screen declared",
+            form_glyph("splash"),
+        ),
+    }
     match escriba_ts::GrammarRegistry::builtin() {
         Ok(mut reg) => {
             let known: Vec<String> = reg.languages().map(String::from).collect();

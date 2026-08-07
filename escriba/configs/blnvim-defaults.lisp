@@ -301,3 +301,33 @@
           :style "soft"
           :color "#90897b"
           :description "rust line cap — clippy default")
+
+;; ═════ Start screen ═══════════════════════════════════════════════
+;; What escriba shows when it opens with no file — vim's `:intro`,
+;; alpha.nvim's dashboard, the vscode welcome tab. The whole screen is
+;; data: wordmark, tagline, menu. The renderers centre it and colour it
+;; by ROLE (`escriba_ui::splash`), so it tracks the theme for free and
+;; all three faces (tui / gpu / text) lay it out identically.
+;;
+;; Every entry's `:action` goes through the SAME resolver `defkeybind`
+;; uses, so what an entry does is exactly what the equivalent keybind
+;; would do — and the menu below lists only actions that are WIRED
+;; today, not aspirational ones. A pressed key that did nothing would
+;; be worse than a shorter menu.
+;;
+;; Any key that is not a menu key simply dismisses the screen and is
+;; then handled normally, so the first thing you type is never eaten.
+;; `:disabled #t` retires the screen without deleting the declaration.
+(defsplash
+  :tagline "Rust owns the invariants  ·  Lisp owns the authoring"
+  :art ("███████╗███████╗ ██████╗██████╗ ██╗██████╗  █████╗ "
+        "██╔════╝██╔════╝██╔════╝██╔══██╗██║██╔══██╗██╔══██╗"
+        "█████╗  ███████╗██║     ██████╔╝██║██████╔╝███████║"
+        "██╔══╝  ╚════██║██║     ██╔══██╗██║██╔══██╗██╔══██║"
+        "███████╗███████║╚██████╗██║  ██║██║██████╔╝██║  ██║"
+        "╚══════╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═════╝ ╚═╝  ╚═╝")
+  :entries ((:key "e" :label "start editing"     :action "normal")
+            (:key "i" :label "insert text"       :action "insert")
+            (:key "/" :label "search"            :action "search-forward")
+            (:key ":" :label "command line"      :action "command")
+            (:key "q" :label "quit"              :action "quit")))
