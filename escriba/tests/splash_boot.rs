@@ -84,6 +84,75 @@ fn the_footer_reports_this_build_not_a_frozen_string() {
 }
 
 #[test]
+fn the_shipped_screen_fits_a_classic_80x24_terminal_intact() {
+    // Every degradation path in `Splash::rows` is SILENT by design — a
+    // too-wide wordmark quietly becomes the word "escriba", a too-short
+    // canvas quietly drops the art, and the menu quietly loses its last
+    // entries. That is right behaviour for a small terminal and wrong as
+    // a description of the shipped screen on an ordinary one: widening
+    // the art by ten columns would degrade it for everybody, everywhere,
+    // with nothing going red.
+    let plan = escriba::default_plan(false).expect("shipped defaults parse");
+    let splash = escriba_lisp::apply_plan_to_splash(&plan).expect("a start screen");
+    let rendered = splash
+        .rows(80, 24)
+        .iter()
+        .map(escriba_ui::splash::SplashRow::plain)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    for line in &splash.art {
+        assert!(
+            rendered.contains(line.as_str()),
+            "art line degraded away at 80x24 — is it wider than 76 cells?\n{line}",
+        );
+    }
+    for entry in &splash.entries {
+        assert!(
+            rendered.contains(&entry.label),
+            "menu entry `{}` truncated away at 80x24 — the screen is too tall",
+            entry.label,
+        );
+    }
+}
+
+#[test]
+fn the_footer_names_the_theme_that_is_actually_painted() {
+    // Sourced from the paint seam, not from `(deftheme :preset …)`. The
+    // shipped baseline declares "vellum" and a plugin caixa overrides it;
+    // what ends up on screen is whatever the FLEET prescribes, and the
+    // footer has to agree with the pixels, not with the declaration.
+    let out = plain(&run(&["--render=text", "--height=30"]));
+    let painted = escriba_ui::chrome::prescribed_theme_name();
+    let footer = out
+        .lines()
+        .find(|l| l.contains("plugins"))
+        .expect("a footer strip");
+    assert!(
+        footer.contains(painted),
+        "footer must name the painted theme ({painted}): {footer:?}",
+    );
+}
+
+#[test]
+fn list_rc_reports_the_start_screen_as_wired() {
+    // `--list-rc`'s wiring block is this repo's honesty surface: a
+    // def-form that reaches live state says WIRED there, and one that
+    // only parses does not. A new form that never appears in it is the
+    // failure mode the block exists to prevent.
+    let out = plain(&run(&["--list-rc"]));
+    let row = out
+        .lines()
+        .find(|l| l.contains("defsplash"))
+        .expect("defsplash must appear in the wiring block");
+    assert!(row.contains("WIRED"), "{row:?}");
+    assert!(
+        row.contains("entries=5"),
+        "the row must report the real menu size: {row:?}",
+    );
+}
+
+#[test]
 fn opening_a_file_goes_straight_to_the_file() {
     // A welcome screen in front of a file you explicitly asked for is a
     // keystroke tax, not a welcome.
