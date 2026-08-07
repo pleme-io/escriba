@@ -266,16 +266,85 @@ impl EditorState {
         }
     }
 
-    /// Apply one slip. Total over `Negai`: a new request variant is a
-    /// compile error here rather than a request that is silently ignored,
-    /// which is the same failure Phase 0 removed one layer up.
+    /// Lower an [`Action`] to slips, when it has an exact slip equivalent.
+    ///
+    /// `None` means "editor mechanics" — 23 of the 30 variants are prompt
+    /// editing, the operator-pending FSM, motion resolution, the jumplist,
+    /// the dot register. Those are the KEYMAP's vocabulary, not the AUTHORED
+    /// one, and forcing them into `Negai` would put `PromptClearToStart` and
+    /// `SearchPreviewStep` in front of every plugin author and make the
+    /// capability question meaningless (what capability does a caret move
+    /// read?). One type serving two vocabularies is the mistake this avoids.
+    ///
+    /// The plan's M3 predicate was "apply_resolved contains zero `self.`
+    /// mutations", which would have forced exactly that. Amended: the
+    /// invariant worth having is ONE IMPLEMENTATION PER MUTATION, not one
+    /// vocabulary. See docs/backlog-plan.md §V Phase 1.
+    fn lower(action: &Action, active: BufferId) -> Option<Vec<Negai>> {
+        Some(match action {
+            Action::Quit => vec![Negai::Quit],
+            Action::ClearSearchHighlight => vec![Negai::ClearSearchHighlight],
+            Action::Save => vec![Negai::Save { buffer: active }],
+            Action::Undo => vec![Negai::Undo { buffer: active }],
+            Action::Redo => vec![Negai::Redo { buffer: active }],
+            // `apply_edit` was a STUB that did nothing, so this action was a
+            // silent no-op while `Negai::Edit` applied for real. Lowering it
+            // makes keymap-originated edits work for the first time — and
+            // nothing binds it today, so the duplication goes away at zero
+            // risk.
+            Action::Edit(edit) => vec![Negai::Edit {
+                buffer: active,
+                edit: edit.clone(),
+            }],
+            _ => return None,
+        })
+    }
+
+    /// Re-clamp the cursor and re-contain the viewport after a buffer
+    /// mutation.
+    ///
+    /// An undo can SHRINK the buffer under a cursor that was legal a moment
+    /// ago, leaving it out of bounds and its viewport scrolled past the end.
+    /// The Action executor has always done this (`self.set_cursor(self.cursor())`
+    /// after undo/redo/save); the M1 interpreter did NOT, so `u` re-followed
+    /// and `:undo` did not — two implementations of one operation, already
+    /// drifted within one milestone of being written. Naming it once is the
+    /// fix; lowering the Action arms onto the same slips is what keeps it
+    /// fixed.
+    fn refollow(&mut self) {
+        self.set_cursor(self.cursor());
+    }
+
+    /// Apply one slip and record what it damaged.
+    ///
+    /// The bookkeeping wrapper. The Action executor calls
+    /// [`honour_one`](Self::honour_one) directly because it does its own,
+    /// wider bookkeeping (the dot register, the S3 damage seal) around a
+    /// whole action.
     fn honour(&mut self, slip: Negai) {
         let touches_text = slip.touches_text();
+        self.honour_one(slip);
+        self.damage = self.damage.join(if touches_text {
+            Damage::Full
+        } else {
+            Damage::Viewport
+        });
+        self.bump_gen();
+    }
+
+    /// Apply one slip. THE single implementation of every mutation a slip
+    /// can ask for.
+    ///
+    /// Total over `Negai`: a new request variant is a compile error here
+    /// rather than a request silently ignored — the same failure Phase 0
+    /// removed one layer up.
+    fn honour_one(&mut self, slip: Negai) {
         match slip {
             Negai::Edit { buffer, edit } => {
                 if let Some(b) = self.buffers.get_mut(buffer) {
                     let _ = b.apply(&edit);
                 }
+                self.refollow();
             }
             Negai::SetCursor { buffer, to } => {
                 // Clamping is the interpreter's job, exactly so that no
@@ -305,16 +374,19 @@ impl EditorState {
                         self.messages.push(e.to_string());
                     }
                 }
+                self.refollow();
             }
             Negai::Undo { buffer } => {
                 if let Some(b) = self.buffers.get_mut(buffer) {
                     let _ = b.undo();
                 }
+                self.refollow();
             }
             Negai::Redo { buffer } => {
                 if let Some(b) = self.buffers.get_mut(buffer) {
                     let _ = b.redo();
                 }
+                self.refollow();
             }
             Negai::Yank { text, .. } => self.register = Some(text),
             Negai::ClearSearchHighlight => self.search.clear_highlight(),
@@ -329,12 +401,6 @@ impl EditorState {
                     .push("deferred work is not wired yet".to_string());
             }
         }
-        self.damage = self.damage.join(if touches_text {
-            Damage::Full
-        } else {
-            Damage::Viewport
-        });
-        self.bump_gen();
     }
 }
 
@@ -1282,6 +1348,27 @@ impl EditorState {
         let rev_before = self.text_rev();
         let cline_before = self.cursor().line;
         match action {
+            // Every action with an exact slip equivalent goes through the
+            // interpreter, so "undo" has ONE implementation rather than one
+            // per entry point. These had already drifted: the executor
+            // re-followed the viewport after undo and the M1 interpreter did
+            // not, so `u` and `:undo` behaved differently within a milestone
+            // of each other.
+            // Listed EXPLICITLY rather than behind a `if lower(..).is_some()`
+            // guard: a guard arm does not count toward exhaustiveness, so the
+            // guarded form silently gave up the total match — the compiler
+            // said so, and it was right. `lowering_and_dispatch_agree` pins
+            // that this list and `lower` stay the same set.
+            Action::Quit
+            | Action::ClearSearchHighlight
+            | Action::Save
+            | Action::Undo
+            | Action::Redo
+            | Action::Edit(_) => {
+                for slip in Self::lower(action, self.active).unwrap_or_default() {
+                    self.honour_one(slip);
+                }
+            }
             Action::Move(m) => self.apply_motion(*m),
             Action::SearchOpen(dir) => {
                 // vim's `/` is the command-line with a different prompt char,
@@ -1310,7 +1397,6 @@ impl EditorState {
                         .push("E348: No string under cursor".to_string()),
                 }
             }
-            Action::ClearSearchHighlight => self.search.clear_highlight(),
             Action::SearchSubmitOperated { op } => self.submit_search_operated(*op),
             Action::TextObject(object) => {
                 // Bare `gn` moves onto the match. vim additionally starts a
@@ -1361,28 +1447,7 @@ impl EditorState {
                 self.modal.enter(*m);
             }
             Action::InsertChar(c) => self.insert_char(*c),
-            Action::Edit(edit) => self.apply_edit(edit),
-            Action::Undo => {
-                if let Some(buf) = self.buffers.get_mut(self.active) {
-                    let _ = buf.undo();
-                }
-                // The buffer may have shrunk — re-follow so the viewport
-                // re-contains a now-out-of-bounds cursor.
-                self.set_cursor(self.cursor());
-            }
-            Action::Redo => {
-                if let Some(buf) = self.buffers.get_mut(self.active) {
-                    let _ = buf.redo();
-                }
-                self.set_cursor(self.cursor());
-            }
-            Action::Save => {
-                if let Some(buf) = self.buffers.get_mut(self.active) {
-                    let _ = buf.save();
-                }
-                self.set_cursor(self.cursor());
-            }
-            Action::Quit => self.quit_requested = true,
+
             Action::SubmitCommand => {
                 if self.search.is_prompting() {
                     self.submit_search();
@@ -1815,12 +1880,6 @@ impl EditorState {
         }
         self.modal.pop_minibuffer();
         true
-    }
-
-    fn apply_edit(&mut self, _edit: &Edit) {
-        // Phase 2: actually apply arbitrary edits from the keymap. For now
-        // the only keymap-originated edits are InsertChar (handled above)
-        // and the Backspace sentinel that escriba-keymap emits.
     }
 
     fn submit_command(&mut self) {

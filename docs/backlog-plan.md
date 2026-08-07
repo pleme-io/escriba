@@ -176,10 +176,23 @@ Includes corrections IV.1 (`Negai::Errand`, no `Spawn`) and IV.3
 which-key needs and that the original design omitted.
 
 **Seal (truly-unrepresentable):** a handler bound to `(Search,)` that calls
-`.buffers()` **fails to compile**. **Done-predicate:** `apply_resolved`
-contains zero `self.` mutations; the `:noh` special case is deleted; the
-`INERT` ratchet moves *down* for the first time as `buffer.{next,prev,delete}`
-and `comment.toggle-*` go live.
+`.buffers()` **fails to compile**. **Done-predicate:** the `:noh` special
+case is deleted; the `INERT` ratchet moves *down* as
+`buffer.{next,prev,delete}` and `comment.toggle-*` go live.
+
+> **Amended 2026-08-07 (M3).** The original predicate read "`apply_resolved`
+> contains zero `self.` mutations". Implementing it revealed that would force
+> a bad design: only 7 of `Action`'s 30 variants have a slip equivalent. The
+> other 23 — prompt editing, the operator-pending FSM, motion resolution, the
+> jumplist, the dot register — are the KEYMAP's vocabulary, not the AUTHORED
+> one. Forcing them into `Negai` would put `PromptClearToStart` and
+> `SearchPreviewStep` in front of every plugin author and make the capability
+> question meaningless (what capability does a caret move read?). One type
+> serving two vocabularies is the mistake.
+>
+> The invariant actually worth having is **one implementation per mutation**,
+> not one vocabulary. The 7 overlapping actions lower onto the interpreter;
+> the 23 mechanics stay in the executor.
 
 ### Phase 2 — `shirube` 標 · located findings
 
