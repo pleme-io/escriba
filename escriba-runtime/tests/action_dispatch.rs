@@ -114,19 +114,36 @@ fn a_failed_command_is_never_fatal() {
 }
 
 #[test]
-fn a_working_command_says_nothing() {
+fn a_working_command_adds_no_verdict_noise() {
     // The other half of the contract, and the one that makes the first half
-    // meaningful: success must stay SILENT, or the message channel becomes
-    // noise and operators learn to ignore it.
+    // meaningful: a successful command must not add to the message channel,
+    // or it becomes noise and operators learn to ignore it.
+    //
+    // Precisely: the VERDICT is silent on success. A command whose whole job
+    // is to tell you something (`buffer-info`) still speaks — through a
+    // Message SLIP, which it asked for deliberately. Those are different
+    // channels and conflating them is what this test used to do: it picked
+    // buffer-info as its "working command" and only passed because that
+    // command was writing to stderr, straight through the ratatui frame.
     let mut st = editor();
     let before = st.messages.len();
-    press_command(&mut st, "buffer-info"); // a real built-in
+    press_command(&mut st, "undo"); // succeeds, and has nothing to announce
     assert_eq!(
         st.messages.len().saturating_sub(before),
         0,
         "a command that worked must not report: {:?}",
         st.messages,
     );
+}
+
+#[test]
+fn a_command_whose_job_is_to_report_still_speaks() {
+    // The complement, so the test above cannot be satisfied by breaking
+    // messages altogether.
+    let mut st = editor();
+    press_command(&mut st, "buffer-info");
+    let msg = st.messages.last().expect("buffer-info reports");
+    assert!(msg.contains("line(s)"), "{msg:?}");
 }
 
 #[test]

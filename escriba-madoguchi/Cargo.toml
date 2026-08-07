@@ -9,7 +9,9 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-escriba-core = { workspace = true }
+escriba-core   = { workspace = true }
+# The seam knows the editor's types; the editor's types do not know the seam.
+escriba-buffer = { workspace = true }
 
 [lints]
 workspace = true

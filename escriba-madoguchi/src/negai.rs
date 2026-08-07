@@ -73,8 +73,17 @@ impl Continuation {
 /// naming it — which is exactly the ceiling this crate exists to remove.
 /// The boundary is already pinned in `escriba-command`
 /// (`action_naming_a_command_is_inert_not_recursive`).
+/// Deliberately NOT `#[non_exhaustive]`.
+///
+/// It was, briefly. `#[non_exhaustive]` forces every out-of-crate consumer to
+/// carry a wildcard arm, which means a slip added here reaches the
+/// interpreter and lands in a fallback — reported, but silently unhandled in
+/// the sense that matters: nobody was made to think about it. Exhaustive
+/// makes adding a variant a COMPILE ERROR at every interpreter, which is the
+/// stronger seal and the one this repo asks for. escriba-madoguchi is
+/// workspace-internal; the API-stability that `#[non_exhaustive]` buys is not
+/// a trade worth making here.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Negai {
     // ── text ─────────────────────────────────────────────────────────
     /// Apply an edit to a buffer. Undo is the interpreter's business.
@@ -103,11 +112,31 @@ pub enum Negai {
     /// policy belongs to the interpreter, not to whoever asked.
     CloseBuffer(BufferId),
 
+    /// Write a buffer to its path. The I/O is the interpreter's — a handler
+    /// asking to save must not be the thing that touches the filesystem, or
+    /// "behaviour cannot reach the outside world" stops being true.
+    Save {
+        buffer: BufferId,
+    },
+    Undo {
+        buffer: BufferId,
+    },
+    Redo {
+        buffer: BufferId,
+    },
+
     // ── registers ────────────────────────────────────────────────────
     Yank {
         text: String,
         register: Register,
     },
+
+    /// Stop highlighting search matches while KEEPING the pattern, so `n`
+    /// still works. This slip is why the crate exists: `:noh` was
+    /// special-cased inside the runtime because `EditContext` could not
+    /// reach `SearchState`, and that workaround was the visible proof of
+    /// the ceiling. It is now an ordinary request.
+    ClearSearchHighlight,
 
     // ── operator feedback ────────────────────────────────────────────
     /// Say something on the status line. The channel Phase 0 opened.
@@ -135,7 +164,10 @@ impl Negai {
     /// getting that backwards is what once made `.` replay a search prompt.
     #[must_use]
     pub const fn touches_text(&self) -> bool {
-        matches!(self, Self::Edit { .. })
+        matches!(
+            self,
+            Self::Edit { .. } | Self::Undo { .. } | Self::Redo { .. }
+        )
     }
 
     /// Does this slip hand control somewhere else and expect to be resumed?

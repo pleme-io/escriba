@@ -811,6 +811,7 @@ version = "0.1.34"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
+ "escriba-madoguchi",
  "escriba-mode",
  "pretty_assertions",
  "schemars",
@@ -908,6 +909,7 @@ dependencies = [
 name = "escriba-madoguchi"
 version = "0.1.34"
 dependencies = [
+ "escriba-buffer",
  "escriba-core",
 ]
 
@@ -991,6 +993,7 @@ dependencies = [
  "escriba-input",
  "escriba-keymap",
  "escriba-lisp",
+ "escriba-madoguchi",
  "escriba-mode",
  "escriba-search",
  "escriba-ui",

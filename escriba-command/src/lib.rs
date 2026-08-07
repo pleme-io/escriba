@@ -4,8 +4,8 @@ extern crate self as escriba_command;
 
 use std::collections::HashMap;
 
-use escriba_buffer::BufferSet;
 use escriba_core::BufferId;
+use escriba_madoguchi::{BufferView, Negai, Outcome, Snapshot};
 use escriba_mode::ModalState;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -33,21 +33,15 @@ pub enum CommandError {
 
 pub type Result<T> = std::result::Result<T, CommandError>;
 
-pub struct EditContext<'a> {
-    pub buffers: &'a mut BufferSet,
-    pub active: Option<BufferId>,
-    pub state: &'a mut ModalState,
-    /// Typed quit signal. A command that wants to exit the editor sets
-    /// this to `true`; the runtime reads it after `run`. This replaces the
-    /// old stringly-typed `__quit__` sentinel that was smuggled through the
-    /// command minibuffer — a channel that only existed because `minibuffer`
-    /// used to be a mode-independent scratch `String`. With the typed
-    /// modal sum, the minibuffer exists only in Command mode, so quit is now
-    /// a proper typed flag, not a buffer hack.
-    pub quit_requested: &'a mut bool,
-}
-
-pub type CommandFn = fn(&mut EditContext<'_>, &[String]) -> Result<()>;
+/// A command body.
+///
+/// Reads through the counter, returns slips. There is no `&mut` in this
+/// signature, which is the point: a command cannot reach editor state, so it
+/// cannot corrupt it. It replaces `fn(&mut EditContext, &[String])`, whose
+/// `&mut BufferSet` was simultaneously too much power and too little reach —
+/// the runtime still had to special-case `:noh` because `EditContext` could
+/// not see `SearchState`.
+pub type CommandFn = fn(&dyn Snapshot, &[String]) -> Outcome;
 
 /// How a command executes when invoked.
 ///
@@ -146,6 +140,13 @@ impl CommandRegistry {
             cmd_save,
         ));
         r.register(Command::native("quit", "Exit the editor", cmd_quit));
+        for alias in ["noh", "nohl", "nohlsearch"] {
+            r.register(Command::action(
+                alias,
+                "Stop highlighting matches, keep the pattern",
+                "search.clear-highlight",
+            ));
+        }
         r.register(Command::native("undo", "Undo the last change", cmd_undo));
         r.register(Command::native(
             "redo",
@@ -183,14 +184,19 @@ impl CommandRegistry {
         self.commands.is_empty()
     }
 
-    pub fn run(&self, name: &str, ctx: &mut EditContext<'_>, args: &[String]) -> Result<()> {
+    /// Dispatch `name`.
+    ///
+    /// `Err` means the registry could not dispatch at all — Phase 0's two
+    /// failures, kept distinct because they mean different things to the
+    /// operator. `Ok(outcome)` means a body ran and reported for itself.
+    pub fn run(&self, name: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome> {
         let cmd = self
             .commands
             .get(name)
             .ok_or_else(|| CommandError::NotFound(name.to_string()))?;
         match &cmd.handler {
-            Handler::Native(f) => f(ctx, args),
-            Handler::Action(sym) => run_action(sym, ctx, args),
+            Handler::Native(f) => Ok(f(snap, args)),
+            Handler::Action(sym) => run_action(sym, snap, args),
         }
     }
 
@@ -217,120 +223,127 @@ impl CommandRegistry {
     }
 }
 
-/// Resolve a dotted action symbol — the `:action` of a Lisp
-/// `(defcmd …)` form — to a built-in behavior.
-///
-/// Canonical `buffer.*` / `editor.*` symbols map onto the same
-/// primitives the native commands use, so a Lisp-authored command is
-/// genuinely invokable (not a stub). Symbols that have no built-in
-/// yet (`picker.*`, `telescope.*`, plugin-provided actions) are an
-/// inert `Ok(())` — the command stays registered and invokable, it
-/// just does nothing until its wave lands. Crucially this NEVER
-/// errors or panics, so a deferred keybind whose action resolves to
-/// an unimplemented symbol degrades to a no-op instead of a crash.
-fn run_action(sym: &str, ctx: &mut EditContext<'_>, args: &[String]) -> Result<()> {
+/// Resolve a dotted action symbol to a built-in body.
+fn run_action(sym: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome> {
     match sym {
-        "buffer.save" | "buffer.write" => cmd_save(ctx, args),
-        "buffer.write-all" => cmd_write_all(ctx, args),
-        "buffer.undo" => cmd_undo(ctx, args),
-        "buffer.redo" => cmd_redo(ctx, args),
-        "buffer.info" => cmd_buffer_info(ctx, args),
-        "editor.quit" => cmd_quit(ctx, args),
-        // The not-yet-implemented action namespace — 85 shipped keybindings
-        // land here today (see escriba/tests/action_resolution.rs, which pins
-        // the exact inventory).
-        //
-        // This used to be `_ => Ok(())`: an unknown action reported SUCCESS.
-        // Combined with the runtime discarding the result, a dead keybinding
-        // was indistinguishable from a working one at the keyboard — and,
-        // worse, indistinguishable to any future code trying to verify that a
-        // subsystem had been wired. Every "I wired X" claim was unfalsifiable.
-        //
-        // Still NOT fatal: the runtime reports it and carries on. Inert and
-        // SILENT was the defect; inert and ANNOUNCED is correct behaviour for
-        // a capability that genuinely has not landed yet.
+        "buffer.save" | "buffer.write" => Ok(cmd_save(snap, args)),
+        "buffer.write-all" => Ok(cmd_write_all(snap, args)),
+        "buffer.undo" => Ok(cmd_undo(snap, args)),
+        "buffer.redo" => Ok(cmd_redo(snap, args)),
+        "buffer.info" => Ok(cmd_buffer_info(snap, args)),
+        "editor.quit" => Ok(cmd_quit(snap, args)),
+        "search.clear-highlight" => Ok(cmd_noh(snap, args)),
+        // The not-yet-implemented namespace — 85 shipped keybindings land
+        // here (escriba/tests/action_resolution.rs pins the inventory).
+        // Inert and ANNOUNCED; see CommandError::Unhandled.
         _ => Err(CommandError::Unhandled(sym.to_string())),
     }
 }
 
-/// Save every modified, path-backed buffer. Best-effort: a single
-/// buffer's save failure (e.g. a permission error) must not abort the
-/// rest, and scratch buffers (no path) are skipped rather than
-/// surfacing [`BufferError::NoPath`].
-fn cmd_write_all(ctx: &mut EditContext<'_>, _args: &[String]) -> Result<()> {
-    for id in ctx.buffers.ids() {
-        if let Some(buf) = ctx.buffers.get_mut(id) {
-            if buf.modified && buf.path.is_some() {
-                let _ = buf.save();
-            }
-        }
+/// The active buffer, or the outcome to return when there isn't one.
+///
+/// "No buffer" is a DECLINE, not a failure: it is a legitimate state (boot,
+/// every `--no-defaults` run) and the operator did nothing wrong.
+fn active_or_decline(snap: &dyn Snapshot) -> std::result::Result<BufferId, Outcome> {
+    snap.active()
+        .map(BufferView::id)
+        .ok_or_else(|| Outcome::declined("no active buffer"))
+}
+
+/// Save every modified, path-backed buffer.
+///
+/// Best-effort BY CONSTRUCTION now: one slip per buffer, applied
+/// independently, so one buffer's permission error cannot abort the rest.
+/// Scratch buffers have no path and are skipped.
+fn cmd_write_all(snap: &dyn Snapshot, _args: &[String]) -> Outcome {
+    let slips: Vec<Negai> = snap
+        .buffer_ids()
+        .into_iter()
+        .filter(|id| {
+            snap.buffer(*id)
+                .is_some_and(|b| b.is_modified() && b.path().is_some())
+        })
+        .map(|buffer| Negai::Save { buffer })
+        .collect();
+    if slips.is_empty() {
+        return Outcome::declined("no modified files");
     }
-    Ok(())
+    Outcome::did(slips)
 }
 
-fn cmd_save(ctx: &mut EditContext<'_>, _args: &[String]) -> Result<()> {
-    let id = ctx
-        .active
-        .ok_or_else(|| CommandError::Failed("no active buffer".into()))?;
-    let buf = ctx
-        .buffers
-        .get_mut(id)
-        .ok_or_else(|| CommandError::Failed("active buffer gone".into()))?;
-    buf.save()?;
-    Ok(())
+fn cmd_save(snap: &dyn Snapshot, _args: &[String]) -> Outcome {
+    match active_or_decline(snap) {
+        Ok(buffer) => Outcome::did(vec![Negai::Save { buffer }]),
+        Err(o) => o,
+    }
 }
 
-fn cmd_quit(ctx: &mut EditContext<'_>, _: &[String]) -> Result<()> {
-    // Quit is a typed signal on the edit context — no string sentinel,
-    // no mode-specific scratch buffer. Phase 2 graduates this to a proper
-    // Result enum carrying `QuitRequested(code)`.
-    *ctx.quit_requested = true;
-    Ok(())
+/// `:noh` — the command that proves the seam.
+///
+/// It lived as a hard-coded branch inside `EditorState::run_command`,
+/// bypassing the registry entirely, because the old `EditContext` exposed
+/// buffers and modal state and nothing else. It is now an ordinary command
+/// returning an ordinary slip, and the special case is deleted.
+fn cmd_noh(_snap: &dyn Snapshot, _: &[String]) -> Outcome {
+    Outcome::did(vec![Negai::ClearSearchHighlight])
 }
 
-fn cmd_undo(ctx: &mut EditContext<'_>, _: &[String]) -> Result<()> {
-    let id = ctx
-        .active
-        .ok_or_else(|| CommandError::Failed("no active buffer".into()))?;
-    ctx.buffers
-        .get_mut(id)
-        .ok_or_else(|| CommandError::Failed("gone".into()))?
-        .undo()?;
-    Ok(())
+fn cmd_quit(_snap: &dyn Snapshot, _: &[String]) -> Outcome {
+    // Was `*ctx.quit_requested = true` — a command reaching into a borrowed
+    // flag. Now a request like any other, and the interpreter decides (it is
+    // the thing that knows about unsaved buffers).
+    Outcome::did(vec![Negai::Quit])
 }
 
-fn cmd_redo(ctx: &mut EditContext<'_>, _: &[String]) -> Result<()> {
-    let id = ctx
-        .active
-        .ok_or_else(|| CommandError::Failed("no active buffer".into()))?;
-    ctx.buffers
-        .get_mut(id)
-        .ok_or_else(|| CommandError::Failed("gone".into()))?
-        .redo()?;
-    Ok(())
+fn cmd_undo(snap: &dyn Snapshot, _: &[String]) -> Outcome {
+    match active_or_decline(snap) {
+        Ok(buffer) => Outcome::did(vec![Negai::Undo { buffer }]),
+        Err(o) => o,
+    }
 }
 
-fn cmd_buffer_info(ctx: &mut EditContext<'_>, _: &[String]) -> Result<()> {
-    let id = ctx
-        .active
-        .ok_or_else(|| CommandError::Failed("no active buffer".into()))?;
-    let buf = ctx
-        .buffers
-        .get(id)
-        .ok_or_else(|| CommandError::Failed("gone".into()))?;
-    eprintln!(
-        "buffer {} — {} line(s), {} char(s){}",
-        id,
-        buf.line_count(),
-        buf.char_count(),
-        if buf.modified { " [modified]" } else { "" }
-    );
-    Ok(())
+fn cmd_redo(snap: &dyn Snapshot, _: &[String]) -> Outcome {
+    match active_or_decline(snap) {
+        Ok(buffer) => Outcome::did(vec![Negai::Redo { buffer }]),
+        Err(o) => o,
+    }
+}
+
+/// Report the active buffer's shape.
+///
+/// This used to `eprintln!`. From a TUI holding the alternate screen that
+/// writes straight through the ratatui frame and corrupts it — a latent bug
+/// the port removes for free, because a command's only way to say something
+/// is now `Negai::Message`, which lands on the status line.
+fn cmd_buffer_info(snap: &dyn Snapshot, _: &[String]) -> Outcome {
+    let Some(buf) = snap.active() else {
+        return Outcome::declined("no active buffer");
+    };
+    let mut m = String::with_capacity(48);
+    m.push_str("buffer ");
+    m.push_str(&buf.id().0.to_string());
+    m.push_str(" — ");
+    m.push_str(&buf.line_count().to_string());
+    m.push_str(" line(s)");
+    if buf.is_modified() {
+        m.push_str(" [modified]");
+    }
+    Outcome::did(vec![Negai::Message(m)])
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use escriba_core::BufferId;
+    use escriba_madoguchi::{FakeBuffer, FakeSnapshot, Verdict};
+
+    /// A snapshot holding one dirty, path-backed buffer.
+    fn dirty_file() -> FakeSnapshot {
+        let mut s = FakeSnapshot::default();
+        s.buffers = vec![FakeBuffer::new(1, "dirty").at("/tmp/x.txt").dirty()];
+        s.active = Some(BufferId(1));
+        s
+    }
 
     #[test]
     fn default_set_is_populated() {
@@ -349,143 +362,134 @@ mod tests {
 
     #[test]
     fn not_found_errors() {
+        // Phase 0's first failure: a name nobody registered. Still an Err,
+        // because the runtime tells a typo apart from an unbuilt capability.
         let r = CommandRegistry::new();
-        let mut bufs = BufferSet::new();
-        let mut state = ModalState::new();
-        let mut quit = false;
-        let mut ctx = EditContext {
-            buffers: &mut bufs,
-            active: None,
-            state: &mut state,
-            quit_requested: &mut quit,
-        };
-        let err = r.run("nope", &mut ctx, &[]).unwrap_err();
+        let err = r.run("nope", &FakeSnapshot::default(), &[]).unwrap_err();
         assert!(matches!(err, CommandError::NotFound(_)));
     }
 
     #[test]
-    fn action_command_registers_and_is_invokable() {
-        // A Lisp-authored `(defcmd :name "w-all" :action
-        // "buffer.write-all")` registers an `Action` handler. It must
-        // resolve (not NotFound) and run without error over a scratch
-        // buffer (write-all skips path-less buffers).
+    fn a_command_asks_rather_than_acts() {
+        // The whole point of the port. `write-all` used to reach into
+        // `&mut BufferSet` and call `.save()`. It now RETURNS a request per
+        // modified path-backed buffer and touches nothing — which is also
+        // why it is best-effort by construction: the interpreter applies
+        // each slip independently, so one permission error cannot abort the
+        // rest.
         let mut r = CommandRegistry::new();
         r.register(Command::action(
             "w-all",
             "Write every modified buffer",
             "buffer.write-all",
         ));
-        assert!(r.contains("w-all"));
+        let out = r
+            .run("w-all", &dirty_file(), &[])
+            .expect("registered command dispatches");
+        assert_eq!(
+            out.slips,
+            vec![Negai::Save {
+                buffer: BufferId(1)
+            }]
+        );
+        assert_eq!(out.verdict, Verdict::Did);
+    }
 
-        let mut bufs = BufferSet::new();
-        let id = bufs.scratch("dirty");
-        bufs.get_mut(id).unwrap().modified = true;
-        let mut state = ModalState::new();
-        let mut quit = false;
-        let mut ctx = EditContext {
-            buffers: &mut bufs,
-            active: Some(id),
-            state: &mut state,
-            quit_requested: &mut quit,
-        };
-        // No path → write-all is a no-op, never NoPath-errors.
-        r.run("w-all", &mut ctx, &[]).expect("action command runs");
+    #[test]
+    fn nothing_to_save_declines_rather_than_claiming_success() {
+        // Three verdicts, not two. A scratch buffer has no path, so there is
+        // genuinely nothing to write — and saying "Did" would be the same
+        // silent lie Phase 0 removed.
+        let mut r = CommandRegistry::new();
+        r.register(Command::action("w-all", "Write all", "buffer.write-all"));
+        let out = r
+            .run("w-all", &FakeSnapshot::with_buffer("scratch"), &[])
+            .expect("dispatches");
+        assert!(out.slips.is_empty());
+        assert_eq!(out.verdict, Verdict::Declined("no modified files".into()));
+    }
+
+    #[test]
+    fn no_active_buffer_declines_rather_than_failing() {
+        // Boot, and every `--no-defaults` run, reach commands with no
+        // buffer. The operator did nothing wrong, so it is not an error.
+        let mut r = CommandRegistry::new();
+        r.register(Command::action("w", "Save", "buffer.save"));
+        let out = r
+            .run("w", &FakeSnapshot::default(), &[])
+            .expect("dispatches");
+        assert_eq!(out.verdict, Verdict::Declined("no active buffer".into()));
+        assert!(out.slips.is_empty(), "a decline asks for nothing");
     }
 
     #[test]
     fn unknown_action_symbol_is_reported_not_silent() {
-        // This test used to assert the DEFECT. It read "it must never error,
-        // so a deferred keybind can't dead-end loudly" and called `.expect()`
-        // — pinning `_ => Ok(())`, under which a dead keybinding and a working
-        // one produced identical results at every layer.
+        // This test used to assert the DEFECT — it called `.expect()` on the
+        // Ok, pinning `_ => Ok(())`, under which a dead keybinding and a
+        // working one were indistinguishable at every layer.
         //
         // Inert is still correct: `picker.files` genuinely has not landed.
-        // SILENT was never correct. The distinction the fix draws is between
-        // a capability that is absent (say so) and one that worked (say
-        // nothing) — and it must be `Unhandled`, not `NotFound`: the command
-        // IS registered, which is precisely what makes the silence misleading.
+        // SILENT was never correct. It must be `Unhandled`, not `NotFound`:
+        // the command IS registered, which is what made the silence
+        // misleading in the first place.
         let mut r = CommandRegistry::new();
         r.register(Command::action("pick", "Pick a file", "picker.files"));
-        let mut bufs = BufferSet::new();
-        let mut state = ModalState::new();
-        let mut quit = false;
-        let mut ctx = EditContext {
-            buffers: &mut bufs,
-            active: None,
-            state: &mut state,
-            quit_requested: &mut quit,
-        };
         let err = r
-            .run("pick", &mut ctx, &[])
+            .run("pick", &FakeSnapshot::default(), &[])
             .expect_err("an unimplemented action must report, not report success");
         assert!(
             matches!(&err, CommandError::Unhandled(s) if s == "picker.files"),
             "expected Unhandled(picker.files), got {err:?}",
         );
-        // Still not fatal — the registry returns, the editor lives on. The
-        // runtime turns this into a status-line message, never a crash.
         assert!(r.contains("pick"), "the command survives its own failure");
     }
 
     #[test]
     fn action_naming_a_command_is_inert_not_recursive() {
-        // A `defcmd :action` that names another COMMAND ("save") rather
-        // than a dotted action symbol ("buffer.save") is INERT —
-        // run_action only resolves dotted symbols and does NOT recurse
-        // into the registry. This pins the boundary: `:action` takes
-        // action SYMBOLS, not command names. (If aliasing-by-name is
-        // ever wanted, run_action must take registry access and this
-        // test will flip.)
+        // `:action` takes action SYMBOLS, not command names: `run_action`
+        // resolves dotted symbols and does NOT recurse into the registry.
+        // Recursion would let a handler reach anything by naming it, which
+        // is the ceiling madoguchi exists to remove.
+        //
+        // What changed with the port: the non-recursion is now REPORTED
+        // rather than looking like a successful save.
         let mut r = CommandRegistry::new();
         r.register(Command::action("alias", "aliases save by name", "save"));
-        let mut bufs = BufferSet::new();
-        let id = bufs.scratch("dirty");
-        bufs.get_mut(id).unwrap().modified = true;
-        let mut state = ModalState::new();
-        let mut quit = false;
-        {
-            let mut ctx = EditContext {
-                buffers: &mut bufs,
-                active: Some(id),
-                state: &mut state,
-                quit_requested: &mut quit,
-            };
-            let err = r
-                .run("alias", &mut ctx, &[])
-                .expect_err("a command-name alias resolves nothing, and says so");
-            assert!(
-                matches!(&err, CommandError::Unhandled(s) if s == "save"),
-                "expected Unhandled(save), got {err:?}",
-            );
-        }
-        // The load-bearing half, unchanged: `:action` takes action SYMBOLS,
-        // not command names, and run_action does NOT recurse into the
-        // registry. The buffer staying dirty is the proof that `save` never
-        // fired. What changed is that the non-recursion is now REPORTED
-        // rather than looking like a successful save.
+        let err = r
+            .run("alias", &dirty_file(), &[])
+            .expect_err("a command-name alias resolves nothing, and says so");
         assert!(
-            bufs.get(id).unwrap().modified,
-            "command-name alias must not recurse — save must not have fired",
+            matches!(&err, CommandError::Unhandled(s) if s == "save"),
+            "expected Unhandled(save), got {err:?}",
         );
     }
 
     #[test]
-    fn action_quit_sets_quit_flag() {
-        // `editor.quit` must route to the same typed quit signal the
-        // native quit command uses, so a Lisp-defined quit alias behaves
-        // identically to the built-in.
+    fn quit_is_a_request_not_a_flag_poke() {
+        // Was `*ctx.quit_requested = true` — a command reaching into a
+        // borrowed flag. Quit is now a request like any other, and the
+        // interpreter decides, because the interpreter is the thing that
+        // knows about unsaved buffers.
         let mut r = CommandRegistry::new();
         r.register(Command::action("bye", "Quit", "editor.quit"));
-        let mut bufs = BufferSet::new();
-        let mut state = ModalState::new();
-        let mut quit = false;
-        let mut ctx = EditContext {
-            buffers: &mut bufs,
-            active: None,
-            state: &mut state,
-            quit_requested: &mut quit,
+        let out = r
+            .run("bye", &FakeSnapshot::default(), &[])
+            .expect("dispatches");
+        assert_eq!(out.slips, vec![Negai::Quit]);
+    }
+
+    #[test]
+    fn buffer_info_speaks_through_a_slip_not_stderr() {
+        // It used to `eprintln!`, which from a TUI holding the alternate
+        // screen writes straight through the ratatui frame and corrupts it.
+        // A command's only way to say anything is now Negai::Message.
+        let mut r = CommandRegistry::new();
+        r.register(Command::action("info", "Buffer info", "buffer.info"));
+        let out = r.run("info", &dirty_file(), &[]).expect("dispatches");
+        let Some(Negai::Message(m)) = out.slips.first() else {
+            panic!("expected a Message slip, got {:?}", out.slips);
         };
-        r.run("bye", &mut ctx, &[]).expect("quit action runs");
-        assert!(*ctx.quit_requested, "editor.quit sets the typed quit flag");
+        assert!(m.contains("buffer 1"), "{m}");
+        assert!(m.contains("[modified]"), "{m}");
     }
 }
