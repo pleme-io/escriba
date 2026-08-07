@@ -161,6 +161,16 @@ impl CommandRegistry {
             "Close the active buffer",
             erase::<BufferDelete>(),
         ));
+        r.register(Command::native(
+            "todo.next",
+            "Go to the next TODO/FIXME marker",
+            erase::<TodoWalk<true>>(),
+        ));
+        r.register(Command::native(
+            "todo.prev",
+            "Go to the previous TODO/FIXME marker",
+            erase::<TodoWalk<false>>(),
+        ));
         for name in ["comment.toggle-line", "comment.toggle-block"] {
             r.register(Command::native(
                 name,
@@ -466,6 +476,42 @@ impl Native for CommentToggle {
                 kind: escriba_core::EditKind::Replace { text },
             },
         }])
+    }
+}
+
+/// `todo.next` / `todo.prev` — walk the marker list.
+///
+/// Scans on every invocation rather than relying on a cached list. The scan
+/// is pure text and costs nothing at keyboard cadence, and re-scanning means
+/// the list is always fresh — the freshness machinery then guards the window
+/// BETWEEN a publish and a walk, which is where a stale list would otherwise
+/// slip through.
+///
+/// This is also the shape every later producer takes: the command COMPUTES
+/// (it has the text through `Buffers`) and asks the interpreter to publish.
+/// Nothing here touches the registry.
+struct TodoWalk<const FORWARD: bool>;
+impl<const FORWARD: bool> Native for TodoWalk<FORWARD> {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        let findings = escriba_shirube::scan_markers(buf.id(), &buf.text());
+        if findings.is_empty() {
+            return Outcome::declined("no TODO markers in this buffer");
+        }
+        Outcome::did(vec![
+            Negai::PublishFindings {
+                list: "todo".to_string(),
+                findings,
+            },
+            Negai::WalkList {
+                list: "todo".to_string(),
+                forward: FORWARD,
+            },
+        ])
     }
 }
 

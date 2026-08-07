@@ -12,6 +12,9 @@ authors.workspace = true
 escriba-core   = { workspace = true }
 # The seam knows the editor's types; the editor's types do not know the seam.
 escriba-buffer = { workspace = true }
+# Findings are a slip payload; shirube depends on core/buffer/memori only,
+# so there is no cycle.
+escriba-shirube = { workspace = true }
 
 [lints]
 workspace = true

@@ -811,6 +811,7 @@ version = "0.1.35"
 dependencies = [
  "escriba-core",
  "escriba-madoguchi",
+ "escriba-shirube",
  "pretty_assertions",
  "schemars",
  "serde",
@@ -909,6 +910,7 @@ version = "0.1.35"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
+ "escriba-shirube",
 ]
 
 [[package]]
@@ -994,6 +996,7 @@ dependencies = [
  "escriba-madoguchi",
  "escriba-mode",
  "escriba-search",
+ "escriba-shirube",
  "escriba-ui",
  "escriba-vm",
  "madori",
@@ -1049,9 +1052,11 @@ dependencies = [
  "escriba-buffer",
  "escriba-core",
  "escriba-keymap",
+ "escriba-madoguchi",
  "escriba-mode",
  "escriba-runtime",
  "escriba-search",
+ "escriba-shirube",
  "escriba-ui",
  "ishou-tokens",
  "madori",
@@ -1067,6 +1072,7 @@ dependencies = [
  "escriba-buffer",
  "escriba-core",
  "escriba-mode",
+ "escriba-shirube",
  "ishou-tokens",
  "pretty_assertions",
  "schemars",

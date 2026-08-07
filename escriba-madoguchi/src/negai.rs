@@ -174,6 +174,23 @@ pub enum Negai {
         args: Vec<String>,
     },
 
+    // ── located findings ─────────────────────────────────────────────
+    /// Replace a named result list wholesale.
+    ///
+    /// The interpreter seals it with the CURRENT world anchor. A handler
+    /// cannot supply the anchor itself: it would be sealing against a world
+    /// it read a moment ago, and the gap between read and apply is exactly
+    /// where a stale-but-claimed-fresh list comes from.
+    PublishFindings {
+        list: String,
+        findings: Vec<escriba_shirube::Finding>,
+    },
+    /// Move the cursor to the next/previous finding in a list, wrapping.
+    WalkList {
+        list: String,
+        forward: bool,
+    },
+
     // ── operator feedback ────────────────────────────────────────────
     /// Say something on the status line. The channel Phase 0 opened.
     Message(String),
