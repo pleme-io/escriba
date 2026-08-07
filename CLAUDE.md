@@ -350,6 +350,27 @@ domain.
 row to `catalog_bundle::BUNDLED` + `cargo test --test plugin_matrix`. The
 substrate emits the caixa.lisp, the entry, and the flake mechanically.
 
+## Implementation plan for the backlog
+
+**[`docs/backlog-plan.md`](./docs/backlog-plan.md)** is the ordered plan for
+the 85 inert actions plus Waves 1.5–4. It carries **no schedule** by operator
+instruction (2026-08-07): the work goes piece by piece, ordered by what makes
+the next piece safer, not by what is cheapest.
+
+Three things from it that change how you should read the rest of this file:
+
+- **The backlog is 5 missing primitives, not 22 subsystems.** `madoguchi` 窓口
+  (dispatch seam), `shirube` 標 (located findings), `kasane` 重ね (floating
+  surfaces), `shikiri` 仕切り (container tree), `denrei` 伝令 (the courier).
+- **Two of them land upstream in `egaku`**, which already ships
+  `FuzzyPicker<T>`, `SplitPane`, `Modal`, `FocusManager` with 239 tests and
+  zero rendering deps — and is already in our `Cargo.lock` with no consumers.
+- **Phase 0 is three verified defects** that make every later claim
+  unfalsifiable until fixed: `run_action` reports success for unknown actions
+  (`escriba-command:232`), `run_command` discards `NotFound`, and
+  `BufferSet::open` silently duplicates an already-open file
+  (`escriba-buffer:349`).
+
 ## Absorption Thesis
 
 Escriba is the editor category distilled into typed primitives and
@@ -379,8 +400,8 @@ what escriba does today and what it is absorbing next.
 | DAP client | nvim-dap | — | dap-kak plugin | dape.el | debug | yes (built-in) | — | yes | — | **absorb: escriba-dap-client** |
 | Scripting language | vimscript + lua | none (yet) | shell | elisp | TS extensions | TS extensions | Python | TS | tatara-lisp (via `escriba-vm`) | **absorb: escriba-lisp authoring bridge** |
 | Package / plugin manager | vim-plug, lazy | — | plug.kak | package.el, elpaca | extensions (Rust+WASM) | marketplace | Package Control | marketplace | `escriba-plugin` scaffold | plugin manifest declared in Lisp |
-| Command palette | `:` | `:` + picker | `:` | `M-x` | Cmd-Shift-P | Cmd-Shift-P | Cmd-Shift-P | Cmd-Shift-P | `escriba-command` registry | wire palette UI + fuzzy match (skim) |
-| Fuzzy picker | telescope, fzf-lua | built-in | fzf plugin | helm, vertico | built-in | quick open | goto anything | built-in | — | **absorb: escriba-picker (uses `skim` crate)** |
+| Command palette | `:` | `:` + picker | `:` | `M-x` | Cmd-Shift-P | Cmd-Shift-P | Cmd-Shift-P | Cmd-Shift-P | `escriba-command` registry | wire palette UI + `egaku::fuzzy_score` |
+| Fuzzy picker | telescope, fzf-lua | built-in | fzf plugin | helm, vertico | built-in | quick open | goto anything | built-in | — | **absorb: escriba-picker (wraps `egaku::FuzzyPicker<T>`)** |
 | Which-key prompt | which-key.nvim | built-in | — | which-key.el | partial | partial | — | — | — | **absorb: WhichKey popup** |
 | Status line | lualine / lightline | built-in | status-line | mode-line | statusbar | status bar | status bar | status bar | basic | customizable via Lisp |
 | Tab / buffer line | bufferline.nvim | — | — | tab-bar-mode | tab bar | tabs | tabs | tabs | basic | — |
@@ -410,8 +431,14 @@ what escriba does today and what it is absorbing next.
    needs to apply to the set.
 3. **The picker UI is the second biggest gap.** Every capable editor
    has fuzzy finding (Telescope, Helix picker, Cmd-Shift-P, Goto
-   Anything). The `skim` crate already in the pleme-io fleet (used by
-   frostmourne) slots in naturally — ship `escriba-picker` on top.
+   Anything). **The fleet's answer is `egaku::FuzzyPicker<T>`** — 864
+   lines, a typed `PickerEvent`→`PickerEffect<T>` machine with its own
+   `fuzzy_score`, already in escriba's `Cargo.lock` as a transitive dep and
+   with zero rendering dependencies. Ship `escriba-picker` as an adapter
+   over it. (This previously said `skim`, "already in the fleet via
+   frostmourne" — VERIFIED FALSE 2026-08-07: no fleet lockfile contains
+   skim and frostmourne has no Rust crate. Building on that claim would
+   have added a dependency to replace a library we already ship.)
 4. **AI pair programming is the clearest moat.** escriba has `escriba-mcp`
    as a server but no MCP *client* inside the editor. An MCP client
    + inline-completion widget would let escriba be a Cursor-style
@@ -518,8 +545,9 @@ independently. Ordered by impact × effort ratio:
    and `Selection` → `Selections` (Vec<Selection>) in `escriba-core`.
    Every motion / operator maps over the set. Selection-first mode
    (Helix-style) becomes a Lisp-selectable preset.
-2. **escriba-picker.** Fuzzy picker crate built on `skim` (already in
-   the fleet via frostmourne). Files, buffers, commands, symbols.
+2. **escriba-picker.** An adapter over `egaku::FuzzyPicker<T>` (NOT
+   skim — see the Conclusions note above). Files, buffers, commands,
+   symbols are one adapter over different `T`.
 3. **Which-key popup.** Multi-stroke binding preview — render the
    pending key prefix's completions after a configurable delay.
 4. **Registers / clipboard.** `"a…"z` registers, kill-ring, system
