@@ -307,6 +307,66 @@ impl EditorState {
         })
     }
 
+    /// Close a buffer, keeping "there is always an active buffer" true.
+    ///
+    /// The invariant is the whole reason this is not just
+    /// `self.buffers.close(id)`. `EditorState::active` is a `BufferId`, not
+    /// an `Option`, so a dangling active is not a degraded state — it is a
+    /// state where every read of the active buffer returns `None` and the
+    /// editor renders `<no buffer>` forever. Closing the last buffer opens a
+    /// scratch rather than emptying the set, which is what vim's `:bd` does
+    /// and what the type demands.
+    fn close_buffer(&mut self, id: BufferId) {
+        if self.buffers.close(id).is_none() {
+            self.messages.push("no such buffer".to_string());
+            return;
+        }
+        if self.active != id {
+            return;
+        }
+        // The active buffer went. Prefer the next one by id so repeated
+        // closes walk forward predictably rather than jumping around.
+        let next = self.buffers.ids().into_iter().find(|b| *b > id);
+        self.active = match next.or_else(|| self.buffers.ids().into_iter().next_back()) {
+            Some(b) => b,
+            None => self.buffers.scratch(""),
+        };
+        self.set_cursor(Position::ZERO);
+        if let Some(w) = self
+            .layout
+            .windows
+            .iter_mut()
+            .find(|w| w.id == self.layout.active)
+        {
+            w.buffer_id = self.active;
+        }
+    }
+
+    /// Move to the next or previous buffer, wrapping.
+    fn cycle_buffer(&mut self, forward: bool) {
+        let ids = self.buffers.ids();
+        if ids.len() < 2 {
+            self.messages.push("only one buffer".to_string());
+            return;
+        }
+        let at = ids.iter().position(|b| *b == self.active).unwrap_or(0);
+        let next = if forward {
+            (at + 1) % ids.len()
+        } else {
+            (at + ids.len() - 1) % ids.len()
+        };
+        self.active = ids[next];
+        self.set_cursor(Position::ZERO);
+        if let Some(w) = self
+            .layout
+            .windows
+            .iter_mut()
+            .find(|w| w.id == self.layout.active)
+        {
+            w.buffer_id = self.active;
+        }
+    }
+
     /// Re-clamp the cursor and re-contain the viewport after a buffer
     /// mutation.
     ///
@@ -360,6 +420,7 @@ impl EditorState {
                 self.set_cursor(clamped);
             }
             Negai::EnterMode(m) => self.modal.enter(m),
+            Negai::CycleBuffer { forward } => self.cycle_buffer(forward),
             Negai::FocusBuffer(id) => {
                 if self.buffers.get(id).is_some() {
                     self.active = id;
@@ -369,12 +430,7 @@ impl EditorState {
                 Ok(id) => self.active = id,
                 Err(e) => self.messages.push(e.to_string()),
             },
-            Negai::CloseBuffer(_) => {
-                // BufferSet has no close() yet; M5 lands it with
-                // buffer.delete. Announced rather than silently ignored.
-                self.messages
-                    .push("closing buffers is not implemented yet".to_string());
-            }
+            Negai::CloseBuffer(id) => self.close_buffer(id),
             Negai::Save { buffer } => {
                 if let Some(b) = self.buffers.get_mut(buffer) {
                     if let Err(e) = b.save() {

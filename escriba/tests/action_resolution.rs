@@ -34,17 +34,17 @@ use escriba_command::CommandRegistry;
 use escriba_core::Action;
 
 /// Shipped keybind actions that resolve to no typed action AND no
-/// registered command. Every one is a real capability awaiting its
+/// registered command.
+///
+/// This list only ever SHRINKS. `buffer.{next,prev,delete}` left it in
+/// madoguchi M5 — the first three, and the moment the ratchet was shown to
+/// turn downward rather than merely hold. Every one is a real capability awaiting its
 /// subsystem wave (a running LSP client, a picker, a git layer, DAP, …),
 /// not a mistake. Grouped by the subsystem that will retire it.
 const INERT: &[&str] = &[
     // AI assist — needs an MCP *client* inside the editor.
     "ai.chat",
     "ai.inline",
-    // Buffer list — needs a buffer-switching UI.
-    "buffer.delete",
-    "buffer.next",
-    "buffer.prev",
     // Completion — needs a completion engine.
     "cmp.abort",
     "cmp.complete",

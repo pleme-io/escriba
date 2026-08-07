@@ -412,6 +412,21 @@ impl BufferSet {
         id
     }
 
+    /// Remove a buffer, returning it.
+    ///
+    /// `None` when no such buffer is open. Deliberately says nothing about
+    /// which buffer becomes active next, or about refusing to close the last
+    /// one: `BufferSet` does not own `active`, and a type that invented a
+    /// policy it cannot enforce would be a second, weaker source of truth.
+    /// The interpreter owns both, and keeps "there is always an active
+    /// buffer" true by opening a scratch when the set empties.
+    ///
+    /// Unsaved changes are NOT checked here either, for the same reason —
+    /// whether a modified buffer may close is policy.
+    pub fn close(&mut self, id: BufferId) -> Option<Buffer> {
+        self.buffers.remove(&id)
+    }
+
     #[must_use]
     pub fn get(&self, id: BufferId) -> Option<&Buffer> {
         self.buffers.get(&id)

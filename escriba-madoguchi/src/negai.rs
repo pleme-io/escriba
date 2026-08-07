@@ -117,6 +117,13 @@ pub enum Negai {
     // ── buffers ──────────────────────────────────────────────────────
     /// Make a buffer active.
     FocusBuffer(BufferId),
+    /// Move to the next/previous buffer, wrapping. A slip rather than
+    /// `FocusBuffer(computed_id)` because "which buffer is next" depends on
+    /// the live set, and a handler computing it from a snapshot would race
+    /// any close that happened in between.
+    CycleBuffer {
+        forward: bool,
+    },
     /// Open a path, or focus it if already open — the dedup lives in
     /// `BufferSet::open`, sealed in Phase 0.
     OpenPath(std::path::PathBuf),

@@ -142,6 +142,25 @@ impl CommandRegistry {
             erase::<Save>(),
         ));
         r.register(Command::native("quit", "Exit the editor", erase::<Quit>()));
+        // Named for the ACTION SYMBOLS the shipped keybindings use, so
+        // `<leader>bn` resolves instead of reporting "declared but not
+        // implemented yet". These are the first three entries to leave the
+        // INERT inventory in escriba/tests/action_resolution.rs.
+        r.register(Command::native(
+            "buffer.next",
+            "Go to the next buffer",
+            erase::<BufferNext>(),
+        ));
+        r.register(Command::native(
+            "buffer.prev",
+            "Go to the previous buffer",
+            erase::<BufferPrev>(),
+        ));
+        r.register(Command::native(
+            "buffer.delete",
+            "Close the active buffer",
+            erase::<BufferDelete>(),
+        ));
         for alias in ["noh", "nohl", "nohlsearch"] {
             r.register(Command::action(
                 alias,
@@ -351,6 +370,38 @@ impl Native for Info {
 /// capability set is now literally empty, and the type system enforces that
 /// — `caps!()` proves no membership, so every accessor on its view is
 /// unbuildable.
+/// `buffer.next` / `buffer.prev` — walk the buffer list.
+struct BufferNext;
+impl Native for BufferNext {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::CycleBuffer { forward: true }])
+    }
+}
+
+struct BufferPrev;
+impl Native for BufferPrev {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::CycleBuffer { forward: false }])
+    }
+}
+
+/// `buffer.delete` — close the active buffer.
+///
+/// Reads `Buffers` only to name WHICH buffer; whether a modified buffer may
+/// close, and what becomes active afterwards, are the interpreter's policy.
+struct BufferDelete;
+impl Native for BufferDelete {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        match active_or_decline(&v.buffers()) {
+            Ok(buffer) => Outcome::did(vec![Negai::CloseBuffer(buffer)]),
+            Err(o) => o,
+        }
+    }
+}
+
 struct Quit;
 impl Native for Quit {
     type Reads = caps!();
