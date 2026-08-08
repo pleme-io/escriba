@@ -1784,6 +1784,31 @@ impl EditorState {
         }
 
         for (resolved, times) in self.op_pending.dispatch((action.clone(), count)) {
+            // `3dw` is ONE delete of three words as far as the register is
+            // concerned, not three deletes of one. Each repetition emits its
+            // own `Negai::Yank`, and each used to overwrite the register — so
+            // `3dwP` put back only the third word and silently lost two.
+            //
+            // Repetitions of a REGISTER-LEAVING operator therefore append,
+            // and the flag is cleared after the group so an unrelated later
+            // yank still replaces rather than growing forever.
+            // A COUNTED operator-over-motion is ONE operation over a motion
+            // resolved `times` over, not `times` operations over one motion.
+            //
+            // That distinction is not pedantry. Repeating the operation works
+            // by accident for delete — the text vanishes, so the cursor ends
+            // up somewhere new each round — and is simply wrong for yank,
+            // which does not move the cursor: `2yw` re-yanked the FIRST word
+            // twice and put "one one " in the register. Resolving the motion
+            // twice and yanking once gives "one two ", and the register needs
+            // no accumulation because there was only ever one yank.
+            if let Action::ApplyOperator { op, motion } = resolved {
+                self.apply_operator_n(op, motion, times);
+                if self.quit_requested {
+                    return;
+                }
+                continue;
+            }
             for _ in 0..times {
                 self.apply_resolved(&resolved);
                 if self.quit_requested {
@@ -2719,6 +2744,37 @@ impl EditorState {
     /// [`resolve_motion`](Self::resolve_motion); the operator acts over the
     /// `[cursor, target)` range. Register-leaving operators
     /// ([`Operator::leaves_register`]) capture the text first.
+    /// Apply `op` over `motion` resolved `n` times from the cursor.
+    ///
+    /// `n == 1` is the ordinary path. Larger `n` walks the motion forward
+    /// first and operates over the whole span in one go, which is what vim
+    /// means by `3dw` — and the only way a non-moving operator like yank can
+    /// honour a count at all.
+    fn apply_operator_n(&mut self, op: Operator, motion: Motion, n: u32) {
+        if n <= 1 {
+            self.apply_operator(op, motion);
+            return;
+        }
+        let from = self.cursor();
+        let mut to = from;
+        for _ in 0..n {
+            match self.resolve_motion(to, motion) {
+                Some(next) if next != to => to = next,
+                // The motion stopped making progress (start/end of buffer):
+                // operate over what we reached rather than aborting, which is
+                // what vim does for `999dw` near the end of a file.
+                _ => break,
+            }
+        }
+        if to == from {
+            // Nothing to operate over. Fall through to the single-step path
+            // so its error reporting (E35, pattern-not-found) still runs.
+            self.apply_operator(op, motion);
+            return;
+        }
+        self.apply_operator_to(op, to);
+    }
+
     fn apply_operator(&mut self, op: Operator, motion: Motion) {
         let from = self.cursor();
         let Some(to) = self.resolve_motion(from, motion) else {
@@ -3832,6 +3888,80 @@ mod tests {
             .unwrap_or_default();
         assert_eq!(got, "one two\n", "nothing was deleted");
         assert_eq!(*st.op_pending.state(), OpState::Resting, "and it disarmed");
+    }
+
+    // ── the register under a count ───────────────────────────────────
+
+    #[test]
+    fn a_counted_delete_puts_ALL_of_it_in_the_register() {
+        // `3dw` is one delete of three words as far as the register is
+        // concerned. Each repetition emits its own Yank, and each used to
+        // overwrite — so `3dwP` put back only the third word and silently
+        // lost two.
+        let mut st = new_state_with("one two three four\n");
+        st.set_cursor(Position::new(0, 0));
+        for c in "3dw".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        assert_eq!(
+            st.register.as_deref(),
+            Some("one two three "),
+            "all three words, in the order they were deleted"
+        );
+    }
+
+    #[test]
+    fn an_uncounted_delete_still_replaces_the_register() {
+        // The combining flag must not leak: a later single delete replaces.
+        let mut st = new_state_with("alpha beta\n");
+        st.set_cursor(Position::new(0, 0));
+        for c in "3dw".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        let mut st2 = new_state_with("gamma delta\n");
+        st2.set_cursor(Position::new(0, 0));
+        for c in "dw".chars() {
+            st2.tick(&press(KeyCode::Char(c)));
+        }
+        assert_eq!(st2.register.as_deref(), Some("gamma "));
+    }
+
+    #[test]
+    fn two_separate_counted_deletes_do_not_accumulate_into_each_other() {
+        // The flag is cleared after each group, so the second `2dw` starts
+        // from empty rather than appending to the first.
+        let mut st = new_state_with("a b c d e f\n");
+        st.set_cursor(Position::new(0, 0));
+        for c in "2dw".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        let first = st.register.clone();
+        for c in "2dw".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        assert_eq!(first.as_deref(), Some("a b "));
+        assert_eq!(st.register.as_deref(), Some("c d "), "not \"a b c d \"");
+    }
+
+    #[test]
+    fn a_counted_yank_accumulates_without_changing_the_buffer() {
+        let mut st = new_state_with("one two three\n");
+        st.set_cursor(Position::new(0, 0));
+        let before = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        for c in "2yw".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        assert_eq!(st.register.as_deref(), Some("one two "));
+        let after = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(after, before, "yank does not edit");
     }
 
     fn press(kc: KeyCode) -> AppEvent {
