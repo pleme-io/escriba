@@ -13,7 +13,6 @@ const RUST: &str = "fn alpha() {}\nstruct Beta;\nfn gamma(x: u32) -> u32 { x }\n
 fn classes(src: &str, path: &str) -> Vec<(String, String)> {
     let eco = escriba_ts::build_ecosystem();
     let hl = eco.highlighter_for_path(path);
-    let mut hl = hl;
     hl.highlight(src)
         .into_iter()
         .filter_map(|sp| {
