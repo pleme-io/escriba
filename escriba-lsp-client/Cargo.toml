@@ -17,6 +17,11 @@ tokio          = { workspace = true }
 tracing        = { workspace = true }
 
 [dev-dependencies]
+# `time` for the test timeouts only. Every test in conn.rs wraps its await in
+# a timeout so a regression that reintroduces a hang FAILS instead of hanging
+# the suite — which is the whole property under test. Scoped to dev so the
+# workspace feature set is untouched.
+tokio             = { workspace = true, features = ["time"] }
 pretty_assertions = { workspace = true }
 tempfile          = { workspace = true }
 

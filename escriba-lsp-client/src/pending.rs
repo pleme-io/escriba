@@ -51,7 +51,10 @@ pub struct Pending<T> {
 
 impl<T> Default for Pending<T> {
     fn default() -> Self {
-        Self { slots: HashMap::new(), next: 1 }
+        Self {
+            slots: HashMap::new(),
+            next: 1,
+        }
     }
 }
 
@@ -89,7 +92,9 @@ impl<T> Pending<T> {
     /// Route a reply. An id nobody awaits yields [`Routed::Unmatched`].
     #[must_use]
     pub fn route(&mut self, id: &RequestId) -> Routed<T> {
-        self.slots.remove(&key(id)).map_or(Routed::Unmatched, Routed::Delivered)
+        self.slots
+            .remove(&key(id))
+            .map_or(Routed::Unmatched, Routed::Delivered)
     }
 
     /// Take every waiter, for when the server is gone. **The transport must
@@ -149,7 +154,11 @@ mod tests {
         let mut p: Pending<&str> = Pending::new();
         let _ = p.insert(&n(1), "hover");
         assert_eq!(p.route(&n(99)), Routed::Unmatched);
-        assert_eq!(p.route(&n(1)), Routed::Delivered("hover"), "the real waiter is untouched");
+        assert_eq!(
+            p.route(&n(1)),
+            Routed::Delivered("hover"),
+            "the real waiter is untouched"
+        );
     }
 
     /// **The hang that matters most.** A server that dies with requests in
@@ -164,7 +173,10 @@ mod tests {
         let mut stranded = p.drain_all();
         stranded.sort_unstable();
         assert_eq!(stranded, vec!["completion", "definition", "hover"]);
-        assert!(p.is_empty(), "nothing may remain parked after the server is gone");
+        assert!(
+            p.is_empty(),
+            "nothing may remain parked after the server is gone"
+        );
     }
 
     /// A reused id must hand back the evicted waiter so the caller can be
@@ -173,7 +185,11 @@ mod tests {
     fn reusing_an_id_surfaces_the_evicted_waiter() {
         let mut p: Pending<&str> = Pending::new();
         assert!(p.insert(&n(1), "first").is_none());
-        assert_eq!(p.insert(&n(1), "second"), Some("first"), "the evicted waiter must surface");
+        assert_eq!(
+            p.insert(&n(1), "second"),
+            Some("first"),
+            "the evicted waiter must surface"
+        );
         assert_eq!(p.route(&n(1)), Routed::Delivered("second"));
     }
 
@@ -195,7 +211,10 @@ mod tests {
         let _ = p.insert(&RequestId::Number(7), "numeric");
         let _ = p.insert(&RequestId::Str("7".into()), "string");
         assert_eq!(p.len(), 2, "these are two distinct slots");
-        assert_eq!(p.route(&RequestId::Str("7".into())), Routed::Delivered("string"));
+        assert_eq!(
+            p.route(&RequestId::Str("7".into())),
+            Routed::Delivered("string")
+        );
         assert_eq!(p.route(&RequestId::Number(7)), Routed::Delivered("numeric"));
     }
 }
