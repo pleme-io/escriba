@@ -33,6 +33,11 @@
 
 extern crate self as escriba_shirube;
 
+/// Merge-conflict regions — a producer that needs no git at all. A conflict
+/// is text a merge tool wrote into the buffer, and resolving one is an edit
+/// over lines already open.
+pub mod conflict;
+
 pub mod anchor;
 pub mod finding;
 pub mod list;

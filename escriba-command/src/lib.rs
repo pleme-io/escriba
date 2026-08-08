@@ -234,6 +234,31 @@ impl CommandRegistry {
             erase::<FocusDir<0, 1>>(),
         ));
         r.register(Command::native(
+            "conflict.next",
+            "Go to the next merge conflict",
+            erase::<ConflictWalk<true>>(),
+        ));
+        r.register(Command::native(
+            "conflict.prev",
+            "Go to the previous merge conflict",
+            erase::<ConflictWalk<false>>(),
+        ));
+        r.register(Command::native(
+            "conflict.choose-ours",
+            "Resolve the conflict keeping ours",
+            erase::<ChooseSide<0>>(),
+        ));
+        r.register(Command::native(
+            "conflict.choose-theirs",
+            "Resolve the conflict keeping theirs",
+            erase::<ChooseSide<1>>(),
+        ));
+        r.register(Command::native(
+            "conflict.choose-both",
+            "Resolve the conflict keeping both",
+            erase::<ChooseSide<2>>(),
+        ));
+        r.register(Command::native(
             "todo.next",
             "Go to the next TODO/FIXME marker",
             erase::<TodoWalk<true>>(),
@@ -600,6 +625,86 @@ impl<const DX: i8, const DY: i8> Native for FocusDir<DX, DY> {
     type Reads = caps!();
     fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
         Outcome::did(vec![Negai::FocusDir { dx: DX, dy: DY }])
+    }
+}
+
+/// `]x` / `[x` — walk merge conflicts.
+///
+/// Identical in shape to `TodoWalk`, and that is the claim being tested: a
+/// conflict is a located finding, so navigating one is the SAME walk. If
+/// this needed anything TodoWalk did not, the shirube model would be wrong.
+struct ConflictWalk<const FORWARD: bool>;
+impl<const FORWARD: bool> Native for ConflictWalk<FORWARD> {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        let findings = escriba_shirube::conflict::findings(buf.id(), &buf.text());
+        if findings.is_empty() {
+            return Outcome::declined("no merge conflicts in this buffer");
+        }
+        Outcome::did(vec![
+            Negai::PublishFindings {
+                list: "conflict".to_string(),
+                findings,
+            },
+            Negai::WalkList {
+                list: "conflict".to_string(),
+                forward: FORWARD,
+            },
+        ])
+    }
+}
+
+/// `conflict.choose-{ours,theirs,both}` — resolve the conflict at the cursor.
+///
+/// Reads `caps!(Buffers, Cursor)`: it needs the text to find the region and
+/// the cursor to know WHICH region. The edit it emits replaces whole lines,
+/// because there is no such thing as keeping half of "ours".
+struct ChooseSide<const SIDE: u8>;
+impl<const SIDE: u8> Native for ChooseSide<SIDE> {
+    type Reads = caps!(Buffers, Cursor);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        use escriba_shirube::conflict::{Side, at, resolution};
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        let text = buf.text();
+        let line = v.cursor().position().line;
+        let Some(c) = at(&text, line) else {
+            // Declined, not failed: standing outside a conflict is an
+            // ordinary place to be, and vim says nothing there either.
+            return Outcome::declined("not inside a merge conflict");
+        };
+        let side = match SIDE {
+            0 => Side::Ours,
+            1 => Side::Theirs,
+            _ => Side::Both,
+        };
+        let (from, to) = c.lines();
+        Outcome::did(vec![
+            Negai::Edit {
+                buffer: buf.id(),
+                edit: escriba_core::Edit {
+                    range: escriba_core::Range::new(
+                        escriba_core::Position::new(from, 0),
+                        escriba_core::Position::new(to, 0),
+                    ),
+                    kind: escriba_core::EditKind::Replace {
+                        text: resolution(&text, c, side),
+                    },
+                },
+            },
+            // Land on the resolved text rather than wherever the deleted
+            // markers left the cursor.
+            Negai::SetCursor {
+                buffer: buf.id(),
+                to: escriba_core::Position::new(from, 0),
+            },
+        ])
     }
 }
 
