@@ -169,6 +169,16 @@ impl CommandRegistry {
             erase::<BufferDelete>(),
         ));
         r.register(Command::native(
+            "picker.buffers",
+            "Pick an open buffer",
+            erase::<OpenPicker<false>>(),
+        ));
+        r.register(Command::native(
+            "picker.commands",
+            "Pick a command",
+            erase::<OpenPicker<true>>(),
+        ));
+        r.register(Command::native(
             "todo.next",
             "Go to the next TODO/FIXME marker",
             erase::<TodoWalk<true>>(),
@@ -442,6 +452,25 @@ impl Native for Info {
 /// — `caps!()` proves no membership, so every accessor on its view is
 /// unbuildable.
 /// `buffer.next` / `buffer.prev` — walk the buffer list.
+/// `picker.buffers` / `picker.commands` — open a picker over a source.
+///
+/// Reads `caps!()`: the handler does not build the item list. It cannot —
+/// a picker needs `&mut` across many keypresses and a handler holds a
+/// read-only `Snapshot`. So the slip NAMES the source and the interpreter
+/// populates it, which keeps the one-writer seam intact while the widget
+/// still gets the mutable state it needs.
+struct OpenPicker<const COMMANDS: bool>;
+impl<const COMMANDS: bool> Native for OpenPicker<COMMANDS> {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::OpenPicker(if COMMANDS {
+            escriba_madoguchi::PickerSource::Commands
+        } else {
+            escriba_madoguchi::PickerSource::Buffers
+        })])
+    }
+}
+
 struct BufferNext;
 impl Native for BufferNext {
     type Reads = caps!();

@@ -1073,8 +1073,10 @@ dependencies = [
 name = "escriba-ui"
 version = "0.1.42"
 dependencies = [
+ "egaku",
  "escriba-buffer",
  "escriba-core",
+ "escriba-keymap",
  "escriba-mode",
  "escriba-shirube",
  "hikari-core",

@@ -16,6 +16,11 @@ pub mod splash;
 /// reproduces it on the fleet default and extends it to every theme.
 pub mod syntax;
 
+/// The picker — a filtered list of candidates that holds keys while open.
+/// The narrowing machine is `egaku::FuzzyPicker`; escriba owns the SOURCE
+/// (what accepting means) and the key translation.
+pub mod picker;
+
 /// The gutter — line numbers and finding marks, composed once. The ratatui
 /// face built its own inline and the GPU face had none at all; this is the
 /// same "one model, N faces" repair the status line and splash already had.

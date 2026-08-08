@@ -95,6 +95,18 @@ impl Continuation {
 /// stronger seal and the one this repo asks for. escriba-madoguchi is
 /// workspace-internal; the API-stability that `#[non_exhaustive]` buys is not
 /// a trade worth making here.
+/// Which source a `Negai::OpenPicker` opens over.
+///
+/// Named here rather than in `escriba-ui` because the VOCABULARY is
+/// madoguchi's; the widget that renders it is the face's problem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickerSource {
+    /// Open buffers.
+    Buffers,
+    /// Every registered command.
+    Commands,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Negai {
     // ── text ─────────────────────────────────────────────────────────
@@ -204,6 +216,14 @@ pub enum Negai {
     },
 
     // ── lifecycle ────────────────────────────────────────────────────
+    /// Open a picker over a named source.
+    ///
+    /// The picker's ITEMS are built by the interpreter, not the handler: a
+    /// handler reads a read-only `Snapshot` and cannot hold the `&mut` the
+    /// widget needs across many keypresses. So the slip names the source and
+    /// the interpreter populates it — the seam holds, and the picker still
+    /// lowers its accept back through `interpret` like everything else.
+    OpenPicker(PickerSource),
     Quit,
 }
 

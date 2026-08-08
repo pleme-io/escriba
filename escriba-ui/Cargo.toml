@@ -23,6 +23,11 @@ escriba-shirube = { workspace = true }
 # hikari's `HlClass` + `Theme` — the syntax VOCABULARY, not a renderer. This
 # crate answers "what colour is a keyword"; who draws it stays elsewhere.
 hikari-core     = { workspace = true }
+# The fleet's narrowing machine — a typed PickerEvent -> PickerEffect<T>
+# state machine with its own scoring and zero rendering deps. Consumed, never
+# reimplemented.
+egaku           = "0.1"
+escriba-keymap  = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
