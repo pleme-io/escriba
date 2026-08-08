@@ -689,6 +689,20 @@ impl EditorState {
                 self.results
                     .publish(list, escriba_shirube::ResultList::new(findings, world));
             }
+            // A reply from off the tick. Honour it only if the world it was
+            // computed against still holds.
+            //
+            // The drop is silent BY DESIGN, and this is the one place in the
+            // slip vocabulary where silence is right: a stale reply is not a
+            // failure anyone can act on. The operator kept typing, which is
+            // the correct thing to have done, and telling them "a diagnostic
+            // you never asked for was discarded" is noise. The producer
+            // re-runs against the new world; that is the whole contract.
+            Negai::ErrandReply { anchor, then } => {
+                if anchor.is_fresh(&self.world()) {
+                    self.honour_one(*then);
+                }
+            }
             Negai::WalkList { list, forward } => self.walk_list(&list, forward),
             Negai::Message(m) => self.messages.push(m),
             Negai::Quit => self.quit_requested = true,
@@ -3962,6 +3976,103 @@ mod tests {
             .map(|b| b.to_string())
             .unwrap_or_default();
         assert_eq!(after, before, "yank does not edit");
+    }
+
+    // ── the anchored reply (Negai::ErrandReply) ──────────────────────
+    //
+    // Landed BEFORE the courier that will produce these. The class being
+    // closed: a reply computed off the tick, applied against a world that
+    // has since moved, and RESEALED as fresh by the interpreter — which is
+    // what every synchronous slip correctly does and what an async one must
+    // never do.
+
+    fn a_finding(buffer: BufferId, line: u32) -> escriba_shirube::Finding {
+        use escriba_core::{Position, Range};
+        escriba_shirube::Finding::new(
+            escriba_shirube::Site::in_buffer(
+                buffer,
+                Range::new(Position::new(line, 0), Position::new(line, 1)),
+            ),
+            escriba_shirube::Severity::Error,
+            "computed off the tick".to_string(),
+            escriba_shirube::Origin::Text("test"),
+        )
+    }
+
+    #[test]
+    fn a_fresh_errand_reply_is_honoured() {
+        let mut st = new_state_with("a\nb\nc\n");
+        let anchor = st.world();
+        st.honour_one(escriba_madoguchi::Negai::ErrandReply {
+            anchor,
+            then: Box::new(escriba_madoguchi::Negai::PublishFindings {
+                list: "lsp".to_string(),
+                findings: vec![a_finding(st.active, 1)],
+            }),
+        });
+        assert_eq!(st.finding_items(true).len(), 1, "the world had not moved");
+    }
+
+    /// THE red run. Without the freshness check this passes findings
+    /// straight through, and `PublishFindings` reseals them with the
+    /// CURRENT world — so they are reported fresh at columns that moved.
+    #[test]
+    fn a_stale_errand_reply_is_dropped_not_resealed() {
+        let mut st = new_state_with("a\nb\nc\n");
+        // Capture the world the "server" computed against...
+        let anchor = st.world();
+        // ...then let the operator keep typing, which is the whole point.
+        st.apply(&Action::InsertChar('x'));
+
+        st.honour_one(escriba_madoguchi::Negai::ErrandReply {
+            anchor,
+            then: Box::new(escriba_madoguchi::Negai::PublishFindings {
+                list: "lsp".to_string(),
+                findings: vec![a_finding(st.active, 1)],
+            }),
+        });
+        assert!(
+            st.finding_items(true).is_empty(),
+            "a reply computed against an older text revision must be DROPPED, \
+             not resealed against the current one"
+        );
+    }
+
+    /// The failure the wrapper exists for, and the reason it wraps a slip
+    /// rather than adding an anchor field to PublishFindings: a stale EDIT
+    /// corrupts the file, where a stale diagnostic merely mis-decorates it.
+    #[test]
+    fn a_stale_errand_reply_cannot_edit_the_buffer() {
+        let mut st = new_state_with("hello\n");
+        let anchor = st.world();
+        st.apply(&Action::InsertChar('!'));
+        let before = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+
+        st.honour_one(escriba_madoguchi::Negai::ErrandReply {
+            anchor,
+            then: Box::new(escriba_madoguchi::Negai::Edit {
+                buffer: st.active,
+                edit: escriba_core::Edit {
+                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    kind: escriba_core::EditKind::Insert {
+                        text: "FORMATTED".to_string(),
+                    },
+                },
+            }),
+        });
+        let after = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(
+            after, before,
+            "a stale formatter reply must not touch the text"
+        );
     }
 
     fn press(kc: KeyCode) -> AppEvent {
