@@ -13,6 +13,7 @@ extern crate self as escriba_lsp_client;
 
 pub mod conn;
 pub mod pending;
+pub mod text;
 pub mod wire;
 
 use serde::{Deserialize, Serialize};
