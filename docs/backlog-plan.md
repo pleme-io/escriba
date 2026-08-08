@@ -144,8 +144,12 @@ Concretely, when this is done:
 - Everything that **floats** — picker, which-key, completion, hover,
   diagnostics, DAP panes, zen mode, toasts — is one `Surface` in one
   z-ordered stack.
-- Everything **spatial** is one leaf in one container tree whose geometry is
-  a pure function of the frame, never stored.
+- Everything **spatial** is one leaf in one container tree. Its PANE geometry
+  is derived from the frame; its SCROLL position is not. `top_line` and
+  `left_column` are retained state that no `solve(tree, frame)` can compute —
+  see §0.5. This bullet said "a pure function of the frame, never stored"
+  until 2026-08-08, which §0.5 refuted without amending the destination it
+  contradicted.
 - Everything **located** — a diagnostic, a git hunk, a test failure, a grep
   hit, a TODO, a conflict, a reference — is one `Finding` in one named list,
   walked by the same stepper that already drives `n`/`N`.
@@ -300,15 +304,21 @@ Async arrives last and outside the core. Unaudited (§0.7).
 
 | Roadmap item | Where it lands |
 |---|---|
-| Multi-key polish, `defsource` | Phase 1 (`madoguchi` authoring) |
-| Multi-selection (`Cursors`) | Phase 6a — `Cursors` already exists and is routed through |
-| Registers / clipboard | Phase 1 + `hasami` (has a `MockClipboard` seam already) |
-| Marks / jumplist | Phase 2 — a mark **is** a `Finding`; the jumplist already works |
-| Picker, which-key | Phase 3 + 6c |
-| DAP, git, tree, term | Phase 4 + 5 + 6b/6c/6e |
-| Undo tree, macros | Phase 1 — a macro **is** `Vec<Negai>`, which the design already noted |
-| Sessions | Phase 4 (`defsession` parses today and is inert) |
+| Multi-key polish, `defsource` | **SHIPPED** — `madoguchi` is wired |
+| Multi-selection (`Cursors`) | `Cursors` exists and is routed; the operators do not map over the set yet |
+| Registers / clipboard | shipped (single unnamed register); `hasami` has a `MockClipboard` seam |
+| Marks / jumplist | **SHIPPED** — the jumplist carries `Spot`; a mark IS a `Finding` |
+| Picker | **SHIPPED** — six sources; `symbols` blocked on hikari classification |
+| which-key | needs the surface (shipped) plus keymap prefix enumeration |
+| git, tree, term, DAP | need the courier; git hunks also need `Axis::Index` (now emitted) |
+| Undo tree, macros | a macro is NOT `Vec<Negai>` — `lower()` maps 6 of 30 `Action`s, and the comment says the other 23 are deliberately not slips |
+| Sessions | `defsession` parses today and is inert |
 | Notebook cells, CRDT | Explicitly deferred — no primitive here serves them; revisit when one does |
+
+**The "Phase 3/4/5/6a–6e" numbering this table used until 2026-08-08 no longer
+exists.** Rewriting §V replaced those headings with unnumbered pieces and left
+every pointer here dangling — an audit found them and they are now stated as
+capabilities and blockers rather than as cross-references to deleted text.
 
 ## VII. Nothing is deleted — the reversal
 
@@ -334,11 +344,14 @@ This is the compounding thesis proving itself: given the substrate, the
 
 | Claim | Status |
 |---|---|
-| The five primitive designs | **DESIGNED** — no code written |
-| `egaku` ships picker/split/modal/focus; 239 tests; zero render deps; already in `Cargo.lock` | **VERIFIED** — source read |
+| `madoguchi`, `shirube` | **SHIPPED AND WIRED** — workspace members, consumed by the runtime |
+| `kasane` (surfaces) | **PARTIALLY SHIPPED** — the picker is a working overlay; no z-ordered STACK yet |
+| `shikiri` (container tree), `denrei` (courier) | **DESIGNED** — no code written |
+| `egaku::FuzzyPicker` is consumed by `escriba-ui::picker` | **SHIPPED** — six sources ride it |
+| `egaku` has 247 tests (not 239) and five fleet consumers (not zero) | **CORRECTED** — the original row was wrong in both figures |
 | The three Phase-0 defects | **VERIFIED** — source read, line numbers cited |
 | escriba is 100% synchronous; tokio declared in 2 crates, used in 0 | **VERIFIED** — zero grep matches in any `escriba*/src` |
-| All 85 inert actions covered exactly once | **VERIFIED** — reconciled against the pinning test, not against prose |
+| The inert inventory is covered exactly once | **VERIFIED** — reconciled against `action_resolution.rs`, never restated as a number here; a second ratchet (`alias_revival.rs`) covers the 41 `defcmd` actions that test never watched |
 | `skim` is *not* in the fleet | **VERIFIED** — no lockfile contains it |
 | The three corrections in §IV | **DESIGN JUDGEMENT** — mine, from designer-reported gaps |
 | §V ordering | **DESIGN JUDGEMENT** — not independently reviewed |
