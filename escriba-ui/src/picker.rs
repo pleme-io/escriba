@@ -42,6 +42,8 @@ pub enum Choice {
     Buffer(BufferId),
     /// Run this command by name.
     Command(String),
+    /// Open `path` at its start — a file, with no particular line.
+    OpenFile(std::path::PathBuf),
     /// Open `path` and put the cursor on `line` (0-based).
     ///
     /// The buffer may not be open yet, which is exactly why this is a PATH
@@ -61,6 +63,10 @@ pub enum Source {
     Help,
     /// Matches for a pattern across the project.
     Grep,
+    /// Files under the working directory.
+    Files,
+    /// Directories that look like project roots.
+    Project,
 }
 
 impl Source {
@@ -71,6 +77,8 @@ impl Source {
             Self::Commands => "Commands",
             Self::Help => "Help",
             Self::Grep => "Grep",
+            Self::Files => "Files",
+            Self::Project => "Project",
         }
     }
 }

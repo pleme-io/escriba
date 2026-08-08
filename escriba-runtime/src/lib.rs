@@ -920,6 +920,7 @@ impl EditorState {
                 name,
                 args: Vec::new(),
             },
+            Choice::OpenFile(path) => Negai::OpenPath(path),
             Choice::Location { path, line } => {
                 // Open FIRST, then jump: the buffer may not exist yet, and
                 // `jump_to_site` needs a BufferId. Two slips, one interpret.
@@ -954,15 +955,17 @@ impl EditorState {
     const GREP_FILE_LIMIT: usize = 2_000;
     const GREP_HIT_LIMIT: usize = 500;
 
-    /// Scan the working directory for `pattern`, bounded.
-    fn grep_project(&mut self, pattern: &str) {
-        use escriba_ui::picker::{Choice, Picker, PickerItem, Source};
-        if pattern.is_empty() {
-            self.messages.push("grep: empty pattern".to_string());
-            return;
-        }
-        let mut items: Vec<PickerItem<Choice>> = Vec::new();
-        let mut files = 0usize;
+    /// Walk the working directory, bounded, returning `(files, truncated)`.
+    ///
+    /// ONE walker. grep, files and project each need to enumerate the tree,
+    /// and three copies of a bounded traversal is three places to get the
+    /// ceiling, the skip-list, or the truncation report subtly different.
+    ///
+    /// Skips dotfiles, `target` and `node_modules`. That is NOT a gitignore
+    /// implementation and does not pretend to be — a real ignore crate comes
+    /// with the courier.
+    fn walk_project(limit: usize) -> (Vec<std::path::PathBuf>, bool) {
+        let mut out = Vec::new();
         let mut truncated = false;
         let mut stack = vec![std::path::PathBuf::from(".")];
         while let Some(dir) = stack.pop() {
@@ -970,50 +973,72 @@ impl EditorState {
                 continue;
             };
             for entry in entries.flatten() {
-                let path = entry.path();
                 let name = entry.file_name();
                 let name = name.to_string_lossy();
-                // Skip the places a project grep must never walk into. Not a
-                // gitignore implementation — that is the courier's job, with
-                // a real ignore crate. This is the honest floor.
                 if name.starts_with('.') || name == "target" || name == "node_modules" {
                     continue;
                 }
+                let path = entry.path();
                 if entry.file_type().is_ok_and(|t| t.is_dir()) {
                     stack.push(path);
                     continue;
                 }
-                if files >= Self::GREP_FILE_LIMIT || items.len() >= Self::GREP_HIT_LIMIT {
+                if out.len() >= limit {
                     truncated = true;
-                    break;
+                    return (out, truncated);
                 }
-                files += 1;
-                let Ok(text) = std::fs::read_to_string(&path) else {
-                    continue; // binary or unreadable — not an error worth reporting
-                };
-                for (n, line) in text.lines().enumerate() {
-                    if !line.contains(pattern) {
-                        continue;
-                    }
-                    if items.len() >= Self::GREP_HIT_LIMIT {
-                        truncated = true;
-                        break;
-                    }
-                    let Ok(n) = u32::try_from(n) else { break };
-                    let mut label = String::with_capacity(80);
-                    label.push_str(&path.to_string_lossy());
-                    label.push(':');
-                    label.push_str(&(n + 1).to_string());
-                    label.push_str("  ");
-                    label.push_str(line.trim());
-                    items.push(PickerItem::new(
-                        Choice::Location {
-                            path: path.clone(),
-                            line: n,
-                        },
-                        label,
-                    ));
+                out.push(path);
+            }
+        }
+        (out, truncated)
+    }
+
+    /// Say plainly when a bounded scan stopped short.
+    ///
+    /// A truncated list presented as complete is the failure this codebase
+    /// keeps finding in itself; it does not get to ship one.
+    fn report_truncation(&mut self, truncated: bool) {
+        if truncated {
+            self.messages
+                .push("scan stopped at the limit — results are INCOMPLETE".to_string());
+        }
+    }
+
+    /// Scan the working directory for `pattern`, bounded.
+    fn grep_project(&mut self, pattern: &str) {
+        use escriba_ui::picker::{Choice, Picker, PickerItem, Source};
+        if pattern.is_empty() {
+            self.messages.push("grep: empty pattern".to_string());
+            return;
+        }
+        let (files, mut truncated) = Self::walk_project(Self::GREP_FILE_LIMIT);
+        let mut items: Vec<PickerItem<Choice>> = Vec::new();
+        'outer: for path in files {
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue; // binary or unreadable — not an error worth reporting
+            };
+            for (n, line) in text.lines().enumerate() {
+                if !line.contains(pattern) {
+                    continue;
                 }
+                if items.len() >= Self::GREP_HIT_LIMIT {
+                    truncated = true;
+                    break 'outer;
+                }
+                let Ok(n) = u32::try_from(n) else { break };
+                let mut label = String::with_capacity(80);
+                label.push_str(&path.to_string_lossy());
+                label.push(':');
+                label.push_str(&(n + 1).to_string());
+                label.push_str("  ");
+                label.push_str(line.trim());
+                items.push(PickerItem::new(
+                    Choice::Location {
+                        path: path.clone(),
+                        line: n,
+                    },
+                    label,
+                ));
             }
         }
         if items.is_empty() {
@@ -1084,6 +1109,54 @@ impl EditorState {
                     })
                     .collect::<Vec<_>>(),
             ),
+            escriba_madoguchi::PickerSource::Files => {
+                let (files, truncated) = Self::walk_project(Self::GREP_FILE_LIMIT);
+                self.report_truncation(truncated);
+                (
+                    Source::Files,
+                    files
+                        .into_iter()
+                        .map(|p| {
+                            let label = p.to_string_lossy().into_owned();
+                            PickerItem::new(Choice::OpenFile(p), label)
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            }
+            escriba_madoguchi::PickerSource::Project => {
+                // A project root is a directory carrying a marker. Derived
+                // from the SAME walk rather than a second traversal — the
+                // markers are files, so the walker already visited them.
+                const MARKERS: &[&str] = &[
+                    "Cargo.toml",
+                    "flake.nix",
+                    "package.json",
+                    "go.mod",
+                    "pyproject.toml",
+                ];
+                let (files, truncated) = Self::walk_project(Self::GREP_FILE_LIMIT);
+                self.report_truncation(truncated);
+                let mut roots: Vec<std::path::PathBuf> = files
+                    .into_iter()
+                    .filter(|p| {
+                        p.file_name()
+                            .is_some_and(|n| MARKERS.contains(&n.to_string_lossy().as_ref()))
+                    })
+                    .filter_map(|p| p.parent().map(std::path::Path::to_path_buf))
+                    .collect();
+                roots.sort();
+                roots.dedup();
+                (
+                    Source::Project,
+                    roots
+                        .into_iter()
+                        .map(|p| {
+                            let label = p.to_string_lossy().into_owned();
+                            PickerItem::new(Choice::OpenFile(p), label)
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            }
             escriba_madoguchi::PickerSource::Commands => (
                 Source::Commands,
                 self.commands

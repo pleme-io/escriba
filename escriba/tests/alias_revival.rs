@@ -99,8 +99,6 @@ const UNHANDLED_ALIASES: &[&str] = &[
     "mason.open",
     "noice.dismiss",
     "notify.history",
-    "picker.files",
-    "picker.project",
     "snacks.dashboard",
     "snacks.zen",
     "task.run",

@@ -70,12 +70,17 @@ fn an_unregistered_command_is_reported() {
 fn a_registered_but_unimplemented_action_is_reported() {
     // The more misleading of the two: the editor ADVERTISED this — it is in
     // `--commands`, it is in the keymap, `--list-rc` counts it — and then did
-    // nothing. This is the shape all 85 inert actions have.
+    // nothing. This is the shape every inert action has; the live count is
+    // read from `escriba/tests/action_resolution.rs`, never restated here.
+    //
+    // The example was `picker.files` until that shipped. An implemented
+    // action makes a poor example of an unimplemented one — pick a verb whose
+    // subsystem genuinely does not exist, and expect to move it again.
     let mut st = editor();
     st.commands.register(escriba_command::Command::action(
         "pick",
         "Pick a file",
-        "picker.files",
+        "lsp.hover",
     ));
     press_command(&mut st, "pick");
     let msg = st
@@ -83,7 +88,7 @@ fn a_registered_but_unimplemented_action_is_reported() {
         .last()
         .expect("an inert action must say something");
     assert!(
-        msg.contains("picker.files"),
+        msg.contains("lsp.hover"),
         "the message must name the unimplemented action: {msg:?}",
     );
     assert!(
@@ -194,7 +199,7 @@ fn a_typo_and_an_unbuilt_capability_read_differently() {
     );
 
     let mut st = editor();
-    press_command(&mut st, "picker.files");
+    press_command(&mut st, "lsp.hover");
     let unbuilt = st.messages.last().cloned().expect("a message");
     assert!(
         unbuilt.contains("not implemented"),
