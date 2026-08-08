@@ -102,12 +102,37 @@ impl ResultList {
     /// off the one you are standing on. The same distinction, and the same
     /// implementation, that `/foo` and `n` use.
     #[must_use]
-    pub fn step(&self, world: &Anchor, line: u32, forward: bool, bound: Bound) -> Option<&Finding> {
+    pub fn step(
+        &self,
+        world: &Anchor,
+        from: (Option<escriba_core::BufferId>, u32),
+        forward: bool,
+        bound: Bound,
+    ) -> Option<&Finding> {
         let live = self.fresh(world);
         if live.is_empty() {
             return None;
         }
-        let starts: Vec<usize> = live.iter().map(|f| f.site.line() as usize).collect();
+        // Ordered by (BUFFER, line), not line alone.
+        //
+        // Stepping by bare line number is only correct while every finding is
+        // in one file. The moment a list spans buffers — diagnostics, grep
+        // hits, test failures, every producer after the first — line 5 of one
+        // file and line 5 of another become indistinguishable, and the walk
+        // lands on whichever the sort happened to put first. `on_line` and
+        // `worst_on_line` already filter by buffer, so the gutter and the
+        // walker disagreed about which file a finding was in.
+        let key = |b: Option<escriba_core::BufferId>, l: u32| -> usize {
+            // Buffer id dominates; the line orders within it. Findings with no
+            // buffer sort last rather than colliding with buffer 0.
+            let hi = b.map_or(usize::from(u16::MAX), |id| id.0 as usize);
+            hi.saturating_mul(1 << 24).saturating_add(l as usize)
+        };
+        let starts: Vec<usize> = live
+            .iter()
+            .map(|f| key(f.site.buffer, f.site.line()))
+            .collect();
+        let line = key(from.0, from.1);
         // `step_wrapping`, not `first_matching`: the wrap — and announcing it
         // — lives in memori, shared with `n`/`N`. Reaching for the
         // non-wrapping form here is how the two would drift.
@@ -268,15 +293,21 @@ mod tests {
         let w = world(1);
         let line = |f: Option<&Finding>| f.map(|f| f.site.line());
 
-        assert_eq!(line(l.step(&w, 0, true, Bound::Exclusive)), Some(2));
-        assert_eq!(line(l.step(&w, 2, true, Bound::Exclusive)), Some(5));
         assert_eq!(
-            line(l.step(&w, 9, true, Bound::Exclusive)),
+            line(l.step(&w, (Some(B), 0), true, Bound::Exclusive)),
+            Some(2)
+        );
+        assert_eq!(
+            line(l.step(&w, (Some(B), 2), true, Bound::Exclusive)),
+            Some(5)
+        );
+        assert_eq!(
+            line(l.step(&w, (Some(B), 9), true, Bound::Exclusive)),
             Some(2),
             "forward from the last wraps to the first",
         );
         assert_eq!(
-            line(l.step(&w, 0, false, Bound::Exclusive)),
+            line(l.step(&w, (Some(B), 0), false, Bound::Exclusive)),
             Some(9),
             "backward from the first wraps to the last",
         );
@@ -289,12 +320,14 @@ mod tests {
         let l = list_at(1, &[5]);
         let w = world(1);
         assert_eq!(
-            l.step(&w, 5, true, Bound::Inclusive).map(|f| f.site.line()),
+            l.step(&w, (Some(B), 5), true, Bound::Inclusive)
+                .map(|f| f.site.line()),
             Some(5),
             "inclusive lands on where you are",
         );
         assert_eq!(
-            l.step(&w, 5, true, Bound::Exclusive).map(|f| f.site.line()),
+            l.step(&w, (Some(B), 5), true, Bound::Exclusive)
+                .map(|f| f.site.line()),
             Some(5),
             "exclusive with one finding wraps back around to it",
         );
@@ -303,7 +336,10 @@ mod tests {
     #[test]
     fn stepping_a_stale_list_finds_nothing() {
         let l = list_at(1, &[2, 5]);
-        assert!(l.step(&world(2), 0, true, Bound::Exclusive).is_none());
+        assert!(
+            l.step(&world(2), (Some(B), 0), true, Bound::Exclusive)
+                .is_none()
+        );
     }
 
     #[test]
