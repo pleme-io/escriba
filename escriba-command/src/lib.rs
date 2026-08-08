@@ -27,6 +27,13 @@ pub enum CommandError {
     Unhandled(String),
     #[error("command failed: {0}")]
     Failed(String),
+    /// An alias chain that never reaches a body.
+    ///
+    /// Aliases resolve THROUGH the registry, so `A -> B -> A` would spin
+    /// forever. Bounded fuel turns that into a typed report naming the chain
+    /// the operator wrote, instead of a hung editor.
+    #[error("alias cycle resolving `{0}`")]
+    AliasCycle(String),
     // NOTE: there was a `Buffer(#[from] BufferError)` variant here. The M2
     // port made it dead: a command no longer performs I/O, so it cannot
     // produce a buffer error. Save/undo/redo failures now surface from the
@@ -232,13 +239,47 @@ impl CommandRegistry {
     /// failures, kept distinct because they mean different things to the
     /// operator. `Ok(outcome)` means a body ran and reported for itself.
     pub fn run(&self, name: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome> {
+        self.run_bounded(name, snap, args, ALIAS_FUEL)
+    }
+
+    /// One resolution path, bounded.
+    ///
+    /// An action symbol resolves against the BUILT-IN table first, then
+    /// against the registry itself. That second step is the whole point: a
+    /// `(defcmd :name "CommentToggle" :action "comment.toggle-line")` alias
+    /// used to die as `Unhandled` even though `comment.toggle-line` was a
+    /// registered native sitting in the same map — two dispatch tables that
+    /// had to agree, and did not. Every one of the 41 catalog aliases was
+    /// dead for exactly this reason.
+    ///
+    /// Resolving through the registry admits cycles, so the chain runs on
+    /// fuel and exhaustion is a typed `AliasCycle`.
+    fn run_bounded(
+        &self,
+        name: &str,
+        snap: &dyn Snapshot,
+        args: &[String],
+        fuel: u8,
+    ) -> Result<Outcome> {
+        let Some(fuel) = fuel.checked_sub(1) else {
+            return Err(CommandError::AliasCycle(name.to_string()));
+        };
         let cmd = self
             .commands
             .get(name)
             .ok_or_else(|| CommandError::NotFound(name.to_string()))?;
         match &cmd.handler {
             Handler::Native(f) => Ok(f(snap, args)),
-            Handler::Action(sym) => run_action(sym, snap, args),
+            Handler::Action(sym) => match builtin_action(sym) {
+                Some(f) => Ok(f(snap, args)),
+                // Not a built-in — but the symbol may name a registered
+                // command. `sym != name` keeps a self-referential alias from
+                // burning the whole budget before reporting.
+                None if sym != name && self.commands.contains_key(sym.as_str()) => {
+                    self.run_bounded(sym, snap, args, fuel)
+                }
+                None => Err(CommandError::Unhandled(sym.to_string())),
+            },
         }
     }
 
@@ -265,24 +306,34 @@ impl CommandRegistry {
     }
 }
 
-/// Resolve a dotted action symbol to a built-in body.
-fn run_action(sym: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome> {
-    match sym {
-        "buffer.save" | "buffer.write" => Ok(erase::<Save>()(snap, args)),
-        "buffer.write-all" => Ok(erase::<WriteAll>()(snap, args)),
-        "buffer.undo" => Ok(erase::<Undo>()(snap, args)),
-        "buffer.redo" => Ok(erase::<Redo>()(snap, args)),
-        "buffer.info" => Ok(erase::<Info>()(snap, args)),
-        "editor.quit" => Ok(erase::<Quit>()(snap, args)),
-        "search.clear-highlight" => Ok(erase::<Noh>()(snap, args)),
+/// How many alias hops a chain may take before it is called a cycle.
+///
+/// Small on purpose: a legitimate chain is an alias naming a native, which
+/// is two hops. Anything deeper is a configuration mistake worth reporting.
+const ALIAS_FUEL: u8 = 8;
+
+/// The dotted action symbols escriba implements natively.
+///
+/// Returns `None` for anything else so the caller can try the registry —
+/// this used to return `Err(Unhandled)` directly, which is what made the
+/// built-in table the ONLY table and killed every catalog alias.
+fn builtin_action(sym: &str) -> Option<CommandFn> {
+    Some(match sym {
+        "buffer.save" | "buffer.write" => erase::<Save>(),
+        "buffer.write-all" => erase::<WriteAll>(),
+        "buffer.undo" => erase::<Undo>(),
+        "buffer.redo" => erase::<Redo>(),
+        "buffer.info" => erase::<Info>(),
+        "editor.quit" => erase::<Quit>(),
+        "search.clear-highlight" => erase::<Noh>(),
         // The not-yet-implemented namespace. The shipped keybindings that
         // land here are enumerated by `escriba/tests/action_resolution.rs`,
         // which asserts SET EQUALITY — so the count is READ from there rather
         // than restated. It said 85 while the real figure had ratcheted to
         // 78; a duplicated number is a number that rots.
         // Inert and ANNOUNCED; see CommandError::Unhandled.
-        _ => Err(CommandError::Unhandled(sym.to_string())),
-    }
+        _ => return None,
+    })
 }
 
 /// The active buffer, or the outcome to return when there isn't one.

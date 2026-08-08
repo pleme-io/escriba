@@ -756,6 +756,7 @@ dependencies = [
  "escriba-input",
  "escriba-keymap",
  "escriba-lisp",
+ "escriba-madoguchi",
  "escriba-mode",
  "escriba-plugin",
  "escriba-render",
