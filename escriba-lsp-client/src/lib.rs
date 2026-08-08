@@ -11,6 +11,8 @@
 
 extern crate self as escriba_lsp_client;
 
+pub mod wire;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
