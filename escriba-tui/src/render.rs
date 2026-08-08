@@ -23,6 +23,48 @@ fn rgb(c: ishou_tokens::Rgb) -> Color {
     Color::Rgb(c.r, c.g, c.b)
 }
 
+/// How many buffer lines a terminal of `total_height` rows actually shows.
+///
+/// ONE definition, because two is what went wrong. The ratatui face never
+/// wrote `viewport.visible_lines`, on the reasoning that "ratatui auto-picks
+/// up the new size on the next draw" — true of PAINTING and false of the
+/// model. `scroll_to_contain` kept using the constructor's default of 40, so
+/// in any terminal shorter than that the editor believed the cursor was
+/// visible while it had scrolled off the screen. A rendered-frame test now
+/// pins it (`tests/viewport_frame.rs`).
+///
+/// The arithmetic must match `draw_frame`'s split (one row for the status
+/// line) and `draw_buffer`'s own reservation, which is why it lives here
+/// rather than being spelled again in the run loop.
+#[must_use]
+pub fn viewport_rows(total_height: u16) -> u16 {
+    // -1 status line (the layout split), -2 draw_buffer's own reservation.
+    total_height.saturating_sub(3).max(1)
+}
+
+/// Point `state`'s viewport at a terminal of this size.
+///
+/// The ratatui peer of the GPU face's `RenderCallback::resize`. Both faces
+/// have to tell the runtime how much they can show, or the scroll-to-contain
+/// invariant is computed against a window that does not exist.
+pub fn sync_viewport(state: &mut EditorState, width: u16, height: u16) {
+    let rows = u32::from(viewport_rows(height));
+    // The FULL terminal width, NOT minus the gutter. `draw_buffer` subtracts
+    // the gutter itself (it has to — the width depends on the buffer's line
+    // count), and the GPU face splits the same way: `resize` stores the whole
+    // grid, `render` reserves the gutter. Subtracting here too would take it
+    // twice and clip every line short by a gutter's worth of text.
+    let cols = u32::from(width);
+    for w in &mut state.layout.windows {
+        w.viewport.visible_lines = rows;
+        w.viewport.visible_columns = cols.max(1);
+    }
+    // A resize moves the WINDOW, not the cursor, so nothing else re-runs
+    // scroll-to-contain. Without this the cursor sits off-screen after a
+    // shrink until the operator happens to move it.
+    state.refollow_cursor();
+}
+
 /// Draw one frame. Call from within `terminal.draw(|f| draw_frame(f, state))`.
 pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
     let area = f.area();
