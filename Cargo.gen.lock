@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "923d34cc62f356b58685960171200bd0cde8e94dff2872721dddb433e8e6eceb",
+  "cargo_lock_sha256": "b117aedd7d660545fb118879b80ffe10fbf567ccd03cad43b94546986ff841dd",
   "manifest_sha256": {
-    "Cargo.toml": "77e8a215059d74dafb7ef5b67a338f175b4ca565486322bbe5238b9ccd12747f",
+    "Cargo.toml": "5e47854d03b7d80dff92b8af603591c33d9f76e7e674e9aad1ae37a452a404ac",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -11,7 +11,7 @@
     "escriba-input/Cargo.toml": "094ebecd5e7dd044c6895c2bef01151aa01fb841cce7c97e1a5acffe516cef3e",
     "escriba-keymap/Cargo.toml": "a5877214f5022ca454a4a1b5d3724b47cb9b0636654dd40d6a5098fe63655b5f",
     "escriba-lisp/Cargo.toml": "4fda5e439d93cdf7949b5a8e8cf976dc7f13bb0ce57deba1d0a6c2080c66c0c5",
-    "escriba-lsp-client/Cargo.toml": "1593b629c1278001372bea299f1a100bcdee5e2e3db0d04971dba726310825c0",
+    "escriba-lsp-client/Cargo.toml": "4934f946d28f1c7a848a1fd69cc22e40ea400d360a3588e5727a4c8219905ea4",
     "escriba-madoguchi/Cargo.toml": "8b4acdc6908849d2ef6ff5b6ed503de089878783b099bcb32e46f86989e549c7",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
@@ -2311,6 +2311,16 @@
             "tree": "target"
           },
           {
+            "name": "escriba_shirube",
+            "package_key": "escriba-shirube-0.1.58",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "serde",
             "package_key": "serde-1.0.229",
             "kind": "normal",
@@ -2365,6 +2375,18 @@
             "package_key": "tracing-0.1.44",
             "kind": "normal",
             "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "zahyou",
+            "package_key": "zahyou-0.1.1",
+            "kind": "normal",
+            "features": [
+              "serde"
+            ],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -4042,6 +4064,104 @@
         "features": []
       },
       "getrandom-0.3.4": {
+        "runtime_dependencies": [
+          {
+            "name": "cfg_if",
+            "package_key": "cfg-if-1.0.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), not(any(all(target_os = \"linux\", target_env = \"\"), getrandom_backend = \"custom\", getrandom_backend = \"linux_raw\", getrandom_backend = \"rdrand\", getrandom_backend = \"rndr\"))))",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(any(target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"hurd\", target_os = \"illumos\", target_os = \"cygwin\", all(target_os = \"horizon\", target_arch = \"arm\")))",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(any(target_os = \"haiku\", target_os = \"redox\", target_os = \"nto\", target_os = \"aix\"))",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(any(target_os = \"ios\", target_os = \"visionos\", target_os = \"watchos\", target_os = \"tvos\"))",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(any(target_os = \"macos\", target_os = \"openbsd\", target_os = \"vita\", target_os = \"emscripten\"))",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(target_os = \"netbsd\")",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(target_os = \"solaris\")",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(target_os = \"vxworks\")",
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "std"
+        ]
+      },
+      "getrandom-0.4.3": {
         "runtime_dependencies": [
           {
             "name": "cfg_if",
@@ -7808,7 +7928,7 @@
           },
           {
             "name": "getrandom",
-            "package_key": "getrandom-0.3.4",
+            "package_key": "getrandom-0.4.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -9408,6 +9528,27 @@
         "build_dependencies": [],
         "features": [
           "std"
+        ]
+      },
+      "zahyou-0.1.1": {
+        "runtime_dependencies": [
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.229",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "serde"
         ]
       },
       "zenmai-0.0.2": {
@@ -25017,6 +25158,10 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "getrandom-0.4.3": {
+      "edition": "2024",
+      "build_script": "build.rs"
+    },
     "glow-0.16.0": {
       "edition": "2021"
     },
@@ -25888,6 +26033,9 @@
     },
     "yazi-0.2.1": {
       "edition": "2021"
+    },
+    "zahyou-0.1.1": {
+      "edition": "2024"
     },
     "zenmai-0.0.2": {
       "edition": "2021"

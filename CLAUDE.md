@@ -294,9 +294,59 @@ cargo test --workspace --lib        # workspace unit tests (all green)
 | `escriba-plugin` | Plugin caixa model + **forge** (emit caixa.lisp / entry / flake from a catalog source) | `PluginCaixa`, `ActivationTrigger`, `forge_plugin`, `CaixaArtifacts` |
 | `escriba-vm` | Embedded Lisp VM — skeleton for Lisp-authored logic | — |
 | `escriba-ts` | Tree-sitter integration (incremental parse + highlight) | — |
-| `escriba-lsp-client` | LSP client (tower-lsp-based) | — |
+| `escriba-lsp-client` | LSP client — hand-rolled framing, **not** tower-lsp (see below) | — |
 | `escriba-mcp` | MCP server — expose editor state to AI agents | — |
 | `escriba` | Binary — wires everything, owns CLI flags + render dispatch | — |
+
+## LSP — what is wired, and the one thing that blocks the rest (2026-08-08)
+
+**Corrected here: `escriba-lsp-client` is NOT tower-lsp-based.** It hand-rolls
+its JSON-RPC framing in `wire.rs`. That is the deliberate fleet split — a
+*server* takes `tower-lsp` (`caixa-lsp` set the precedent, `sui-lsp` follows),
+a *client* does not, because tower-lsp's client half assumes it owns the
+runtime and escriba's does not. The crate-map row said otherwise for a while;
+anyone reaching for `tower_lsp::Client` here was going to have a bad afternoon.
+
+### Wired and tested
+
+| Piece | State |
+|---|---|
+| framing, connection, pending-request routing | `wire.rs` / `conn.rs` / `pending.rs`, 40 tests |
+| positions | `zahyou`, re-exported — shared with `sui-lsp` so both ends of the wire do the same UTF-16 arithmetic |
+| `publishDiagnostics` → `shirube::Finding` | `findings.rs`, 9 tests |
+| `nix` → `sui-lsp` in the default `ServerRegistry` | `ServerConfig::sui_lsp()` |
+
+The diagnostics adapter is a **source for the existing findings plane**, not a
+second one: `escriba-shirube` already models a located finding, paints it in the
+gutter, lists it and steps it with `]x`/`[x`, and its docs name diagnostics as
+one of the seven producers it was built for — `Origin::Lsp` was already in the
+enum. The runtime intent it needs, `Negai::PublishFindings`, already exists too.
+
+The one genuinely hard part is that **LSP counts columns in UTF-16 code units
+and `escriba_core::Position` counts them in `char`s.** Those agree on every
+ASCII file and differ by one per astral-plane character, so a bridge that
+assigns one to the other is correct in testing and wrong for anyone with an
+emoji in a comment. `zahyou` keeps `Position` and `CharPosition` as distinct
+types so that mistake is a compile error; a red-run confirms the pass-through
+version reddens exactly one test and leaves eight green.
+
+### The blocker is escriba's, not LSP's
+
+**A live server cannot be pumped into the editor yet, because there is no async
+delivery path into the runtime at all.** `escriba-runtime` has **no `tokio`
+dependency**, and `Negai::Errand(_)` — the intent that would carry an
+asynchronous result back — is announced-but-unimplemented, waiting on the
+courier (Phase 5). Its arm in `apply` says so in as many words.
+
+So the remaining work is *the courier*, and building a bespoke async channel
+just for LSP would be exactly the duplicated-primitive move the compounding
+directive forbids: the courier is the thing that should carry this, DAP, the
+formatter and the test runner. When it lands, the LSP pump is small — own a
+`Connection`, classify incoming notifications, `to_findings`, emit
+`Negai::PublishFindings { list: "diagnostics", .. }`. Every piece of that except
+the channel is already written and tested.
+
+`pending-lsp: live-pump — blocked on the Phase 5 courier`
 
 ## Architecture
 

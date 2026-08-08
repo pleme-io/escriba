@@ -67,6 +67,11 @@ hikari-token    = { version = "0.1", features = ["schema"] }
 # escriba-render registers its grammars into the highlight Ecosystem. Caret so a
 # hikari-ts bump (new grammars) widens the editor's real-highlighting set free.
 hikari-ts       = "0.1"
+# zahyou (座標) — byte offsets <-> LSP line/UTF-16 positions. escriba-lsp-client
+# re-exports it. Shared because sui-lsp grew the identical conversion the same
+# afternoon, and the UTF-16 rule is the kind that looks right until someone's
+# file has an emoji in it. See zahyou's CLAUDE.md for the measured red-run.
+zahyou          = { version = "0.1", features = ["serde"] }
 escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
 escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
 escriba-lisp    = { path = "escriba-lisp", version = "0.1.58" }
