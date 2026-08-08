@@ -70,9 +70,16 @@ jobs:
     # all 20 workspace members green, reaching the final root crate and failing
     # only on a full local disk. No name collision exists.
     #
-    # CAVEAT, stated rather than hidden: that local run never went fully green
-    # (disk exhaustion), so a clean end-to-end nix build is unproven. The first
-    # CI run is the remaining proof. Red here is a true signal.
+    # CAVEAT RESOLVED 2026-08-08: a clean end-to-end `nix build '.#default'`
+    # now HAS gone fully green locally (aarch64-darwin, escriba 0.1.38). It
+    # produced both binaries and `./result/bin/escriba --version` runs. The
+    # earlier caveat -- that the only local attempt died on disk exhaustion,
+    # leaving a clean build unproven -- no longer holds and is removed rather
+    # than left to read as a standing doubt.
+    #
+    # Still not proven by that run: this job targets macos-15 and the local
+    # build was aarch64-darwin. Close, not identical. Red here remains a true
+    # signal.
     #
     # NOTE: `nix flake check` below is near-vacuous -- flake.nix exposes no
     # `checks` output, so it asserts only structural sanity (isValidApp /
