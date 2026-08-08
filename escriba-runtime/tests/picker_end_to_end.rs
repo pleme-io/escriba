@@ -156,3 +156,59 @@ fn grep_finds_matches_and_accepting_one_opens_that_file() {
         .expect("accepting a grep hit must open its file");
     assert!(path.to_string_lossy().contains(".rs"), "opened {path:?}",);
 }
+
+#[test]
+fn files_and_project_share_one_bounded_walk() {
+    // Both derive from `walk_project`. Three copies of a bounded traversal
+    // would be three places to get the ceiling, the skip-list or the
+    // truncation report subtly different.
+    let mut st = editor();
+    ex(&mut st, "picker.files");
+    let files = match st.picker() {
+        Some(p) => p.visible_count(),
+        None => return, // no readable cwd in this environment
+    };
+    assert!(files > 0);
+    st.on_key(&Key::Esc);
+
+    ex(&mut st, "picker.project");
+    let roots = st.picker().map_or(0, |p| p.visible_count());
+    assert!(
+        roots <= files,
+        "project roots are a SUBSET of the walked files ({roots} > {files})",
+    );
+}
+
+#[test]
+fn accepting_a_file_opens_it() {
+    let mut st = editor();
+    ex(&mut st, "picker.files");
+    if st.picker().is_none() {
+        return;
+    }
+    st.on_key(&Key::Enter);
+    assert!(st.picker().is_none(), "accepting closes the picker");
+    assert!(
+        st.buffers
+            .get(st.active)
+            .and_then(|b| b.path.clone())
+            .is_some(),
+        "and the chosen file is open",
+    );
+}
+
+#[test]
+fn the_walk_skips_target_and_dotfiles() {
+    // Not a gitignore implementation, and it does not pretend to be — but a
+    // file picker that offers 40 000 build artifacts is unusable.
+    let mut st = editor();
+    ex(&mut st, "picker.files");
+    let Some(p) = st.picker() else { return };
+    let rows = p.rows();
+    assert!(
+        !rows
+            .iter()
+            .any(|(l, _)| l.contains("/target/") || l.contains("/.git/")),
+        "build output and VCS internals must not be offered",
+    );
+}

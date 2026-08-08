@@ -107,6 +107,10 @@ pub enum PickerSource {
     Commands,
     /// Every binding — the searchable keymap.
     Help,
+    /// Files under the working directory.
+    Files,
+    /// Directories that look like project roots.
+    Project,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

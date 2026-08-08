@@ -189,6 +189,16 @@ impl CommandRegistry {
             erase::<GrepPicker>(),
         ));
         r.register(Command::native(
+            "picker.files",
+            "Pick a file under the working directory",
+            erase::<WalkPicker<false>>(),
+        ));
+        r.register(Command::native(
+            "picker.project",
+            "Pick a project root",
+            erase::<WalkPicker<true>>(),
+        ));
+        r.register(Command::native(
             "todo.next",
             "Go to the next TODO/FIXME marker",
             erase::<TodoWalk<true>>(),
@@ -506,6 +516,19 @@ impl Native for GrepPicker {
             return Outcome::declined("grep: give a pattern — `:picker.grep <pattern>`");
         }
         Outcome::did(vec![Negai::GrepProject { pattern }])
+    }
+}
+
+/// `picker.files` / `picker.project` — the bounded-walk sources.
+struct WalkPicker<const PROJECT: bool>;
+impl<const PROJECT: bool> Native for WalkPicker<PROJECT> {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::OpenPicker(if PROJECT {
+            escriba_madoguchi::PickerSource::Project
+        } else {
+            escriba_madoguchi::PickerSource::Files
+        })])
     }
 }
 
