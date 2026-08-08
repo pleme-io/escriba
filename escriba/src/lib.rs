@@ -510,8 +510,6 @@ fn run_gpu(mut initial: EditorState, args: &Args) -> Result<()> {
         .iter_mut()
         .find(|w| w.id == initial.layout.active)
     {
-        w.rect.width = args.width;
-        w.rect.height = args.win_height;
         w.viewport.visible_lines = (args.win_height / 20).max(10);
     }
     let state = Arc::new(Mutex::new(initial));

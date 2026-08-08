@@ -25,8 +25,10 @@
 //!
 //! ## Status
 //!
-//! Phase 2 of `docs/backlog-plan.md`. The model and the first producer (TODO
-//! scanning) are here. Diagnostics, hunks and test results arrive with their
+//! **SHIPPED AND WIRED.** `EditorState.results` is a `ListRegistry`, `world()`
+//! builds the axis set, and all three faces paint gutter marks through
+//! `escriba_ui::gutter`. The model and the first producer (TODO scanning) are
+//! here. Diagnostics, hunks and test results arrive with their
 //! subsystems in Phase 6 — each of them a source, not a rewrite.
 
 extern crate self as escriba_shirube;

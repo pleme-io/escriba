@@ -564,8 +564,6 @@ impl RenderCallback for GpuRenderer {
             // one status-row reservation, one place to fix either.
             let grid = cell_grid(width, height, self.font_size, self.line_height);
             for w in &mut s.layout.windows {
-                w.rect.width = width;
-                w.rect.height = height;
                 w.viewport.visible_lines = u32::from(grid.rows);
                 // The full grid, NOT minus the gutter. The gutter's width
                 // depends on the buffer's line count, which `resize` has no

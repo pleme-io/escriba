@@ -33,7 +33,7 @@ use escriba_mode::ModalState;
 use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
 use escriba_ui::chrome::{ChromePalette, FleetTheme};
 use escriba_ui::splash::Splash;
-use escriba_ui::{Layout, Rect, Viewport, Window};
+use escriba_ui::{Layout, Viewport, Window};
 use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, VmError};
 use madori::AppEvent;
 use std::time::Instant;
@@ -680,12 +680,6 @@ impl EditorState {
                 visible_lines: 40,
                 visible_columns: 160,
             },
-            rect: Rect {
-                x: 0,
-                y: 0,
-                width: 1200,
-                height: 800,
-            },
         };
         Self {
             buffers: initial,
@@ -906,16 +900,13 @@ impl EditorState {
                     self.on_key(&k);
                 }
             }
-            InputOutcome::Resized { width, height } => {
-                if let Some(w) = self
-                    .layout
-                    .windows
-                    .iter_mut()
-                    .find(|w| w.id == self.layout.active)
-                {
-                    w.rect.width = width;
-                    w.rect.height = height;
-                }
+            InputOutcome::Resized { .. } => {
+                // Damage only. Each face owns its own geometry: the GPU
+                // backend derives the grid in `RenderCallback::resize`, and
+                // the ratatui face reads its area every frame. This arm used
+                // to write `Window.rect`, which nothing ever read — so the
+                // resize path was already doing no real work, it just looked
+                // like it was.
                 self.damage = self.damage.join(Damage::Viewport);
                 self.bump_gen();
             }

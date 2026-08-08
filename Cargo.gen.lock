@@ -9,7 +9,7 @@
     "escriba-config/Cargo.toml": "bdc9806373b84e894d974130b1d4c766d003274f77404decb6f27bcb90529408",
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
-    "escriba-keymap/Cargo.toml": "b3d2c8fbcd6ac024ecb426d765ab727f2f76efc4bd20bae8169d4295b0ca451b",
+    "escriba-keymap/Cargo.toml": "68fc1d42702d48fa4cddd664cf381d25f371decdda809a53f143b3107db5e601",
     "escriba-lisp/Cargo.toml": "b4288eb555155b96263b4435fcc9b9c14ca5da9e1a87d7ea16ca6c619d31f4d5",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
     "escriba-madoguchi/Cargo.toml": "8b4acdc6908849d2ef6ff5b6ed503de089878783b099bcb32e46f86989e549c7",

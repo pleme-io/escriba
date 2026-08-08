@@ -26,14 +26,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
-pub struct Rect {
-    pub x: u32,
-    pub y: u32,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Viewport {
     pub top_line: u32,
     pub left_column: u32,
@@ -79,7 +71,6 @@ pub struct Window {
     pub id: WindowId,
     pub buffer_id: BufferId,
     pub viewport: Viewport,
-    pub rect: Rect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -221,7 +212,6 @@ mod tests {
             id: WindowId(1),
             buffer_id: BufferId(1),
             viewport: Viewport::default(),
-            rect: Rect::default(),
         };
         let layout = Layout::single(w);
         assert_eq!(layout.active_window().unwrap().id, WindowId(1));
