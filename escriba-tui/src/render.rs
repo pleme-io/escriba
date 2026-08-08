@@ -23,6 +23,63 @@ fn rgb(c: ishou_tokens::Rgb) -> Color {
     Color::Rgb(c.r, c.g, c.b)
 }
 
+/// The highlight ecosystem, built ONCE per thread.
+///
+/// `build_ecosystem` constructs tree-sitter hosts; doing that per frame would
+/// make every keystroke pay for grammar registration. The GPU face caches it
+/// on the renderer struct — this face has no such struct, its `draw_frame`
+/// takes `&EditorState`, so the cache lives here.
+fn ecosystem() -> &'static hikari_core::Ecosystem {
+    use std::sync::OnceLock;
+    static ECO: OnceLock<hikari_core::Ecosystem> = OnceLock::new();
+    ECO.get_or_init(escriba_ts::build_ecosystem)
+}
+
+/// Per-line syntax colouring for the visible window: for each row, the
+/// `(start_col, end_col, colour)` runs in CHARACTER columns.
+///
+/// Highlighted over the whole visible slice rather than line by line, exactly
+/// as the GPU face does. Per-line highlighting is easier and wrong: a block
+/// comment or a multi-line string only reads correctly when the highlighter
+/// sees the lines together, and the two faces disagreeing about that is the
+/// drift this repo keeps paying for.
+fn syntax_runs(
+    lines: &[String],
+    path: &str,
+    theme: &escriba_ui::syntax::ChromeSyntax,
+) -> Vec<Vec<(usize, usize, ishou_tokens::Rgb)>> {
+    use hikari_core::Theme as _;
+    let mut text = String::new();
+    let mut starts = Vec::with_capacity(lines.len());
+    for l in lines {
+        starts.push(text.len());
+        text.push_str(l);
+        text.push('\n');
+    }
+    let mut out = vec![Vec::new(); lines.len()];
+    let hl = ecosystem().highlighter_for_path(path);
+    for span in hl.highlight(&text) {
+        let r = span.span.range();
+        let c = theme.color(span.class);
+        let rgb = ishou_tokens::Rgb::new(c.r, c.g, c.b);
+        // Which row does this span start on, and where within it?
+        let Some(row) = starts.iter().rposition(|s| *s <= r.start) else {
+            continue;
+        };
+        let Some(line) = lines.get(row) else { continue };
+        let base = starts[row];
+        // BYTE offsets from the highlighter, CHARACTER columns on screen —
+        // the conversion every multibyte line depends on.
+        let to_col = |byte: usize| line[..byte.min(line.len())].chars().count();
+        let s_col = to_col(r.start.saturating_sub(base));
+        let e_col = to_col(r.end.saturating_sub(base).min(line.len()));
+        if e_col > s_col {
+            out[row].push((s_col, e_col, rgb));
+        }
+    }
+    out
+}
+
 /// How many buffer lines a terminal of `total_height` rows actually shows.
 ///
 /// ONE definition, because two is what went wrong. The ratatui face never
@@ -236,6 +293,32 @@ fn draw_buffer(
     // so the shapes can't drift apart.
     let shape = state.modal.mode().cursor_shape();
 
+    // The visible slice, gathered BEFORE painting so the highlighter sees the
+    // rows together — a block comment or multi-line string only reads right
+    // that way.
+    let visible_text: Vec<String> = (0..visible as u32)
+        .map_while(|row| {
+            let ln = top + row;
+            (ln < buf.line_count()).then(|| {
+                buf.line(ln)
+                    .unwrap_or_default()
+                    .trim_end_matches('\n')
+                    .trim_end_matches('\r')
+                    .to_string()
+            })
+        })
+        .collect();
+    let path = buf
+        .path
+        .as_ref()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let syntax = syntax_runs(
+        &visible_text,
+        &path,
+        &escriba_ui::syntax::ChromeSyntax::new(*chrome),
+    );
+
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(visible as usize);
     for row in 0..visible as u32 {
         let ln = top + row;
@@ -280,6 +363,7 @@ fn draw_buffer(
             mark,
             ln,
             line_count,
+            syntax.get(row as usize).map_or(&[][..], Vec::as_slice),
             &text,
             cursor,
             left as usize,
@@ -308,6 +392,8 @@ fn line_with_gutter(
     // every line of one buffer agrees. Passed in rather than read here so a
     // test can render a line without standing up an `EditorState`.
     line_count: u32,
+    // Syntax colouring for THIS line, in character columns.
+    syntax: &[(usize, usize, ishou_tokens::Rgb)],
     text: &str,
     cursor: escriba_core::Position,
     left: usize,
@@ -341,6 +427,19 @@ fn line_with_gutter(
     // overlap on the same line — the previous before/cursor/after split could
     // only ever express ONE styled region, so highlights had nowhere to go.
     let mut cell_styles: Vec<Option<Style>> = vec![None; visible.len()];
+    // Syntax FIRST, so a search match paints over it. The precedence is
+    // deliberate and reads bottom-up at the call sites below: syntax, then
+    // search, then the cursor — each one is a more urgent thing to see than
+    // the one under it.
+    for &(ss, se, colour) in syntax {
+        for col in ss..se {
+            if col >= left {
+                if let Some(slot) = cell_styles.get_mut(col - left) {
+                    *slot = Some(Style::default().fg(rgb(colour)));
+                }
+            }
+        }
+    }
     for &(hs, he) in highlights {
         for col in hs..he {
             if col >= left {
@@ -693,6 +792,7 @@ mod tests {
             None,
             0,
             64,
+            &[],
             "hello world",
             escriba_core::Position::new(9, 0), // cursor on another line
             0,
@@ -721,6 +821,7 @@ mod tests {
             None,
             0,
             64,
+            &[],
             "foo bar foo",
             escriba_core::Position::new(9, 0),
             0,
@@ -745,6 +846,7 @@ mod tests {
             None,
             0,
             64,
+            &[],
             "foo bar",
             escriba_core::Position::new(0, 1),
             0,
@@ -767,6 +869,7 @@ mod tests {
             None,
             0,
             64,
+            &[],
             "hello world",
             escriba_core::Position::new(9, 0),
             4,
@@ -793,6 +896,7 @@ mod tests {
             None,
             0,
             64,
+            &[],
             "hello world",
             escriba_core::Position::new(9, 0),
             0,

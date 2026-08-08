@@ -15,6 +15,10 @@ escriba-buffer  = { workspace = true }
 escriba-mode    = { workspace = true }
 escriba-runtime = { workspace = true }
 escriba-ui      = { workspace = true }
+# Syntax highlighting. The ratatui face had NONE —  lived in
+# escriba-render behind a GPU dependency until it moved to escriba-ts.
+escriba-ts      = { workspace = true }
+hikari-core     = { workspace = true }
 escriba-shirube = { workspace = true }
 escriba-madoguchi = { workspace = true }
 escriba-keymap  = { workspace = true }
