@@ -921,6 +921,8 @@ mod collision_detection {
     }
 
     #[test]
+    // OPENER is shouted because which key is checked IS the point.
+    #[allow(non_snake_case)]
     fn a_sequence_whose_OPENER_is_reserved_is_caught() {
         // `alt-j` then anything can never begin, because the first key never
         // arrives. Checking only single keys would miss the whole sequence.
