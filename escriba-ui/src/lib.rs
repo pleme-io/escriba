@@ -133,6 +133,13 @@ impl Layout {
         self.frame
     }
 
+    /// The container tree, for a face that wants to solve against its own
+    /// area rather than the last reported frame.
+    #[must_use]
+    pub const fn tree(&self) -> &shikiri::Shikiri {
+        &self.tree
+    }
+
     /// Pane geometry, DERIVED. Never stored, so it cannot go stale.
     #[must_use]
     pub fn solved(&self) -> shikiri::Solved {

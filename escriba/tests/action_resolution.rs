@@ -103,10 +103,6 @@ const INERT: &[&str] = &[
     "lsp.signature",
     "lsp.type-definition",
     // Window panes — needs split layout.
-    "pane.down",
-    "pane.left",
-    "pane.right",
-    "pane.up",
     "picker.symbols",
     // Fuzzy picker — needs escriba-picker (Wave 2).
     "picker.lsp-references",

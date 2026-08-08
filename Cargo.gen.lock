@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "d14ea9fded405ed5b6d0e5addd905c6380d45aadded30c2380c435a6a63183a9",
+  "cargo_lock_sha256": "3c92146cbfd99c58338d646103651475017b3c62ea7bf86856dc9bb0519b9a16",
   "manifest_sha256": {
     "Cargo.toml": "c3ace8708a7332ab8d5d0aa40cf8ffbb2626bb929c14d3491f74c2fdf23d4aef",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -23,7 +23,7 @@
     "escriba-shirube/Cargo.toml": "e60f6f1678653b7a5750505e7297841758f7416ffbf5a7a9c6c4eda225fb1104",
     "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
     "escriba-ts/Cargo.toml": "daf409fca1da2fa40dfd5dc2dd7f9735f14b320beaf731e1fd6c8027469b491a",
-    "escriba-tui/Cargo.toml": "08b9833baff3912e4399b8b0be4b068ab72beeea29fa6e09e3baa5315621cd09",
+    "escriba-tui/Cargo.toml": "2f534b1fe65d1c46235c6203f76d4acce61c44bbb917bfb7294b5482be87495e",
     "escriba-ui/Cargo.toml": "2371881f85f937233af0f685fd3fb313849ab87f3635f40cf205de62793f9382",
     "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
     "escriba/Cargo.toml": "0f8d41fc7cf7a0e539b315f3ef7a2c4d65a7896a1238d4b19ef1cb1a03f76282"
