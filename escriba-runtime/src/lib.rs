@@ -3066,6 +3066,98 @@ mod tests {
         assert_eq!(st.status_model().prompt_text, "w", "ex line untouched");
     }
 
+    // ── trouble.* — the findings view ────────────────────────────────
+    //
+    // These assert on the ROWS the picker would be built from, not on the
+    // registry: the registry is already tested, and what could be wrong
+    // here is the projection — scoping, freshness, and whether a row goes
+    // anywhere when pressed.
+
+    fn finding_at(buffer: BufferId, line: u32, msg: &str) -> escriba_shirube::Finding {
+        use escriba_core::{Position, Range};
+        escriba_shirube::Finding::new(
+            escriba_shirube::Site::in_buffer(
+                buffer,
+                Range::new(Position::new(line, 0), Position::new(line, 1)),
+            ),
+            escriba_shirube::Severity::Error,
+            msg.to_string(),
+            escriba_shirube::Origin::Text("test"),
+        )
+    }
+
+    #[test]
+    fn published_findings_become_picker_rows() {
+        let mut st = new_state_with("a\nb\nc\n");
+        let world = st.world();
+        st.results.publish(
+            "test",
+            escriba_shirube::ResultList::new(vec![finding_at(st.active, 1, "boom")], world),
+        );
+        let rows = st.finding_items(true);
+        assert_eq!(rows.len(), 1, "the published finding produces a row");
+        // The row must SAY something an operator can act on: severity,
+        // 1-based line, and the message.
+        let label = &rows[0].label;
+        assert!(label.contains("ERROR"), "{label}");
+        assert!(label.contains(":2"), "lines are 1-based on screen: {label}");
+        assert!(label.contains("boom"), "{label}");
+    }
+
+    #[test]
+    fn a_stale_list_contributes_no_rows() {
+        // THE load-bearing one. A list anchored to a revision the buffer has
+        // moved past must vanish from the view rather than offer a line that
+        // has since shifted — which is the whole reason findings carry an
+        // anchor instead of just a position.
+        let mut st = new_state_with("a\nb\nc\n");
+        let world = st.world();
+        st.results.publish(
+            "test",
+            escriba_shirube::ResultList::new(vec![finding_at(st.active, 1, "boom")], world),
+        );
+        assert_eq!(st.finding_items(true).len(), 1, "fresh to begin with");
+
+        st.apply(&Action::InsertChar('x'));
+        assert!(
+            st.finding_items(true).is_empty(),
+            "an edit moved the text on; the list is stale and must not be shown"
+        );
+    }
+
+    #[test]
+    fn document_scope_excludes_another_buffer() {
+        // `trouble.document` vs `trouble.workspace` is one bool, so this is
+        // the only thing that can distinguish them.
+        let mut st = new_state_with("a\nb\n");
+        let other = st.buffers.scratch("z\n");
+        let world = st.world();
+        st.results.publish(
+            "test",
+            escriba_shirube::ResultList::new(
+                vec![
+                    finding_at(st.active, 0, "mine"),
+                    finding_at(other, 0, "theirs"),
+                ],
+                world,
+            ),
+        );
+        let ws = st.finding_items(true);
+        assert_eq!(ws.len(), 2, "workspace scope shows both");
+        let doc = st.finding_items(false);
+        assert_eq!(doc.len(), 1, "document scope shows only the active buffer");
+        assert!(doc[0].label.contains("mine"), "{}", doc[0].label);
+    }
+
+    #[test]
+    fn files_under_a_root_produces_rows() {
+        // `files.open-parent` differs from `files.open` only in the root, so
+        // what must hold is that a root is actually honoured.
+        let mut st = new_state_with("");
+        let rows = st.file_items(std::path::Path::new("."));
+        assert!(!rows.is_empty(), "the working directory has files");
+    }
+
     fn new_state_with(text: &str) -> EditorState {
         let mut bufs = BufferSet::new();
         let id = bufs.scratch(text);
