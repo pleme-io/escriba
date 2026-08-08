@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "df19a8f9952d2132cc83f8950d6641550a57e6d84e7f122eaa595c76386b0fc5",
+  "cargo_lock_sha256": "bb63819133e218fd09b28045752c9dc8fc6a53da2eaffd982a4328889c7ed28b",
   "manifest_sha256": {
-    "Cargo.toml": "6d3556d09032b34ce081cc098aec51f0e71672cde38be13942b581853c8893f9",
+    "Cargo.toml": "337d299b31dd8a9adcad35260b951d691939d153f1912b60ffea5ed2112fe529",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -2351,6 +2351,7 @@
               "io-std",
               "io-util",
               "macros",
+              "process",
               "rt-multi-thread",
               "sync"
             ],
@@ -2482,6 +2483,7 @@
               "io-std",
               "io-util",
               "macros",
+              "process",
               "rt-multi-thread",
               "sync"
             ],
@@ -8011,6 +8013,59 @@
             "tree": "target"
           },
           {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": "cfg(all(tokio_unstable, target_os = \"linux\"))",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": "cfg(target_os = \"wasi\")",
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": "cfg(unix)",
+            "tree": "target"
+          },
+          {
+            "name": "mio",
+            "package_key": "mio-1.2.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "mio",
+            "package_key": "mio-1.2.2",
+            "kind": "normal",
+            "features": [
+              "os-ext",
+              "os-poll"
+            ],
+            "uses_default_features": false,
+            "optional": true,
+            "target": "cfg(all(tokio_unstable, target_os = \"linux\"))",
+            "tree": "target"
+          },
+          {
             "name": "pin_project_lite",
             "package_key": "pin-project-lite-0.2.17",
             "kind": "normal",
@@ -8018,6 +8073,16 @@
             "uses_default_features": true,
             "optional": false,
             "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "signal_hook_registry",
+            "package_key": "signal-hook-registry-1.4.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": "cfg(unix)",
             "tree": "target"
           },
           {
@@ -8038,11 +8103,16 @@
           "fs",
           "io-std",
           "io-util",
+          "libc",
           "macros",
+          "mio",
+          "process",
           "rt",
           "rt-multi-thread",
+          "signal-hook-registry",
           "sync",
-          "tokio-macros"
+          "tokio-macros",
+          "windows-sys"
         ]
       },
       "tokio-macros-2.7.2": {
