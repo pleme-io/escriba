@@ -50,11 +50,6 @@ const INERT: &[&str] = &[
     "cmp.abort",
     "cmp.complete",
     // Merge conflicts — needs the git layer.
-    "conflict.choose-both",
-    "conflict.choose-ours",
-    "conflict.choose-theirs",
-    "conflict.next",
-    "conflict.prev",
     // Debugging — needs escriba-dap-client (Wave 3).
     "dap.continue",
     "dap.repl",
