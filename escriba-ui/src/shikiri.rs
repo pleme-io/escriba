@@ -156,6 +156,47 @@ impl Split {
     pub fn push(&mut self, child: Shikiri) {
         self.rest.push(child);
     }
+
+    /// Remove the DIRECT child pane holding `id`.
+    ///
+    /// Returns `Some(replacement)` when this split must cease to exist —
+    /// which is the whole point. Dropping from two children to one cannot
+    /// leave a one-child `Split` behind, because the type has no such state:
+    /// the survivor replaces the split outright. Returns `None` when `id` is
+    /// not a direct child, or when enough children remain.
+    ///
+    /// A split that lost a child and kept going would render CORRECTLY (one
+    /// child solves to the parent's whole rect) and go wrong several
+    /// operations later. This is the collapse that prevents it, and it is
+    /// forced by the return type rather than left to a caller.
+    pub fn without(&mut self, id: WindowId) -> Option<Shikiri> {
+        let is_target = |n: &Shikiri| matches!(n, Shikiri::Pane(w) if w.id == id);
+
+        if is_target(&self.first) {
+            // The survivor is `second` when there is nothing in `rest`.
+            if self.rest.is_empty() {
+                return Some((*self.second).clone());
+            }
+            // `second` shifts up into `first`, and `rest[0]` fills `second`.
+            // Pulling `rest[0]` straight into `first` reverses the survivors
+            // — a three-pane column would reorder itself on close, which the
+            // test caught.
+            self.first = std::mem::replace(&mut self.second, Box::new(self.rest.remove(0)));
+            return None;
+        }
+        if is_target(&self.second) {
+            if self.rest.is_empty() {
+                return Some((*self.first).clone());
+            }
+            self.second = Box::new(self.rest.remove(0));
+            return None;
+        }
+        if let Some(i) = self.rest.iter().position(is_target) {
+            self.rest.remove(i);
+            return None;
+        }
+        None
+    }
 }
 
 /// A one-cell separator between two siblings.
@@ -414,6 +455,53 @@ mod tests {
         let f = Rect::new(0, 0, 77, 23);
         let t = Shikiri::Split(Split::new(Axis::SideBySide, pane(1), pane(2)));
         assert_eq!(solve(&t, f), solve(&t, f));
+    }
+
+    #[test]
+    fn removing_from_a_two_child_split_collapses_it_away() {
+        // The invariant the type exists for. Two children minus one is NOT a
+        // one-child split — it is the survivor, promoted.
+        let mut sp = Split::new(Axis::SideBySide, pane(1), pane(2));
+        let survivor = sp.without(WindowId(1)).expect("the split must collapse");
+        assert_eq!(survivor, pane(2));
+    }
+
+    #[test]
+    fn removing_from_a_three_child_split_keeps_the_split() {
+        let mut sp = Split::new(Axis::SideBySide, pane(1), pane(2));
+        sp.push(pane(3));
+        assert!(sp.without(WindowId(1)).is_none(), "three minus one is two");
+        assert_eq!(sp.len(), 2);
+        let ids: Vec<u64> = sp
+            .children()
+            .filter_map(|c| match c {
+                Shikiri::Pane(w) => Some(w.id.0),
+                Shikiri::Split(_) => None,
+            })
+            .collect();
+        assert_eq!(ids, vec![2, 3], "the survivors keep their order");
+    }
+
+    #[test]
+    fn removing_a_middle_child_keeps_order() {
+        let mut sp = Split::new(Axis::Stacked, pane(1), pane(2));
+        sp.push(pane(3));
+        assert!(sp.without(WindowId(2)).is_none());
+        let ids: Vec<u64> = sp
+            .children()
+            .filter_map(|c| match c {
+                Shikiri::Pane(w) => Some(w.id.0),
+                Shikiri::Split(_) => None,
+            })
+            .collect();
+        assert_eq!(ids, vec![1, 3]);
+    }
+
+    #[test]
+    fn removing_an_absent_id_changes_nothing() {
+        let mut sp = Split::new(Axis::Stacked, pane(1), pane(2));
+        assert!(sp.without(WindowId(99)).is_none());
+        assert_eq!(sp.len(), 2);
     }
 
     #[test]

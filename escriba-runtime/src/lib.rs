@@ -499,12 +499,7 @@ impl EditorState {
             None => self.buffers.scratch(""),
         };
         self.set_cursor(Position::ZERO);
-        if let Some(w) = self
-            .layout
-            .windows
-            .iter_mut()
-            .find(|w| w.id == self.layout.active)
-        {
+        if let Some(w) = self.layout.active_window_mut() {
             w.buffer_id = self.active;
         }
     }
@@ -524,12 +519,7 @@ impl EditorState {
         };
         self.active = ids[next];
         self.set_cursor(Position::ZERO);
-        if let Some(w) = self
-            .layout
-            .windows
-            .iter_mut()
-            .find(|w| w.id == self.layout.active)
-        {
+        if let Some(w) = self.layout.active_window_mut() {
             w.buffer_id = self.active;
         }
     }
@@ -1468,12 +1458,7 @@ impl EditorState {
             pos
         };
         self.cursors.set_primary(clamped);
-        if let Some(w) = self
-            .layout
-            .windows
-            .iter_mut()
-            .find(|w| w.id == self.layout.active)
-        {
+        if let Some(w) = self.layout.active_window_mut() {
             w.viewport = w.viewport.scroll_to_contain(self.cursors.primary(), 2);
         }
     }
@@ -2980,7 +2965,7 @@ mod tests {
     /// invariant is exercised on small inputs.
     fn new_state_small_viewport(text: &str, vis_lines: u32, vis_cols: u32) -> EditorState {
         let mut s = new_state_with(text);
-        for w in &mut s.layout.windows {
+        for w in s.layout.windows_mut() {
             w.viewport.visible_lines = vis_lines;
             w.viewport.visible_columns = vis_cols;
         }
