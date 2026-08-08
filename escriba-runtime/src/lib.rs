@@ -588,6 +588,7 @@ impl EditorState {
             }
             Negai::EnterMode(m) => self.modal.enter(m),
             Negai::OpenPicker(source) => self.open_picker(source),
+            Negai::GrepProject { pattern } => self.grep_project(&pattern),
             Negai::CycleBuffer { forward } => self.cycle_buffer(forward),
             Negai::FocusBuffer(id) => {
                 if self.buffers.get(id).is_some() {
@@ -915,12 +916,120 @@ impl EditorState {
         use escriba_ui::picker::Choice;
         let slip = match choice {
             Choice::Buffer(id) => Negai::FocusBuffer(id),
-            Choice::Command { 0: name } => Negai::RunCommand {
+            Choice::Command(name) => Negai::RunCommand {
                 name,
                 args: Vec::new(),
             },
+            Choice::Location { path, line } => {
+                // Open FIRST, then jump: the buffer may not exist yet, and
+                // `jump_to_site` needs a BufferId. Two slips, one interpret.
+                self.interpret(Outcome::did(vec![Negai::OpenPath(path)]));
+                let site = escriba_shirube::Site::in_buffer(
+                    self.active,
+                    escriba_core::Range::new(
+                        escriba_core::Position::new(line, 0),
+                        escriba_core::Position::new(line, 1),
+                    ),
+                );
+                self.jump_to_site(&site);
+                return;
+            }
         };
         self.interpret(Outcome::did(vec![slip]));
+    }
+
+    /// How many files a project grep will read, and how many hits it keeps.
+    ///
+    /// BOUNDED, and the bound is here rather than hidden, because this is a
+    /// SYNCHRONOUS scan on the editor's own thread. The interpreter already
+    /// does synchronous filesystem I/O (`OpenPath`, `Save`), so the posture
+    /// is not new — but those touch one file and this walks a tree, which is
+    /// the first one big enough to freeze the editor.
+    ///
+    /// The DESTINATION is the courier: an errand that scans off-thread and
+    /// delivers results as they arrive, with no ceiling at all. This bound is
+    /// the interim that ships a working grep meanwhile, and it is a real
+    /// limit — a match past the ceiling is NOT found, and the picker says so
+    /// rather than presenting a truncated list as complete.
+    const GREP_FILE_LIMIT: usize = 2_000;
+    const GREP_HIT_LIMIT: usize = 500;
+
+    /// Scan the working directory for `pattern`, bounded.
+    fn grep_project(&mut self, pattern: &str) {
+        use escriba_ui::picker::{Choice, Picker, PickerItem, Source};
+        if pattern.is_empty() {
+            self.messages.push("grep: empty pattern".to_string());
+            return;
+        }
+        let mut items: Vec<PickerItem<Choice>> = Vec::new();
+        let mut files = 0usize;
+        let mut truncated = false;
+        let mut stack = vec![std::path::PathBuf::from(".")];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                // Skip the places a project grep must never walk into. Not a
+                // gitignore implementation — that is the courier's job, with
+                // a real ignore crate. This is the honest floor.
+                if name.starts_with('.') || name == "target" || name == "node_modules" {
+                    continue;
+                }
+                if entry.file_type().is_ok_and(|t| t.is_dir()) {
+                    stack.push(path);
+                    continue;
+                }
+                if files >= Self::GREP_FILE_LIMIT || items.len() >= Self::GREP_HIT_LIMIT {
+                    truncated = true;
+                    break;
+                }
+                files += 1;
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue; // binary or unreadable — not an error worth reporting
+                };
+                for (n, line) in text.lines().enumerate() {
+                    if !line.contains(pattern) {
+                        continue;
+                    }
+                    if items.len() >= Self::GREP_HIT_LIMIT {
+                        truncated = true;
+                        break;
+                    }
+                    let Ok(n) = u32::try_from(n) else { break };
+                    let mut label = String::with_capacity(80);
+                    label.push_str(&path.to_string_lossy());
+                    label.push(':');
+                    label.push_str(&(n + 1).to_string());
+                    label.push_str("  ");
+                    label.push_str(line.trim());
+                    items.push(PickerItem::new(
+                        Choice::Location {
+                            path: path.clone(),
+                            line: n,
+                        },
+                        label,
+                    ));
+                }
+            }
+        }
+        if items.is_empty() {
+            let mut m = String::from("grep: no matches for ");
+            m.push_str(pattern);
+            self.messages.push(m);
+            return;
+        }
+        if truncated {
+            // Stated, never silent. A truncated list presented as complete is
+            // the failure this whole codebase keeps finding.
+            self.messages
+                .push("grep: stopped at the scan limit — results are INCOMPLETE".to_string());
+        }
+        self.picker = Some(Picker::open(Source::Grep, items));
+        self.bump_gen();
     }
 
     /// Build and open a picker over `source`.
@@ -939,6 +1048,39 @@ impl EditorState {
                             |p| p.to_string_lossy().into_owned(),
                         );
                         Some(PickerItem::new(Choice::Buffer(id), label))
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            escriba_madoguchi::PickerSource::Help => (
+                Source::Help,
+                self.keymap
+                    .entries_sorted()
+                    .into_iter()
+                    .map(|(mode, key, b)| {
+                        // "NORMAL  gd   goto definition" — searchable by key,
+                        // by mode, or by what it does, because a reader
+                        // arrives from any of the three.
+                        let mut label = String::with_capacity(48);
+                        label.push_str(mode.as_str());
+                        label.push_str("  ");
+                        // `{key:?}` because there is no shared key FORMATTER
+                        // in the fleet — awase owns the chord vocabulary but
+                        // escriba-keymap's `Key` has no Display. That gap
+                        // belongs to the keymap consolidation, not here, and
+                        // inventing a fourth spelling would make it worse.
+                        label.push_str(&format!("{key:?}"));
+                        label.push_str("  ");
+                        label.push_str(&b.description);
+                        // Accepting runs the binding's action if it names a
+                        // command; a typed Action has no name to run, so it
+                        // reports rather than pretending.
+                        let choice = match &b.action {
+                            escriba_core::Action::Command { name, .. } => {
+                                Choice::Command(name.clone())
+                            }
+                            other => Choice::Command(format!("{other:?}")),
+                        };
+                        PickerItem::new(choice, label)
                     })
                     .collect::<Vec<_>>(),
             ),

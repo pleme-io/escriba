@@ -109,8 +109,6 @@ const INERT: &[&str] = &[
     "pane.up",
     // Fuzzy picker — needs escriba-picker (Wave 2).
     "picker.files",
-    "picker.grep",
-    "picker.help",
     "picker.lsp-references",
     "picker.project",
     "picker.symbols",

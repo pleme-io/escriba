@@ -105,6 +105,8 @@ pub enum PickerSource {
     Buffers,
     /// Every registered command.
     Commands,
+    /// Every binding — the searchable keymap.
+    Help,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -224,6 +226,17 @@ pub enum Negai {
     /// the interpreter populates it — the seam holds, and the picker still
     /// lowers its accept back through `interpret` like everything else.
     OpenPicker(PickerSource),
+    /// Open a picker over matches for `pattern` across the project.
+    ///
+    /// Separate from `OpenPicker` because it carries an argument AND because
+    /// it is the first slip that reads the FILESYSTEM rather than editor
+    /// state. The interpreter already does synchronous I/O for `OpenPath`
+    /// and `Save`, so the posture is not new — but a project-wide scan is the
+    /// first one big enough to be worth bounding, and the bound is stated at
+    /// the interpreter rather than hidden.
+    GrepProject {
+        pattern: String,
+    },
     Quit,
 }
 
