@@ -1506,15 +1506,15 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
 name = "hikari-core"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa5a9fbd3c8f0f60b57101982ef7a55154518ef199e3227b756410f809f11a61"
+checksum = "59df68de09207ec76789f705e47240df84002f44b380a6085c0e357e2af25469"
 
 [[package]]
 name = "hikari-token"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44376a6f8d1a7e72e57c901b12cd555d9355af46aca813aa8ada210bc838f389"
+checksum = "ee65afe8a790530e3d4ec68200a98e499f8e5772714346e75baebb1255630b79"
 dependencies = [
  "hikari-core",
  "serde",
@@ -1522,9 +1522,9 @@ dependencies = [
 
 [[package]]
 name = "hikari-ts"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2f75c6b925579e6c927956e4f1b2a776329f9cd68052719200d56299e233bce"
+checksum = "c730dcd8993b0bca08ed9636f9509755e4d6bd246841b95bfae463d30df9a3cb"
 dependencies = [
  "hikari-core",
  "hikari-token",
@@ -3327,7 +3327,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",

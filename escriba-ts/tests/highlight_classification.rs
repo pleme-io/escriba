@@ -6,7 +6,9 @@
 //! failure is invisible because the file renders beautifully either way.
 //!
 //! Found while building `picker.symbols`: filtering spans for
-//! `Function | Type | Namespace` returned NOTHING for ordinary Rust.
+//! `Function | Type | Namespace` returned NOTHING for ordinary Rust. That
+//! led to hikari 0.1.10, which fixed half of it — see the second test for
+//! which half, and why this file is still here.
 
 const RUST: &str = "fn alpha() {}\nstruct Beta;\nfn gamma(x: u32) -> u32 { x }\n";
 
@@ -31,21 +33,30 @@ fn keywords_are_classified_as_keywords() {
     );
 }
 
-/// PINNED DEFECT — this asserts the CURRENT WRONG behaviour on purpose.
+/// PARTIALLY FIXED — and this test records WHICH half.
 ///
-/// `hikari-token-0.1.9/src/lib.rs:69` maps `Semantic::Symbol => HlClass::Punctuation`,
-/// and `hikari-ts` maps tree-sitter's `@function` capture to `Semantic::Symbol`.
-/// So **every function name in every language is classified as punctuation**,
-/// and escriba paints it `text_bright` (near-white) instead of `primary`
-/// (frost blue). A struct name lands on `Special`, painted as the search
-/// colour.
+/// Was: `function` captures folded to `Semantic::Symbol`, which becomes
+/// `HlClass::Punctuation`, so every function name in every tree-sitter
+/// language was classified — and painted — as punctuation. Fixed upstream in
+/// hikari 0.1.10 (`highlight_index_to_semantic`: four arms contradicted
+/// `hlclass_to_semantic`, two of them exactly swapped with each other).
 ///
-/// Pinned rather than left unmentioned so that FIXING it upstream turns this
-/// test red and says exactly what changed. When hikari classifies these
-/// correctly, invert the assertions and `picker.symbols` becomes buildable —
-/// it was written, found to rest on this, and backed out.
+/// FIXED: identifiers are no longer punctuation, and brackets/semicolons are
+/// no longer `Plain`. The two most common token kinds in a file had each
+/// other's class; they do not now.
+///
+/// STILL OPEN, and the reason this test survives rather than being deleted:
+/// `Semantic` has 16 variants and cannot distinguish `Function` from `Type`.
+/// Both fold to `Accent`, which comes back as `HlClass::Special`. So escriba
+/// cannot paint Nord's distinct function (#88C0D0) and type (#8FBCBB)
+/// colours through the tree-sitter path, and `picker.symbols` — which
+/// filters for `HlClass::Function` — stays inert.
+///
+/// Closing it means hikari-ts emitting `HlClass` directly instead of
+/// projecting through `Semantic`. When that lands, `alpha` becomes `Function`
+/// and this test goes red saying exactly that.
 #[test]
-fn function_and_type_names_are_currently_misclassified() {
+fn function_and_type_are_still_indistinguishable_through_semantic() {
     let got = classes(RUST, "probe.rs");
     let class_of = |name: &str| {
         got.iter()
@@ -53,11 +64,26 @@ fn function_and_type_names_are_currently_misclassified() {
             .map(|(c, _)| c.clone())
             .unwrap_or_default()
     };
+
+    // The half that WAS fixed — assert it forward, so a regression is caught.
     assert_ne!(
         class_of("alpha"),
-        "Function",
-        "if this is now `Function`, the upstream mapping was FIXED — invert \
-         this test and `picker.symbols` is unblocked",
+        "Punctuation",
+        "a function NAME must not be punctuation — this regressed to the \
+         pre-hikari-0.1.10 behaviour",
     );
-    assert_ne!(class_of("Beta"), "Type", "same for type names");
+
+    // The half still open. When these become Function/Type, hikari-ts stopped
+    // projecting through `Semantic` — invert them and `picker.symbols` is
+    // unblocked.
+    assert_eq!(
+        class_of("alpha"),
+        "Special",
+        "functions currently fold through Semantic::Accent",
+    );
+    assert_eq!(
+        class_of("Beta"),
+        "Special",
+        "…and so do types, indistinguishably"
+    );
 }
