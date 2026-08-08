@@ -19,6 +19,33 @@ never by what is quickest.
 
 ## 0. What this plan got wrong
 
+### 0.0 Tier A was 8 actions on paper and 5 in fact — all five landed (2026-08-08)
+
+`trouble.{toggle,document,workspace}` and `files.{open,open-parent}` are
+wired and out of `action_resolution.rs`'s INERT set (64 → 59), with
+`alias_revival.rs` updated for the two that became dispatchable aliases.
+Both are picker sources over machinery that already shipped:
+`PickerSource::Findings { workspace }` reads `shirube`'s `ListRegistry`
+through `ResultList::fresh(&world)` — so a stale list contributes nothing
+rather than offering a row whose line has moved — and
+`PickerSource::FilesUnder(root)` reuses the same bounded walk, now
+`walk_from(root, limit)` with two callers instead of a second copy.
+
+**The other three were mis-sized as Tier A, and this document already knew
+it** (§VII): `illuminate.{next,prev}` is subsumed by LSP, and `snacks.zen`
+wants a `kasane` surface plus a `shikiri` dock — neither of which is built.
+The summary that called Tier A "~8 actions needing nothing new" was
+counting them; §VII was right and the summary was wrong. **Tier A is
+finished at five.**
+
+Three things the tooling caught rather than the author: adding
+`Source::Findings` broke `Source::title`'s exhaustive match (no wildcard,
+so a new source cannot render as the wrong label); both ratchets fired in
+the correct direction and named their own fix; and clippy's line-count
+lint on `open_picker` was pointing at real duplication — the `Files` and
+`FilesUnder` arms were one body with a different root — which is why the
+fix was extraction rather than a threshold bump.
+
 ### 0.1 Phase 3's blocker never existed
 
 The plan said to fix `Surface::on_key`'s stringly-typed `KeyCombo` **before**
