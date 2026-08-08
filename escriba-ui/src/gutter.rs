@@ -179,7 +179,9 @@ mod tests {
                 "a {line_count}-line buffer must fit the label {label:?}",
             );
             assert_eq!(
-                gutter_text(line_count - 1, None, line_count).chars().count(),
+                gutter_text(line_count - 1, None, line_count)
+                    .chars()
+                    .count(),
                 gutter_width(line_count),
                 "the LAST line must not be wider than every other one",
             );

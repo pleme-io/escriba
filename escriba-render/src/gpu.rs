@@ -247,21 +247,23 @@ impl RenderCallback for GpuRenderer {
             // second pass would let the two disagree about which lines are on
             // screen — a mark one row off its finding is worse than no mark.
             #[allow(clippy::type_complexity)]
-            let gutter_rows: Option<(u32, Vec<(u32, Option<escriba_shirube::Severity>)>)> =
-                rebuild_input.is_some().then(|| {
-                    let win = s.layout.active_window().cloned();
-                    let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
-                    let visible_lines = win
-                        .as_ref()
-                        .map_or(40, |w| w.viewport.visible_lines.max(20));
-                    let world = s.world();
-                    let rows = (0..visible_lines)
-                        .map(|row| top_line + row)
-                        .take_while(|ln| *ln < buf.line_count())
-                        .map(|ln| (ln, s.results.worst_on_line(&world, s.active, ln)))
-                        .collect();
-                    (buf.line_count(), rows)
-                });
+            let gutter_rows: Option<(
+                u32,
+                Vec<(u32, Option<escriba_shirube::Severity>)>,
+            )> = rebuild_input.is_some().then(|| {
+                let win = s.layout.active_window().cloned();
+                let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
+                let visible_lines = win
+                    .as_ref()
+                    .map_or(40, |w| w.viewport.visible_lines.max(20));
+                let world = s.world();
+                let rows = (0..visible_lines)
+                    .map(|row| top_line + row)
+                    .take_while(|ln| *ln < buf.line_count())
+                    .map(|ln| (ln, s.results.worst_on_line(&world, s.active, ln)))
+                    .collect();
+                (buf.line_count(), rows)
+            });
             (
                 rebuild_input,
                 gutter_rows,
@@ -348,7 +350,9 @@ impl RenderCallback for GpuRenderer {
             let runs: Vec<(&str, Attrs)> = spans
                 .iter()
                 .flat_map(|sp| {
-                    let syntax = base.clone().color(hl_to_glyph(syntax_theme.color(sp.class)));
+                    let syntax = base
+                        .clone()
+                        .color(hl_to_glyph(syntax_theme.color(sp.class)));
                     split_on_matches(sp.span.range(), &match_bytes)
                         .into_iter()
                         .filter_map(|(r, is_match)| {

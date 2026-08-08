@@ -379,7 +379,9 @@ mod tests {
         }
         impl TataraDomain for Impostor {
             const KEYWORD: &'static str = "defkeymap"; // already KeymapDecl's
-            fn compile_from_args(_args: &[tatara_lisp::Sexp]) -> Result<Self, tatara_lisp::LispError> {
+            fn compile_from_args(
+                _args: &[tatara_lisp::Sexp],
+            ) -> Result<Self, tatara_lisp::LispError> {
                 Ok(Self {
                     nome: String::new(),
                 })

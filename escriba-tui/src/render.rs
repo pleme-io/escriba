@@ -167,7 +167,9 @@ fn draw_buffer(
             .collect();
         // The worst finding on this line, if any — one cell, always, so a
         // diagnostic arriving does not shift every line sideways.
-        let mark = state.results.worst_on_line(&state.world(), state.active, ln);
+        let mark = state
+            .results
+            .worst_on_line(&state.world(), state.active, ln);
         lines.push(line_with_gutter(
             chrome,
             mark,
