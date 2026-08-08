@@ -9,7 +9,9 @@
 extern crate self as escriba_render;
 
 pub mod gpu;
-pub mod langs;
+/// Escriba-local language tables moved to `escriba-ts` with the ecosystem
+/// they register into. Re-exported so existing paths keep working.
+pub use escriba_ts::langs;
 /// The start screen, painted as ANSI. Layout comes from
 /// `escriba_ui::splash`; this face only colors it.
 pub mod splash;

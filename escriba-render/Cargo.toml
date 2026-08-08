@@ -27,6 +27,8 @@ garasu          = { workspace = true }
 # hikari (光) — path→highlighter→coverage-complete HlClass spans; NordTheme
 # maps HlClass→Rgb. hikari-ts registers real tree-sitter grammars into the
 # Ecosystem (rust); the zero-dep table backend fills every other language.
+# The highlight ecosystem + escriba-local language tables live here now.
+escriba-ts      = { workspace = true }
 hikari-core     = { workspace = true }
 hikari-ts       = { workspace = true }
 glyphon         = "0.9"
