@@ -213,10 +213,33 @@ gaveta) — the editor doesn't re-roll a bespoke `Option<Operator>` + dispatch
 event/effect is `(Action, count)` and it owns count composition (operator
 count × motion count), so a bare `5j` still passes through unchanged — the
 prior naive outer repeat-loop, which silently broke `3dw`, is gone.
-**Remaining:** `dd` linewise (a doubled operator currently cancels),
-text-objects (`ciw`/`diw`), a combined register for counted deletes (the
-register currently holds only the last sub-delete), and the named-but-unwired
-operators (Indent/Format/structural).
+**Landed 2026-08-08 — `dd`, text objects, and counted operators.**
+`dd`/`cc`/`yy` are linewise (a doubled operator composes
+`TextObject::Line`, and a DIFFERENT operator re-arms rather than
+cancelling, because `dc` is a typo for `cc`). Text objects are real —
+`iw`/`aw` on vim's three character classes, and `i(`/`a{`/`i"`… over a
+depth-counting bracket scan, with `open == close` telling the resolver
+not to count nesting for quotes.
+
+**Object selection is a KEY-layer concern, and that is load-bearing.**
+`i` is `ChangeMode(Insert)` in Normal and `a` and every bracket are
+UNBOUND, so all of them reach the operator FSM as `Action::Pending` with
+the character already discarded — `di(` is undecidable from actions. One
+`Option<bool>` read before sequence resolution (`consume_object_key`)
+does what vim's operator-pending keymap does. It must run before
+everything, or `di(` reads as `d` → `i` (insert) → literal `(`.
+
+**A counted operator is ONE operation over an N-resolved motion**, not N
+operations over one motion. `3dw` is one delete over three-words-forward.
+The distinction is invisible for delete — removing text shifts what is
+under the cursor, so repetition works by accident — and wrong for yank,
+which does not move the cursor and so re-yanked the same word. This is
+why the "combined register for counted deletes" this line used to ask for
+does not exist: with one operation there is only ever one yank.
+
+**Still remaining:** the named-but-unwired operators (Indent / Format /
+structural), named registers (`"ay`), and objects that span lines (the
+bracket scan is single-line today).
 
 > **★★★ CSE / Knowable Construction.** This repo operates under
 > **Constructive Substrate Engineering** — canonical specification at
