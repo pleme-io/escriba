@@ -42,6 +42,12 @@ pub enum Choice {
     Buffer(BufferId),
     /// Run this command by name.
     Command(String),
+    /// Open `path` and put the cursor on `line` (0-based).
+    ///
+    /// The buffer may not be open yet, which is exactly why this is a PATH
+    /// and not a `BufferId`: a grep hit names a place in the project, not a
+    /// place in the editor's current state.
+    Location { path: std::path::PathBuf, line: u32 },
 }
 
 /// Which source a picker is showing. Used for its title, and to keep the
@@ -50,6 +56,11 @@ pub enum Choice {
 pub enum Source {
     Buffers,
     Commands,
+    /// Every binding: key, what it runs, what it does. The searchable keymap
+    /// — "how do I do X" rather than "run X".
+    Help,
+    /// Matches for a pattern across the project.
+    Grep,
 }
 
 impl Source {
@@ -58,6 +69,8 @@ impl Source {
         match self {
             Self::Buffers => "Buffers",
             Self::Commands => "Commands",
+            Self::Help => "Help",
+            Self::Grep => "Grep",
         }
     }
 }

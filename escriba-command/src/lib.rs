@@ -179,6 +179,16 @@ impl CommandRegistry {
             erase::<OpenPicker<true>>(),
         ));
         r.register(Command::native(
+            "picker.help",
+            "Search every keybinding",
+            erase::<HelpPicker>(),
+        ));
+        r.register(Command::native(
+            "picker.grep",
+            "Search the project for a pattern",
+            erase::<GrepPicker>(),
+        ));
+        r.register(Command::native(
             "todo.next",
             "Go to the next TODO/FIXME marker",
             erase::<TodoWalk<true>>(),
@@ -468,6 +478,34 @@ impl<const COMMANDS: bool> Native for OpenPicker<COMMANDS> {
         } else {
             escriba_madoguchi::PickerSource::Buffers
         })])
+    }
+}
+
+/// `picker.help` — the searchable keymap.
+struct HelpPicker;
+impl Native for HelpPicker {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::OpenPicker(
+            escriba_madoguchi::PickerSource::Help,
+        )])
+    }
+}
+
+/// `picker.grep` — matches for a pattern across the project.
+///
+/// The pattern is the command's ARGUMENT (`:picker.grep fn main`). Declining
+/// with no argument rather than opening an empty picker: an overlay with
+/// nothing in it and no way to say why is worse than a message.
+struct GrepPicker;
+impl Native for GrepPicker {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, args: &[String]) -> Outcome {
+        let pattern = args.join(" ");
+        if pattern.is_empty() {
+            return Outcome::declined("grep: give a pattern — `:picker.grep <pattern>`");
+        }
+        Outcome::did(vec![Negai::GrepProject { pattern }])
     }
 }
 

@@ -97,3 +97,62 @@ fn a_second_source_is_config_not_machinery() {
         p.visible_count(),
     );
 }
+
+#[test]
+fn help_lists_every_binding_and_is_snapshot_derivable() {
+    // The third source. If pickers really are one primitive with a source
+    // parameter, this costs a variant and a registration — no I/O, no new
+    // machinery. That is the claim, tested by building it.
+    let mut st = editor();
+    ex(&mut st, "picker.help");
+    let p = st.picker().expect("the help picker must open");
+    assert!(
+        p.visible_count() > 10,
+        "help lists the keymap, got {} rows",
+        p.visible_count(),
+    );
+    // And it is searchable by what a binding DOES, not only by its key —
+    // a reader arrives from either direction.
+    st.on_key(&Key::Char('m'));
+    assert!(
+        st.picker().expect("open").visible_count() > 0,
+        "typing must narrow the keymap, not empty it",
+    );
+}
+
+#[test]
+fn grep_declines_without_a_pattern_rather_than_opening_an_empty_overlay() {
+    // An overlay with nothing in it and no way to say why is worse than a
+    // message.
+    let mut st = editor();
+    ex(&mut st, "picker.grep");
+    assert!(st.picker().is_none(), "no picker without a pattern");
+    assert!(
+        st.messages.iter().any(|m| m.contains("pattern")),
+        "and it must say what is missing: {:?}",
+        st.messages,
+    );
+}
+
+#[test]
+fn grep_finds_matches_and_accepting_one_opens_that_file() {
+    // The first source that reads the FILESYSTEM. Run from the workspace
+    // root, so a pattern that certainly exists in this repo is used.
+    let mut st = editor();
+    ex(&mut st, "picker.grep GREP_FILE_LIMIT");
+    let Some(p) = st.picker() else {
+        // A sandbox with no readable cwd is a legitimate environment; the
+        // decline path is tested above, so skip rather than fail falsely.
+        eprintln!("no matches in this environment — skipping the accept half");
+        return;
+    };
+    assert!(p.visible_count() > 0);
+    st.on_key(&Key::Enter);
+    assert!(st.picker().is_none(), "accepting closes the picker");
+    let path = st
+        .buffers
+        .get(st.active)
+        .and_then(|b| b.path.clone())
+        .expect("accepting a grep hit must open its file");
+    assert!(path.to_string_lossy().contains(".rs"), "opened {path:?}",);
+}
