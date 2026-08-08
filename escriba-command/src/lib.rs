@@ -275,8 +275,11 @@ fn run_action(sym: &str, snap: &dyn Snapshot, args: &[String]) -> Result<Outcome
         "buffer.info" => Ok(erase::<Info>()(snap, args)),
         "editor.quit" => Ok(erase::<Quit>()(snap, args)),
         "search.clear-highlight" => Ok(erase::<Noh>()(snap, args)),
-        // The not-yet-implemented namespace — 85 shipped keybindings land
-        // here (escriba/tests/action_resolution.rs pins the inventory).
+        // The not-yet-implemented namespace. The shipped keybindings that
+        // land here are enumerated by `escriba/tests/action_resolution.rs`,
+        // which asserts SET EQUALITY — so the count is READ from there rather
+        // than restated. It said 85 while the real figure had ratcheted to
+        // 78; a duplicated number is a number that rots.
         // Inert and ANNOUNCED; see CommandError::Unhandled.
         _ => Err(CommandError::Unhandled(sym.to_string())),
     }

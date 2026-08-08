@@ -77,9 +77,16 @@
 //!
 //! ## Status
 //!
-//! **M0.** The vocabulary, the read surface, and the test double. Nothing is
-//! wired yet: `escriba-runtime` still dispatches through `EditContext`. The
-//! milestones are in `docs/backlog-plan.md` §V Phase 1 —
+//! **SHIPPED AND WIRED.** `escriba-runtime` dispatches through this seam:
+//! `EditorState::interpret` consumes `Outcome`, `honour_one` applies each
+//! `Negai`, and the capability-gated `Snapshot` is what every command reads.
+//! `EditContext` no longer carries dispatch.
+//!
+//! This header said "Nothing is wired yet" for as long as it was wrong, which
+//! is the failure mode this crate's own tests exist to catch — a stale claim
+//! in the first file a reader opens costs more than a missing one. The
+//! original milestones, all now landed, were in `docs/backlog-plan.md` §V
+//! Phase 1 —
 //!
 //! - **M1** re-signature the registry and add the interpreter.
 //! - **M2** capability typing, at which point a handler bound to `(Search,)`
