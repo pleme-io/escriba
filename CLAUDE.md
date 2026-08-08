@@ -182,7 +182,7 @@ client, a picker, a git layer). Closing those = escriba feature-work, not
 a config change.
 
 **That inert set is no longer a prose claim.** `escriba/tests/action_resolution.rs`
-pins the exact 85 shipped keybind actions that resolve to neither a typed
+pins the exact shipped keybind actions that resolve to neither a typed
 `Action` nor a registered command, and asserts SET EQUALITY — so a typo
 fails (it is not in the list) and wiring a subsystem also fails until its
 names are removed. The `:action` fallback to `Action::Command` is
@@ -355,7 +355,7 @@ substrate emits the caixa.lisp, the entry, and the flake mechanically.
 ## Implementation plan for the backlog
 
 **[`docs/backlog-plan.md`](./docs/backlog-plan.md)** is the ordered plan for
-the 85 inert actions plus Waves 1.5–4. It carries **no schedule** by operator
+the inert actions plus Waves 1.5–4. It carries **no schedule** by operator
 instruction (2026-08-07): the work goes piece by piece, ordered by what makes
 the next piece safer, not by what is cheapest.
 
@@ -364,14 +364,21 @@ Three things from it that change how you should read the rest of this file:
 - **The backlog is 5 missing primitives, not 22 subsystems.** `madoguchi` 窓口
   (dispatch seam), `shirube` 標 (located findings), `kasane` 重ね (floating
   surfaces), `shikiri` 仕切り (container tree), `denrei` 伝令 (the courier).
-- **Two of them land upstream in `egaku`**, which already ships
-  `FuzzyPicker<T>`, `SplitPane`, `Modal`, `FocusManager` with 239 tests and
-  zero rendering deps — and is already in our `Cargo.lock` with no consumers.
-- **Phase 0 is three verified defects** that make every later claim
-  unfalsifiable until fixed: `run_action` reports success for unknown actions
-  (`escriba-command:232`), `run_command` discards `NotFound`, and
-  `BufferSet::open` silently duplicates an already-open file
-  (`escriba-buffer:349`).
+- **CORRECTED 2026-08-08 — "two of them land upstream in `egaku`" was FALSE.**
+  `egaku::Modal` is a struct of `visible: bool` + `title: String`; `SplitPane`
+  is exactly two panes and a ratio. Neither is a base for `kasane` or
+  `shikiri` — both are net-new wherever they land. What egaku really offers
+  escriba today is `FuzzyPicker<T>`, a tested typed `PickerEvent`→
+  `PickerEffect<T>` machine with zero rendering deps (247 tests crate-wide,
+  not 239), present in our `Cargo.lock` transitively with no escriba call
+  sites. **`FuzzyPicker` specifically has no fleet consumer; egaku overall has
+  five** — adoption risk is per-widget, not crate-wide. And its widgets were
+  LIFTED OUT of mado, so these are proven designs whose migration never
+  happened, not code nobody wanted.
+- **Phase 0's three defects are FIXED**: `run_action` reported success for
+  unknown actions, `run_command` discarded `NotFound`, and `BufferSet::open`
+  silently duplicated an already-open file. All three now fail typed —
+  `CommandError::Unhandled` and `BufferSet::find_by_path` respectively.
 
 ## Absorption Thesis
 
@@ -436,7 +443,8 @@ what escriba does today and what it is absorbing next.
    Anything). **The fleet's answer is `egaku::FuzzyPicker<T>`** — 864
    lines, a typed `PickerEvent`→`PickerEffect<T>` machine with its own
    `fuzzy_score`, already in escriba's `Cargo.lock` as a transitive dep and
-   with zero rendering dependencies. Ship `escriba-picker` as an adapter
+   with zero rendering dependencies. Verified 2026-08-08: escriba has no
+   direct egaku dependency and no call sites, so adopting it is additive. Ship `escriba-picker` as an adapter
    over it. (This previously said `skim`, "already in the fleet via
    frostmourne" — VERIFIED FALSE 2026-08-07: no fleet lockfile contains
    skim and frostmourne has no Rust crate. Building on that claim would
