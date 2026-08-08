@@ -71,6 +71,23 @@ pub enum Severity {
     Hint,
 }
 
+impl Severity {
+    /// A fixed-width tag for a list row.
+    ///
+    /// Lives on the type rather than in a face so the three faces cannot
+    /// disagree about what a severity is called — the same reason colours
+    /// resolve through one `ChromePalette`.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Error => "ERROR",
+            Self::Warning => "WARN ",
+            Self::Info => "INFO ",
+            Self::Hint => "HINT ",
+        }
+    }
+}
+
 /// Who produced a finding.
 ///
 /// Kept as a typed enum rather than a free string so a list can be filtered
