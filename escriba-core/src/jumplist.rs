@@ -29,16 +29,49 @@
 //!   repeated `n` on one line otherwise buries the interesting history under
 //!   near-duplicates.
 
-use crate::Position;
+use crate::{BufferId, Position};
 
 /// How many jumps to keep. Vim's default is 100.
 pub const JUMPLIST_LIMIT: usize = 100;
+
+/// A located position — WHERE, in WHICH buffer.
+///
+/// The third place escriba dropped the buffer half of a location, after the
+/// findings walker and the gutter. A jump destination is not a `Position`:
+/// `<C-o>` after a cross-file jump has to come back to the FILE it left, and
+/// storing a bare line meant it returned to that line number in whatever
+/// buffer happened to be active.
+///
+/// Named rather than a tuple because it now travels through the jumplist,
+/// the findings walker, and every future cross-file producer.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct Spot {
+    pub buffer: BufferId,
+    pub pos: Position,
+}
+
+impl Spot {
+    #[must_use]
+    pub const fn new(buffer: BufferId, pos: Position) -> Self {
+        Self { buffer, pos }
+    }
+
+    /// Same buffer AND same line — the collapse rule. Pressing `n` five times
+    /// down one long line leaves one entry, but the same line in a DIFFERENT
+    /// file is a different place and must not collapse into it.
+    #[must_use]
+    pub const fn same_line(&self, other: &Self) -> bool {
+        self.buffer.0 == other.buffer.0 && self.pos.line == other.pos.line
+    }
+}
 
 /// A ring of jump origins with a walk cursor.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct JumpList {
     /// Oldest first. Bounded by [`JUMPLIST_LIMIT`].
-    entries: Vec<Position>,
+    entries: Vec<Spot>,
     /// Where the walk currently sits. `entries.len()` means "not walking" —
     /// at the newest end, with nothing to walk forward to.
     cursor: usize,
@@ -56,7 +89,7 @@ impl JumpList {
     /// Record a jump taken **from** `from`.
     ///
     /// Call this immediately before a far jump moves the cursor.
-    pub fn push(&mut self, from: Position) {
+    pub fn push(&mut self, from: Spot) {
         // A new jump abandons any forward history — a different branch was
         // taken, so the old one is not reachable any more.
         self.entries.truncate(self.cursor);
@@ -66,7 +99,7 @@ impl JumpList {
         if self
             .entries
             .last()
-            .is_some_and(|last| last.line == from.line)
+            .is_some_and(|last| last.same_line(&from))
         {
             self.entries.pop();
         }
@@ -79,7 +112,7 @@ impl JumpList {
     /// `<C-o>` — walk back one jump. `current` is where the cursor is now.
     ///
     /// Returns the position to move to, or `None` when there is nothing older.
-    pub fn back(&mut self, current: Position) -> Option<Position> {
+    pub fn back(&mut self, current: Spot) -> Option<Spot> {
         if self.entries.is_empty() {
             return None;
         }
@@ -92,7 +125,7 @@ impl JumpList {
             if self
                 .entries
                 .last()
-                .is_some_and(|last| last.line == current.line)
+                .is_some_and(|last| last.same_line(&current))
             {
                 // The newest entry already describes this line.
             } else {
@@ -110,7 +143,7 @@ impl JumpList {
     }
 
     /// `<C-i>` — walk forward again. `None` when already at the newest end.
-    pub fn forward(&mut self) -> Option<Position> {
+    pub fn forward(&mut self) -> Option<Spot> {
         if self.cursor + 1 >= self.entries.len() {
             return None;
         }
@@ -120,7 +153,7 @@ impl JumpList {
 
     /// The recorded jumps, oldest first.
     #[must_use]
-    pub fn entries(&self) -> &[Position] {
+    pub fn entries(&self) -> &[Spot] {
         &self.entries
     }
 
@@ -148,8 +181,18 @@ impl JumpList {
 mod tests {
     use super::*;
 
-    fn p(line: u32) -> Position {
-        Position::new(line, 0)
+    /// A spot in ONE buffer — these tests are about the walk semantics, not
+    /// about crossing files. Cross-buffer behaviour is pinned in
+    /// `escriba-runtime/tests/cross_file_findings.rs`, where a real editor
+    /// with two buffers exists.
+    fn p(line: u32) -> Spot {
+        Spot::new(BufferId(1), Position::new(line, 0))
+    }
+
+    /// The same line in a DIFFERENT buffer — a distinct place that must not
+    /// collapse into `p(line)`.
+    fn q(line: u32) -> Spot {
+        Spot::new(BufferId(2), Position::new(line, 0))
     }
 
     #[test]
@@ -212,9 +255,9 @@ mod tests {
         // Pressing `n` repeatedly while several matches share a line must not
         // bury the useful history.
         let mut j = JumpList::new();
-        j.push(Position::new(7, 0));
-        j.push(Position::new(7, 20));
-        j.push(Position::new(7, 40));
+        j.push(Spot::new(BufferId(1), Position::new(7, 0)));
+        j.push(Spot::new(BufferId(1), Position::new(7, 20)));
+        j.push(Spot::new(BufferId(1), Position::new(7, 40)));
 
         assert_eq!(j.len(), 1, "one entry for the line, got {:?}", j.entries());
     }
@@ -263,5 +306,31 @@ mod tests {
         j.back(p(9));
         assert_eq!(j.forward(), Some(p(9)));
         assert_eq!(j.forward(), None, "cannot walk past where I started");
+    }
+
+    #[test]
+    fn the_same_line_in_a_different_buffer_does_not_collapse() {
+        // The collapse rule exists so five `n` presses down one long line
+        // leave one entry. It must key on (buffer, line): the same line in a
+        // DIFFERENT file is a different place, and collapsing it would make
+        // `<C-o>` unable to return across a cross-file jump.
+        let mut j = JumpList::new();
+        j.push(p(7));
+        j.push(q(7));
+        assert_eq!(
+            j.entries().len(),
+            2,
+            "line 7 of two different buffers is two places: {:?}",
+            j.entries(),
+        );
+    }
+
+    #[test]
+    fn walking_back_returns_the_buffer_too() {
+        let mut j = JumpList::new();
+        j.push(p(3));
+        let back = j.back(q(9)).expect("something older");
+        assert_eq!(back.buffer, BufferId(1), "must return the buffer we left");
+        assert_eq!(back.pos.line, 3);
     }
 }

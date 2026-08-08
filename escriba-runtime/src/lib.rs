@@ -158,6 +158,12 @@ pub struct EditorState {
     /// Public so a producer outside the runtime can publish into it once the
     /// courier lands; today the only producer is the marker scan.
     pub results: escriba_shirube::ListRegistry,
+    /// The git-index generation. See [`world`](Self::world) — every axis the
+    /// world can move is emitted unconditionally, so a producer anchoring on
+    /// one is not born permanently stale.
+    index_rev: escriba_shirube::IndexRev,
+    /// The external-session generation (LSP restart, debug session, test run).
+    session_gen: escriba_shirube::SessionGen,
     /// Extension → language facts, populated from `(defmode …)`.
     ///
     /// The consumer `:commentstring` never had. Public so the binary's apply
@@ -341,7 +347,63 @@ impl EditorState {
                 a = a.on(escriba_shirube::Axis::Text(id, b.text_rev()));
             }
         }
-        a
+        // Every axis the world can move, ALWAYS present — not only the ones
+        // some producer happens to use today.
+        //
+        // `Anchor::is_fresh` treats an ABSENT axis as stale, deliberately:
+        // unknowable is not unchanged. The consequence, unnoticed until a
+        // recon pass went looking, is that a list anchored on an axis this
+        // function never emits is born PERMANENTLY stale — `]c` would answer
+        // "that list is out of date" forever, and nothing would say why. The
+        // two-axis model was built for git hunks and then only ever fed one
+        // axis.
+        //
+        // Emitting them unconditionally means a producer can anchor on any
+        // axis and get an honest answer. A counter that never moves reads as
+        // "unchanged", which is exactly right for a plane escriba does not
+        // track yet.
+        a = a.on(escriba_shirube::Axis::Index(self.index_rev));
+        a.on(escriba_shirube::Axis::Session(self.session_gen))
+    }
+
+    /// Where the cursor is, WITH the buffer it is in.
+    ///
+    /// Every jumplist push goes through this. A bare `Position` is what let
+    /// `<C-o>` return to the right line in the wrong file.
+    #[must_use]
+    pub fn spot(&self) -> escriba_core::Spot {
+        escriba_core::Spot::new(self.active, self.cursor())
+    }
+
+    /// Move to a `Spot`, switching buffer if it names another one.
+    ///
+    /// The read half of [`spot`](Self::spot). `<C-o>` and `<C-i>` both land
+    /// here so neither can forget the buffer.
+    fn goto_spot(&mut self, s: escriba_core::Spot) {
+        if s.buffer != self.active && self.buffers.get(s.buffer).is_some() {
+            self.active = s.buffer;
+        }
+        let clamped = self
+            .buffers
+            .get(self.active)
+            .map_or(s.pos, |b| b.clamp(s.pos));
+        self.set_cursor(clamped);
+    }
+
+    /// Advance the git-index generation — every list anchored on
+    /// `Axis::Index` goes stale.
+    ///
+    /// Not called yet; a git layer calls it after a stage/reset. Present so
+    /// the axis is WIRED rather than declared, because an axis nothing can
+    /// move is indistinguishable from an axis that does not exist.
+    pub fn bump_index_rev(&mut self) {
+        self.index_rev = escriba_shirube::IndexRev(self.index_rev.0.wrapping_add(1));
+    }
+
+    /// Advance the external-session generation — LSP restart, debug session,
+    /// test-runner invocation. See [`bump_index_rev`](Self::bump_index_rev).
+    pub fn bump_session_gen(&mut self) {
+        self.session_gen = escriba_shirube::SessionGen(self.session_gen.0.wrapping_add(1));
     }
 
     /// Move the cursor to the next/previous finding in `list`.
@@ -361,7 +423,7 @@ impl EditorState {
                 .push("that list is out of date — run it again".to_string());
             return;
         }
-        let here = self.cursor().line;
+        let here = (Some(self.active), self.cursor().line);
         let Some(found) = result.step(&world, here, forward, escriba_shirube::Bound::Exclusive)
         else {
             let mut m = String::from("no entries in ");
@@ -369,14 +431,40 @@ impl EditorState {
             self.messages.push(m);
             return;
         };
-        let to = found.site.range.start;
+        let site = found.site.clone();
         let msg = found.message.clone();
-        // A far jump, so it belongs in the jumplist — `<C-o>` must come back
-        // from a `]t` exactly as it comes back from an `n`.
-        self.jumps.push(self.cursor());
+        self.jump_to_site(&site);
+        self.messages.push(msg);
+    }
+
+    /// Move the cursor to a located finding's SITE — the one operation that
+    /// cannot drop the buffer half of a location.
+    ///
+    /// A `Site` is `(buffer, range)`. Every jumper before this re-derived the
+    /// move itself and clamped against `self.active`, so a finding in another
+    /// file landed on the right LINE in the WRONG file. `on_line` and
+    /// `worst_on_line` already filter by buffer, so the gutter and the walker
+    /// disagreed — latent only because the first producer scanned one buffer.
+    ///
+    /// Every future producer (diagnostics, hunks, grep hits, test failures)
+    /// is cross-file by nature, which is why this is a shared operation
+    /// rather than a fix at the one call site that has it wrong today.
+    ///
+    /// Always a FAR jump: it pushes the jumplist, so `<C-o>` returns from a
+    /// `]t` exactly as it returns from an `n`.
+    pub fn jump_to_site(&mut self, site: &escriba_shirube::Site) {
+        self.jumps.push(self.spot());
+        // Switch buffers FIRST — clamping against the wrong buffer is how the
+        // position gets silently mangled before anyone can notice.
+        if let Some(target) = site.buffer {
+            if target != self.active && self.buffers.get(target).is_some() {
+                self.active = target;
+                self.refollow_cursor();
+            }
+        }
+        let to = site.range.start;
         let clamped = self.buffers.get(self.active).map_or(to, |b| b.clamp(to));
         self.set_cursor(clamped);
-        self.messages.push(msg);
     }
 
     /// Close a buffer, keeping "there is always an active buffer" true.
@@ -710,6 +798,8 @@ impl EditorState {
             dispatch_depth: 0,
             filetypes: escriba_core::FiletypeTable::new(),
             results: escriba_shirube::ListRegistry::new(),
+            index_rev: escriba_shirube::IndexRev::default(),
+            session_gen: escriba_shirube::SessionGen::default(),
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,
@@ -1323,7 +1413,7 @@ impl EditorState {
         // what you are walking through.
         self.search.relight();
         // `n` is a far jump — record where we leave from so `<C-o>` works.
-        self.jumps.push(self.cursor());
+        self.jumps.push(self.spot());
         let at = self.cursor_char();
         match self.search.repeat(at, reverse) {
             Some(step) => {
@@ -1460,7 +1550,7 @@ impl EditorState {
             CommitOutcome::Landed { origin, step } => {
                 if let Some(buf) = self.buffers.get(self.active) {
                     let from = buf.char_to_position(origin);
-                    self.jumps.push(from);
+                    self.jumps.push(escriba_core::Spot::new(self.active, from));
                 }
                 self.land_on(step);
             }
@@ -1481,7 +1571,7 @@ impl EditorState {
                     let from = buf.char_to_position(origin);
                     let target = buf.char_to_position(step.target.start);
                     // Operating over a search is itself a far jump.
-                    self.jumps.push(from);
+                    self.jumps.push(escriba_core::Spot::new(self.active, from));
                     self.set_cursor(from);
                     self.apply_operator_to(op, target);
                 }
@@ -1538,7 +1628,7 @@ impl EditorState {
                 };
                 let (text, at) = (self.active_text(), self.cursor_char());
                 // `*` jumps, so it records too.
-                self.jumps.push(self.cursor());
+                self.jumps.push(self.spot());
                 match self.search.search_word(&text, at, dir) {
                     Some(step) => self.land_on(step),
                     // vim beeps and stays put when there is no word under the
@@ -1556,7 +1646,7 @@ impl EditorState {
                 // stops at the jump rather than faking a selection that
                 // nothing would honour.
                 if let Some(range) = self.resolve_object(*object) {
-                    self.jumps.push(self.cursor());
+                    self.jumps.push(self.spot());
                     self.set_cursor(range.start);
                 } else {
                     self.report_pattern_not_found();
@@ -1568,17 +1658,17 @@ impl EditorState {
             },
             Action::RepeatLastChange => self.repeat_last_change(),
             Action::JumpBack => {
-                let here = self.cursor();
-                if let Some(pos) = self.jumps.back(here) {
-                    self.set_cursor(pos);
+                let here = self.spot();
+                if let Some(spot) = self.jumps.back(here) {
+                    self.goto_spot(spot);
                 } else {
                     self.messages
                         .push("E662: At start of changelist".to_string());
                 }
             }
             Action::JumpForward => {
-                if let Some(pos) = self.jumps.forward() {
-                    self.set_cursor(pos);
+                if let Some(spot) = self.jumps.forward() {
+                    self.goto_spot(spot);
                 } else {
                     self.messages.push("E663: At end of changelist".to_string());
                 }

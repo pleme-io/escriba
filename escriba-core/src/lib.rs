@@ -42,7 +42,7 @@ pub use escriba_search::Direction as SearchDirection;
 pub use filetype::{CommentString, Filetype, FiletypeTable};
 pub use r#gen::EditGen;
 pub use id::{BufferId, CaretId, WindowId};
-pub use jumplist::{JUMPLIST_LIMIT, JumpList};
+pub use jumplist::{JUMPLIST_LIMIT, JumpList, Spot};
 // memori lives in its own leaf crate so `escriba-search` — which sits BELOW
 // core in the dependency graph — can use it too. Re-exported here so position
 // code in core and above reads naturally without naming a second crate.
