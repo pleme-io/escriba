@@ -27,6 +27,22 @@ pub enum Key {
     End,
     Ctrl(char),
     Alt(char),
+    /// A function key. Discarded at the door until now
+    /// (`escriba-input`: `KeyCode::F(_) => return None`), so `<F5>` could be
+    /// declared and never arrive.
+    F(u8),
+    /// Anything the shorthands above cannot say: more than one modifier,
+    /// `Shift` as a modifier rather than a capital letter, `Super`/`Cmd`.
+    ///
+    /// `Ctrl(char)` and `Alt(char)` fold the modifier INTO the key, so they
+    /// can carry exactly one. The translator has always computed all four
+    /// modifier flags and then thrown `shift` and `meta` away for want of
+    /// somewhere to put them; this is that somewhere.
+    ///
+    /// Carries `awase::Hotkey` directly rather than a parallel spelling —
+    /// escriba's vocabulary widens by consuming the fleet's, not by growing
+    /// a fifth one.
+    Chord(awase::Hotkey),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -799,6 +815,9 @@ pub fn to_hotkey(key: &Key) -> Option<awase::Hotkey> {
         Key::Char(c) => Hotkey::new(M::NONE, named(*c)?),
         Key::Ctrl(c) => Hotkey::new(M::CTRL, named(*c)?),
         Key::Alt(c) => Hotkey::new(M::ALT, named(*c)?),
+        Key::F(n) => Hotkey::new(M::NONE, AK::from_name(&format!("f{n}"))?),
+        // Already a fleet chord — nothing to convert.
+        Key::Chord(h) => *h,
         Key::Esc => Hotkey::new(M::NONE, AK::Escape),
         Key::Enter => Hotkey::new(M::NONE, AK::Return),
         Key::Tab => Hotkey::new(M::NONE, AK::Tab),

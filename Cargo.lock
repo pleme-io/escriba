@@ -854,6 +854,7 @@ dependencies = [
 name = "escriba-input"
 version = "0.1.50"
 dependencies = [
+ "awase",
  "escriba-core",
  "escriba-keymap",
  "madori",
@@ -880,6 +881,7 @@ dependencies = [
 name = "escriba-lisp"
 version = "0.1.50"
 dependencies = [
+ "awase",
  "blake3",
  "escriba-command",
  "escriba-core",

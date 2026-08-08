@@ -9,6 +9,9 @@ repository   .workspace = true
 authors      .workspace = true
 
 [dependencies]
+# Rich chords (multi-modifier, Super) carry the fleet type rather than a
+# fifth escriba spelling.
+awase = { workspace = true }
 escriba-core    = { workspace = true }
 escriba-keymap  = { workspace = true }
 madori          = { workspace = true }

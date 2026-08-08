@@ -9,6 +9,8 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Rich chords (`<C-S-p>`, `<D-p>`) carry the fleet type.
+awase = { workspace = true }
 escriba-core    = { workspace = true }
 escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }

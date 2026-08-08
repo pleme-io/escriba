@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "23279aede7191e6a52bd5740b3c7fe782301bda6fa7336034ff02edf710f47df",
+  "cargo_lock_sha256": "e1e1bbdce549e367981df4ac09b230a05f800d286eff7fff1f9768e422d33a87",
   "manifest_sha256": {
     "Cargo.toml": "dd5c1444bdf544ed9d3a950aa2c77baba5e5657bd93995083804dd16c7919ab4",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -8,9 +8,9 @@
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
     "escriba-config/Cargo.toml": "bdc9806373b84e894d974130b1d4c766d003274f77404decb6f27bcb90529408",
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
-    "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
+    "escriba-input/Cargo.toml": "094ebecd5e7dd044c6895c2bef01151aa01fb841cce7c97e1a5acffe516cef3e",
     "escriba-keymap/Cargo.toml": "a5877214f5022ca454a4a1b5d3724b47cb9b0636654dd40d6a5098fe63655b5f",
-    "escriba-lisp/Cargo.toml": "b4288eb555155b96263b4435fcc9b9c14ca5da9e1a87d7ea16ca6c619d31f4d5",
+    "escriba-lisp/Cargo.toml": "4fda5e439d93cdf7949b5a8e8cf976dc7f13bb0ce57deba1d0a6c2080c66c0c5",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
     "escriba-madoguchi/Cargo.toml": "8b4acdc6908849d2ef6ff5b6ed503de089878783b099bcb32e46f86989e549c7",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
@@ -2019,6 +2019,16 @@
       "escriba-input-0.1.50": {
         "runtime_dependencies": [
           {
+            "name": "awase",
+            "package_key": "awase-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.50",
             "kind": "normal",
@@ -2158,6 +2168,16 @@
       },
       "escriba-lisp-0.1.50": {
         "runtime_dependencies": [
+          {
+            "name": "awase",
+            "package_key": "awase-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
           {
             "name": "blake3",
             "package_key": "blake3-1.8.6",
