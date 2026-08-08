@@ -12,9 +12,17 @@
 extern crate self as escriba_lsp_client;
 
 pub mod conn;
+pub mod findings;
 pub mod pending;
-pub mod text;
 pub mod wire;
+
+/// Byte offsets ↔ LSP positions, from [`zahyou`].
+///
+/// This lived here as `text.rs` until `sui-lsp` grew its own copy of the same
+/// conversion the same afternoon. The UTF-16 rule is one idea and it now has
+/// one home; re-exported so callers say `escriba_lsp_client::Position` rather
+/// than reaching for the dependency by name.
+pub use zahyou::{Lines, Position, Range};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -66,6 +74,32 @@ impl ServerConfig {
             root_markers: vec!["caixa.lisp".to_string(), ".git".to_string()],
         }
     }
+
+    /// Nix, served by `sui-lsp`.
+    ///
+    /// Deliberately not `nil` or `nixd`: both re-implement a Nix front end so an
+    /// editor can answer questions about a file, which leaves the editor's idea
+    /// of that file and the evaluator's idea of it agreeing only by effort.
+    /// `sui-lsp` reports what sui's own parser and lowering say, so a diagnostic
+    /// here is not a lookalike of the build's opinion — it is the build's
+    /// opinion.
+    ///
+    /// `flake.nix` leads the markers: a flake is the root of a Nix project in
+    /// practice, and picking `.git` first would root a server at a monorepo top
+    /// when the real project is three directories down.
+    #[must_use]
+    pub fn sui_lsp() -> Self {
+        Self {
+            language: "nix".to_string(),
+            command: "sui-lsp".to_string(),
+            args: vec![],
+            root_markers: vec![
+                "flake.nix".to_string(),
+                "default.nix".to_string(),
+                ".git".to_string(),
+            ],
+        }
+    }
 }
 
 /// Registry of server configs by language.
@@ -78,7 +112,11 @@ impl ServerRegistry {
     #[must_use]
     pub fn default_set() -> Self {
         Self {
-            servers: vec![ServerConfig::rust_analyzer(), ServerConfig::caixa_lsp()],
+            servers: vec![
+                ServerConfig::rust_analyzer(),
+                ServerConfig::caixa_lsp(),
+                ServerConfig::sui_lsp(),
+            ],
         }
     }
 
@@ -145,11 +183,13 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn default_registry_has_rust_and_caixa() {
+    fn default_registry_has_rust_caixa_and_nix() {
         let r = ServerRegistry::default_set();
         assert!(r.for_language("rust").is_some());
         assert!(r.for_language("caixa").is_some());
-        assert_eq!(r.all().len(), 2);
+        assert!(r.for_language("nix").is_some(), "nix must resolve to sui-lsp");
+        assert_eq!(r.for_language("nix").unwrap().command, "sui-lsp");
+        assert_eq!(r.all().len(), 3);
     }
 
     #[test]

@@ -901,6 +901,7 @@ name = "escriba-lsp-client"
 version = "0.1.58"
 dependencies = [
  "escriba-core",
+ "escriba-shirube",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -908,6 +909,7 @@ dependencies = [
  "thiserror 2.0.19",
  "tokio",
  "tracing",
+ "zahyou",
 ]
 
 [[package]]
@@ -3332,7 +3334,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",
@@ -4678,6 +4680,15 @@ name = "yazi"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e01738255b5a16e78bbb83e7fbba0a1e7dd506905cfc53f4622d89015a03fbb5"
+
+[[package]]
+name = "zahyou"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "753f9f1ce82f3235d797fdf560a4103adcdc3b3b0a82d669c717731ee2ae62b3"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "zenmai"

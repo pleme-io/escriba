@@ -10,11 +10,13 @@ authors      .workspace = true
 
 [dependencies]
 escriba-core   = { workspace = true }
+escriba-shirube = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
 thiserror      = { workspace = true }
 tokio          = { workspace = true }
 tracing        = { workspace = true }
+zahyou         = { workspace = true }
 
 [dev-dependencies]
 # `time` for the test timeouts only. Every test in conn.rs wraps its await in
