@@ -745,7 +745,7 @@ dependencies = [
 
 [[package]]
 name = "escriba"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "anyhow",
  "awase",
@@ -780,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-api"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-command",
  "escriba-config",
@@ -795,7 +795,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-buffer"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-core",
  "pretty_assertions",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-command"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-core",
  "escriba-madoguchi",
@@ -823,7 +823,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-config"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-core",
  "ishou-tokens",
@@ -838,7 +838,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-core"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-memori",
  "escriba-search",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-input"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "awase",
  "escriba-core",
@@ -865,7 +865,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-keymap"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "awase",
  "escriba-core",
@@ -879,7 +879,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-lisp"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "awase",
  "blake3",
@@ -898,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-lsp-client"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-core",
  "pretty_assertions",
@@ -912,7 +912,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-madoguchi"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-mcp"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "anyhow",
  "escriba-command",
@@ -936,7 +936,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-memori"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "schemars",
  "serde",
@@ -944,7 +944,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-mode"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-core",
  "escriba-memori",
@@ -956,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-plugin"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-config",
  "escriba-core",
@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-render"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-runtime"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "awase",
  "escriba-buffer",
@@ -1019,7 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-search"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-memori",
  "pretty_assertions",
@@ -1031,7 +1031,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-shirube"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-buffer",
  "escriba-core",
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-spec"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-api",
  "pretty_assertions",
@@ -1049,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-ts"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "hikari-core",
  "hikari-ts",
@@ -1057,7 +1057,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-tui"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -1082,7 +1082,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-ui"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "egaku",
  "escriba-buffer",
@@ -1099,7 +1099,7 @@ dependencies = [
 
 [[package]]
 name = "escriba-vm"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "escriba-core",
  "escriba-madoguchi",
