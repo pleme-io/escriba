@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "50ccb96a6870987209087316c61b3db376905e17595ae4e8cc024f8a307eaec6",
+  "cargo_lock_sha256": "c22fc24ba77658d02d87f83b37b05038b1bb57f79f61c39da598dedd218fce2a",
   "manifest_sha256": {
     "Cargo.toml": "60511199ac7a4c89c8774af7b3ddf65989febef38c4f6cec4e910a0de21c3459",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -9,7 +9,7 @@
     "escriba-config/Cargo.toml": "bdc9806373b84e894d974130b1d4c766d003274f77404decb6f27bcb90529408",
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "824f129546a98e4f8037f1bdc62c0ed3fd1de72cf78e1a134aca6f308f3da336",
-    "escriba-keymap/Cargo.toml": "68fc1d42702d48fa4cddd664cf381d25f371decdda809a53f143b3107db5e601",
+    "escriba-keymap/Cargo.toml": "a5877214f5022ca454a4a1b5d3724b47cb9b0636654dd40d6a5098fe63655b5f",
     "escriba-lisp/Cargo.toml": "b4288eb555155b96263b4435fcc9b9c14ca5da9e1a87d7ea16ca6c619d31f4d5",
     "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
     "escriba-madoguchi/Cargo.toml": "8b4acdc6908849d2ef6ff5b6ed503de089878783b099bcb32e46f86989e549c7",
@@ -26,7 +26,7 @@
     "escriba-tui/Cargo.toml": "2f534b1fe65d1c46235c6203f76d4acce61c44bbb917bfb7294b5482be87495e",
     "escriba-ui/Cargo.toml": "2371881f85f937233af0f685fd3fb313849ab87f3635f40cf205de62793f9382",
     "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
-    "escriba/Cargo.toml": "0f8d41fc7cf7a0e539b315f3ef7a2c4d65a7896a1238d4b19ef1cb1a03f76282"
+    "escriba/Cargo.toml": "a4c78e53ca60fb2f6da8afe8c165119ca32e7ecb13ce6129401e1233638b661e"
   },
   "target_resolves": {
     "base": {
@@ -262,7 +262,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "awase-0.1.7": {
+      "awase-0.1.8": {
         "runtime_dependencies": [
           {
             "name": "serde",
@@ -2079,6 +2079,16 @@
       "escriba-keymap-0.1.49": {
         "runtime_dependencies": [
           {
+            "name": "awase",
+            "package_key": "awase-0.1.8",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.49",
             "kind": "normal",
@@ -2820,7 +2830,7 @@
         "runtime_dependencies": [
           {
             "name": "awase",
-            "package_key": "awase-0.1.7",
+            "package_key": "awase-0.1.8",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -24486,7 +24496,7 @@
     "autocfg-1.5.1": {
       "edition": "2015"
     },
-    "awase-0.1.7": {
+    "awase-0.1.8": {
       "edition": "2024"
     },
     "bincode-1.3.3": {

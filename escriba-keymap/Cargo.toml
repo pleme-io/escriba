@@ -9,6 +9,12 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+# The fleet chord vocabulary. escriba `Key`s convert to `awase::Hotkey` so the
+# reserved-chord audit can ask whether a binding is ours to make at all. This
+# crate's published description once claimed to be "built on awase key
+# parsing" while having no such dependency; the claim was removed as false.
+# It becomes true here.
+awase = { workspace = true }
 escriba-search = { workspace = true }
 escriba-core = { workspace = true }
 escriba-mode = { workspace = true }

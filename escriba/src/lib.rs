@@ -356,6 +356,39 @@ pub fn run() -> Result<()> {
         tracing::warn!("rc: defcmd `{name}` overrode an existing command");
     }
 
+    // Keymap collisions, LOUD BY DEFAULT.
+    //
+    // A binding that cannot fire is silent by construction: the OS consumes
+    // the event and escriba never learns a key was pressed. It presents as
+    // "that feature is broken", and there is no way for an operator to tell
+    // the difference from inside the editor. So it is said out loud at boot,
+    // to stderr and to the message line — not left for `--list-rc`, which
+    // reports only to someone who already suspects something.
+    //
+    // `Displaced` stays at debug: overriding a default is ordinary and often
+    // deliberate. `Reserved` is not.
+    let fatal: Vec<String> = state
+        .keymap
+        .fatal_collisions()
+        .map(escriba_keymap::Collision::report)
+        .collect();
+    for c in state.keymap.collisions() {
+        if !c.is_fatal() {
+            tracing::debug!("keymap: {}", c.report());
+        }
+    }
+    if !fatal.is_empty() {
+        for line in &fatal {
+            tracing::error!("keymap: {line}");
+            eprintln!("escriba: keymap collision — {line}");
+        }
+        let mut m = String::with_capacity(64);
+        m.push_str("keymap: ");
+        m.push_str(&fatal.len().to_string());
+        m.push_str(" binding(s) can never fire — see stderr");
+        state.messages.push(m);
+    }
+
     // Tree-sitter grammar extensions — wire every `(defmode …)`
     // with a `:tree-sitter` name into the registry so
     // `GrammarRegistry::from_extension` resolves the right grammar
