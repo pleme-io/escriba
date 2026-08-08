@@ -90,13 +90,17 @@ pub fn decode(buf: &[u8]) -> Result<Decoded, WireError> {
 
     let mut len: Option<usize> = None;
     for line in headers.split("\r\n").filter(|l| !l.is_empty()) {
-        let (k, v) = line.split_once(':').ok_or_else(|| WireError::HeaderNoColon(line.to_owned()))?;
+        let (k, v) = line
+            .split_once(':')
+            .ok_or_else(|| WireError::HeaderNoColon(line.to_owned()))?;
         // Only Content-Length is load-bearing. Content-Type is legal and
         // ignorable; an unknown header must NOT be an error, or a future spec
         // revision breaks every client that was strict about it.
         if k.trim().eq_ignore_ascii_case("content-length") {
             len = Some(
-                v.trim().parse().map_err(|_| WireError::BadContentLength(v.trim().to_owned()))?,
+                v.trim()
+                    .parse()
+                    .map_err(|_| WireError::BadContentLength(v.trim().to_owned()))?,
             );
         }
     }
@@ -110,7 +114,10 @@ pub fn decode(buf: &[u8]) -> Result<Decoded, WireError> {
     if buf.len() < end {
         return Ok(Decoded::Incomplete);
     }
-    Ok(Decoded::Message { body: buf[start..end].to_vec(), consumed: end })
+    Ok(Decoded::Message {
+        body: buf[start..end].to_vec(),
+        consumed: end,
+    })
 }
 
 fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
@@ -140,7 +147,12 @@ pub struct Request<'a> {
 impl<'a> Request<'a> {
     #[must_use]
     pub fn new(id: i64, method: &'a str, params: serde_json::Value) -> Self {
-        Self { jsonrpc: "2.0", id: RequestId::Number(id), method, params }
+        Self {
+            jsonrpc: "2.0",
+            id: RequestId::Number(id),
+            method,
+            params,
+        }
     }
 }
 
@@ -157,7 +169,11 @@ pub struct Notification<'a> {
 impl<'a> Notification<'a> {
     #[must_use]
     pub fn new(method: &'a str, params: serde_json::Value) -> Self {
-        Self { jsonrpc: "2.0", method, params }
+        Self {
+            jsonrpc: "2.0",
+            method,
+            params,
+        }
     }
 }
 
@@ -169,9 +185,20 @@ impl<'a> Notification<'a> {
 /// notification has `method` and no `id`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Incoming {
-    Response { id: RequestId, result: Option<serde_json::Value>, error: Option<serde_json::Value> },
-    ServerRequest { id: RequestId, method: String, params: serde_json::Value },
-    Notification { method: String, params: serde_json::Value },
+    Response {
+        id: RequestId,
+        result: Option<serde_json::Value>,
+        error: Option<serde_json::Value>,
+    },
+    ServerRequest {
+        id: RequestId,
+        method: String,
+        params: serde_json::Value,
+    },
+    Notification {
+        method: String,
+        params: serde_json::Value,
+    },
 }
 
 /// Classify one decoded body.
@@ -180,8 +207,13 @@ pub enum Incoming {
 /// The body is not JSON, or is JSON that matches none of the three shapes.
 pub fn classify(body: &[u8]) -> Result<Incoming, serde_json::Error> {
     let v: serde_json::Value = serde_json::from_slice(body)?;
-    let id = v.get("id").and_then(|i| serde_json::from_value::<RequestId>(i.clone()).ok());
-    let method = v.get("method").and_then(|m| m.as_str()).map(ToOwned::to_owned);
+    let id = v
+        .get("id")
+        .and_then(|i| serde_json::from_value::<RequestId>(i.clone()).ok());
+    let method = v
+        .get("method")
+        .and_then(|m| m.as_str())
+        .map(ToOwned::to_owned);
     let params = v.get("params").cloned().unwrap_or(serde_json::Value::Null);
 
     Ok(match (id, method) {
@@ -204,8 +236,8 @@ pub fn classify(body: &[u8]) -> Result<Incoming, serde_json::Error> {
 #[cfg(test)]
 mod tests {
     use super::{
-        classify, decode, encode, Decoded, Incoming, Notification, Request, RequestId, WireError,
-        MAX_FRAME_BYTES,
+        Decoded, Incoming, MAX_FRAME_BYTES, Notification, Request, RequestId, WireError, classify,
+        decode, encode,
     };
 
     #[test]
@@ -213,7 +245,10 @@ mod tests {
         let body = br#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#;
         let framed = encode(body);
         match decode(&framed).expect("valid") {
-            Decoded::Message { body: got, consumed } => {
+            Decoded::Message {
+                body: got,
+                consumed,
+            } => {
                 assert_eq!(got, body);
                 assert_eq!(consumed, framed.len());
             }
@@ -227,11 +262,23 @@ mod tests {
     #[test]
     fn content_length_counts_bytes_not_characters() {
         let body = r#"{"m":"café ✓ 日本語"}"#.as_bytes();
-        assert!(body.len() > r#"{"m":"café ✓ 日本語"}"#.chars().count(), "fixture must be multibyte");
+        assert!(
+            body.len() > r#"{"m":"café ✓ 日本語"}"#.chars().count(),
+            "fixture must be multibyte"
+        );
         let framed = encode(body);
         let header = String::from_utf8_lossy(&framed[..20]).to_string();
-        assert!(header.contains(&body.len().to_string()), "header must carry the BYTE count");
-        assert_eq!(decode(&framed).unwrap(), Decoded::Message { body: body.to_vec(), consumed: framed.len() });
+        assert!(
+            header.contains(&body.len().to_string()),
+            "header must carry the BYTE count"
+        );
+        assert_eq!(
+            decode(&framed).unwrap(),
+            Decoded::Message {
+                body: body.to_vec(),
+                consumed: framed.len()
+            }
+        );
     }
 
     /// A partial read is the normal state of a stream, not a failure.
@@ -257,11 +304,15 @@ mod tests {
         let mut buf = a.clone();
         buf.extend_from_slice(&b);
 
-        let Decoded::Message { body, consumed } = decode(&buf).unwrap() else { panic!() };
+        let Decoded::Message { body, consumed } = decode(&buf).unwrap() else {
+            panic!()
+        };
         assert_eq!(body, br#"{"id":1}"#);
         assert_eq!(consumed, a.len(), "must consume exactly the first frame");
 
-        let Decoded::Message { body, .. } = decode(&buf[consumed..]).unwrap() else { panic!() };
+        let Decoded::Message { body, .. } = decode(&buf[consumed..]).unwrap() else {
+            panic!()
+        };
         assert_eq!(body, br#"{"id":2}"#);
     }
 
@@ -273,7 +324,8 @@ mod tests {
         let framed = [
             b"content-length: ".to_vec(),
             body.len().to_string().into_bytes(),
-            b"\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\nX-Future: 1\r\n\r\n".to_vec(),
+            b"\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\nX-Future: 1\r\n\r\n"
+                .to_vec(),
             body.to_vec(),
         ]
         .concat();
@@ -289,7 +341,10 @@ mod tests {
     #[test]
     fn a_nonnumeric_content_length_is_an_error_not_a_hang() {
         let framed = b"Content-Length: banana\r\n\r\n{}".to_vec();
-        assert!(matches!(decode(&framed), Err(WireError::BadContentLength(_))));
+        assert!(matches!(
+            decode(&framed),
+            Err(WireError::BadContentLength(_))
+        ));
     }
 
     /// An unbounded length from a wedged server must not be buffered. An
@@ -300,7 +355,10 @@ mod tests {
         let framed = format!("Content-Length: {}\r\n\r\n", MAX_FRAME_BYTES + 1).into_bytes();
         assert_eq!(
             decode(&framed),
-            Err(WireError::ContentLengthTooLarge(MAX_FRAME_BYTES + 1, MAX_FRAME_BYTES))
+            Err(WireError::ContentLengthTooLarge(
+                MAX_FRAME_BYTES + 1,
+                MAX_FRAME_BYTES
+            ))
         );
     }
 
@@ -311,13 +369,27 @@ mod tests {
     #[test]
     fn the_three_incoming_shapes_are_told_apart_by_presence() {
         let r = classify(br#"{"jsonrpc":"2.0","id":7,"result":{"ok":1}}"#).unwrap();
-        assert!(matches!(r, Incoming::Response { id: RequestId::Number(7), .. }));
+        assert!(matches!(
+            r,
+            Incoming::Response {
+                id: RequestId::Number(7),
+                ..
+            }
+        ));
 
-        let sr = classify(br#"{"jsonrpc":"2.0","id":8,"method":"window/showMessageRequest"}"#).unwrap();
-        assert!(matches!(sr, Incoming::ServerRequest { method, .. } if method == "window/showMessageRequest"));
+        let sr =
+            classify(br#"{"jsonrpc":"2.0","id":8,"method":"window/showMessageRequest"}"#).unwrap();
+        assert!(
+            matches!(sr, Incoming::ServerRequest { method, .. } if method == "window/showMessageRequest")
+        );
 
-        let n = classify(br#"{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{}}"#).unwrap();
-        assert!(matches!(n, Incoming::Notification { method, .. } if method == "textDocument/publishDiagnostics"));
+        let n = classify(
+            br#"{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{}}"#,
+        )
+        .unwrap();
+        assert!(
+            matches!(n, Incoming::Notification { method, .. } if method == "textDocument/publishDiagnostics")
+        );
     }
 
     /// A string id is legal. A client that assumes numbers cannot talk to a
@@ -332,7 +404,8 @@ mod tests {
     /// the caller waiting for a reply that already arrived.
     #[test]
     fn an_error_reply_is_a_response_not_a_separate_shape() {
-        let r = classify(br#"{"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"nope"}}"#).unwrap();
+        let r = classify(br#"{"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"nope"}}"#)
+            .unwrap();
         match r {
             Incoming::Response { id, result, error } => {
                 assert_eq!(id, RequestId::Number(3));
@@ -352,9 +425,15 @@ mod tests {
     /// split is what makes "awaiting a reply that never comes" unwritable.
     #[test]
     fn a_notification_serialises_without_an_id_field() {
-        let n = Notification::new("textDocument/didOpen", serde_json::json!({"uri":"file:///x"}));
+        let n = Notification::new(
+            "textDocument/didOpen",
+            serde_json::json!({"uri":"file:///x"}),
+        );
         let s = serde_json::to_string(&n).unwrap();
-        assert!(!s.contains("\"id\""), "a notification must not carry an id: {s}");
+        assert!(
+            !s.contains("\"id\""),
+            "a notification must not carry an id: {s}"
+        );
         let r = Request::new(1, "initialize", serde_json::Value::Null);
         assert!(serde_json::to_string(&r).unwrap().contains("\"id\":1"));
     }
