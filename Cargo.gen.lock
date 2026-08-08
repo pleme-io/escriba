@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "16e1761575ea5b72ea02029c7eed3dfa19dca0bf18500b6f16e87a4ea1fe32cd",
+  "cargo_lock_sha256": "fd81939cdeb9431c3030929757e53a9863ce5eb774587bb048c0745d00c58a87",
   "manifest_sha256": {
     "Cargo.toml": "1ffb1ba72dd990750aa93ab8347a594dfe0d59839b7627ab4786fe906974ffca",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -2740,7 +2740,7 @@
           },
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2750,7 +2750,7 @@
           },
           {
             "name": "hikari_ts",
-            "package_key": "hikari-ts-0.1.9",
+            "package_key": "hikari-ts-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2960,7 +2960,7 @@
           },
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3120,7 +3120,7 @@
         "runtime_dependencies": [
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3130,7 +3130,7 @@
           },
           {
             "name": "hikari_ts",
-            "package_key": "hikari-ts-0.1.9",
+            "package_key": "hikari-ts-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3266,7 +3266,7 @@
           },
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3384,7 +3384,7 @@
           },
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4107,104 +4107,6 @@
           "std"
         ]
       },
-      "getrandom-0.4.3": {
-        "runtime_dependencies": [
-          {
-            "name": "cfg_if",
-            "package_key": "cfg-if-1.0.4",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), not(any(all(target_os = \"linux\", target_env = \"\"), getrandom_backend = \"custom\", getrandom_backend = \"linux_raw\", getrandom_backend = \"rdrand\", getrandom_backend = \"rndr\"))))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"hurd\", target_os = \"illumos\", target_os = \"cygwin\", all(target_os = \"horizon\", target_arch = \"arm\")))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"haiku\", target_os = \"redox\", target_os = \"nto\", target_os = \"aix\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"ios\", target_os = \"visionos\", target_os = \"watchos\", target_os = \"tvos\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"macos\", target_os = \"openbsd\", target_os = \"vita\", target_os = \"emscripten\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"netbsd\")",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"solaris\")",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"vxworks\")",
-            "tree": "target"
-          }
-        ],
-        "build_dependencies": [],
-        "features": [
-          "std"
-        ]
-      },
       "glow-0.16.0": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -4473,16 +4375,16 @@
         "build_dependencies": [],
         "features": []
       },
-      "hikari-core-0.1.9": {
+      "hikari-core-0.1.10": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
       },
-      "hikari-token-0.1.9": {
+      "hikari-token-0.1.10": {
         "runtime_dependencies": [
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4506,11 +4408,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "hikari-ts-0.1.9": {
+      "hikari-ts-0.1.10": {
         "runtime_dependencies": [
           {
             "name": "hikari_core",
-            "package_key": "hikari-core-0.1.9",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4520,7 +4422,7 @@
           },
           {
             "name": "hikari_token",
-            "package_key": "hikari-token-0.1.9",
+            "package_key": "hikari-token-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7874,7 +7776,7 @@
           },
           {
             "name": "getrandom",
-            "package_key": "getrandom-0.4.3",
+            "package_key": "getrandom-0.3.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -25014,10 +24916,6 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
-    "getrandom-0.4.3": {
-      "edition": "2024",
-      "build_script": "build.rs"
-    },
     "glow-0.16.0": {
       "edition": "2021"
     },
@@ -25051,13 +24949,13 @@
     "hexf-parse-0.2.1": {
       "edition": "2018"
     },
-    "hikari-core-0.1.9": {
+    "hikari-core-0.1.10": {
       "edition": "2024"
     },
-    "hikari-token-0.1.9": {
+    "hikari-token-0.1.10": {
       "edition": "2024"
     },
-    "hikari-ts-0.1.9": {
+    "hikari-ts-0.1.10": {
       "edition": "2024"
     },
     "iana-time-zone-0.1.65": {
