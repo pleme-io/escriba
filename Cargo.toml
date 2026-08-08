@@ -84,7 +84,11 @@ regex            = "1"
 schemars         = { version = "0.8", features = ["chrono"] }
 tracing          = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tokio            = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "io-util", "sync", "fs"] }
+# `process` added for escriba-lsp-client's transport: an LSP server is a child
+# process spoken to over its stdin/stdout. `tokio::process` is the only way to
+# own that child AND await its stdio in the same runtime — std::process::Command
+# would need a blocking thread per server, and the editor runs one runtime.
+tokio            = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "io-util", "sync", "fs", "process"] }
 tower-lsp        = "0.20"
 async-trait      = "0.1"
 
