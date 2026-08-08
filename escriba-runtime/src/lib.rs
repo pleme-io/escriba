@@ -1814,8 +1814,180 @@ impl EditorState {
     /// match operates on THAT match rather than skipping to the next — which
     /// is what makes `cgn` then `.` walk matches one at a time instead of
     /// every other one.
+    /// `dd` — the current line INCLUDING its terminator.
+    ///
+    /// Taking the newline is what makes `dd` remove a line rather than blank
+    /// it. On the last line there is no following newline to take, so it
+    /// falls back to the preceding one — otherwise `dd` on the final line
+    /// leaves an empty line behind, which is the one case a naive
+    /// "start-of-line to start-of-next-line" range gets wrong.
+    fn object_line(&self) -> Option<Range> {
+        let buf = self.buffers.get(self.active)?;
+        let line = self.cursor().line;
+        let last = buf.line_count().saturating_sub(1);
+        if line < last {
+            Some(Range::new(
+                Position::new(line, 0),
+                Position::new(line + 1, 0),
+            ))
+        } else if line > 0 {
+            // Final line: swallow the PRECEDING newline instead.
+            Some(Range::new(
+                Position::new(line - 1, buf.line_len_chars(line - 1)),
+                Position::new(line, buf.line_len_chars(line)),
+            ))
+        } else {
+            // The only line in the buffer: clear it, keep the line itself.
+            Some(Range::new(
+                Position::new(0, 0),
+                Position::new(0, buf.line_len_chars(0)),
+            ))
+        }
+    }
+
+    /// `iw` / `aw` — the word under the cursor.
+    ///
+    /// vim's `w` classes are word / punctuation / whitespace, and a text
+    /// object never crosses a line. `around` additionally takes the trailing
+    /// whitespace run, falling back to LEADING whitespace when there is none
+    /// after — which is what vim does at end of line.
+    fn object_word(&self, around: bool) -> Option<Range> {
+        let buf = self.buffers.get(self.active)?;
+        let pos = self.cursor();
+        let text: Vec<char> = buf.line(pos.line)?.chars().collect();
+        if text.is_empty() {
+            return None;
+        }
+        let col = (pos.column as usize).min(text.len().saturating_sub(1));
+
+        #[derive(PartialEq, Clone, Copy)]
+        enum Class {
+            Word,
+            Punct,
+            Space,
+        }
+        let class = |c: char| {
+            if c.is_alphanumeric() || c == '_' {
+                Class::Word
+            } else if c.is_whitespace() {
+                Class::Space
+            } else {
+                Class::Punct
+            }
+        };
+
+        let here = class(text[col]);
+        let mut start = col;
+        while start > 0 && class(text[start - 1]) == here {
+            start -= 1;
+        }
+        let mut end = col + 1;
+        while end < text.len() && class(text[end]) == here {
+            end += 1;
+        }
+
+        if around {
+            let after = end;
+            while end < text.len() && class(text[end]) == Class::Space {
+                end += 1;
+            }
+            // No trailing run: take the leading one instead, as vim does.
+            if end == after {
+                while start > 0 && class(text[start - 1]) == Class::Space {
+                    start -= 1;
+                }
+            }
+        }
+
+        Some(Range::new(
+            Position::new(pos.line, start as u32),
+            Position::new(pos.line, end as u32),
+        ))
+    }
+
+    /// `i(` / `a"` … — the region between a matched pair, on one line.
+    ///
+    /// Brackets NEST and quotes do not, and that is the only difference:
+    /// with `open == close` the scan cannot count depth, so it takes the
+    /// nearest delimiter on each side instead.
+    fn object_delimited(&self, open: char, close: char, around: bool) -> Option<Range> {
+        let buf = self.buffers.get(self.active)?;
+        let pos = self.cursor();
+        let text: Vec<char> = buf.line(pos.line)?.chars().collect();
+        if text.is_empty() {
+            return None;
+        }
+        let col = (pos.column as usize).min(text.len().saturating_sub(1));
+
+        let (l, r) = if open == close {
+            // Quotes: nearest on each side, no nesting to track.
+            let l = (0..=col).rev().find(|&i| text[i] == open)?;
+            let r = ((col.max(l) + 1)..text.len()).find(|&i| text[i] == close)?;
+            (l, r)
+        } else {
+            // Brackets: walk out counting depth, so an inner pair does not
+            // terminate the search for the enclosing one.
+            let mut depth = 0i32;
+            let l = (0..=col).rev().find(|&i| {
+                if text[i] == close && i != col {
+                    depth += 1;
+                    false
+                } else if text[i] == open {
+                    if depth == 0 {
+                        true
+                    } else {
+                        depth -= 1;
+                        false
+                    }
+                } else {
+                    false
+                }
+            })?;
+            depth = 0;
+            let r = ((l + 1)..text.len()).find(|&i| {
+                if text[i] == open {
+                    depth += 1;
+                    false
+                } else if text[i] == close {
+                    if depth == 0 {
+                        true
+                    } else {
+                        depth -= 1;
+                        false
+                    }
+                } else {
+                    false
+                }
+            })?;
+            (l, r)
+        };
+
+        // `i` is strictly between the delimiters; `a` includes them.
+        let (s, e) = if around { (l, r + 1) } else { (l + 1, r) };
+        Some(Range::new(
+            Position::new(pos.line, s as u32),
+            Position::new(pos.line, e as u32),
+        ))
+    }
+
     fn resolve_object(&self, object: escriba_core::TextObject) -> Option<Range> {
         use escriba_core::TextObject as O;
+
+        // The text-scanning objects resolve against the BUFFER; the two
+        // search objects resolve against the match set. Splitting here keeps
+        // the search logic below exactly as it was rather than threading a
+        // second concern through it.
+        match object {
+            O::Line => return self.object_line(),
+            O::Word { around } => return self.object_word(around),
+            O::Delimited {
+                open,
+                close,
+                around,
+            } => return self.object_delimited(open, close, around),
+            O::NextMatch | O::PrevMatch => {}
+        }
+
         let at = self.cursor_char();
         let matches = self.search.matches();
 
@@ -1833,8 +2005,10 @@ impl EditorState {
         let idx = matches.iter().position(|m| m.contains(at)).or_else(|| {
             let starts: Vec<usize> = matches.iter().map(|m| m.start).collect();
             match object {
-                O::NextMatch => Bound::Inclusive.first_matching(&starts, at, true),
                 O::PrevMatch => Bound::Inclusive.first_matching(&starts, at, false),
+                // Every other variant returned above; `NextMatch` is the only
+                // one that can reach here besides `PrevMatch`.
+                _ => Bound::Inclusive.first_matching(&starts, at, true),
             }
         })?;
 
@@ -3158,6 +3332,175 @@ mod tests {
         assert!(!rows.is_empty(), "the working directory has files");
     }
 
+    // ── vim text objects ─────────────────────────────────────────────
+    //
+    // Asserted through `apply` on real buffer text, so a wrong RANGE shows
+    // up as wrong text rather than as a range that merely looks plausible.
+
+    fn after(text: &str, line: u32, col: u32, act: Action) -> String {
+        let mut st = new_state_with(text);
+        st.set_cursor(Position::new(line, col));
+        st.apply(&act);
+        st.buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default()
+    }
+
+    fn del_obj(o: escriba_core::TextObject) -> Action {
+        Action::ApplyOperatorObject {
+            op: escriba_core::Operator::Delete,
+            object: o,
+        }
+    }
+
+    #[test]
+    fn dd_removes_the_line_not_just_its_contents() {
+        // The distinction the newline makes: without it, `dd` blanks a line
+        // and leaves it behind.
+        let got = after("a\nb\nc\n", 1, 0, del_obj(escriba_core::TextObject::Line));
+        assert_eq!(got, "a\nc\n");
+    }
+
+    #[test]
+    fn dd_on_the_last_line_leaves_no_blank_behind() {
+        // The case a naive start-of-line..start-of-next range gets wrong:
+        // there is no following newline to take, so it must take the
+        // preceding one.
+        let got = after("a\nb\nc\n", 2, 0, del_obj(escriba_core::TextObject::Line));
+        assert_eq!(got, "a\nb\n", "no trailing empty line: {got:?}");
+    }
+
+    #[test]
+    fn dd_on_the_only_line_clears_it_but_keeps_the_line() {
+        let got = after("solo\n", 0, 2, del_obj(escriba_core::TextObject::Line));
+        assert!(got.starts_with('\n') || got.is_empty(), "{got:?}");
+    }
+
+    #[test]
+    fn diw_takes_the_word_and_daw_takes_its_trailing_space() {
+        let inner = after(
+            "one two three\n",
+            0,
+            5,
+            del_obj(escriba_core::TextObject::Word { around: false }),
+        );
+        assert_eq!(inner, "one  three\n", "iw leaves both spaces");
+        let around = after(
+            "one two three\n",
+            0,
+            5,
+            del_obj(escriba_core::TextObject::Word { around: true }),
+        );
+        assert_eq!(around, "one three\n", "aw takes the trailing space");
+    }
+
+    #[test]
+    fn iw_from_any_column_inside_the_word_takes_the_whole_word() {
+        for col in 4..=6 {
+            let got = after(
+                "one two three\n",
+                0,
+                col,
+                del_obj(escriba_core::TextObject::Word { around: false }),
+            );
+            assert_eq!(got, "one  three\n", "from column {col}");
+        }
+    }
+
+    #[test]
+    fn iw_on_punctuation_takes_the_punctuation_run() {
+        // vim's three classes: word / punctuation / whitespace. A `::` is a
+        // run of punctuation, not part of either identifier.
+        let got = after(
+            "foo::bar\n",
+            0,
+            3,
+            del_obj(escriba_core::TextObject::Word { around: false }),
+        );
+        assert_eq!(got, "foobar\n");
+    }
+
+    #[test]
+    fn i_paren_takes_the_inside_and_a_paren_takes_the_brackets_too() {
+        let inner = after(
+            "f(a, b)\n",
+            0,
+            3,
+            del_obj(escriba_core::TextObject::Delimited {
+                open: '(',
+                close: ')',
+                around: false,
+            }),
+        );
+        assert_eq!(inner, "f()\n");
+        let around = after(
+            "f(a, b)\n",
+            0,
+            3,
+            del_obj(escriba_core::TextObject::Delimited {
+                open: '(',
+                close: ')',
+                around: true,
+            }),
+        );
+        assert_eq!(around, "f\n");
+    }
+
+    #[test]
+    fn nested_brackets_resolve_to_the_enclosing_pair() {
+        // THE reason the bracket scan counts depth: an inner pair must not
+        // terminate the search for the one the cursor is actually inside.
+        let got = after(
+            "f(g(x), y)\n",
+            0,
+            8,
+            del_obj(escriba_core::TextObject::Delimited {
+                open: '(',
+                close: ')',
+                around: false,
+            }),
+        );
+        assert_eq!(got, "f()\n", "took the outer pair");
+    }
+
+    #[test]
+    fn quotes_do_not_nest_so_the_nearest_pair_wins() {
+        let got = after(
+            r#"say "hi there" ok"#,
+            0,
+            7,
+            del_obj(escriba_core::TextObject::Delimited {
+                open: '"',
+                close: '"',
+                around: false,
+            }),
+        );
+        assert_eq!(got, "say \"\" ok");
+    }
+
+    #[test]
+    fn an_unmatched_delimiter_resolves_to_nothing_rather_than_guessing() {
+        let mut st = new_state_with("f(a, b\n");
+        st.set_cursor(Position::new(0, 3));
+        let before = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        st.apply(&del_obj(escriba_core::TextObject::Delimited {
+            open: '(',
+            close: ')',
+            around: false,
+        }));
+        let got_after = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(got_after, before, "no closing bracket: change nothing");
+    }
+
     fn new_state_with(text: &str) -> EditorState {
         let mut bufs = BufferSet::new();
         let id = bufs.scratch(text);
@@ -3249,6 +3592,40 @@ mod tests {
             v.left_column,
             v.left_column + v.visible_columns,
         );
+    }
+
+    /// `dd` from the KEYBOARD, not from a synthesized action.
+    ///
+    /// The FSM composition is unit-tested, but what an operator actually
+    /// does is press `d` twice — and that path goes through the keymap and
+    /// the sequence stepper, either of which could swallow the second `d`.
+    #[test]
+    fn pressing_d_twice_deletes_the_line() {
+        let mut st = new_state_with("alpha\nbeta\ngamma\n");
+        st.set_cursor(Position::new(1, 0));
+        st.tick(&press(KeyCode::Char('d')));
+        st.tick(&press(KeyCode::Char('d')));
+        let got = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(got, "alpha\ngamma\n", "dd from the keyboard");
+    }
+
+    #[test]
+    fn pressing_2_d_d_deletes_two_lines() {
+        let mut st = new_state_with("a\nb\nc\nd\n");
+        st.set_cursor(Position::new(0, 0));
+        for k in ['2', 'd', 'd'] {
+            st.tick(&press(KeyCode::Char(k)));
+        }
+        let got = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(got, "c\nd\n", "count applies to the doubled operator");
     }
 
     fn press(kc: KeyCode) -> AppEvent {
