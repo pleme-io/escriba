@@ -16,6 +16,10 @@ escriba-mode    = { workspace = true }
 escriba-keymap  = { workspace = true }
 escriba-command = { workspace = true }
 escriba-madoguchi = { workspace = true }
+# The highlight ecosystem — symbols come from the spans the editor already
+# computes, so a language it can colour is a language it can outline.
+escriba-ts      = { workspace = true }
+hikari-core     = { workspace = true }
 escriba-shirube = { workspace = true }
 escriba-input   = { workspace = true }
 escriba-ui      = { workspace = true }

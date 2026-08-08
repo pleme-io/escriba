@@ -974,6 +974,7 @@ dependencies = [
  "escriba-mode",
  "escriba-runtime",
  "escriba-shirube",
+ "escriba-ts",
  "escriba-ui",
  "garasu",
  "glyphon",
@@ -1001,8 +1002,10 @@ dependencies = [
  "escriba-mode",
  "escriba-search",
  "escriba-shirube",
+ "escriba-ts",
  "escriba-ui",
  "escriba-vm",
+ "hikari-core",
  "madori",
  "pretty_assertions",
  "serde",
@@ -1044,6 +1047,7 @@ dependencies = [
 name = "escriba-ts"
 version = "0.1.44"
 dependencies = [
+ "hikari-core",
  "hikari-ts",
 ]
 

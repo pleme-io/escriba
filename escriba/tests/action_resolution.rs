@@ -107,9 +107,9 @@ const INERT: &[&str] = &[
     "pane.left",
     "pane.right",
     "pane.up",
+    "picker.symbols",
     // Fuzzy picker — needs escriba-picker (Wave 2).
     "picker.lsp-references",
-    "picker.symbols",
     // snacks.nvim parity — needs the terminal + zen layers.
     "snacks.gitbrowse",
     "snacks.terminal",

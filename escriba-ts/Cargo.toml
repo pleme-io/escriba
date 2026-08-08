@@ -12,6 +12,11 @@ authors      .workspace = true
 # The tree-sitter host lives in hikari-ts (self-contained, crates.io); this crate
 # re-exports it. escriba_ts::Semantic == hikari_token::Semantic transitively.
 hikari-ts = { workspace = true }
+# The highlight ECOSYSTEM lives here, not in a renderer. `build_ecosystem`
+# was in escriba-render/src/gpu.rs, which put escriba's language knowledge
+# behind a GPU dependency — so the runtime could not ask what a symbol is,
+# and the ratatui face has no syntax highlighting at all.
+hikari-core = { workspace = true }
 
 [lints]
 workspace = true

@@ -28,7 +28,7 @@ use madori::{RenderCallback, RenderContext};
 // this face used to hold one by value, so picking Vellum recoloured the frame
 // and left the code Nord.
 use escriba_ui::syntax::ChromeSyntax;
-use hikari_core::{Ecosystem, Language, Rgb as HlRgb, Theme};
+use hikari_core::{Ecosystem, Rgb as HlRgb, Theme};
 
 /// Shared handle to the editor state — both the GPU renderer (reads) and
 /// the madori `on_event` callback (writes) hold one.
@@ -580,49 +580,11 @@ impl RenderCallback for GpuRenderer {
     }
 }
 
-/// The highlight registry escriba renders through: **tree-sitter grammars
-/// (hikari-ts) take precedence** for the languages they cover, and the zero-dep
-/// table backend fills every other language. So `.rs` gets real tree-sitter
-/// highlighting while `.py` / `.lisp` / `.json` / … get the batteries-included
-/// table lexer — and both flow through the same coverage-complete `HlClass`
-/// partition. Registration order is load-bearing: `Ecosystem::resolve` returns
-/// the first matching plugin, so tree-sitter (registered first) wins for its
-/// languages; the table backend is skipped for any language tree-sitter already
-/// covers (no duplicate). If the tree-sitter host fails to build, the table
-/// backend covers everything — never a panic, never an empty registry.
-///
-/// A third tier registers last: [`crate::langs::escriba_local`], the languages
-/// escriba serves that the fleet spine does not ship yet (today: blue). Last
-/// means an upstream hikari backend for the same language always wins, so a
-/// local table retires itself the day hikari grows one — no edit here, and no
-/// window where the two disagree.
-///
-/// Public because the registry IS escriba's language surface: a test that asks
-/// "does the editor know this language?" must be able to ask the same object
-/// the renderer holds, not a reconstruction of it.
-#[must_use]
-pub fn build_ecosystem() -> Ecosystem {
-    let mut eco = Ecosystem::new();
-    let mut covered: Vec<Language> = Vec::new();
-    if let Ok(host) = hikari_ts::TreeSitterHost::builtin() {
-        for p in host.plugins() {
-            covered.push(p.language());
-            eco.register(p);
-        }
-    }
-    for p in hikari_core::langs::builtins() {
-        if !covered.contains(&p.language()) {
-            covered.push(p.language());
-            eco.register(p);
-        }
-    }
-    for p in crate::langs::escriba_local() {
-        if !covered.contains(&p.language()) {
-            eco.register(p);
-        }
-    }
-    eco
-}
+/// The highlight registry — re-exported from `escriba-ts`, where it now
+/// lives. It was defined HERE, which put escriba's language knowledge behind
+/// a GPU dependency; the re-export keeps this face's call sites and its tests
+/// unchanged while the runtime can now reach the same registry without wgpu.
+pub use escriba_ts::build_ecosystem;
 
 /// Pair each start-screen chunk with the colour its ROLE resolves to under
 /// `palette` — the GPU face's half of the role→paint mapping, extracted so
