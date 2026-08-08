@@ -107,7 +107,7 @@ pub mod negai;
 pub mod outcome;
 pub mod snapshot;
 
-pub use negai::{Continuation, ErrandId, Negai, Register};
+pub use negai::{Continuation, ErrandId, Negai, PickerSource, Register};
 pub use outcome::{Outcome, Verdict};
 pub use snapshot::{
     BufferView, CursorView, FakeBuffer, FakeSnapshot, SearchView, Snapshot, SyntaxView, View,

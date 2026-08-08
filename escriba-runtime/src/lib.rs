@@ -158,6 +158,13 @@ pub struct EditorState {
     /// Public so a producer outside the runtime can publish into it once the
     /// courier lands; today the only producer is the marker scan.
     pub results: escriba_shirube::ListRegistry,
+    /// The open picker, if any.
+    ///
+    /// `Option<Picker>` on the state, exactly like `splash` — deliberately
+    /// NOT a `Mode` variant. A mode is a state keys are interpreted IN; this
+    /// is a surface that OWNS keys while it is up, which is a different
+    /// thing and composes differently with the keymap.
+    picker: Option<escriba_ui::picker::Picker>,
     /// The git-index generation. See [`world`](Self::world) — every axis the
     /// world can move is emitted unconditionally, so a producer anchoring on
     /// one is not born permanently stale.
@@ -580,6 +587,7 @@ impl EditorState {
                 self.set_cursor(clamped);
             }
             Negai::EnterMode(m) => self.modal.enter(m),
+            Negai::OpenPicker(source) => self.open_picker(source),
             Negai::CycleBuffer { forward } => self.cycle_buffer(forward),
             Negai::FocusBuffer(id) => {
                 if self.buffers.get(id).is_some() {
@@ -798,6 +806,7 @@ impl EditorState {
             dispatch_depth: 0,
             filetypes: escriba_core::FiletypeTable::new(),
             results: escriba_shirube::ListRegistry::new(),
+            picker: None,
             index_rev: escriba_shirube::IndexRev::default(),
             session_gen: escriba_shirube::SessionGen::default(),
             theme: FleetTheme::prescribed_default(),
@@ -869,6 +878,87 @@ impl EditorState {
     /// A menu key runs its entry; ANY other key simply takes the screen
     /// down and is then handled normally — so the first thing an operator
     /// types is never swallowed.
+    /// The open picker, for a face to paint.
+    #[must_use]
+    pub fn picker(&self) -> Option<&escriba_ui::picker::Picker> {
+        self.picker.as_ref()
+    }
+
+    /// Give an open picker the key.
+    ///
+    /// Runs BEFORE the keymap, and before the sequence stepper: while a
+    /// picker is up it owns every key, including ones it has no meaning for.
+    /// An overlay that let unknown keys fall through would edit the file
+    /// behind itself.
+    fn consume_picker_key(&mut self, key: &Key) -> escriba_ui::picker::Consumed {
+        use escriba_ui::picker::Consumed;
+        let Some(p) = self.picker.as_mut() else {
+            return Consumed::NotShowing;
+        };
+        let outcome = p.on_key(key);
+        match &outcome {
+            Consumed::Dismissed | Consumed::Chose(_) => {
+                self.picker = None;
+                self.bump_gen();
+            }
+            Consumed::Held => self.bump_gen(),
+            Consumed::NotShowing => {}
+        }
+        outcome
+    }
+
+    /// Lower an accepted pick into the ONE interpreter.
+    ///
+    /// The whole reason `Choice` is a closed enum: a new source must decide
+    /// here, and the compiler says so.
+    fn honour_choice(&mut self, choice: escriba_ui::picker::Choice) {
+        use escriba_ui::picker::Choice;
+        let slip = match choice {
+            Choice::Buffer(id) => Negai::FocusBuffer(id),
+            Choice::Command { 0: name } => Negai::RunCommand {
+                name,
+                args: Vec::new(),
+            },
+        };
+        self.interpret(Outcome::did(vec![slip]));
+    }
+
+    /// Build and open a picker over `source`.
+    fn open_picker(&mut self, source: escriba_madoguchi::PickerSource) {
+        use escriba_ui::picker::{Choice, Picker, PickerItem, Source};
+        let (src, items) = match source {
+            escriba_madoguchi::PickerSource::Buffers => (
+                Source::Buffers,
+                self.buffers
+                    .ids()
+                    .into_iter()
+                    .filter_map(|id| {
+                        let b = self.buffers.get(id)?;
+                        let label = b.path.as_ref().map_or_else(
+                            || String::from("[scratch]"),
+                            |p| p.to_string_lossy().into_owned(),
+                        );
+                        Some(PickerItem::new(Choice::Buffer(id), label))
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            escriba_madoguchi::PickerSource::Commands => (
+                Source::Commands,
+                self.commands
+                    .names()
+                    .into_iter()
+                    .map(|n| PickerItem::new(Choice::Command(n.to_string()), n.to_string()))
+                    .collect::<Vec<_>>(),
+            ),
+        };
+        if items.is_empty() {
+            self.messages.push("nothing to pick from".to_string());
+            return;
+        }
+        self.picker = Some(Picker::open(src, items));
+        self.bump_gen();
+    }
+
     fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
         let Some(splash) = self.splash.as_ref() else {
             return SplashKey::NotShowing;
@@ -1033,6 +1123,16 @@ impl EditorState {
 
     /// Dispatch a single key through the keymap + apply the resulting action.
     pub fn on_key(&mut self, key: &Key) {
+        // An open picker owns EVERY key while it is up — before the splash,
+        // before the sequence stepper, before the keymap.
+        match self.consume_picker_key(key) {
+            escriba_ui::picker::Consumed::NotShowing => {}
+            escriba_ui::picker::Consumed::Held | escriba_ui::picker::Consumed::Dismissed => return,
+            escriba_ui::picker::Consumed::Chose(c) => {
+                self.honour_choice(c);
+                return;
+            }
+        }
         // The start screen owns the first keypress and nothing after it.
         match self.consume_splash_key(key) {
             SplashKey::NotShowing | SplashKey::Dismissed => {}

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "bdacf06992f6aa7b82ea357c30ccd6d9fef91b2418654d2f8c0a64bcb6bb80b4",
+  "cargo_lock_sha256": "bdf0bcb3b4fcfbbb801a04d67b82506f261e2a98689f019141b0260fe33862d7",
   "manifest_sha256": {
     "Cargo.toml": "7846fb87f565cb9d1b3f869a6d4bf2e4ed39e18cf684fa1d3e48be0caffa6cb6",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -24,7 +24,7 @@
     "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
     "escriba-ts/Cargo.toml": "95cdcedddba77884e2f39aeaa78c56f195d05e0591a38c114ff969924e20112b",
     "escriba-tui/Cargo.toml": "21df101f0751d85fb39c399f9ae349f777f13606479bcbba3f0065186be8b018",
-    "escriba-ui/Cargo.toml": "d0b183199be882f032677db0bb0844783b22e2e7d2669f6621e800a592865bd6",
+    "escriba-ui/Cargo.toml": "2371881f85f937233af0f685fd3fb313849ab87f3635f40cf205de62793f9382",
     "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
     "escriba/Cargo.toml": "0f8d41fc7cf7a0e539b315f3ef7a2c4d65a7896a1238d4b19ef1cb1a03f76282"
   },
@@ -3263,6 +3263,16 @@
       "escriba-ui-0.1.42": {
         "runtime_dependencies": [
           {
+            "name": "egaku",
+            "package_key": "egaku-0.1.9",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "escriba_buffer",
             "package_key": "escriba-buffer-0.1.42",
             "kind": "normal",
@@ -3275,6 +3285,16 @@
           {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.42",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "escriba_keymap",
+            "package_key": "escriba-keymap-0.1.42",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,

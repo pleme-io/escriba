@@ -87,6 +87,14 @@ pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
         None => draw_buffer(f, chunks[0], state, &chrome),
     }
     draw_status_line(f, chunks[1], state, &chrome);
+    // The picker floats OVER the pane — painted last so it occludes, and
+    // outside the splash/buffer match because it is not an alternative to
+    // either. This is the first real overlay; the start screen replaces its
+    // pane rather than floating, which is why it could never have proven
+    // occlusion.
+    if let Some(p) = state.picker() {
+        draw_picker(f, chunks[0], p, &chrome);
+    }
 }
 
 /// Paint the start screen.
@@ -137,6 +145,61 @@ fn draw_splash(
         };
         f.render_widget(Paragraph::new(Line::from(spans)).style(ground), line_area);
     }
+}
+
+/// Paint the picker as a centred floating panel.
+fn draw_picker(
+    f: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    picker: &escriba_ui::picker::Picker,
+    chrome: &ChromePalette,
+) {
+    // Centred, and bounded so it never exceeds its pane — a surface that can
+    // be drawn outside its container is a panic waiting for a small terminal.
+    let w = area.width.saturating_mul(3) / 4;
+    let h = (picker.visible_count() as u16 + 3)
+        .min(area.height.saturating_sub(2))
+        .max(3);
+    let panel = ratatui::layout::Rect {
+        x: area.x + area.width.saturating_sub(w) / 2,
+        y: area.y + area.height.saturating_sub(h) / 2,
+        width: w.min(area.width),
+        height: h.min(area.height),
+    };
+
+    let ground = Style::default()
+        .fg(rgb(chrome.text))
+        .bg(rgb(chrome.surface));
+    f.render_widget(ratatui::widgets::Clear, panel);
+
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(panel.height as usize);
+    let mut title = String::from(" ");
+    title.push_str(picker.source().title());
+    title.push_str("  ");
+    title.push_str(picker.query());
+    lines.push(Line::from(Span::styled(
+        title,
+        ground.fg(rgb(chrome.accent)).add_modifier(Modifier::BOLD),
+    )));
+    for (label, selected) in picker.rows() {
+        let mut row = String::with_capacity(label.len() + 2);
+        row.push_str(if selected { "> " } else { "  " });
+        row.push_str(&label);
+        lines.push(Line::from(Span::styled(
+            row,
+            if selected {
+                ground.fg(rgb(chrome.background)).bg(rgb(chrome.accent))
+            } else {
+                ground
+            },
+        )));
+    }
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(rgb(chrome.accent)))
+        .style(ground);
+    f.render_widget(Paragraph::new(lines).block(block), panel);
 }
 
 fn draw_buffer(
