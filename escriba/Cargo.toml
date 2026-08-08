@@ -49,6 +49,8 @@ tracing         = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
+# The reserved-chord audit asks whether escriba's bindings are ours to make.
+awase = { workspace = true }
 # FakeSnapshot — the alias-revival test dispatches real catalog commands
 # without standing up an EditorState.
 escriba-madoguchi = { workspace = true }
