@@ -59,8 +59,6 @@ const INERT: &[&str] = &[
     "dap.toggle-breakpoint",
     "dap.toggle-ui",
     // File browsing — needs escriba-tree (Wave 3).
-    "files.open",
-    "files.open-parent",
     // Folding — needs the tree-sitter fold layer (Wave 4).
     "fold.close-all",
     "fold.open-all",
@@ -121,9 +119,6 @@ const INERT: &[&str] = &[
     // File tree — needs escriba-tree (Wave 3).
     "tree.toggle",
     // Diagnostics list — needs the LSP client.
-    "trouble.document",
-    "trouble.toggle",
-    "trouble.workspace",
     // Which-key popup — needs the which-key layer (Wave 2).
     "whichkey.show",
 ];

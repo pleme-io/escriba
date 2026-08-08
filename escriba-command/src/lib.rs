@@ -198,6 +198,36 @@ impl CommandRegistry {
             "Pick a project root",
             erase::<WalkPicker<true>>(),
         ));
+        // ── the oil.nvim verbs ───────────────────────────────────────────
+        // `files.open` IS the file picker — same capability, the name the
+        // catalog binds. Registering it as its own native rather than an
+        // alias keeps `--commands` honest about what each name does.
+        r.register(Command::native(
+            "files.open",
+            "Browse files under the working directory",
+            erase::<WalkPicker<false>>(),
+        ));
+        r.register(Command::native(
+            "files.open-parent",
+            "Browse files from the parent directory",
+            erase::<ParentPicker>(),
+        ));
+        // ── the trouble.nvim verbs ───────────────────────────────────────
+        r.register(Command::native(
+            "trouble.toggle",
+            "Show located findings",
+            erase::<FindingsPicker<true>>(),
+        ));
+        r.register(Command::native(
+            "trouble.workspace",
+            "Show findings across the workspace",
+            erase::<FindingsPicker<true>>(),
+        ));
+        r.register(Command::native(
+            "trouble.document",
+            "Show findings in this buffer",
+            erase::<FindingsPicker<false>>(),
+        ));
         r.register(Command::native(
             "window.split",
             "Split the window horizontally (:sp)",
@@ -589,6 +619,43 @@ impl<const PROJECT: bool> Native for WalkPicker<PROJECT> {
         } else {
             escriba_madoguchi::PickerSource::Files
         })])
+    }
+}
+
+/// `files.open-parent` — the same bounded walk, rooted one level up.
+///
+/// oil.nvim's `-`: browse from where the current file lives, then upward.
+/// The root is resolved from the working directory rather than the buffer
+/// because a scratch buffer has no directory, and "browse from nowhere" has
+/// no sensible answer — falling back to `.` is the honest one.
+struct ParentPicker;
+impl Native for ParentPicker {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let root = std::env::current_dir()
+            .ok()
+            .and_then(|d| d.parent().map(std::path::Path::to_path_buf))
+            .unwrap_or_else(|| std::path::PathBuf::from(".."));
+        Outcome::did(vec![Negai::OpenPicker(
+            escriba_madoguchi::PickerSource::FilesUnder(root),
+        )])
+    }
+}
+
+/// `trouble.*` — a view over the result registry.
+///
+/// `WORKSPACE` is the whole difference between `trouble.document` and
+/// `trouble.workspace`; `trouble.toggle` is the workspace view because that
+/// is what an operator means by "show me the problems".
+struct FindingsPicker<const WORKSPACE: bool>;
+impl<const WORKSPACE: bool> Native for FindingsPicker<WORKSPACE> {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::OpenPicker(
+            escriba_madoguchi::PickerSource::Findings {
+                workspace: WORKSPACE,
+            },
+        )])
     }
 }
 

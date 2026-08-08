@@ -99,7 +99,11 @@ impl Continuation {
 ///
 /// Named here rather than in `escriba-ui` because the VOCABULARY is
 /// madoguchi's; the widget that renders it is the face's problem.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// NOT `Copy`: `FilesUnder` carries a `PathBuf`. Losing `Copy` is the cost
+// of a source that can name a root, and it is the right trade — the
+// alternative is a second source vocabulary for "same walk, different
+// root".
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PickerSource {
     /// Open buffers.
     Buffers,
@@ -111,6 +115,20 @@ pub enum PickerSource {
     Files,
     /// Directories that look like project roots.
     Project,
+    /// Files under an explicit root rather than the working directory.
+    ///
+    /// `files.open-parent` is the reason this exists: "browse upward from
+    /// where I am" is a different root, not a different walk, so it reuses
+    /// the same bounded traversal instead of adding a second one.
+    FilesUnder(std::path::PathBuf),
+    /// Located findings from the result registry — the `trouble.*` family.
+    ///
+    /// `workspace: false` narrows to the active buffer, which is the whole
+    /// difference between `trouble.document` and `trouble.workspace`.
+    /// Freshness is NOT decided here: the interpreter asks the registry for
+    /// findings fresh against the current world, so a stale list cannot be
+    /// offered as a live one.
+    Findings { workspace: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -67,6 +67,9 @@ pub enum Source {
     Files,
     /// Directories that look like project roots.
     Project,
+    /// Located findings — diagnostics, conflicts, grep results published as
+    /// a list. The `trouble.*` family's view.
+    Findings,
 }
 
 impl Source {
@@ -79,6 +82,7 @@ impl Source {
             Self::Grep => "Grep",
             Self::Files => "Files",
             Self::Project => "Project",
+            Self::Findings => "Diagnostics",
         }
     }
 }

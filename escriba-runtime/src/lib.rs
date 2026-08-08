@@ -1005,9 +1005,17 @@ impl EditorState {
     /// implementation and does not pretend to be — a real ignore crate comes
     /// with the courier.
     fn walk_project(limit: usize) -> (Vec<std::path::PathBuf>, bool) {
+        Self::walk_from(std::path::Path::new("."), limit)
+    }
+
+    /// The same bounded walk, from an explicit root.
+    ///
+    /// `walk_project` is this with `.` — one traversal, two callers, rather
+    /// than a second copy for "browse from somewhere else".
+    fn walk_from(root: &std::path::Path, limit: usize) -> (Vec<std::path::PathBuf>, bool) {
         let mut out = Vec::new();
         let mut truncated = false;
-        let mut stack = vec![std::path::PathBuf::from(".")];
+        let mut stack = vec![root.to_path_buf()];
         while let Some(dir) = stack.pop() {
             let Ok(entries) = std::fs::read_dir(&dir) else {
                 continue;
@@ -1097,6 +1105,116 @@ impl EditorState {
         self.bump_gen();
     }
 
+    /// Where accepting a finding should take the operator.
+    ///
+    /// Returns `None` for a finding whose site names neither a path nor a
+    /// live buffer — that is a finding about nowhere, and offering it would
+    /// give the operator a row that does nothing when pressed.
+    fn finding_choice(&self, f: &escriba_shirube::Finding) -> Option<escriba_ui::picker::Choice> {
+        use escriba_ui::picker::Choice;
+        let line = f.site.range.start.line;
+        if let Some(p) = &f.site.path {
+            return Some(Choice::Location {
+                path: p.clone(),
+                line,
+            });
+        }
+        let id = f.site.buffer?;
+        let b = self.buffers.get(id)?;
+        // A buffer WITH a path becomes a Location, so the line survives. A
+        // scratch buffer has no path to name, so the best available answer
+        // is the buffer itself — and the line is lost. Stated rather than
+        // hidden: a `Choice` that carried a BufferId AND a line would be
+        // the fix, and it belongs with the picker, not here.
+        b.path.as_ref().map_or(Some(Choice::Buffer(id)), |p| {
+            Some(Choice::Location {
+                path: p.clone(),
+                line,
+            })
+        })
+    }
+
+    /// How a finding's location reads in a list row.
+    fn finding_label(&self, f: &escriba_shirube::Finding) -> String {
+        if let Some(p) = &f.site.path {
+            return p.to_string_lossy().into_owned();
+        }
+        f.site
+            .buffer
+            .and_then(|id| self.buffers.get(id))
+            .and_then(|b| b.path.as_ref())
+            .map_or_else(
+                || String::from("[scratch]"),
+                |p| p.to_string_lossy().into_owned(),
+            )
+    }
+
+    /// Picker rows for every file under `root`.
+    ///
+    /// `picker.files` and `files.open-parent` differ only in the root, so
+    /// they share this rather than carrying two copies of the same body —
+    /// which is what they did for one commit, and what the line-count lint
+    /// correctly complained about.
+    fn file_items(
+        &mut self,
+        root: &std::path::Path,
+    ) -> Vec<escriba_ui::picker::PickerItem<escriba_ui::picker::Choice>> {
+        use escriba_ui::picker::{Choice, PickerItem};
+        let (files, truncated) = Self::walk_from(root, Self::GREP_FILE_LIMIT);
+        self.report_truncation(truncated);
+        files
+            .into_iter()
+            .map(|p| {
+                let label = p.to_string_lossy().into_owned();
+                PickerItem::new(Choice::OpenFile(p), label)
+            })
+            .collect()
+    }
+
+    /// Picker rows for the located findings the `trouble.*` verbs show.
+    ///
+    /// Freshness is asked of the registry, not assumed: `fresh` filters
+    /// against the CURRENT world, so a list anchored to a revision the
+    /// buffer has moved past contributes nothing rather than offering a
+    /// line that has since shifted.
+    fn finding_items(
+        &self,
+        workspace: bool,
+    ) -> Vec<escriba_ui::picker::PickerItem<escriba_ui::picker::Choice>> {
+        use escriba_ui::picker::PickerItem;
+        let world = self.world();
+        let active = Some(self.active);
+        let mut items = Vec::new();
+        for name in self.results.names() {
+            let Some(list) = self.results.get(name) else {
+                continue;
+            };
+            for f in list.fresh(&world) {
+                // `trouble.document` narrows to the buffer in front of the
+                // operator. A finding that names only a path is
+                // workspace-scoped by construction — it has no buffer to be
+                // "this" one.
+                if !workspace && f.site.buffer != active {
+                    continue;
+                }
+                let Some(choice) = self.finding_choice(f) else {
+                    continue;
+                };
+                let line = f.site.range.start.line;
+                let mut label = String::with_capacity(64);
+                label.push_str(f.severity.label());
+                label.push_str("  ");
+                label.push_str(&self.finding_label(f));
+                label.push(':');
+                label.push_str(&(line + 1).to_string());
+                label.push_str("  ");
+                label.push_str(&f.message);
+                items.push(PickerItem::new(choice, label));
+            }
+        }
+        items
+    }
+
     /// Build and open a picker over `source`.
     fn open_picker(&mut self, source: escriba_madoguchi::PickerSource) {
         use escriba_ui::picker::{Choice, Picker, PickerItem, Source};
@@ -1150,18 +1268,7 @@ impl EditorState {
                     .collect::<Vec<_>>(),
             ),
             escriba_madoguchi::PickerSource::Files => {
-                let (files, truncated) = Self::walk_project(Self::GREP_FILE_LIMIT);
-                self.report_truncation(truncated);
-                (
-                    Source::Files,
-                    files
-                        .into_iter()
-                        .map(|p| {
-                            let label = p.to_string_lossy().into_owned();
-                            PickerItem::new(Choice::OpenFile(p), label)
-                        })
-                        .collect::<Vec<_>>(),
-                )
+                (Source::Files, self.file_items(std::path::Path::new(".")))
             }
             escriba_madoguchi::PickerSource::Project => {
                 // A project root is a directory carrying a marker. Derived
@@ -1205,6 +1312,12 @@ impl EditorState {
                     .map(|n| PickerItem::new(Choice::Command(n.to_string()), n.to_string()))
                     .collect::<Vec<_>>(),
             ),
+            escriba_madoguchi::PickerSource::FilesUnder(root) => {
+                (Source::Files, self.file_items(&root))
+            }
+            escriba_madoguchi::PickerSource::Findings { workspace } => {
+                (Source::Findings, self.finding_items(workspace))
+            }
         };
         if items.is_empty() {
             self.messages.push("nothing to pick from".to_string());
