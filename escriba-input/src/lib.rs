@@ -37,10 +37,19 @@ pub fn translate_key(event: &KeyEvent) -> Option<Key> {
         KeyCode::PageDown => Key::PageDown,
         KeyCode::Space => Key::Char(' '),
         KeyCode::Char(c) => {
-            if mods.ctrl && !mods.alt {
+            // The shorthands carry exactly ONE modifier. Anything richer —
+            // two modifiers, Super, or Shift as a modifier rather than a
+            // capital letter — goes through `Chord`, which carries the fleet
+            // type. Before this, `shift` and `meta` were computed here and
+            // then dropped for want of anywhere to put them.
+            let extra = mods.meta || (mods.ctrl && mods.alt);
+            if extra {
+                return chord_of(c, mods).map(Key::Chord);
+            }
+            if mods.ctrl {
                 return Some(Key::Ctrl(c.to_ascii_lowercase()));
             }
-            if mods.alt && !mods.ctrl {
+            if mods.alt {
                 return Some(Key::Alt(c.to_ascii_lowercase()));
             }
             Key::Char(c)
@@ -48,9 +57,34 @@ pub fn translate_key(event: &KeyEvent) -> Option<Key> {
         // `Delete` is a real prompt verb (`Action::PromptDelete`), not noise —
         // dropping it here is why `<Del>` was documented but unreachable.
         KeyCode::Delete => Key::Delete,
-        KeyCode::F(_) | KeyCode::Unknown => return None,
+        // F-keys used to die here — declared in an rc, never delivered.
+        KeyCode::F(n) => Key::F(n),
+        KeyCode::Unknown => return None,
     };
     Some(key)
+}
+
+/// Build a fleet chord from a character plus every modifier that is set.
+///
+/// Only reached when the single-modifier shorthands cannot express the
+/// combination — see the call site.
+fn chord_of(c: char, mods: madori::event::Modifiers) -> Option<awase::Hotkey> {
+    use awase::Modifiers as M;
+    let mut m = M::NONE;
+    if mods.ctrl {
+        m = m | M::CTRL;
+    }
+    if mods.alt {
+        m = m | M::ALT;
+    }
+    if mods.shift {
+        m = m | M::SHIFT;
+    }
+    if mods.meta {
+        m = m | M::CMD;
+    }
+    let key = awase::Key::from_name(&c.to_ascii_lowercase().to_string())?;
+    Some(awase::Hotkey::new(m, key))
 }
 
 /// What the runtime should do after translating an event.

@@ -306,14 +306,28 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
         return Some(k);
     }
 
+    // `<F1>`..`<F20>`. Declarable before this and never delivered, because
+    // the input layer discarded `KeyCode::F(_)` at the door.
+    if let Some(n) = lower.strip_prefix('f').and_then(|d| d.parse::<u8>().ok()) {
+        if (1..=20).contains(&n) {
+            return Some(Key::F(n));
+        }
+    }
+
     // Modifier+char form: `C-r`, `A-f`, `M-f`, `S-h`. Dash-separated.
     // The operand is a single char OR a named key that denotes a
     // printable char (`<C-Space>` -> Ctrl(' ')) — see `modifier_operand`.
+    // Each shorthand DECLINES rather than returning `None` outright, so a
+    // form it cannot express (`<C-S-p>` — two modifiers) falls through to
+    // `rich_chord` instead of dying here. Returning early was why multi-
+    // modifier chords parsed as nothing at all.
     if let Some(rest) = inner
         .strip_prefix("C-")
         .or_else(|| inner.strip_prefix("c-"))
     {
-        return modifier_operand(rest).map(Key::Ctrl);
+        if let Some(c) = modifier_operand(rest) {
+            return Some(Key::Ctrl(c));
+        }
     }
     if let Some(rest) = inner
         .strip_prefix("A-")
@@ -321,7 +335,9 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
         .or_else(|| inner.strip_prefix("M-"))
         .or_else(|| inner.strip_prefix("m-"))
     {
-        return modifier_operand(rest).map(Key::Alt);
+        if let Some(c) = modifier_operand(rest) {
+            return Some(Key::Alt(c));
+        }
     }
     // Shift has no `Key` variant of its own, and needs none: the input
     // layer already delivers a shifted letter as its uppercase char, so
@@ -332,10 +348,53 @@ fn parse_bracket_key(inner: &str) -> Option<Key> {
         .strip_prefix("S-")
         .or_else(|| inner.strip_prefix("s-"))
     {
-        return modifier_operand(rest).map(|c| Key::Char(c.to_ascii_uppercase()));
+        if let Some(c) = modifier_operand(rest) {
+            return Some(Key::Char(c.to_ascii_uppercase()));
+        }
     }
 
-    None
+    // Anything the single-modifier shorthands cannot say: two or more
+    // modifiers (`<C-S-p>`), or `Super`/`Cmd` (`<D-p>`). These were simply
+    // unparseable — an author could write them and get silence.
+    rich_chord(inner)
+}
+
+/// A chord with more than one modifier, or with `Super`/`Cmd`.
+///
+/// Reached only after the single-modifier forms decline, so it never changes
+/// how `<C-r>` or `<S-h>` parse. Builds `awase::Hotkey` directly — escriba
+/// widens by consuming the fleet vocabulary rather than growing a parallel
+/// spelling of it.
+fn rich_chord(inner: &str) -> Option<Key> {
+    use awase::Modifiers as M;
+    let mut mods = M::NONE;
+    let mut rest = inner;
+    // Greedy: strip every modifier prefix present, in any order.
+    loop {
+        let lower = rest.to_ascii_lowercase();
+        let (bit, len) = if lower.starts_with("c-") {
+            (M::CTRL, 2)
+        } else if lower.starts_with("a-") || lower.starts_with("m-") {
+            (M::ALT, 2)
+        } else if lower.starts_with("s-") {
+            (M::SHIFT, 2)
+        } else if lower.starts_with("d-") {
+            (M::CMD, 2)
+        } else if lower.starts_with("cmd-") {
+            (M::CMD, 4)
+        } else if lower.starts_with("super-") {
+            (M::CMD, 6)
+        } else {
+            break;
+        };
+        mods = mods | bit;
+        rest = &rest[len..];
+    }
+    if mods == M::NONE {
+        return None;
+    }
+    let key = awase::Key::from_name(&rest.to_ascii_lowercase())?;
+    Some(Key::Chord(awase::Hotkey::new(mods, key)))
 }
 
 /// The named-key table, shared by the bare `<Esc>` form and by the
@@ -836,9 +895,17 @@ mod tests {
         assert_eq!(parse_key_token("<s-h>", &comma), Some(Key::Char('H')));
         // Plain modifier forms keep working.
         assert_eq!(parse_key_token("<C-w>", &comma), Some(Key::Ctrl('w')));
-        // A named key with no printable char stays unrepresentable —
-        // `Key::Ctrl` holds a `char`, so `<C-Esc>` has nothing to hold.
-        assert_eq!(parse_key_token("<C-Esc>", &comma), None);
+        // `<C-Esc>` USED to be unrepresentable, and this test documented why:
+        // `Key::Ctrl` holds a `char`, so a named operand had nothing to hold.
+        // `Key::Chord` carries an `awase::Hotkey`, so it holds fine now — the
+        // limitation is gone, and asserting `None` would be pinning it back.
+        match parse_key_token("<C-Esc>", &comma) {
+            Some(Key::Chord(h)) => {
+                assert!(h.modifiers.contains(awase::Modifiers::CTRL));
+                assert_eq!(h.key, awase::Key::Escape);
+            }
+            other => panic!("`<C-Esc>` is representable now, got {other:?}"),
+        }
         // And genuine nonsense still errors rather than binding silently.
         assert_eq!(parse_key_token("<C-NotAKey>", &comma), None);
     }
@@ -1104,5 +1171,68 @@ mod tests {
         apply_plan_to_keymap(&plan, &mut km);
         let after = km.lookup(Mode::Normal, &Key::Char('h')).unwrap();
         assert_eq!(after.action, Action::Move(Motion::Right));
+    }
+}
+
+#[cfg(test)]
+mod widened_vocabulary {
+    use super::*;
+
+    fn comma() -> Key {
+        Key::Char(',')
+    }
+
+    #[test]
+    fn function_keys_parse_and_are_no_longer_discarded() {
+        // `<F5>` was declarable and undeliverable: the input layer dropped
+        // `KeyCode::F(_)` at the door, so the binding existed and the key
+        // never arrived.
+        assert_eq!(parse_key_token("<F5>", &comma()), Some(Key::F(5)));
+        assert_eq!(parse_key_token("<f12>", &comma()), Some(Key::F(12)));
+        assert_eq!(parse_key_token("<F21>", &comma()), None, "past the range");
+    }
+
+    #[test]
+    fn multi_modifier_chords_parse() {
+        // `Ctrl(char)` folds ONE modifier into the key, so `<C-S-p>` was
+        // unparseable — an author could write it and get silence.
+        let k = parse_key_token("<C-S-p>", &comma()).expect("parses");
+        match k {
+            Key::Chord(h) => {
+                assert!(h.modifiers.contains(awase::Modifiers::CTRL));
+                assert!(h.modifiers.contains(awase::Modifiers::SHIFT));
+                assert_eq!(h.key, awase::Key::P);
+            }
+            other => panic!("expected a chord, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn super_parses_in_every_spelling() {
+        for tok in ["<D-p>", "<Cmd-p>", "<super-p>"] {
+            match parse_key_token(tok, &comma()) {
+                Some(Key::Chord(h)) => {
+                    assert!(h.modifiers.contains(awase::Modifiers::CMD), "{tok}");
+                }
+                other => panic!("{tok} should be a Super chord, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn the_single_modifier_shorthands_are_unchanged() {
+        // The widening must not move `<C-r>` or `<A-f>` — 431 existing
+        // references depend on those staying the shorthand variants.
+        assert_eq!(parse_key_token("<C-r>", &comma()), Some(Key::Ctrl('r')));
+        assert_eq!(parse_key_token("<A-f>", &comma()), Some(Key::Alt('f')));
+        assert_eq!(parse_key_token("<M-f>", &comma()), Some(Key::Alt('f')));
+    }
+
+    #[test]
+    fn shift_alone_still_folds_to_the_uppercase_char() {
+        // Deliberate and documented: the input layer delivers a shifted
+        // letter as its uppercase char, so `<S-h>` IS `H`. Modelling it as a
+        // modifier would make one physical keystroke two bindings.
+        assert_eq!(parse_key_token("<S-h>", &comma()), Some(Key::Char('H')));
     }
 }
