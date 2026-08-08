@@ -16,6 +16,10 @@ pub mod splash;
 /// reproduces it on the fleet default and extends it to every theme.
 pub mod syntax;
 
+/// 仕切り — the container tree behind `:sp` / `:vsp`. Pane geometry is
+/// DERIVED by `solve(tree, frame)`; scroll position stays on the window.
+pub mod shikiri;
+
 /// The picker — a filtered list of candidates that holds keys while open.
 /// The narrowing machine is `egaku::FuzzyPicker`; escriba owns the SOURCE
 /// (what accepting means) and the key translation.
