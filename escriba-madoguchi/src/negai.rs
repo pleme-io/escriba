@@ -230,6 +230,22 @@ pub enum Negai {
     /// the interpreter populates it — the seam holds, and the picker still
     /// lowers its accept back through `interpret` like everything else.
     OpenPicker(PickerSource),
+    /// `:sp` / `:vsp` — split the active window along `axis`.
+    ///
+    /// Carries the AXIS, not "horizontal"/"vertical": vim calls `:sp` a
+    /// horizontal split and it stacks its children vertically, which is the
+    /// naming trap every window manager falls into once.
+    SplitWindow {
+        stacked: bool,
+    },
+    /// `<C-w>c` / `:close` — close the active window. The LAST window never
+    /// closes; vim refuses too (E444).
+    CloseWindow,
+    /// `<C-w>hjkl` — move focus to the nearest window in a direction.
+    FocusDir {
+        dx: i8,
+        dy: i8,
+    },
     /// Open a picker over matches for `pattern` across the project.
     ///
     /// Separate from `OpenPicker` because it carries an argument AND because

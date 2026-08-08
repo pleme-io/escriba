@@ -199,6 +199,41 @@ impl CommandRegistry {
             erase::<WalkPicker<true>>(),
         ));
         r.register(Command::native(
+            "window.split",
+            "Split the window horizontally (:sp)",
+            erase::<SplitWindow<true>>(),
+        ));
+        r.register(Command::native(
+            "window.vsplit",
+            "Split the window vertically (:vsp)",
+            erase::<SplitWindow<false>>(),
+        ));
+        r.register(Command::native(
+            "window.close",
+            "Close the active window (:close)",
+            erase::<CloseWindow>(),
+        ));
+        r.register(Command::native(
+            "pane.left",
+            "Focus the window to the left",
+            erase::<FocusDir<-1, 0>>(),
+        ));
+        r.register(Command::native(
+            "pane.right",
+            "Focus the window to the right",
+            erase::<FocusDir<1, 0>>(),
+        ));
+        r.register(Command::native(
+            "pane.up",
+            "Focus the window above",
+            erase::<FocusDir<0, -1>>(),
+        ));
+        r.register(Command::native(
+            "pane.down",
+            "Focus the window below",
+            erase::<FocusDir<0, 1>>(),
+        ));
+        r.register(Command::native(
             "todo.next",
             "Go to the next TODO/FIXME marker",
             erase::<TodoWalk<true>>(),
@@ -529,6 +564,42 @@ impl<const PROJECT: bool> Native for WalkPicker<PROJECT> {
         } else {
             escriba_madoguchi::PickerSource::Files
         })])
+    }
+}
+
+/// `:sp` / `:vsp` — split the active window.
+///
+/// Reads `caps!()`: splitting is layout, not buffer content. The handler
+/// names the axis and the interpreter does it, which is the same shape the
+/// picker uses and for the same reason — a handler holds a read-only
+/// `Snapshot`.
+struct SplitWindow<const STACKED: bool>;
+impl<const STACKED: bool> Native for SplitWindow<STACKED> {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::SplitWindow { stacked: STACKED }])
+    }
+}
+
+/// `:close` / `<C-w>c`.
+struct CloseWindow;
+impl Native for CloseWindow {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::CloseWindow])
+    }
+}
+
+/// `pane.{left,right,up,down}` — `<C-w>hjkl`.
+///
+/// The direction is two const params rather than an enum so one impl covers
+/// all four without a runtime match, and so a wrong direction is a wrong
+/// TYPE at the registration site rather than a wrong argument.
+struct FocusDir<const DX: i8, const DY: i8>;
+impl<const DX: i8, const DY: i8> Native for FocusDir<DX, DY> {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::FocusDir { dx: DX, dy: DY }])
     }
 }
 

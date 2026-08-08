@@ -75,6 +75,40 @@
             :description "half page down")
 (defkeybind :mode "normal" :key "<C-u>" :action "half-page-up"
             :description "half page up")
+;; ── Windows — `:sp` / `:vsp` and the <C-w> family ──────────────────
+;;
+;; `<C-w>` is free in Normal mode (it is bound in COMMAND mode to
+;; PromptDeleteWord, which is vim's behaviour too and does not collide).
+;; These are the bindings an operator's hands already know; anything past
+;; them (`<C-w>+`/`-`/`<`/`>` resizing, `<C-w>o` only) is deliberately not
+;; here yet — see docs/backlog-plan.md.
+(defkeybind :mode "normal" :key "<C-w>s" :action "window.split"
+            :description "split horizontally")
+(defkeybind :mode "normal" :key "<C-w>v" :action "window.vsplit"
+            :description "split vertically")
+(defkeybind :mode "normal" :key "<C-w>c" :action "window.close"
+            :description "close this window")
+(defkeybind :mode "normal" :key "<C-w>h" :action "pane.left"
+            :description "focus the window left")
+(defkeybind :mode "normal" :key "<C-w>j" :action "pane.down"
+            :description "focus the window below")
+(defkeybind :mode "normal" :key "<C-w>k" :action "pane.up"
+            :description "focus the window above")
+(defkeybind :mode "normal" :key "<C-w>l" :action "pane.right"
+            :description "focus the window right")
+
+;; The ex-command spellings. `:sp` and `:vsp` are what fingers type.
+(defcmd :name "sp"     :description "Split the window horizontally"
+        :action "window.split")
+(defcmd :name "split"  :description "Split the window horizontally"
+        :action "window.split")
+(defcmd :name "vsp"    :description "Split the window vertically"
+        :action "window.vsplit")
+(defcmd :name "vsplit" :description "Split the window vertically"
+        :action "window.vsplit")
+(defcmd :name "close"  :description "Close the active window"
+        :action "window.close")
+
 (defkeybind :mode "normal" :key "<C-s>" :action "save"
             :description "write the active buffer (blnvim <C-s>)")
 (defkeybind :mode "normal" :key "<leader>bd" :action "buffer.delete"

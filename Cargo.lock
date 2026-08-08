@@ -1060,6 +1060,7 @@ dependencies = [
  "escriba-buffer",
  "escriba-core",
  "escriba-keymap",
+ "escriba-lisp",
  "escriba-madoguchi",
  "escriba-mode",
  "escriba-runtime",

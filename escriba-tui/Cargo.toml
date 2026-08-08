@@ -33,6 +33,9 @@ anyhow          = { workspace = true }
 tracing         = { workspace = true }
 
 [dev-dependencies]
+# The <C-w> bindings live in the shipped rc; the splits test applies them so
+# it exercises the KEY path, not only the command.
+escriba-lisp = { workspace = true }
 pretty_assertions = { workspace = true }
 
 [lints]

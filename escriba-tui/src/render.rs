@@ -105,16 +105,28 @@ pub fn viewport_rows(total_height: u16) -> u16 {
 /// have to tell the runtime how much they can show, or the scroll-to-contain
 /// invariant is computed against a window that does not exist.
 pub fn sync_viewport(state: &mut EditorState, width: u16, height: u16) {
-    let rows = u32::from(viewport_rows(height));
-    // The FULL terminal width, NOT minus the gutter. `draw_buffer` subtracts
-    // the gutter itself (it has to — the width depends on the buffer's line
-    // count), and the GPU face splits the same way: `resize` stores the whole
-    // grid, `render` reserves the gutter. Subtracting here too would take it
-    // twice and clip every line short by a gutter's worth of text.
-    let cols = u32::from(width);
+    // Report the frame FIRST — every pane rect is derived from it, so the
+    // solve below must see the new size.
+    state.layout.set_frame(escriba_ui::shikiri::Rect::new(
+        0,
+        0,
+        width,
+        viewport_rows(height),
+    ));
+    // Then give each window ITS pane's size, not the terminal's. Sizing every
+    // window from the whole frame is right for one window and wrong for two:
+    // scroll-to-contain would think a half-height pane could show the whole
+    // screen, and the cursor would sit off the bottom of its own split.
+    //
+    // Widths are the FULL pane width, not minus the gutter — `draw_buffer_in`
+    // subtracts that itself (it depends on the buffer's line count), and the
+    // GPU face splits the same way. Subtracting here too takes it twice.
+    let solved = state.layout.solved();
     for w in state.layout.windows_mut() {
-        w.viewport.visible_lines = rows;
-        w.viewport.visible_columns = cols.max(1);
+        if let Some(r) = solved.rect_of(w.id) {
+            w.viewport.visible_lines = u32::from(r.h).max(1);
+            w.viewport.visible_columns = u32::from(r.w).max(1);
+        }
     }
     // A resize moves the WINDOW, not the cursor, so nothing else re-runs
     // scroll-to-contain. Without this the cursor sits off-screen after a
@@ -141,7 +153,41 @@ pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
     // what it is covering.
     match state.splash() {
         Some(splash) => draw_splash(f, chunks[0], splash, &chrome),
-        None => draw_buffer(f, chunks[0], state, &chrome),
+        None => {
+            // One pane per leaf, geometry DERIVED. `solved()` is a pure
+            // function of (tree, frame) — nothing here stores a rect, so a
+            // split and a resize cannot disagree about where a pane is.
+            // Solved against the area we are ACTUALLY painting, not against
+            // a frame remembered from an earlier `sync_viewport` call.
+            //
+            // Reading the stored frame made rendering depend on call order:
+            // a face that had not reported its size yet solved to a 0x0
+            // frame, every pane came back zero-area, and the screen went
+            // BLANK with nothing to indicate why. The area is right here in
+            // the draw; taking it from anywhere else is a second source of
+            // truth for the same number.
+            let solved = escriba_ui::shikiri::solve(
+                state.layout.tree(),
+                escriba_ui::shikiri::Rect::new(0, 0, chunks[0].width, chunks[0].height),
+            );
+            for (id, r) in &solved.panes {
+                // A degraded frame yields zero-area panes; skip rather than
+                // paint into nothing. This is the stated limit of `solve`.
+                if r.w == 0 || r.h == 0 {
+                    continue;
+                }
+                let area = ratatui::layout::Rect {
+                    x: chunks[0].x + r.x,
+                    y: chunks[0].y + r.y,
+                    width: r.w.min(chunks[0].width.saturating_sub(r.x)),
+                    height: r.h.min(chunks[0].height.saturating_sub(r.y)),
+                };
+                draw_pane(f, area, state, *id, &chrome);
+            }
+            for rule in &solved.rules {
+                draw_rule(f, chunks[0], rule, &chrome);
+            }
+        }
     }
     draw_status_line(f, chunks[1], state, &chrome);
     // The picker floats OVER the pane — painted last so it occludes, and
@@ -259,13 +305,81 @@ fn draw_picker(
     f.render_widget(Paragraph::new(lines).block(block), panel);
 }
 
-fn draw_buffer(
+/// Paint the separator between two panes.
+///
+/// A one-cell rule, dim, in the theme's own `text_dim`. Drawn from the SOLVED
+/// rules rather than inferred from pane edges: inferring means two places
+/// deciding where the boundary is, and they disagree the moment a pane is
+/// zero-width.
+fn draw_rule(
+    f: &mut Frame<'_>,
+    origin: ratatui::layout::Rect,
+    rule: &escriba_ui::shikiri::Rule,
+    chrome: &ChromePalette,
+) {
+    // HEAVY box-drawing, deliberately. The GUTTER already draws a light
+    // `│` between the line numbers and the text, so a light pane separator
+    // is indistinguishable from it — the operator cannot tell "this is
+    // another window" from "this is the same window's gutter". One glyph
+    // meaning two things is a reader's problem whichever they learn first,
+    // which this codebase already learned from the `●` finding-mark that
+    // collided with the status line's modified indicator.
+    let glyph = match rule.axis {
+        escriba_ui::shikiri::Axis::Stacked => "\u{2501}", // ━
+        escriba_ui::shikiri::Axis::SideBySide => "\u{2503}", // ┃
+    };
+    let r = rule.rect;
+    let area = ratatui::layout::Rect {
+        x: origin.x + r.x,
+        y: origin.y + r.y,
+        width: r.w.min(origin.width.saturating_sub(r.x)),
+        height: r.h.min(origin.height.saturating_sub(r.y)),
+    };
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    let line: String = glyph.repeat(area.width as usize);
+    let style = Style::default()
+        .fg(rgb(chrome.text_dim))
+        .bg(rgb(chrome.background));
+    for y in 0..area.height {
+        let row = ratatui::layout::Rect {
+            y: area.y + y,
+            height: 1,
+            ..area
+        };
+        f.render_widget(
+            Paragraph::new(Line::from(Span::styled(line.clone(), style))),
+            row,
+        );
+    }
+}
+
+/// Paint ONE pane — the window `id`, in `area`.
+fn draw_pane(
     f: &mut Frame<'_>,
     area: ratatui::layout::Rect,
     state: &EditorState,
+    id: escriba_core::WindowId,
     chrome: &ChromePalette,
 ) {
-    let Some(buf) = state.buffers.get(state.active) else {
+    let Some(win) = state.layout.windows().find(|w| w.id == id) else {
+        return;
+    };
+    draw_buffer_in(f, area, state, win, chrome);
+}
+
+fn draw_buffer_in(
+    f: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    state: &EditorState,
+    win: &escriba_ui::Window,
+    chrome: &ChromePalette,
+) {
+    // THIS window's buffer, not the editor's active one. Reading
+    // `state.active` here would paint every pane with the focused pane's
+    // file — a split showing two different files is the entire point.
+    let Some(buf) = state.buffers.get(win.buffer_id) else {
         f.render_widget(
             Paragraph::new("<no buffer>").style(error_style(chrome)),
             area,
@@ -273,20 +387,30 @@ fn draw_buffer(
         return;
     };
 
-    let win = state.layout.active_window();
-    let top = win.map_or(0, |w| w.viewport.top_line);
-    let left = win.map_or(0, |w| w.viewport.left_column);
+    // …and THIS window's scroll position. Two panes on one buffer scroll
+    // independently; that is what makes `:sp` useful for comparing two places
+    // in one file.
+    let top = win.viewport.top_line;
+    let left = win.viewport.left_column;
     // The gutter's width derives from the buffer, so every line of THIS
     // buffer agrees and the text column cannot move while scrolling. The old
     // comment here claimed a fixed 7 columns; it was never 7 (the mark cell
     // made it 8) and it was never fixed (a 10 000-line file needs 9).
     let line_count = buf.line_count();
     let gutter_cols = escriba_ui::gutter::gutter_width(line_count);
-    let vis_cols = win.map_or(usize::MAX, |w| {
-        (w.viewport.visible_columns as usize).saturating_sub(gutter_cols)
-    });
+    // Sized from the PANE, not the terminal — `area` is what this window
+    // actually got from `solve`.
+    let vis_cols = (area.width as usize).saturating_sub(gutter_cols);
     let visible = area.height.saturating_sub(2).max(1);
-    let cursor = state.cursor();
+    // The cursor is painted in the FOCUSED pane only. An unfocused pane
+    // showing a block cursor would claim a focus it does not have, and with
+    // two panes on one buffer both would appear active.
+    let focused = win.id == state.layout.active();
+    let cursor = if focused {
+        state.cursor()
+    } else {
+        escriba_core::Position::new(u32::MAX, u32::MAX)
+    };
     // The cursor's on-screen shape is derived from the active mode through
     // the one typed `Mode::cursor_shape` function — block in Normal/Command,
     // bar in Insert, underline in Visual. Both backends read it from there,

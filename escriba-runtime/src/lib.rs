@@ -578,6 +578,56 @@ impl EditorState {
             }
             Negai::EnterMode(m) => self.modal.enter(m),
             Negai::OpenPicker(source) => self.open_picker(source),
+            Negai::SplitWindow { stacked } => {
+                let axis = if stacked {
+                    escriba_ui::shikiri::Axis::Stacked
+                } else {
+                    escriba_ui::shikiri::Axis::SideBySide
+                };
+                self.layout.split_active(axis);
+                // The new pane is narrower/shorter than the old one, so the
+                // cursor can now be outside it. Every face re-reports its
+                // frame on the next draw, but the invariant must hold NOW —
+                // an operator who splits and immediately types should not be
+                // editing off-screen.
+                self.refollow_cursor();
+                self.damage = self.damage.join(Damage::Viewport);
+            }
+            Negai::CloseWindow => {
+                let id = self.layout.active();
+                if self.layout.close(id) {
+                    self.refollow_cursor();
+                    self.damage = self.damage.join(Damage::Viewport);
+                } else {
+                    // vim's E444, and the same refusal: the last window is
+                    // the editor. Closing it would mean "quit", which is a
+                    // different verb the operator did not type.
+                    self.messages
+                        .push("E444: Cannot close last window".to_string());
+                }
+            }
+            Negai::FocusDir { dx, dy } => {
+                use escriba_ui::Dir;
+                let dir = match (dx, dy) {
+                    (d, _) if d < 0 => Dir::Left,
+                    (d, _) if d > 0 => Dir::Right,
+                    (_, d) if d < 0 => Dir::Up,
+                    _ => Dir::Down,
+                };
+                if let Some(id) = self.layout.neighbour(dir) {
+                    self.layout.focus(id);
+                    // The window we moved to has its OWN buffer; the editor's
+                    // active buffer follows focus, or the next keystroke
+                    // would edit the file we just navigated away from.
+                    if let Some(w) = self.layout.active_window() {
+                        self.active = w.buffer_id;
+                    }
+                    self.refollow_cursor();
+                    self.damage = self.damage.join(Damage::Viewport);
+                }
+                // No neighbour is not an error — it is the edge of the
+                // layout, and vim says nothing there either.
+            }
             Negai::GrepProject { pattern } => self.grep_project(&pattern),
             Negai::CycleBuffer { forward } => self.cycle_buffer(forward),
             Negai::FocusBuffer(id) => {
