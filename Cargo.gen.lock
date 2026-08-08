@@ -11,7 +11,7 @@
     "escriba-input/Cargo.toml": "094ebecd5e7dd044c6895c2bef01151aa01fb841cce7c97e1a5acffe516cef3e",
     "escriba-keymap/Cargo.toml": "a5877214f5022ca454a4a1b5d3724b47cb9b0636654dd40d6a5098fe63655b5f",
     "escriba-lisp/Cargo.toml": "4fda5e439d93cdf7949b5a8e8cf976dc7f13bb0ce57deba1d0a6c2080c66c0c5",
-    "escriba-lsp-client/Cargo.toml": "19ef611467e365772edd4f3959f7fb71df0f5229bec3b9e27971dad433e4f9ef",
+    "escriba-lsp-client/Cargo.toml": "1593b629c1278001372bea299f1a100bcdee5e2e3db0d04971dba726310825c0",
     "escriba-madoguchi/Cargo.toml": "8b4acdc6908849d2ef6ff5b6ed503de089878783b099bcb32e46f86989e549c7",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
@@ -8111,6 +8111,7 @@
           "rt-multi-thread",
           "signal-hook-registry",
           "sync",
+          "time",
           "tokio-macros",
           "windows-sys"
         ]
