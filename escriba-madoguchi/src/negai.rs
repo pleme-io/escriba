@@ -232,6 +232,32 @@ pub enum Negai {
     Message(String),
 
     // ── deferred / external ──────────────────────────────────────────
+    /// A reply computed OFF the tick, carrying the world it was computed
+    /// against.
+    ///
+    /// The interpreter DROPS it when that world has moved on. This exists
+    /// because sealing a slip with `self.world()` at apply time — which is
+    /// what every synchronous slip does, correctly — is exactly wrong for
+    /// a reply that crossed a thread boundary: findings computed at
+    /// `TextRev(N)` would be resealed at `TextRev(N+1)` and reported FRESH,
+    /// silently, at columns that have since moved.
+    ///
+    /// It WRAPS a slip rather than adding an `anchor` field to
+    /// `PublishFindings`, because the worse failure is not a stale
+    /// diagnostic — it is `Negai::Edit`. A formatter reply MUTATES TEXT and
+    /// is anchored by nothing at all; applying one against a buffer the
+    /// operator has kept typing into corrupts the file rather than
+    /// mis-decorating it.
+    ///
+    /// Landed BEFORE the courier that will produce these, deliberately: the
+    /// cost of this variant is one enum arm today and an audit of every
+    /// producer once threads exist.
+    ErrandReply {
+        /// The world the payload was computed against.
+        anchor: escriba_shirube::Anchor,
+        /// What to do if that world still holds.
+        then: Box<Negai>,
+    },
     /// Run an errand out of process. See [`ErrandId`].
     Errand(ErrandId),
     /// Capture the next keypress and resume. See [`Continuation`].
