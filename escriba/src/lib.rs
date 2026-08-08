@@ -492,8 +492,7 @@ fn run_text(state: EditorState, height: u32) -> Result<()> {
     // how this face came to be painted from a different view of the editor
     // than the cursor it was given.
     let mut state = state;
-    let active = state.layout.active;
-    if let Some(w) = state.layout.windows.iter_mut().find(|w| w.id == active) {
+    if let Some(w) = state.layout.active_window_mut() {
         w.viewport.visible_lines = height;
     }
     let mut renderer = TextRenderer;
@@ -504,12 +503,7 @@ fn run_text(state: EditorState, height: u32) -> Result<()> {
 
 fn run_gpu(mut initial: EditorState, args: &Args) -> Result<()> {
     // Tighten the initial viewport to something reasonable for a GPU window.
-    if let Some(w) = initial
-        .layout
-        .windows
-        .iter_mut()
-        .find(|w| w.id == initial.layout.active)
-    {
+    if let Some(w) = initial.layout.active_window_mut() {
         w.viewport.visible_lines = (args.win_height / 20).max(10);
     }
     let state = Arc::new(Mutex::new(initial));

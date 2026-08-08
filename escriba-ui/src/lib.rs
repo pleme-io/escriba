@@ -75,17 +75,21 @@ impl Viewport {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Window {
-    pub id: WindowId,
-    pub buffer_id: BufferId,
-    pub viewport: Viewport,
-}
+/// A window lives in the tree that owns it. Re-exported so the paths every
+/// face already uses keep working.
+pub use shikiri::Window;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Layout {
-    pub windows: Vec<Window>,
-    pub active: WindowId,
+    /// The container tree. Owns every window; there is no second collection
+    /// that could disagree with it about which windows exist.
+    tree: shikiri::Shikiri,
+    /// The focused window.
+    active: WindowId,
+    /// The last frame a FACE reported, in cells. The only retained size in
+    /// the model — every pane rect is derived from it by `solve`.
+    frame: shikiri::Rect,
+    next_id: u64,
     pub statusline: bool,
     pub tabbar: bool,
 }
@@ -95,16 +99,212 @@ impl Layout {
     pub fn single(window: Window) -> Self {
         Self {
             active: window.id,
-            windows: vec![window],
+            next_id: window.id.0 + 1,
+            tree: shikiri::Shikiri::Pane(window),
+            frame: shikiri::Rect::default(),
             statusline: true,
             tabbar: true,
         }
     }
 
     #[must_use]
-    pub fn active_window(&self) -> Option<&Window> {
-        self.windows.iter().find(|w| w.id == self.active)
+    pub const fn active(&self) -> WindowId {
+        self.active
     }
+
+    /// Focus `id` if it is in the tree. Returns whether it moved.
+    pub fn focus(&mut self, id: WindowId) -> bool {
+        if self.windows().any(|w| w.id == id) {
+            self.active = id;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Tell the layout how big its frame is. A face calls this; nothing else
+    /// stores a size.
+    pub fn set_frame(&mut self, frame: shikiri::Rect) {
+        self.frame = frame;
+    }
+
+    #[must_use]
+    pub const fn frame(&self) -> shikiri::Rect {
+        self.frame
+    }
+
+    /// Pane geometry, DERIVED. Never stored, so it cannot go stale.
+    #[must_use]
+    pub fn solved(&self) -> shikiri::Solved {
+        shikiri::solve(&self.tree, self.frame)
+    }
+
+    /// Every window, in layout order.
+    pub fn windows(&self) -> impl Iterator<Item = &Window> {
+        fn walk<'a>(n: &'a shikiri::Shikiri, out: &mut Vec<&'a Window>) {
+            match n {
+                shikiri::Shikiri::Pane(w) => out.push(w),
+                shikiri::Shikiri::Split(s) => s.children().for_each(|c| walk(c, out)),
+            }
+        }
+        let mut v = Vec::new();
+        walk(&self.tree, &mut v);
+        v.into_iter()
+    }
+
+    /// Every window, mutably. Used to push per-pane viewport sizes down.
+    pub fn windows_mut(&mut self) -> Vec<&mut Window> {
+        fn walk<'a>(n: &'a mut shikiri::Shikiri, out: &mut Vec<&'a mut Window>) {
+            match n {
+                shikiri::Shikiri::Pane(w) => out.push(w),
+                shikiri::Shikiri::Split(s) => s.children_mut().for_each(|c| walk(c, out)),
+            }
+        }
+        let mut v = Vec::new();
+        walk(&mut self.tree, &mut v);
+        v
+    }
+
+    #[must_use]
+    pub fn active_window(&self) -> Option<&Window> {
+        let id = self.active;
+        self.windows().find(|w| w.id == id)
+    }
+
+    pub fn active_window_mut(&mut self) -> Option<&mut Window> {
+        let id = self.active;
+        self.windows_mut().into_iter().find(|w| w.id == id)
+    }
+
+    #[must_use]
+    pub fn count(&self) -> usize {
+        self.windows().count()
+    }
+
+    /// Split the ACTIVE window along `axis`, showing the same buffer.
+    ///
+    /// The new window is focused and returned. vim's default is
+    /// `splitbelow`/`splitright` OFF, so the NEW window goes above (`:sp`) or
+    /// left (`:vsp`) — it becomes the FIRST child. Scroll position is copied,
+    /// so both panes start showing the same thing, which is what makes `:sp`
+    /// feel like "look at this file in two places" rather than a jump.
+    pub fn split_active(&mut self, axis: shikiri::Axis) -> WindowId {
+        let id = WindowId(self.next_id);
+        self.next_id += 1;
+        let active = self.active;
+        let fresh = self
+            .active_window()
+            .map(|w| Window {
+                id,
+                buffer_id: w.buffer_id,
+                viewport: w.viewport,
+            })
+            .unwrap_or(Window {
+                id,
+                buffer_id: BufferId(0),
+                viewport: Viewport::default(),
+            });
+        split_at(&mut self.tree, active, axis, fresh);
+        self.active = id;
+        id
+    }
+
+    /// Close `id`, collapsing its parent. The LAST window never closes —
+    /// vim refuses too ("E444: Cannot close last window").
+    pub fn close(&mut self, id: WindowId) -> bool {
+        if self.count() <= 1 {
+            return false;
+        }
+        // Focus a survivor BEFORE removing, so `active` is never dangling.
+        if self.active == id {
+            let next = self
+                .windows()
+                .map(|w| w.id)
+                .find(|w| *w != id)
+                .unwrap_or(id);
+            self.active = next;
+        }
+        remove(&mut self.tree, id)
+    }
+
+    /// The window nearest the active one in `dir` — `<C-w>hjkl`.
+    ///
+    /// Geometric, not tree-structural: it compares SOLVED rects, so the
+    /// answer is what the operator sees rather than an artefact of which
+    /// split happened first.
+    #[must_use]
+    pub fn neighbour(&self, dir: Dir) -> Option<WindowId> {
+        let solved = self.solved();
+        let here = solved.rect_of(self.active)?;
+        solved
+            .panes
+            .iter()
+            .filter(|(id, _)| *id != self.active)
+            .filter(|(_, r)| match dir {
+                Dir::Left => r.x + r.w <= here.x,
+                Dir::Right => r.x >= here.x + here.w,
+                Dir::Up => r.y + r.h <= here.y,
+                Dir::Down => r.y >= here.y + here.h,
+            })
+            // Nearest along the axis of travel, then nearest across it, so a
+            // column of stacked panes picks the one beside the cursor rather
+            // than whichever the tree happens to list first.
+            .min_by_key(|(_, r)| match dir {
+                Dir::Left => (here.x.saturating_sub(r.x + r.w), here.y.abs_diff(r.y)),
+                Dir::Right => (r.x.saturating_sub(here.x + here.w), here.y.abs_diff(r.y)),
+                Dir::Up => (here.y.saturating_sub(r.y + r.h), here.x.abs_diff(r.x)),
+                Dir::Down => (r.y.saturating_sub(here.y + here.h), here.x.abs_diff(r.x)),
+            })
+            .map(|(id, _)| *id)
+    }
+}
+
+/// A direction to move focus in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dir {
+    Left,
+    Right,
+    Up,
+    Down,
+}
+
+/// Replace the pane holding `target` with a split of `(fresh, that pane)`.
+fn split_at(
+    node: &mut shikiri::Shikiri,
+    target: WindowId,
+    axis: shikiri::Axis,
+    fresh: Window,
+) -> bool {
+    match node {
+        shikiri::Shikiri::Pane(w) if w.id == target => {
+            let existing = std::mem::replace(node, shikiri::Shikiri::Pane(fresh.clone()));
+            *node = shikiri::Shikiri::Split(shikiri::Split::new(
+                axis,
+                shikiri::Shikiri::Pane(fresh),
+                existing,
+            ));
+            true
+        }
+        shikiri::Shikiri::Pane(_) => false,
+        shikiri::Shikiri::Split(s) => s
+            .children_mut()
+            .any(|c| split_at(c, target, axis, fresh.clone())),
+    }
+}
+
+/// Remove the pane holding `id`, collapsing a split left with one child.
+fn remove(node: &mut shikiri::Shikiri, id: WindowId) -> bool {
+    let shikiri::Shikiri::Split(s) = node else {
+        return false;
+    };
+    if let Some(rest) = s.without(id) {
+        *node = rest;
+        return true;
+    }
+    let shikiri::Shikiri::Split(s) = node else {
+        return false;
+    };
+    s.children_mut().any(|c| remove(c, id))
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]

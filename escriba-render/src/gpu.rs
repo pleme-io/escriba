@@ -567,7 +567,7 @@ impl RenderCallback for GpuRenderer {
             // The SAME grid the start screen is laid out on — one estimate,
             // one status-row reservation, one place to fix either.
             let grid = cell_grid(width, height, self.font_size, self.line_height);
-            for w in &mut s.layout.windows {
+            for w in s.layout.windows_mut() {
                 w.viewport.visible_lines = u32::from(grid.rows);
                 // The full grid, NOT minus the gutter. The gutter's width
                 // depends on the buffer's line count, which `resize` has no

@@ -112,7 +112,7 @@ pub fn sync_viewport(state: &mut EditorState, width: u16, height: u16) {
     // grid, `render` reserves the gutter. Subtracting here too would take it
     // twice and clip every line short by a gutter's worth of text.
     let cols = u32::from(width);
-    for w in &mut state.layout.windows {
+    for w in state.layout.windows_mut() {
         w.viewport.visible_lines = rows;
         w.viewport.visible_columns = cols.max(1);
     }

@@ -148,7 +148,7 @@ mod tests {
         let id = bufs.scratch(text);
         let mut st = EditorState::new_with_buffer(bufs, id);
         st.dismiss_splash();
-        if let Some(w) = st.layout.windows.first_mut() {
+        if let Some(w) = st.layout.active_window_mut() {
             w.viewport.visible_lines = 20;
             w.viewport.visible_columns = 80;
         }
