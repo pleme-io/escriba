@@ -193,9 +193,8 @@ fn a_five_digit_file_widens_the_gutter_without_shifting_within_itself() {
     // one buffer paints one width — not that all buffers paint the same one.
     let big: String = (0..10_050).map(|i| format!("line {i}\n")).collect();
     let mut st = editor(&big);
-    let want = escriba_ui::gutter::gutter_width(
-        st.buffers.get(st.active).expect("buffer").line_count(),
-    );
+    let want =
+        escriba_ui::gutter::gutter_width(st.buffers.get(st.active).expect("buffer").line_count());
     assert!(
         want > escriba_ui::gutter::MIN_GUTTER_WIDTH,
         "a 10 050-line file needs more than the floor",
