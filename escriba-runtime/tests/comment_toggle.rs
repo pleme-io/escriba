@@ -16,16 +16,30 @@ use escriba_runtime::EditorState;
 
 /// An editor holding `text` in a file named `path`, with major modes applied.
 ///
-/// Each call gets its OWN directory. The first version shared one, and since
-/// several tests use `a.rs` and cargo runs tests in PARALLEL, they read each
-/// other's fixtures — two tests failed with a third's content. A shared
-/// mutable path is a race whatever the language.
+/// Each call gets its OWN directory, keyed by **process id AND counter**.
+///
+/// Both halves are load-bearing, and the second was learned the hard way
+/// twice. Several tests here use the name `a.rs`, so a shared directory is a
+/// race: the first version had one, and tests read each other's fixtures.
+/// The fix was a process-local `AtomicUsize` — which is enough under
+/// `cargo test`, where every test is a thread in ONE process, and is worth
+/// nothing under `cargo nextest`, which gives every test its own process.
+/// There the counter restarts at 0 in each one, so all of them chose
+/// directory `0` and collided on disk with no lock between them.
+///
+/// CI runs nextest. `cargo test` passing is therefore not evidence about
+/// this file — it is structurally incapable of catching the failure.
 fn editor_with(path: &str, text: &str) -> EditorState {
     use std::sync::atomic::{AtomicUsize, Ordering};
     static N: AtomicUsize = AtomicUsize::new(0);
+    let slot = format!(
+        "{}-{}",
+        std::process::id(),
+        N.fetch_add(1, Ordering::Relaxed)
+    );
     let dir = std::env::temp_dir()
         .join("escriba-comment-toggle")
-        .join(N.fetch_add(1, Ordering::Relaxed).to_string());
+        .join(slot);
     std::fs::create_dir_all(&dir).expect("scratch dir");
     let file = dir.join(path);
     std::fs::write(&file, text).expect("fixture");
