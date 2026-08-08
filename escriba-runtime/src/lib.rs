@@ -1045,6 +1045,17 @@ impl EditorState {
     /// typed home — there is no code path that advances the cursor without
     /// re-deriving the viewport from it, and no second `Position` field to
     /// fall out of sync.
+    /// Re-assert the cursor-visibility invariant against the CURRENT
+    /// viewport.
+    ///
+    /// A resize changes how much a face can show without moving the cursor,
+    /// so nothing would otherwise re-run `scroll_to_contain` — the cursor
+    /// would sit off-screen until the operator happened to move it. Every
+    /// face calls this after telling the runtime its new size.
+    pub fn refollow_cursor(&mut self) {
+        self.set_cursor(self.cursors.primary());
+    }
+
     fn set_cursor(&mut self, pos: Position) {
         let clamped = if let Some(buf) = self.buffers.get(self.active) {
             buf.clamp(pos)

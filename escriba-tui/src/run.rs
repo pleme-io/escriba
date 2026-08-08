@@ -35,7 +35,11 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
     let mut terminal =
         Terminal::new(CrosstermBackend::new(stdout())).context("opening ratatui terminal")?;
 
-    // First draw before waiting for input.
+    // Tell the runtime how much this terminal can show BEFORE the first
+    // draw, so `scroll_to_contain` is computed against the real window
+    // rather than the constructor's 40-line default.
+    let size = terminal.size()?;
+    crate::render::sync_viewport(state, size.width, size.height);
     terminal.draw(|f| draw_frame(f, state))?;
 
     loop {
@@ -52,8 +56,12 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
                         state.tick(&app_event);
                     }
                 }
-                Event::Resize(_, _) => {
-                    // ratatui auto-picks up the new size on the next draw.
+                Event::Resize(w, h) => {
+                    // ratatui picks up the new size for PAINTING on its own.
+                    // The viewport MODEL does not follow, and that is the
+                    // difference that let the cursor scroll off screen: the
+                    // editor kept believing it could show 40 lines.
+                    crate::render::sync_viewport(state, w, h);
                 }
                 Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Paste(_) => {
                     // Phase 2 routes.
@@ -61,6 +69,8 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
                 _ => {}
             }
         }
+        let size = terminal.size()?;
+        crate::render::sync_viewport(state, size.width, size.height);
         terminal.draw(|f| draw_frame(f, state))?;
     }
 }
