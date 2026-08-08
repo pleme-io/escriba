@@ -49,6 +49,10 @@ tracing         = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
+# FakeSnapshot — the alias-revival test dispatches real catalog commands
+# without standing up an EditorState.
+escriba-madoguchi = { workspace = true }
+
 # ─── persona_pty integration test (espelho guest conformance) ──────────
 # Drives the REAL escriba TUI binary on a real PTY: nix owns the forkpty
 # + termios reads, libc the TIOCSWINSZ resize injection, tempfile the
