@@ -1,18 +1,133 @@
 # The escriba backlog — an implementation plan
 
-**Status:** DESIGNED. Nothing in §V–§VI is written. Every claim marked
-VERIFIED in §VIII was checked against the source; everything else is design.
+**Status:** REVISED 2026-08-07 after a four-dimension recon, each sweep
+adversarially verified and then re-checked by hand. **§V Phases 0, 1 and 2
+have SHIPPED.** Three of this document's load-bearing premises were not
+merely stale but **false** — they named code that does not exist. §0 below
+leads with those, because a plan's premises failing is worse than its
+ambition failing, and it happened here three times.
 
 **Framing (operator instruction, 2026-08-07):** *"it doesn't matter how long
 it is, we do it piece by piece and only care about delivering quality that
 compounds — abort all care of timelines."*
 
 This document therefore carries **no schedule, no effort tier, and no cut
-line.** An earlier draft did. That draft ordered the work by cost and
-proposed deleting seven capabilities for being poor value — reasoning the
-★★★ COMPOUNDING DIRECTIVE names as the cardinal sin, and which produced a
-visibly worse plan (see §VII, where the cost framing had it exactly
-backwards). The ordering here is by **what makes the next piece safer**.
+line.** The ordering is by **what makes the next piece safer or cheaper**,
+never by what is quickest.
+
+---
+
+## 0. What this plan got wrong
+
+### 0.1 Phase 3's blocker never existed
+
+The plan said to fix `Surface::on_key`'s stringly-typed `KeyCombo` **before**
+escriba consumes egaku. **There is no `Surface` trait anywhere in egaku.**
+`FuzzyPicker::on_event` takes a typed `PickerEvent` (`egaku/src/picker.rs`),
+and `KeyCombo` appeared only in `egaku/src/keymap.rs` plus a re-export. It was
+never on the picker's path. Phase 3 carried a prerequisite that blocked
+nothing.
+
+The stringly-typed defect was real — just elsewhere. `KeyCombo` is a `HashMap`
+key that stored raw strings, so `"Ctrl"`/`"ctrl"`, `["ctrl","ctrl"]`/`["ctrl"]`
+and `"Escape"`/`"esc"` were each two unmatchable values, every miss silent.
+Fixed upstream (egaku `c502920`, `7785f9b`): both constructors canonicalise
+through `awase`, no API change.
+
+### 0.2 "Two of the five primitives are upstream extensions of egaku" — false
+
+- `egaku::Modal` is a struct of `visible: bool, title: String`. No content, no
+  keys, no z-order, no stack, no occlusion. Nothing to extend for `kasane`.
+- `egaku::SplitPane` is exactly two panes — a ratio and an orientation. No
+  tree, no nesting, no N-way. Nothing to extend for `shikiri`.
+
+**Both are net-new wherever they land.** The *(upstream: egaku)* tags are
+removed. Upstreaming the result is still right; the false discount that made
+those phases look cheap is gone.
+
+### 0.3 "egaku has no consumers" — false, and the correction inverts the risk
+
+egaku is consumed by `madori`, `moldura`, `banken`, `banken-spec` and
+`egaku-term`. What is true is narrower: **`FuzzyPicker` specifically has zero
+consumers.** Adoption risk is per-widget, not crate-wide.
+
+And the reading inverts once you see where the widgets came from: egaku's
+picker is described in its own source as the generic version of mado's
+Ctrl-S session picker, and its scroll integrator was lifted from mado too.
+**These are proven designs whose migration never happened** — not speculative
+code nobody wanted.
+
+### 0.4 The plan describes work that has already shipped
+
+Phase 0's three defects are fixed, `madoguchi` is wired and dispatching,
+`shirube` is wired with all three faces painting through it, axis-set
+freshness landed, and the `Bound` stepper moved into `memori`. The inert
+count is **78**, not 85; egaku has **247** tests, not 239.
+
+Three crates were still describing themselves as unbuilt — corrected in
+`e29f0ee`. `escriba-keymap`'s **published crates.io description** claimed it
+was "built on awase key parsing"; it has no awase dependency.
+
+### 0.5 Phase 4 mis-targeted the thing it wanted to delete
+
+`Window.rect` was dead state: six writes, **zero reads**, and its writers
+disagreed on units (pixels in the GPU path, cells elsewhere) with no reader to
+notice. It needed none of `shikiri`. **Deleted in `e29f0ee`.**
+
+The geometry the faces actually read is `Window.viewport`, whose `top_line`
+and `left_column` are **scroll position** — retained state that *cannot* be a
+pure function of `(tree, frame)`. A `solve()` that claims to own it will break
+cursor visibility on resize. Any `shikiri` design must split `Viewport` into
+derived-vs-retained first.
+
+### 0.6 The splash is the wrong first surface
+
+Phase 3 wanted to retrofit `escriba_ui::splash` onto `kasane` and delete
+`screen_chunks` because "one consumer today is precisely when that change is
+cheap". There are **three production faces** between `rows()` and
+`screen_chunks()`. And `screen_chunks` is *derived from* `rows()` — deleting
+it pushes the same flatten into two faces separately, which is the exact
+three-face drift this repo has been burned by twice. **Strike the deletion.**
+
+The splash also *replaces* the buffer pane rather than floating over it, so it
+exercises none of occlusion, z-order, or two-surfaces-claiming-one-key. A
+picker, which really does float over live text, is the honest first surface.
+
+### 0.7 What the recon could NOT verify
+
+**One of the four sweeps died** (the dimension auditing Phases 4–6 and §VIII
+systematically). Its ground was covered incidentally by the others, but **the
+remaining claims in Phases 5, 6 and §VIII have NOT had the treatment §0.1–0.6
+got.** Treat them as unaudited. Given that three of three audited premises
+were false, assume more are.
+
+---
+
+## 0.8 The load-bearing architectural answer
+
+**`madoguchi` and egaku widgets are not directly compatible, and that is
+fine.** `madoguchi` is a *command* seam: a handler reads a read-only
+`Snapshot` and returns `Outcome { slips }`. An egaku widget is a *key* seam
+needing `&mut` widget state across many presses. **A handler cannot drive a
+picker.**
+
+But this does not mean a second dispatch system. Both crates already carry the
+same pure/engine split. The picker lives on `EditorState`, is driven from
+`on_key`, and its `PickerEffect::Accepted` is lowered into a `Negai` handed to
+`interpret()` — so the *effect* still goes through the one seam.
+
+**escriba already has this exact precedent:** the start screen consumes a key
+ahead of the keymap through a total three-arm enum. A picker is the same shape
+with a wider outcome — it holds keys for many presses rather than one. Copy
+that; do not design `kasane` to get it.
+
+The real gap is vocabulary, and it is small: `Negai` has no variant for a
+floating surface, and `Snapshot` exposes no view of whether one is open. Since
+`Negai` is deliberately **not** `#[non_exhaustive]`, adding a variant fails
+`honour_one` to compile until every case is decided — the seal working in our
+favour.
+
+---
 
 ---
 
@@ -135,140 +250,51 @@ by **extending the existing `zenmai` operator-pending FSM** rather than
 adding a second pending-key mechanism. escriba is already zenmai's third
 consumer; a parallel FSM would be the duplication the directive forbids.
 
-## V. The build order
+## V. The build order (REVISED)
 
-Ordered so that each piece makes the following ones safer to build. Effort is
-deliberately absent.
+Phases 0, 1 and 2 have shipped. What follows replaces the old §V from Phase 3
+onward, and the phases are **no longer a chain** — the dependencies that
+sequenced them were largely imaginary (§0.1, §0.5).
 
-### Phase 0 — Seal the silent-failure class
+### Next — the picker, without any new primitive
 
-**Why first:** *nothing after this is verifiable without it.* Today a dead
-keybinding is indistinguishable from a working one at runtime, in two
-independent ways, and a duplicate buffer is indistinguishable from an edit.
-Every later phase's "I wired X" is unfalsifiable until dispatch can fail
-loudly.
+A working fuzzy picker is reachable **now**, needing none of `kasane`,
+`shikiri` or `denrei`. The shape:
 
-Three verified defects (`escriba-command:232`, `escriba-runtime`'s
-`run_command`, `escriba-buffer:349`):
+1. `escriba-picker` adapts `egaku::FuzzyPicker<T>` — the whole
+   `PickerEvent`/`PickerEffect` machine already exists and is tested.
+2. The picker sits on `EditorState` as `Option<…>`, exactly as `splash` does.
+3. `on_key` routes to it first when open, using the splash's precedent —
+   widened by one variant meaning *"still open, key consumed"*.
+4. `PickerEffect::Accepted` lowers to a new `Negai`, so the effect still goes
+   through the one interpreter.
 
-| Defect | Today | After |
-|---|---|---|
-| `run_action`'s `_ => Ok(())` | unknown action reports **success** | typed `CommandError::Unhandled(sym)` |
-| `let _ = self.commands.run(…)` | `NotFound` **discarded** | surfaced as a user-visible message |
-| `BufferSet::open` mints a new id always | same file twice → **two buffers, divergent undo** | `open_or_focus`; a path→id index makes duplicates unrepresentable |
+**Sources are two tiers, and the plan conflated them.** `buffers`, `commands`
+and `help` are derivable from a `Snapshot` and land now. `files`, `grep`,
+`project` and `symbols` need I/O, which is the interpreter's job — those wait
+on the courier or an interpreter-side producer. The *adapter* is shared; the
+*sources* are not one tier.
 
-**Seal:** dispatching an unresolvable action produces an observable typed
-outcome. **Done-predicate:** a new runtime companion to
-`action_resolution.rs` proves an inert action is *reported*, not silent; red
-run recorded against a deliberately unregistered name.
+**Start with `picker.buffers`** specifically: it needs no I/O at all, so it
+proves the whole path with nothing mocked. Its done-predicate is free — the
+inert ratchet in `action_resolution.rs` goes red until its entry is removed.
 
-### Phase 1 — `madoguchi` 窓口 · the dispatch seam
+### Then — `kasane`, earned rather than assumed
 
-**Why here:** it is the root. All five subsystem designs name it first, and
-the `:noh` special case is its absence made visible.
+Only once a second surface exists does a surface *abstraction* have anything
+to abstract. Build it when the picker and one other overlay both want
+z-order — not before, and not out of `egaku::Modal`, which is two fields.
 
-Behaviour reads through a capability-narrowed `Snapshot` and returns
-`Vec<Negai>`. One total interpreter applies them — **the only code in escriba
-holding `&mut EditorState`.**
+### `shikiri` — blocked on a design question, not on effort
 
-Includes corrections IV.1 (`Negai::Errand`, no `Spawn`) and IV.3
-(`Negai::AwaitKey` on zenmai). Adds the `Keymap` view on `Snapshot` that
-which-key needs and that the original design omitted.
+Before any of it: split `Viewport` into derived (`visible_lines`,
+`visible_columns`) and retained (`top_line`, `left_column`). A `solve()` that
+tries to own scroll position is wrong, and its own done-predicate
+(`scroll_to_contain` surviving resize) is what proves it.
 
-**Seal (truly-unrepresentable):** a handler bound to `(Search,)` that calls
-`.buffers()` **fails to compile**. **Done-predicate:** the `:noh` special
-case is deleted; the `INERT` ratchet moves *down* as
-`buffer.{next,prev,delete}` and `comment.toggle-*` go live.
+### `denrei` — unchanged, and still last
 
-> **Amended 2026-08-07 (M3).** The original predicate read "`apply_resolved`
-> contains zero `self.` mutations". Implementing it revealed that would force
-> a bad design: only 7 of `Action`'s 30 variants have a slip equivalent. The
-> other 23 — prompt editing, the operator-pending FSM, motion resolution, the
-> jumplist, the dot register — are the KEYMAP's vocabulary, not the AUTHORED
-> one. Forcing them into `Negai` would put `PromptClearToStart` and
-> `SearchPreviewStep` in front of every plugin author and make the capability
-> question meaningless (what capability does a caret move read?). One type
-> serving two vocabularies is the mistake.
->
-> The invariant actually worth having is **one implementation per mutation**,
-> not one vocabulary. The 7 overlapping actions lower onto the interpreter;
-> the 23 mechanics stay in the executor.
-
-### Phase 2 — `shirube` 標 · located findings
-
-**Why here:** the highest-compounding piece in the plan. Diagnostics, git
-hunks, test results, references, grep hits, TODOs and conflict sites are one
-shape. Building it second means every later producer is a *source*, not a
-subsystem.
-
-Carries correction IV.2 (axis-set freshness). Its M0 lifts `Wrapped`,
-`Landing` and the `Bound` stepper into **memori** — a fleet-level
-improvement, and it makes result navigation share one implementation with
-`n`/`N` rather than growing a second stepper.
-
-**Seal:** a finding cannot be read without its anchor matching — a stale
-result is *absent*, never *wrong*. **Done-predicate:** a producer test lands
-a delivery, an edit invalidates it, and the gutter goes empty rather than
-lying.
-
-### Phase 3 — `kasane` 重ね · floating surfaces *(upstream: egaku)*
-
-**Why here:** everything interactive from here on is a surface.
-
-Fix `Surface::on_key`'s stringly-typed `KeyCombo` **before** escriba consumes
-it — that is an upstream fix to a fleet library, per rule 5, not a shim in
-escriba. Retrofit `escriba_ui::splash` onto it and delete `screen_chunks`:
-one consumer today is precisely when that change is cheap.
-
-**Seal:** two surfaces cannot both claim one keystroke; occlusion is total
-over the stack. **Done-predicate:** deleting the route call fails a test; a
-ratatui `TestBackend` snapshot shows correct band-order occlusion.
-
-### Phase 4 — `shikiri` 仕切り · the container tree *(upstream: egaku)*
-
-**Why here — and why it is NOT cut:** the earlier cost-driven draft deferred
-this as "16 days for 4 pane actions". That was the wrong measure. `shikiri`
-is the spatial algebra that makes the file tree, the terminal pane, the
-bottom drawer, and side-by-side conflict resolution *possible at all*, and
-`solve(tree, frame)` as a pure function deletes a bug class permanently:
-geometry as stored state, which is what `Window.rect` is today.
-
-**Seal (truly-unrepresentable):** a window with no rect, a layout with no
-active window, and overlapping panes all cease to be constructible —
-`Window.rect` is **deleted**, not maintained. **Done-predicate:** toggling a
-dock twice returns `solve()` to a byte-identical layout; the
-`scroll_to_contain` cursor-visibility invariant survives resize.
-
-### Phase 5 — `denrei` 伝令 · the courier
-
-**Why here:** everything before it is synchronous and provable. Async arrives
-last, and arrives *outside* the core.
-
-The load-bearing promise is not "escriba gets async" — it is **`tick()` never
-becomes async.** It stays a pure total synchronous reducer forever; the
-supervisor lives outside `EditorState` and its only path back in is a typed,
-anchored value. That invariant is what keeps the editor testable for the rest
-of its life.
-
-Implements `ErrandKind::Process` (named but unimplemented in the original
-design) and consumes the Phase-2 axis set rather than inventing staleness.
-
-**Seal:** a reply whose anchor no longer matches is **dropped**, not applied.
-**Done-predicate:** a `deftask` runs off-thread while a PTY test types 20
-keystrokes with no dropped input; an edit *during* a format makes the reply
-drop.
-
-### Phase 6 — the subsystems
-
-Each is now a producer plus config. Ordered by what each teaches the next.
-
-| Order | Cluster | Why here | Lands |
-|---|---|---|---|
-| 6a | **Editing / structure** | the `Sintaxe` tree-sitter seam that comment, surround, fold and todo all share — plus text-objects (`ciw`/`diw`), which are *not on the 85 list* and are pure upside | comment ×2, surround ×3, todo ×2, fold ×3, snippet ×2 |
-| 6b | **Version control** | conflict markers live in buffer text, so five verbs are pure `&str` work needing no async — it proves `shirube`'s gutter before LSP depends on it | git ×9, conflict ×5, gitbrowse |
-| 6c | **Navigation / pickers** | consumes `egaku::FuzzyPicker` as a `kasane` surface; the 7 picker verbs are one adapter over different `T` | picker ×7, files ×2, tree, whichkey, buffer/pane verbs |
-| 6d | **Language intelligence** | the longest pole, but by now *only a producer into `shirube`* | lsp ×15, cmp ×2, trouble ×3, illuminate ×2 |
-| 6e | **Debug / test** | the edit-surviving anchor table generalises marks, breakpoints and hunks | dap ×7, test ×5 |
+Async arrives last and outside the core. Unaudited (§0.7).
 
 ## VI. Waves 1.5–4, placed
 
