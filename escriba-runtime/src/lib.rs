@@ -14,6 +14,14 @@ mod operator_pending;
 pub mod status;
 
 pub use operator_pending::{OpState, OperatorPending};
+
+/// What one key meant to the operator-pending object layer.
+enum ObjectKey {
+    /// Swallowed — the key began an object and nothing runs yet.
+    Consumed,
+    /// The object is complete; run this.
+    Compose(Action),
+}
 pub use status::{PromptKind, StatusModel};
 
 use std::collections::HashMap;
@@ -123,6 +131,15 @@ pub struct EditorState {
     /// action passes through it; only an operator-then-motion pair is rewritten
     /// into an [`Action::ApplyOperator`].
     op_pending: zenmai::Stateful<OperatorPending>,
+    /// Operator-pending OBJECT selection, held at the KEY layer.
+    ///
+    /// `Some(around)` means `d` + `i`/`a` have been pressed and the NEXT key
+    /// names the object. It lives here rather than in the operator FSM
+    /// because the FSM sees `Action`s and this decision needs the KEY: `a`
+    /// and every bracket are unbound in Normal, so they all arrive as
+    /// `Action::Pending` with the character already discarded. vim has a
+    /// whole operator-pending keymap for the same reason.
+    pending_object: Option<bool>,
     /// Monotonic refresh-generation stamp — the root of the sealed refresh
     /// tree (`theory/ESCRIBA.md` §Refresh-Seal). Bumped on every applied
     /// action + resize; the renderer gates on it so an idle frame does zero
@@ -834,6 +851,7 @@ impl EditorState {
             quit_requested: false,
             register: None,
             op_pending: zenmai::Stateful::new(OpState::Resting),
+            pending_object: None,
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
@@ -1327,6 +1345,95 @@ impl EditorState {
         self.bump_gen();
     }
 
+    /// Read one key as operator-pending object selection.
+    ///
+    /// Returns `None` when the key is nothing to do with objects, so the
+    /// ordinary path runs untouched.
+    fn consume_object_key(&mut self, key: Key) -> Option<ObjectKey> {
+        use escriba_core::TextObject as O;
+        let Key::Char(c) = key else {
+            // Esc (or anything non-printable) abandons a half-typed object
+            // rather than leaving the editor silently armed.
+            if self.pending_object.take().is_some() {
+                self.op_pending
+                    .dispatch((Action::ChangeMode(Mode::Normal), 1));
+                return Some(ObjectKey::Consumed);
+            }
+            return None;
+        };
+
+        // Second key: it names the object.
+        if let Some(around) = self.pending_object.take() {
+            let object = match c {
+                'w' => Some(O::Word { around }),
+                // vim's `b` and `B` aliases for the bracket pairs, plus the
+                // brackets themselves in both directions.
+                '(' | ')' | 'b' => Some(O::Delimited {
+                    open: '(',
+                    close: ')',
+                    around,
+                }),
+                '{' | '}' | 'B' => Some(O::Delimited {
+                    open: '{',
+                    close: '}',
+                    around,
+                }),
+                '[' | ']' => Some(O::Delimited {
+                    open: '[',
+                    close: ']',
+                    around,
+                }),
+                '<' | '>' => Some(O::Delimited {
+                    open: '<',
+                    close: '>',
+                    around,
+                }),
+                // Quotes: `open == close`, which is what tells the resolver
+                // not to count nesting.
+                '"' => Some(O::Delimited {
+                    open: '"',
+                    close: '"',
+                    around,
+                }),
+                '\'' => Some(O::Delimited {
+                    open: '\'',
+                    close: '\'',
+                    around,
+                }),
+                '`' => Some(O::Delimited {
+                    open: '`',
+                    close: '`',
+                    around,
+                }),
+                _ => None,
+            };
+            let OpState::Awaiting { op, count } = *self.op_pending.state() else {
+                return Some(ObjectKey::Consumed);
+            };
+            // Disarm either way: an unknown object key cancels the operator,
+            // it does not leave it armed for the next unrelated keystroke.
+            self.op_pending
+                .dispatch((Action::ChangeMode(Mode::Normal), 1));
+            let Some(object) = object else {
+                return Some(ObjectKey::Consumed);
+            };
+            let composed = Action::ApplyOperatorObject { op, object };
+            // `2diw` applies the object twice. The caller runs it once, so
+            // the extra repeats happen here.
+            for _ in 1..count {
+                self.apply(&composed);
+            }
+            return Some(ObjectKey::Compose(composed));
+        }
+
+        // First key: `i` or `a` while an operator waits.
+        if matches!(c, 'i' | 'a') && matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
+            self.pending_object = Some(c == 'a');
+            return Some(ObjectKey::Consumed);
+        }
+        None
+    }
+
     fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
         let Some(splash) = self.splash.as_ref() else {
             return SplashKey::NotShowing;
@@ -1507,6 +1614,17 @@ impl EditorState {
             SplashKey::Ran(action) => {
                 self.apply(&action);
                 return;
+            }
+        }
+        // Operator-pending OBJECT selection runs before EVERYTHING, because
+        // `di(` must not be read as `d` then `i` (insert) then `(`.
+        if let Some(action) = self.consume_object_key(*key) {
+            match action {
+                ObjectKey::Consumed => return,
+                ObjectKey::Compose(a) => {
+                    self.apply(&a);
+                    return;
+                }
             }
         }
         // Multi-key sequence resolution runs first: a key that begins or
@@ -3626,6 +3744,94 @@ mod tests {
             .map(|b| b.to_string())
             .unwrap_or_default();
         assert_eq!(got, "c\nd\n", "count applies to the doubled operator");
+    }
+
+    /// Text objects FROM THE KEYBOARD — the layer the last commit said was
+    /// missing. `i` is `ChangeMode(Insert)` in Normal and `a` and every
+    /// bracket are unbound, so all of this had to be decided on the KEY.
+
+    fn keys(text: &str, line: u32, col: u32, seq: &str) -> String {
+        let mut st = new_state_with(text);
+        st.set_cursor(Position::new(line, col));
+        for c in seq.chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        st.buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn diw_from_the_keyboard() {
+        assert_eq!(keys("one two three\n", 0, 5, "diw"), "one  three\n");
+    }
+
+    #[test]
+    fn daw_from_the_keyboard_takes_the_space() {
+        assert_eq!(keys("one two three\n", 0, 5, "daw"), "one three\n");
+    }
+
+    #[test]
+    fn ciw_deletes_and_enters_insert() {
+        let mut st = new_state_with("one two\n");
+        st.set_cursor(Position::new(0, 5));
+        for c in "ciw".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        assert_eq!(st.modal.mode(), Mode::Insert, "change leaves you inserting");
+        let got = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(got, "one \n");
+    }
+
+    #[test]
+    fn di_paren_and_da_paren_from_the_keyboard() {
+        assert_eq!(keys("f(a, b)\n", 0, 3, "di("), "f()\n");
+        assert_eq!(keys("f(a, b)\n", 0, 3, "da("), "f\n");
+    }
+
+    #[test]
+    fn the_closing_bracket_and_b_are_aliases() {
+        // vim accepts `i(`, `i)` and `ib` for the same object.
+        for sel in ["di(", "di)", "dib"] {
+            assert_eq!(keys("f(a, b)\n", 0, 3, sel), "f()\n", "{sel}");
+        }
+    }
+
+    #[test]
+    fn di_quote_from_the_keyboard() {
+        assert_eq!(keys("say \"hi\" ok\n", 0, 6, "di\""), "say \"\" ok\n");
+    }
+
+    #[test]
+    fn i_alone_still_enters_insert_when_no_operator_is_pending() {
+        // The load-bearing negative: the object layer must not steal `i`
+        // from ordinary use.
+        let mut st = new_state_with("abc\n");
+        st.tick(&press(KeyCode::Char('i')));
+        assert_eq!(st.modal.mode(), Mode::Insert);
+    }
+
+    #[test]
+    fn an_unknown_object_key_cancels_rather_than_staying_armed() {
+        // `diz` is not an object. The operator must disarm, and the buffer
+        // must be untouched — not left waiting to eat the next keystroke.
+        let mut st = new_state_with("one two\n");
+        st.set_cursor(Position::new(0, 5));
+        for c in "diz".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        let got = st
+            .buffers
+            .get(st.active)
+            .map(|b| b.to_string())
+            .unwrap_or_default();
+        assert_eq!(got, "one two\n", "nothing was deleted");
+        assert_eq!(*st.op_pending.state(), OpState::Resting, "and it disarmed");
     }
 
     fn press(kc: KeyCode) -> AppEvent {
