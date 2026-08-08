@@ -152,6 +152,38 @@ impl zenmai::Machine for OperatorPending {
             // the key (vim: `d` then a non-motion does nothing). Covers Esc
             // (ChangeMode), operator-doubling `dd` (linewise — deferred), and
             // any other key.
+            // A DOUBLED operator is linewise: `dd` / `cc` / `yy`. vim treats
+            // the repeat as "this whole line", which is why it composes to a
+            // `Line` OBJECT rather than to a motion — no cursor-to-target
+            // range expresses "this line and its terminator" without
+            // special-casing the last line, and the object resolver owns
+            // that case.
+            //
+            // Counts multiply as everywhere else, so `2dd` deletes two lines
+            // by applying the object twice.
+            (
+                OpState::Awaiting {
+                    op,
+                    count: op_count,
+                },
+                Action::Operator(op2),
+            ) if *op == op2 => (
+                OpState::Resting,
+                vec![(
+                    Action::ApplyOperatorObject {
+                        op: *op,
+                        object: escriba_core::TextObject::Line,
+                    },
+                    op_count.saturating_mul(count).max(1),
+                )],
+            ),
+
+            // A DIFFERENT operator replaces the pending one rather than
+            // cancelling both — `dc` is a typo for `cc`, and vim re-arms.
+            (OpState::Awaiting { .. }, Action::Operator(op2)) => {
+                (OpState::Awaiting { op: op2, count }, vec![])
+            }
+
             (OpState::Awaiting { .. }, _) => (OpState::Resting, vec![]),
         }
     }
@@ -269,8 +301,10 @@ mod tests {
     }
 
     #[test]
-    fn inert_on_a_doubled_operator_dd_deferred() {
-        // `dd` (linewise) is deferred — a second operator cancels for now.
+    fn a_doubled_operator_is_linewise() {
+        // `dd`. This test used to assert the opposite — that a second
+        // operator CANCELLED — which was an accurate record of a deferral,
+        // not a rule. Composing to a `Line` object is the rule.
         let (s, fx) = OperatorPending::step(
             &OpState::Awaiting {
                 op: Operator::Delete,
@@ -279,6 +313,50 @@ mod tests {
             (Action::Operator(Operator::Delete), 1),
         );
         assert_eq!(s, OpState::Resting);
-        assert!(fx.is_empty());
+        assert_eq!(
+            fx,
+            vec![(
+                Action::ApplyOperatorObject {
+                    op: Operator::Delete,
+                    object: escriba_core::TextObject::Line
+                },
+                1
+            )]
+        );
+    }
+
+    #[test]
+    fn a_doubled_operator_multiplies_its_counts() {
+        // `2dd` and `d2d` both mean two lines, and `2d2d` means four —
+        // the same multiplication every other composition uses.
+        let (_, fx) = OperatorPending::step(
+            &OpState::Awaiting {
+                op: Operator::Delete,
+                count: 2,
+            },
+            (Action::Operator(Operator::Delete), 2),
+        );
+        assert_eq!(fx.first().map(|(_, n)| *n), Some(4));
+    }
+
+    #[test]
+    fn a_different_operator_re_arms_rather_than_cancelling() {
+        // `dc` is a typo for `cc`; vim leaves the machine armed on the NEW
+        // operator rather than dropping both keys on the floor.
+        let (s, fx) = OperatorPending::step(
+            &OpState::Awaiting {
+                op: Operator::Delete,
+                count: 1,
+            },
+            (Action::Operator(Operator::Change), 1),
+        );
+        assert_eq!(
+            s,
+            OpState::Awaiting {
+                op: Operator::Change,
+                count: 1
+            }
+        );
+        assert!(fx.is_empty(), "re-arming runs nothing yet");
     }
 }

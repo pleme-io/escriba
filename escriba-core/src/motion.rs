@@ -152,4 +152,27 @@ pub enum TextObject {
     NextMatch,
     /// `gN` — the previous search match at or before the cursor.
     PrevMatch,
+    /// `dd` / `cc` / `yy` — the current line, LINEWISE.
+    ///
+    /// A doubled operator in vim acts on whole lines, trailing newline
+    /// included, which is why this is an object rather than a motion: there
+    /// is no cursor-to-target range that expresses "this line and its
+    /// terminator" without special-casing the last line.
+    Line,
+    /// `iw` / `aw` — the word under the cursor.
+    ///
+    /// `around: true` takes the trailing run of whitespace as well, which is
+    /// the whole difference vim draws between `diw` and `daw`.
+    Word { around: bool },
+    /// `i(` `a{` `i"` … — the region between a matched pair.
+    ///
+    /// One variant covers brackets and quotes because the only thing that
+    /// differs is whether the delimiters nest; carrying `open`/`close`
+    /// separately lets a quote say `open == close` instead of needing its
+    /// own arm.
+    Delimited {
+        open: char,
+        close: char,
+        around: bool,
+    },
 }
