@@ -1435,12 +1435,12 @@ fn an_ex_command_still_uses_the_minibuffer() {
 
 #[test]
 fn the_delete_key_removes_the_character_at_the_prompt_caret() {
-    // `<Del>` was documented on `Action::PromptDelete` and implemented in the
+    // `<Del>` was documented on `Action::DeleteForward` and implemented in the
     // runtime, but `escriba-input` dropped `KeyCode::Delete` in the same arm as
     // `F(_)` and `Unknown`, and there was no `Key::Delete` to translate into —
     // so the action was unreachable from any key.
     //
-    // Caret 0 is what makes this a test of PromptDelete rather than of
+    // Caret 0 is what makes this a test of DeleteForward rather than of
     // Backspace: at caret 0 backspace is a no-op by design, so only a working
     // forward-delete can turn `charlie` into `harlie`.
     let mut st = state();

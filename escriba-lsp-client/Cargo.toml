@@ -18,7 +18,12 @@ escriba-madoguchi = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
 thiserror      = { workspace = true }
-tokio          = { workspace = true }
+# `time` is a LIB dependency, not a test one: `runner.rs` arms a
+# `tokio::time::sleep` deadline so a server that never answers fails typed
+# instead of hanging the courier. It used to be dev-only, which built green
+# under `cargo test --workspace` (dev-dep features unify) and broke
+# `cargo build -p escriba`.
+tokio          = { workspace = true, features = ["time"] }
 tracing        = { workspace = true }
 zahyou         = { workspace = true }
 

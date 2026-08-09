@@ -115,13 +115,21 @@ pub enum Action {
     JumpBack,
     /// `<C-i>` — walk forward again after [`Action::JumpBack`].
     JumpForward,
-    /// Backspace inside a command-line or search prompt.
+    /// `<BS>` — delete the character BEFORE the caret, wherever the caret is.
     ///
-    /// Key::Backspace was previously bound in NO mode, so the minibuffer could
-    /// be typed into but never corrected — a typo meant Esc and start again.
-    /// One action serves both prompts; the runtime routes it by whether a
-    /// search prompt is open.
-    PromptBackspace,
+    /// ONE action, three targets, routed by the runtime: the search prompt,
+    /// the ex command-line, or the buffer in Insert mode. It is deliberately
+    /// not three actions — a face binding `<BS>` should not have to know which
+    /// of the three the operator is currently typing into, and the routing
+    /// question ("is a prompt open?") is already answered by typed state the
+    /// runtime owns.
+    ///
+    /// Named `PromptBackspace` until 2026-08-09, when the Insert-mode target
+    /// landed. The old name was the honest one while the buffer arm did not
+    /// exist — `text_effect` below already described the buffer arm as though
+    /// it did, which is how it went unnoticed that Insert mode had NO way to
+    /// erase a character.
+    Backspace,
 
     /// Move the caret inside an open prompt (`←` `→` `Home` `End`).
     ///
@@ -139,8 +147,13 @@ pub enum Action {
     SearchPreviewStep {
         forward: bool,
     },
-    /// `<Del>` — delete the character AT the prompt caret.
-    PromptDelete,
+    /// `<Del>` — delete the character AT the caret, wherever the caret is.
+    ///
+    /// The forward-delete sibling of [`Action::Backspace`], routed the same
+    /// way. Never closes a prompt: emptying the text by deleting rightwards is
+    /// not the "backspaced past the `/`" gesture that means "I changed my
+    /// mind".
+    DeleteForward,
     /// `<C-w>` — delete the word before the prompt caret.
     PromptDeleteWord,
     /// `<C-u>` — delete from the prompt caret back to the start.
@@ -204,10 +217,13 @@ impl Action {
     /// the direction that produces a stale-cache bug rather than a slow one.
     ///
     /// Deliberately CONSERVATIVE where a variant's reach is open-ended:
-    /// `Command`/`SubmitCommand` can run an ex-command that edits, and the
-    /// keymap's `PromptBackspace` doubles as the buffer Backspace outside a
-    /// prompt. Over-reporting costs one extra scan; under-reporting paints
-    /// the wrong columns, so the asymmetry decides the doubtful cases.
+    /// `Command`/`SubmitCommand` can run an ex-command that edits. It is not
+    /// conservative for `Backspace`/`DeleteForward` — those genuinely edit the
+    /// buffer outside a prompt. This paragraph claimed they did for months
+    /// before the Insert-mode arm was written; the classifier was right about
+    /// the design and the executor had simply never implemented it.
+    /// Over-reporting costs one extra scan; under-reporting paints the wrong
+    /// columns, so the asymmetry decides the genuinely doubtful cases.
     #[must_use]
     pub const fn text_effect(&self) -> TextEffect {
         match self {
@@ -217,8 +233,8 @@ impl Action {
             | Self::ApplyOperatorObject { .. }
             | Self::Undo
             | Self::Redo
-            | Self::PromptBackspace
-            | Self::PromptDelete
+            | Self::Backspace
+            | Self::DeleteForward
             | Self::PromptDeleteWord
             | Self::PromptClearToStart
             | Self::TextObject(_)
@@ -282,9 +298,9 @@ impl Action {
             | Self::TextObject(_)
             | Self::SearchPreviewStep { .. }
             | Self::PromptHistory { .. }
-            | Self::PromptBackspace
+            | Self::Backspace
             | Self::PromptCaret { .. }
-            | Self::PromptDelete
+            | Self::DeleteForward
             | Self::PromptDeleteWord
             | Self::PromptClearToStart
             | Self::InsertChar(_)
@@ -352,7 +368,7 @@ impl Action {
     ///
     /// **Total over `Action` — no wildcard arm**, and that totality is the
     /// whole point. The machine originally listed the prompt actions inline;
-    /// when `PromptCaret`, `PromptDelete`, `PromptDeleteWord`,
+    /// when `PromptCaret`, `DeleteForward`, `PromptDeleteWord`,
     /// `PromptClearToStart` and `SearchPreviewStep` were added later, none was
     /// added to that list, so pressing `←` or `<C-g>` midway through `d/foo`
     /// silently disarmed the operator — reintroducing exactly the defect the
@@ -362,10 +378,10 @@ impl Action {
     pub const fn edits_prompt(&self) -> bool {
         match self {
             Self::InsertChar(_)
-            | Self::PromptBackspace
+            | Self::Backspace
             | Self::PromptHistory { .. }
             | Self::PromptCaret { .. }
-            | Self::PromptDelete
+            | Self::DeleteForward
             | Self::PromptDeleteWord
             | Self::PromptClearToStart
             | Self::SearchPreviewStep { .. } => true,

@@ -22,6 +22,9 @@ hikari-core     = { workspace = true }
 escriba-shirube = { workspace = true }
 escriba-madoguchi = { workspace = true }
 escriba-keymap  = { workspace = true }
+# The ONE madori-event -> Key translation, shared with the GPU face. Depending
+# on it is what makes "the two faces disagree about a key" unconstructible.
+escriba-input   = { workspace = true }
 madori          = { workspace = true }
 # Vellum fleet theme — TUI chrome reads BORN ishou tokens. (Inherits
 # the workspace `wgpu` feature; the TUI uses only the pure-data

@@ -23,6 +23,6 @@ pub mod keys;
 pub mod render;
 pub mod run;
 
-pub use keys::translate_crossterm_key;
+pub use keys::{crossterm_key_event, translate_crossterm_key};
 pub use render::draw_frame;
 pub use run::run;

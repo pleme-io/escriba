@@ -297,6 +297,40 @@ impl Keymap {
             Action::ChangeMode(Mode::Normal),
             "to normal",
         );
+        // ── Insert-mode editing ───────────────────────────────────────
+        // Until 2026-08-09 `Esc` above was the ONLY Insert-mode binding, and
+        // `dispatch` short-circuits `Key::Char` + `Key::Enter` before the
+        // table is consulted — so every key below fell through to
+        // `Action::Pending` and did nothing. Insert mode could be typed into
+        // and never corrected: no erase, no caret movement. The keys were not
+        // "unimplemented", they were unbound; `Action::Backspace`'s executor
+        // had been waiting for a caller.
+        m.bind(
+            Mode::Insert,
+            Key::Backspace,
+            Action::Backspace,
+            "erase one char",
+        );
+        m.bind(
+            Mode::Insert,
+            Key::Delete,
+            Action::DeleteForward,
+            "delete char at caret",
+        );
+        // Arrows in Insert are vi-compatible (vim's `esckeys`) and are what
+        // "edit it" means to anyone who did not grow up on hjkl. They reuse
+        // the ordinary motions, so the cursor-clamp + viewport-follow
+        // invariants come along unchanged.
+        for (key, motion, label) in [
+            (Key::Left, Motion::Left, "caret left"),
+            (Key::Right, Motion::Right, "caret right"),
+            (Key::Up, Motion::Up, "caret up"),
+            (Key::Down, Motion::Down, "caret down"),
+            (Key::Home, Motion::LineStart, "caret to line start"),
+            (Key::End, Motion::LineEnd, "caret to line end"),
+        ] {
+            m.bind(Mode::Insert, key, Action::Move(motion), label);
+        }
         m.bind(
             Mode::Command,
             Key::Esc,
@@ -319,13 +353,13 @@ impl Keymap {
         m.bind(
             Mode::Command,
             Key::Backspace,
-            Action::PromptBackspace,
+            Action::Backspace,
             "erase one char",
         );
         m.bind(
             Mode::Command,
             Key::Delete,
-            Action::PromptDelete,
+            Action::DeleteForward,
             "delete char at caret",
         );
         // Caret editing inside the prompt. Without these the prompt is

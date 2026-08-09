@@ -131,6 +131,25 @@ impl StatusModel<'_> {
         }
     }
 
+    /// Where the caret sits INSIDE the string [`Self::render_prompt_into`]
+    /// writes, in columns. `None` when no prompt is open.
+    ///
+    /// This was a sentence in `prompt_caret`'s doc comment — "a face draws its
+    /// cursor at `sigil_width + prompt_caret`" — for as long as no face did.
+    /// The caret moved, `<C-w>` fired, `Home` jumped, and the screen showed
+    /// none of it, so mid-pattern editing was blind: the model was fully
+    /// correct and the operator could not see any of it. A sentence cannot be
+    /// called; a method can.
+    #[must_use]
+    pub const fn prompt_caret_offset(self) -> Option<usize> {
+        // Every sigil is one column wide (`/`, `?`, `:`), and `sigil()` is
+        // total over `PromptKind` — a wide one cannot arrive unnoticed.
+        match self.prompt.sigil() {
+            Some(_) => Some(1 + self.prompt_caret),
+            None => None,
+        }
+    }
+
     /// Render the whole line the way a plain-text face wants it:
     /// `-- NORMAL --  3:1  [2/7]  /foo` with the message last.
     ///

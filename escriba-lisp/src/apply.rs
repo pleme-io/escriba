@@ -516,6 +516,14 @@ pub fn resolve_action(name: &str) -> (Action, bool) {
         "search-next" => (Action::SearchRepeat { reverse: false }, false),
         "search-prev" => (Action::SearchRepeat { reverse: true }, false),
 
+        // ── Erasing ────────────────────────────────────────────────
+        // One action per direction, not one per target: the runtime routes
+        // each to the search prompt, the ex line, or the buffer by which is
+        // open. An rc that binds `<C-h>` to "backspace" therefore gets the
+        // right thing in all three without saying which.
+        "backspace" => (Action::Backspace, false),
+        "delete-forward" => (Action::DeleteForward, false),
+
         // ── Editor-wide actions ────────────────────────────────────
         "undo" => (Action::Undo, false),
         "redo" => (Action::Redo, false),
