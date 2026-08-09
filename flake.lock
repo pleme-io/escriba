@@ -1814,11 +1814,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786173324,
-        "narHash": "sha256-6evWPpsgOeTakCebLBLH2ZuOAAggijXf6ChAI3yQAuQ=",
+        "lastModified": 1786270889,
+        "narHash": "sha256-oBJ0gUcXiavUIWvrl723q4DKkDyMxwQ3YoLOj+y89Nk=",
         "owner": "pleme-io",
         "repo": "madori",
-        "rev": "67b6cb8210a9ed05e20f725e9008dcb5f9341a3e",
+        "rev": "054a67635c30637bd7d6113b94c8ae878ed2f06a",
         "type": "github"
       },
       "original": {
