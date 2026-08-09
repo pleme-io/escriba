@@ -14,6 +14,7 @@ extern crate self as escriba_lsp_client;
 pub mod conn;
 pub mod findings;
 pub mod pending;
+pub mod runner;
 pub mod wire;
 
 /// Byte offsets ↔ LSP positions, from [`zahyou`].

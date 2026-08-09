@@ -231,6 +231,23 @@ struct EvalArgs {
 /// Public entry point — both `escriba` and `escriba-gpu` binaries
 /// call this. The GPU sibling just sets `ESCRIBA_RENDER=gpu` before
 /// invoking.
+/// Who carries each class of courier work.
+///
+/// One place, one answer per class, and the compiler insists on all three:
+/// `Crew` is a struct rather than a map precisely so a new `Freight` variant
+/// cannot ship without somebody deciding who runs it.
+///
+/// `Format` is still idle. A formatter runner needs a bounded child process —
+/// a deadline that actually kills, not one that stops listening — and shipping
+/// it without that would be a "cancellation" that cancels nothing.
+fn courier_crew() -> escriba_madoguchi::errand::Crew {
+    escriba_madoguchi::errand::Crew {
+        scan: Box::new(escriba_runtime::scan::ScanRunner),
+        diagnostics: Box::new(escriba_lsp_client::runner::LspRunner::default()),
+        format: Box::new(escriba_madoguchi::errand::Idle("no formatter runner yet")),
+    }
+}
+
 pub fn run() -> Result<()> {
     init_tracing();
     let args = Args::parse();
@@ -327,7 +344,14 @@ pub fn run() -> Result<()> {
     // Build the initial state, then apply the plan to its keymap so
     // `defkeybind` forms have the chance to override vim defaults
     // before the first frame renders.
+    //
+    // Hiring the crew is a separate step from constructing the state, and this
+    // is the only place it can happen: `escriba-runtime` cannot NAME the LSP
+    // runner without gaining a path to tokio, and keeping that path out of the
+    // interpreter is the whole point of the arrangement. The binary can see
+    // both halves, so the binary assembles them.
     let mut state = EditorState::new_with_buffer(buffers, active_id);
+    state.hire(courier_crew());
     // Register `defcmd` forms into the live command registry FIRST, so
     // the deferred-keybind dispatch path (`Action::Command { name }`)
     // that the keymap apply produces has real commands to resolve

@@ -11,6 +11,10 @@ authors      .workspace = true
 [dependencies]
 escriba-core   = { workspace = true }
 escriba-shirube = { workspace = true }
+# The courier trait + Freight/Parcel. madoguchi deps are core/buffer/shirube/
+# search — it names nothing here, so the arrow is acyclic and tokio stays on
+# this side of it.
+escriba-madoguchi = { workspace = true }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
 thiserror      = { workspace = true }

@@ -777,7 +777,10 @@ impl EditorState {
                 }
             }
             Negai::OpenPath(path) => match self.buffers.open(&path) {
-                Ok(id) => self.active = id,
+                Ok(id) => {
+                    self.active = id;
+                    self.ask_for_diagnostics(id);
+                }
                 Err(e) => self.messages.push(e.to_string()),
             },
             Negai::CloseBuffer(id) => self.close_buffer(id),
@@ -1126,6 +1129,32 @@ impl EditorState {
     /// picker is up it owns every key, including ones it has no meaning for.
     /// An overlay that let unknown keys fall through would edit the file
     /// behind itself.
+    /// Ask the courier what a language server thinks of this buffer.
+    ///
+    /// Fires on open, and only on open. Re-asking on every keystroke is what a
+    /// real diagnostics pump does, and it needs a session that outlives one
+    /// errand plus `didChange` to keep the server's copy current — neither
+    /// exists yet, and dispatching per keystroke against a one-shot runner
+    /// would spawn a language server per character typed.
+    ///
+    /// A buffer with no path is skipped: a scratch buffer has no document for
+    /// a server to have an opinion about.
+    fn ask_for_diagnostics(&mut self, buffer: escriba_core::BufferId) {
+        let Some(b) = self.buffers.get(buffer) else {
+            return;
+        };
+        let Some(path) = b.path.clone() else {
+            return;
+        };
+        let freight = escriba_madoguchi::errand::Freight::Diagnostics {
+            buffer,
+            path,
+            text: b.to_string(),
+        };
+        let anchor = self.seal(&freight);
+        self.courier.send(freight, anchor);
+    }
+
     /// Close the picker — the SOLE writer of `self.picker = None`.
     ///
     /// Sole on purpose. Closing has three consequences that must not come
