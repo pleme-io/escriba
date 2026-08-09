@@ -265,6 +265,38 @@ a typo must not overwrite what you yanked), and it does not resolve
 through `Motion::Left`/`Right` (those saturate at the line edge, so
 column 0 would stop dead instead of joining the line above).
 
+**The bigger erases followed the same afternoon.** `<BS>`/`<Del>` landed
+first and `<C-w>`/`<C-u>`/`<C-h>` were left behind, so Insert mode could
+erase one character at a time and nothing larger — a mistyped word had to
+be dismantled letter by letter. `Action::PromptDeleteWord`/
+`PromptClearToStart` are now `DeleteWordBefore`/`DeleteToLineStart`, same
+one-action-three-targets shape (`:action "delete-word-before"` /
+`"delete-to-line-start"`), and all three backward erases share ONE
+`erase_back_to(target)` body so the no-register-capture and
+viewport-follow properties are stated once rather than three times.
+`<C-w>` reaches back over `Motion::WordStartPrev` — the SAME resolver the
+cursor move and the operator range stand on — so `<C-w>` and `db` agree on
+where a word starts by construction. Two shape details: `word_prev` is
+single-line and returns the cursor unchanged at column 0, so `<C-w>` falls
+through to `delete_before_cursor` there (vim erases the line break);
+`<C-u>` is two-step, stopping at the first non-blank before taking the
+indent, because collapsing it to "always column 0" destroys alignment on
+the press the hands actually reach for.
+
+**The trap: a bundled caixa can shadow a core verb, and only the composite
+plan shows it.** `<C-h>` was bound in `Keymap::default_vim()`, the unit
+tests were green, `--keymap` printed it correctly — and pressing it in a
+real editor did nothing. `escriba-luasnip`'s catalog entry bound `<C-h>`
+to `snippet.jump-prev`, the shipped plan is applied ON TOP of the default
+keymap, and `note_collisions` records a `Displaced` and binds anyway (an
+rc IS allowed to override a default). The snippet engine is not wired, so
+`<C-h>` traded a working erase key for a dead one. Every test in the repo
+that touches keys reads `Keymap::default_vim()`, which was correct;
+`escriba/tests/insert_erase_survives_defaults.rs` is the first to build
+the keymap the BINARY boots with, and it fails the build if any caixa
+takes an erase verb again. jump-prev moved to `<C-b>`. Found by driving
+the real TUI in a pane and looking at the screen, not by reading code.
+
 ## One key translation per face, not two (2026-08-09, fixed)
 
 `escriba-tui` carried its own crossterm→`Key` match in `keys.rs` while
