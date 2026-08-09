@@ -241,6 +241,96 @@ does not exist: with one operation there is only ever one yank.
 structural), named registers (`"ay`), and objects that span lines (the
 bracket scan is single-line today).
 
+## `:wq` was not a command name — it was a spelling nobody parsed (2026-08-09, fixed)
+
+`:w` saved and `:q` quit, and `:wq` said "command not found". The ex line was
+resolved by a three-arm `match` at the bottom of `escriba-runtime`
+(`"w" => "save"`, `"q" => "quit"`, `"u" => "undo"`) and everything else fell
+through to a registry lookup — so there was nowhere for a *compound* spelling,
+an abbreviation, or a `!` to be known. **The two halves were each provably
+fine and the pair was broken.**
+
+The grammar is now a TABLE in `escriba_command::ex`: full name + minimum
+prefix + the registry command for the plain and the banged form, which is vim's
+`:q[uit]` notation made executable. `:w :wr :writ :write :wq :wq! :wa :wall
+:wqa :wqall :x :xit :xa :xall :exi :exit :q :qu :quit :q! :qa :qall :quita
+:quitall :u :red` all resolve; a word the table does not know passes through
+**unchanged** so `:noh`, `:picker.files` and every plugin command still
+dispatch — the grammar covers the vim vocabulary, it does not fence the
+namespace.
+
+Two properties are asserted rather than asserted-to, over the whole table
+rather than a sample: **every prefix from a verb's minimum to its full
+spelling resolves to it**, and **no spelling is ambiguous**. The second is a
+property of the MINIMUMS and is exactly why `quitall`'s is five characters —
+without it `:q` would be ambiguous and `resolve` would silently pick whichever
+came first in the table.
+
+**One registered command per distinct BEHAVIOUR, many spellings.** `plain` and
+`forced` are two command names (`quit` / `quit!`), not one name plus a bang
+argument: a body receives `&[String]` and nothing else, so a bang-as-argument
+is a convention every body must remember to read, and the one that forgets
+quits without asking.
+
+**The bang now means something, which is a behaviour change.** `:q` on a
+modified buffer declines with vim's E37 and `:q!` overrides; before, the two
+were the same keystroke sequence at different lengths and the editor discarded
+unsaved work silently. `:wq` on an unnamed buffer declines with E32 rather than
+exiting as though it had written. `:x` writes only when modified — the mtime
+difference is the whole point of it existing next to `:wq`.
+
+**What wiring it surfaced: the TUI status line never drew `model.message`.**
+E37, E486, E35, "command not found" — every refusal the editor made was silent
+in the DEFAULT face, while the text face and every unit test saw it.
+`action_dispatch.rs` asserts the message reaches the MODEL and stayed green
+throughout. Same shape as the `: COMMAND` bug above: the model right, the
+report missing. Tier-honest: the message persists until another replaces it,
+because `EditorState::messages` is also the `:messages` log and there is
+nothing to clear without losing the log — both other faces behave the same
+way.
+
+## `w` walked off the end of the text, and `e` was `w` under another name (2026-08-09, fixed)
+
+Three defects, one report. All three are pinned in
+`escriba-runtime/tests/word_motions.rs`.
+
+- **The cursor rested past the last character.** `w` onto the final word
+  landed one column past it. The POSITION was right — it is the exclusive end
+  an operator needs, and `dw` on the last word must delete the whole word — so
+  the fix is the *cursor's* rule, not the motion's: **in Normal mode the cursor
+  sits ON a character.** It lives in `place_cursor`, the single cursor-mutation
+  path, so `$`, `x` at end of line and every future forward motion inherit it,
+  while `resolve_motion` stays pure and the operator range is untouched.
+  `Buffer::clamp` could not make this call: it answers "is this position inside
+  the text", which is a question about the BUFFER, and one-past-the-end
+  legitimately is.
+- **An edit's advance is not a rest.** The clamp took a `CursorRest` parameter
+  the same afternoon it was written, because the lisp `(insert …)` effect runs
+  in NORMAL mode: clamping its advance back onto the last character makes the
+  next `(insert …)` land *inside* the text just written. `OnCharacter` is a
+  motion's destination; `AtInsertPoint` is where the next character goes.
+- **`w` split words on whitespace alone.** `object_word` had grown vim's three
+  classes (word / punct / space) while the MOTIONS had not, so `diw` on
+  `foo.bar` took `foo` and `dw` took `foo.bar` — two answers from one editor on
+  the same text. One `word_class` now; `b` is class-aware too, or `dw` and `db`
+  would disagree about where the same word begins. `w` also crosses onto the
+  next line's first non-blank rather than column 0, and stops on an empty line
+  the way vim does.
+- **`Motion::WordEndNext` resolved through `word_next`** — `e` and `w` were the
+  same function with two names. `e` is now its own resolver and is bound.
+  It is also vim's first INCLUSIVE motion (`Motion::is_inclusive`), widened to
+  an exclusive end at the OPERATOR and never in the resolver: `e` must land ON
+  the character and `de` must delete THROUGH it. Getting that backwards leaves
+  exactly one letter behind.
+
+**The phantom trailing line is a real defect and is NOT fixed.** A file ending
+in `\n` is one line plus a terminator, but the rope reports two lines and the
+second gets a gutter number in every face — `--render=text` on `hello world\n`
+draws a line 2. The word motions stop at `last_text_line` so they no longer
+walk the cursor onto it, which is a claim about the motions ("there is no next
+word after the last character") and not a fix for the row being drawn. Hiding
+it is a buffer-model change with a much wider blast radius.
+
 ## Insert mode could be typed into but not corrected (2026-08-09, fixed)
 
 `Esc` was the ONLY binding `Mode::Insert` had, and `Keymap::dispatch`
