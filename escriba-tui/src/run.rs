@@ -46,6 +46,13 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
         if state.quit_requested {
             return Ok(());
         }
+        // Courier replies first, before any input is read.
+        //
+        // Not hung off the input path on purpose: `event::poll` returning
+        // false — every quiet moment, which is most of a scan — skips the
+        // whole match arm below, so a drain in there would only run when
+        // the operator happened to be typing.
+        state.deliver();
         if event::poll(Duration::from_millis(200))? {
             match event::read()? {
                 Event::Key(ke) if ke.kind == KeyEventKind::Press => {

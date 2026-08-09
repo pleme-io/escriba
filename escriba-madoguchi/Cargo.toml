@@ -15,6 +15,9 @@ escriba-buffer = { workspace = true }
 # Findings are a slip payload; shirube depends on core/buffer/memori only,
 # so there is no cycle.
 escriba-shirube = { workspace = true }
+# `CaseMode` on `Freight::Scan`. escriba-search deps are serde/schemars/thiserror/
+# memori/regex — it names no crate above this one, so the arrow stays acyclic.
+escriba-search = { workspace = true }
 
 [lints]
 workspace = true

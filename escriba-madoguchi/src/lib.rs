@@ -103,10 +103,12 @@
 extern crate self as escriba_madoguchi;
 
 pub mod cap;
+pub mod errand;
 pub mod negai;
 pub mod outcome;
 pub mod snapshot;
 
+pub use errand::{Crew, Errand, Freight, Idle, Parcel, Runner};
 pub use negai::{Continuation, ErrandId, Negai, PickerSource, Register};
 pub use outcome::{Outcome, Verdict};
 pub use snapshot::{
@@ -256,7 +258,14 @@ mod tests {
 
         // Both suspending variants must answer as one class, or an
         // interpreter treating them as fire-and-forget drops the resume.
-        assert!(Negai::Errand(ErrandId(1)).suspends());
+        assert!(
+            Negai::Errand(Box::new(errand::Freight::Scan {
+                raw: "x".into(),
+                case: escriba_search::CaseMode::Smart,
+                root: ".".into(),
+            }))
+            .suspends()
+        );
         assert!(
             Negai::AwaitKey {
                 then: Continuation::new("surround.add")

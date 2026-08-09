@@ -7,6 +7,7 @@
 
 extern crate self as escriba_runtime;
 
+mod courier;
 mod plugin_host;
 pub use plugin_host::{LazyTrigger, PluginHost};
 
@@ -186,8 +187,15 @@ pub struct EditorState {
     /// world can move is emitted unconditionally, so a producer anchoring on
     /// one is not born permanently stale.
     index_rev: escriba_shirube::IndexRev,
-    /// The external-session generation (LSP restart, debug session, test run).
-    session_gen: escriba_shirube::SessionGen,
+    /// The language-server generation — bumped when a server restarts.
+    lsp_gen: escriba_shirube::SessionGen,
+    /// The filesystem-scan generation — bumped when a surface a scan feeds
+    /// opens or closes, which is what supersedes an in-flight scan.
+    scan_gen: escriba_shirube::SessionGen,
+    /// Work handed off the editor thread. Inert until the composition root
+    /// hires a crew, so every existing `EditorState::new*` call site is
+    /// unchanged and the editor is fully usable with no runners at all.
+    courier: courier::Courier,
     /// Extension → language facts, populated from `(defmode …)`.
     ///
     /// The consumer `:commentstring` never had. Public so the binary's apply
@@ -387,7 +395,18 @@ impl EditorState {
         // "unchanged", which is exactly right for a plane escriba does not
         // track yet.
         a = a.on(escriba_shirube::Axis::Index(self.index_rev));
-        a.on(escriba_shirube::Axis::Session(self.session_gen))
+        // Both session kinds, unconditionally, for the reason above: a
+        // producer anchoring on either must get an honest answer rather than
+        // permanent staleness. They are separate axes because they move
+        // independently — a picker closing must not invalidate diagnostics.
+        a = a.on(escriba_shirube::Axis::Session(
+            escriba_shirube::SessionKind::Lsp,
+            self.lsp_gen,
+        ));
+        a.on(escriba_shirube::Axis::Session(
+            escriba_shirube::SessionKind::Scan,
+            self.scan_gen,
+        ))
     }
 
     /// Where the cursor is, WITH the buffer it is in.
@@ -424,10 +443,110 @@ impl EditorState {
         self.index_rev = escriba_shirube::IndexRev(self.index_rev.0.wrapping_add(1));
     }
 
-    /// Advance the external-session generation — LSP restart, debug session,
-    /// test-runner invocation. See [`bump_index_rev`](Self::bump_index_rev).
-    pub fn bump_session_gen(&mut self) {
-        self.session_gen = escriba_shirube::SessionGen(self.session_gen.0.wrapping_add(1));
+    /// Advance the language-server generation — a server restarted, so every
+    /// diagnostic it produced describes a conversation that no longer exists.
+    /// See [`bump_index_rev`](Self::bump_index_rev).
+    pub fn bump_lsp_gen(&mut self) {
+        self.lsp_gen = escriba_shirube::SessionGen(self.lsp_gen.0.wrapping_add(1));
+    }
+
+    /// Advance the filesystem-scan generation.
+    ///
+    /// This is what makes a superseded scan's rows stale. A scan runs on its
+    /// own thread and cannot be stopped mid-walk; bumping this means its
+    /// remaining batches are *ignored on arrival*, which is a reply filter, not
+    /// cancellation — the thread keeps going until it notices. Say the weaker
+    /// thing, because the stronger one is not true.
+    ///
+    /// Deliberately separate from [`bump_lsp_gen`](Self::bump_lsp_gen): they
+    /// move for unrelated reasons, and when they shared one axis, closing a
+    /// picker staled every diagnostic in the gutter.
+    pub fn bump_scan_gen(&mut self) {
+        self.scan_gen = escriba_shirube::SessionGen(self.scan_gen.0.wrapping_add(1));
+    }
+
+    /// Install the courier's runners. Called once, by the composition root.
+    pub fn hire(&mut self, crew: escriba_madoguchi::errand::Crew) {
+        self.courier.hire(crew);
+    }
+
+    /// What an errand of this class depends on — the ONE place a courier
+    /// anchor is minted.
+    ///
+    /// A total match, so a new [`Freight`](escriba_madoguchi::errand::Freight)
+    /// variant does not compile until somebody decides what makes its results
+    /// stale. That is the point: the failure this prevents is not a wrong
+    /// answer, it is an errand class shipping with no freshness rule at all and
+    /// nobody noticing, because "no rule" reads at runtime as "always fresh".
+    ///
+    /// The return type forbids the empty anchor by construction — see
+    /// [`NonEmptyAnchor`](escriba_shirube::NonEmptyAnchor).
+    fn seal(
+        &self,
+        freight: &escriba_madoguchi::errand::Freight,
+    ) -> escriba_shirube::NonEmptyAnchor {
+        use escriba_madoguchi::errand::Freight;
+        use escriba_shirube::{Axis, NonEmptyAnchor, SessionKind};
+        match freight {
+            // A scan reads the filesystem, which no axis tracks, so text
+            // revisions are irrelevant to it — anchoring one on the buffers
+            // would make it die on the next keystroke for no reason. What DOES
+            // supersede it is the surface it feeds opening or closing, which is
+            // exactly what `scan_gen` counts.
+            Freight::Scan { .. } => {
+                NonEmptyAnchor::on(Axis::Session(SessionKind::Scan, self.scan_gen))
+            }
+            // Diagnostics describe ONE buffer at one revision, from one server
+            // session. Narrow on purpose: anchoring on the whole world would
+            // mean an edit in an unrelated buffer discards them.
+            Freight::Diagnostics { buffer, .. } => {
+                let rev = self.buffers.get(*buffer).map_or_else(
+                    escriba_buffer::TextRev::default,
+                    escriba_buffer::Buffer::text_rev,
+                );
+                NonEmptyAnchor::on(Axis::Text(*buffer, rev))
+                    .and(Axis::Session(SessionKind::Lsp, self.lsp_gen))
+            }
+            // A formatter reply REWRITES text. It must be judged against the
+            // revision it read and nothing else — the whole hazard is applying
+            // one to a buffer the operator kept typing into.
+            Freight::Format { path, .. } => match self.buffers.find_by_path(path) {
+                Some(id) => {
+                    let rev = self.buffers.get(id).map_or_else(
+                        escriba_buffer::TextRev::default,
+                        escriba_buffer::Buffer::text_rev,
+                    );
+                    NonEmptyAnchor::on(Axis::Text(id, rev))
+                }
+                // No open buffer for that path: seal on the LSP session so the
+                // reply is judged against SOMETHING. Never an empty anchor —
+                // that would be fresh forever, which is the whole hazard.
+                None => NonEmptyAnchor::on(Axis::Session(SessionKind::Lsp, self.lsp_gen)),
+            },
+        }
+    }
+
+    /// How many courier replies one tick may apply.
+    ///
+    /// Bounded so a chatty runner cannot hold a frame open. The remainder is
+    /// not dropped — it lands on the next tick.
+    const DELIVER_BUDGET: usize = 64;
+
+    /// Apply whatever the courier has delivered since the last tick.
+    ///
+    /// Must run BEFORE input translation: a redraw event maps to
+    /// `InputOutcome::None`, so a drain hung off the input path would never see
+    /// a tick that carried no keystroke — which is every tick during a scan.
+    pub fn deliver(&mut self) {
+        let slips = self.courier.drain(Self::DELIVER_BUDGET);
+        if slips.is_empty() {
+            return;
+        }
+        for slip in slips {
+            self.honour_one(slip);
+        }
+        // Something landed, so the screen is out of date.
+        self.bump_gen();
     }
 
     /// Move the cursor to the next/previous finding in `list`.
@@ -700,17 +819,50 @@ impl EditorState {
             // re-runs against the new world; that is the whole contract.
             Negai::ErrandReply { anchor, then } => {
                 if anchor.is_fresh(&self.world()) {
-                    self.honour_one(*then);
+                    match *then {
+                        // The reply's OWN anchor becomes the list's seal.
+                        //
+                        // Passing the gate and then re-sealing at `world()` —
+                        // which is what the direct `PublishFindings` arm does,
+                        // correctly, for an on-tick producer — is wrong for a
+                        // reply that crossed a thread. It widens a narrow claim
+                        // into a broad one: findings that depended on one
+                        // buffer would be stored as depending on every open
+                        // buffer, so an edit anywhere kills them. And it
+                        // upgrades an unearned claim into a durable one.
+                        //
+                        // Special-cased on this one payload because
+                        // `ErrandReply` WRAPS a slip rather than putting an
+                        // anchor field on `PublishFindings`; adding one there
+                        // now would reopen exactly the hole the wrapper closed.
+                        Negai::PublishFindings { list, findings } => {
+                            self.results
+                                .publish(list, escriba_shirube::ResultList::new(findings, anchor));
+                        }
+                        other => self.honour_one(other),
+                    }
                 }
             }
             Negai::WalkList { list, forward } => self.walk_list(&list, forward),
             Negai::Message(m) => self.messages.push(m),
             Negai::Quit => self.quit_requested = true,
-            // Both suspend the dispatch and need machinery that does not
-            // exist yet — the courier (Phase 5) and the AwaitKey resume
-            // (M3). Announced, never silently dropped: a slip that vanishes
-            // is the class Phase 0 sealed.
-            Negai::Errand(_) | Negai::AwaitKey { .. } => {
+            // Hand the freight to the courier, sealed against the world it
+            // was dispatched in.
+            //
+            // The seal happens HERE and nowhere else. A handler named a class
+            // of work; it did not — and could not — say what world that work
+            // depends on, because a handler holds a read-only snapshot. If the
+            // slip carried an anchor, any handler could mint one depending on
+            // nothing, which is fresh forever, and the freshness gate would
+            // stop meaning anything.
+            Negai::Errand(freight) => {
+                let anchor = self.seal(&freight);
+                self.courier.send(*freight, anchor);
+            }
+            // Still unwired: the AwaitKey resume (M3). Announced, never
+            // silently dropped — a slip that vanishes is the class Phase 0
+            // sealed.
+            Negai::AwaitKey { .. } => {
                 self.messages
                     .push("deferred work is not wired yet".to_string());
             }
@@ -881,7 +1033,9 @@ impl EditorState {
             results: escriba_shirube::ListRegistry::new(),
             picker: None,
             index_rev: escriba_shirube::IndexRev::default(),
-            session_gen: escriba_shirube::SessionGen::default(),
+            lsp_gen: escriba_shirube::SessionGen::default(),
+            scan_gen: escriba_shirube::SessionGen::default(),
+            courier: courier::Courier::inert(),
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,
@@ -963,6 +1117,25 @@ impl EditorState {
     /// picker is up it owns every key, including ones it has no meaning for.
     /// An overlay that let unknown keys fall through would edit the file
     /// behind itself.
+    /// Close the picker — the SOLE writer of `self.picker = None`.
+    ///
+    /// Sole on purpose. Closing has three consequences that must not come
+    /// apart: the overlay goes, the screen repaints, and any scan feeding that
+    /// overlay is superseded. Spread across call sites, one of them eventually
+    /// forgets the third and a dismissed picker springs back open when a late
+    /// batch arrives.
+    ///
+    /// `cancel_all` is asked as well as the generation bumped, but note which
+    /// one is load-bearing: the bump is what makes late rows *ignored*, and it
+    /// works whether or not any runner reads its flag. The cancel is a courtesy
+    /// to a runner that checks.
+    fn close_picker(&mut self) {
+        self.picker = None;
+        self.bump_scan_gen();
+        self.courier.cancel_all();
+        self.bump_gen();
+    }
+
     fn consume_picker_key(&mut self, key: &Key) -> escriba_ui::picker::Consumed {
         use escriba_ui::picker::Consumed;
         let Some(p) = self.picker.as_mut() else {
@@ -970,10 +1143,10 @@ impl EditorState {
         };
         let outcome = p.on_key(key);
         match &outcome {
-            Consumed::Dismissed | Consumed::Chose(_) => {
-                self.picker = None;
-                self.bump_gen();
-            }
+            // BOTH arms close the picker — choosing a row dismisses it just as
+            // surely as pressing Esc, and an earlier reading of this that only
+            // considered Esc would have left a scan running after every pick.
+            Consumed::Dismissed | Consumed::Chose(_) => self.close_picker(),
             Consumed::Held => self.bump_gen(),
             Consumed::NotShowing => {}
         }
@@ -4834,5 +5007,305 @@ mod tests {
             "xxxxxxxxxx",
             "insert-mode repeat typing is ungated",
         );
+    }
+
+    // ── the courier seam (denrei) ────────────────────────────────────
+    //
+    // What these pin is not "work happens off-thread" — that is the runner's
+    // business. It is that a reply computed against one world cannot be
+    // applied against a different one, and that the machinery says so out loud
+    // when it declines to do something.
+
+    mod courier_seam {
+        use super::new_state_with;
+        use escriba_madoguchi::Negai;
+        use escriba_madoguchi::errand::{Crew, Errand, Freight, Parcel, Runner};
+        use escriba_shirube::{Anchor, Axis, ResultList, SessionKind};
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::mpsc::Sender;
+
+        fn a_scan() -> Freight {
+            Freight::Scan {
+                raw: "needle".into(),
+                case: escriba_search::CaseMode::Smart,
+                root: ".".into(),
+            }
+        }
+
+        /// Replies with whatever slip it was built with, immediately and on the
+        /// calling thread — so these tests assert the SEAM, not thread timing.
+        struct Says(Negai);
+        impl Runner for Says {
+            fn start(&self, e: Errand, _c: Arc<AtomicBool>, reply: Sender<Parcel>) {
+                let _ = reply.send(Parcel {
+                    id: e.id,
+                    slip: self.0.clone(),
+                });
+            }
+        }
+
+        /// Replies by wrapping its payload in the anchor the DISPATCHER sealed
+        /// — which is what a real runner does: it echoes back the seal it was
+        /// handed, because it has no way to mint its own.
+        struct EchoesSeal(Negai);
+        impl Runner for EchoesSeal {
+            fn start(&self, e: Errand, _c: Arc<AtomicBool>, reply: Sender<Parcel>) {
+                let _ = reply.send(Parcel {
+                    id: e.id,
+                    slip: Negai::ErrandReply {
+                        anchor: e.anchor.into_anchor(),
+                        then: Box::new(self.0.clone()),
+                    },
+                });
+            }
+        }
+
+        fn crew_with_scan(r: impl Runner + 'static) -> Crew {
+            Crew {
+                scan: Box::new(r),
+                diagnostics: Box::new(escriba_madoguchi::errand::Idle("t")),
+                format: Box::new(escriba_madoguchi::errand::Idle("t")),
+            }
+        }
+
+        /// The whole path in one test: a handler names a class of work, the
+        /// dispatcher seals it, a runner answers, and the reply is applied at a
+        /// tick boundary.
+        #[test]
+        fn an_errand_is_dispatched_sealed_and_its_reply_applied_at_the_drain() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(EchoesSeal(Negai::Message("done".into()))));
+
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+            assert!(
+                !st.messages.iter().any(|m| m == "done"),
+                "nothing is applied before the drain"
+            );
+
+            st.deliver();
+            assert!(
+                st.messages.iter().any(|m| m == "done"),
+                "the reply lands at the drain: {:?}",
+                st.messages
+            );
+        }
+
+        /// **The reason the whole seam exists.** A reply sealed against the
+        /// world at dispatch must be discarded once that world has moved.
+        #[test]
+        fn a_reply_whose_world_moved_is_dropped() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(EchoesSeal(Negai::Message("late".into()))));
+
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+            // The surface the scan feeds closed while it was running.
+            st.bump_scan_gen();
+            st.deliver();
+
+            assert!(
+                !st.messages.iter().any(|m| m == "late"),
+                "a superseded reply must not be applied: {:?}",
+                st.messages
+            );
+        }
+
+        /// The converse, so the test above is not passing because nothing ever
+        /// applies.
+        #[test]
+        fn a_reply_whose_world_held_is_applied() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(EchoesSeal(Negai::Message("ok".into()))));
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+            st.deliver();
+            assert!(st.messages.iter().any(|m| m == "ok"));
+        }
+
+        /// A scan must NOT be staled by typing. It reads the filesystem; no
+        /// text revision has anything to say about it, and anchoring one on the
+        /// buffers would kill every result on the next keystroke.
+        #[test]
+        fn typing_does_not_stale_a_scan_reply() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(EchoesSeal(Negai::Message("rows".into()))));
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+
+            st.insert_text("hello");
+            st.deliver();
+            assert!(
+                st.messages.iter().any(|m| m == "rows"),
+                "a scan does not depend on buffer text: {:?}",
+                st.messages
+            );
+        }
+
+        /// The seal's OWN anchor becomes the list's seal. Re-sealing at the
+        /// arrival world would widen a one-axis claim into an every-buffer one,
+        /// so the findings would die on the next unrelated edit.
+        #[test]
+        fn findings_from_an_errand_keep_the_narrow_seal_they_were_computed_with() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(EchoesSeal(Negai::PublishFindings {
+                list: "grep".into(),
+                findings: vec![],
+            })));
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+            st.deliver();
+
+            let sealed_with = st.results.get("grep").expect("published").anchor().clone();
+            let axes = sealed_with.axes();
+            assert_eq!(axes.len(), 1, "narrow, not the whole world: {axes:?}");
+            assert!(
+                matches!(axes[0], Axis::Session(SessionKind::Scan, _)),
+                "sealed on the scan session: {axes:?}"
+            );
+
+            // …and the consequence that makes it worth doing: an edit
+            // elsewhere does not discard it.
+            st.insert_text("more");
+            assert!(
+                !st.results
+                    .get("grep")
+                    .expect("still there")
+                    .is_stale(&st.world()),
+                "an unrelated edit must not stale a scan list"
+            );
+        }
+
+        /// A directly-dispatched `PublishFindings` — an on-tick producer like
+        /// the marker scan — still seals at the world, which is correct for it.
+        /// The special case must not have changed that.
+        #[test]
+        fn a_direct_publish_still_seals_at_the_world() {
+            let mut st = new_state_with("x\n");
+            st.honour_one(Negai::PublishFindings {
+                list: "todo".into(),
+                findings: vec![],
+            });
+            let axes = st.results.get("todo").expect("published").anchor().axes();
+            assert!(
+                axes.len() > 1,
+                "the on-tick path anchors on the whole world: {axes:?}"
+            );
+        }
+
+        /// An empty anchor is fresh against every world, so a forged reply
+        /// carrying one bypasses the gate entirely. The courier cannot produce
+        /// this — `seal` returns a `NonEmptyAnchor` — and the test exists to
+        /// document why that type is not decoration.
+        #[test]
+        fn an_empty_anchor_would_bypass_the_gate_which_is_why_seal_cannot_mint_one() {
+            let mut st = new_state_with("x\n");
+            st.bump_scan_gen();
+            st.bump_lsp_gen();
+            st.insert_text("moved a long way");
+
+            st.honour_one(Negai::ErrandReply {
+                anchor: Anchor::new(),
+                then: Box::new(Negai::Message("forged".into())),
+            });
+            assert!(
+                st.messages.iter().any(|m| m == "forged"),
+                "an empty anchor passes any world — the hazard NonEmptyAnchor removes"
+            );
+        }
+
+        /// Closing the picker supersedes the scan feeding it. Both closing
+        /// paths must do it — choosing a row closes the overlay exactly as Esc
+        /// does, and only handling Esc leaves a scan running after every pick.
+        #[test]
+        fn closing_the_picker_supersedes_the_scan_it_was_feeding() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(EchoesSeal(Negai::Message("rows".into()))));
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+
+            st.close_picker();
+            st.deliver();
+            assert!(
+                !st.messages.iter().any(|m| m == "rows"),
+                "rows must not reopen a picker the operator closed: {:?}",
+                st.messages
+            );
+        }
+
+        /// The default state. An errand with nobody hired must report that it
+        /// went nowhere — a request that silently does nothing is the exact
+        /// failure the pre-courier stub had.
+        #[test]
+        fn an_errand_with_no_crew_hired_says_so() {
+            let mut st = new_state_with("x\n");
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+            st.deliver();
+            assert!(
+                st.messages.iter().any(|m| m.contains("scan")),
+                "the inert crew announces: {:?}",
+                st.messages
+            );
+        }
+
+        /// A quiet tick must be free — `deliver` is called on every frame.
+        #[test]
+        fn delivering_nothing_does_not_repaint() {
+            let mut st = new_state_with("x\n");
+            let before = st.edit_gen();
+            st.deliver();
+            assert_eq!(st.edit_gen(), before, "an empty drain is not a change");
+        }
+
+        /// …and a tick that DID deliver must repaint, or the result sits in
+        /// state that nothing draws.
+        #[test]
+        fn delivering_something_repaints() {
+            let mut st = new_state_with("x\n");
+            st.hire(crew_with_scan(Says(Negai::Message("hi".into()))));
+            st.honour_one(Negai::Errand(Box::new(a_scan())));
+            let before = st.edit_gen();
+            st.deliver();
+            assert_ne!(st.edit_gen(), before, "a delivered reply repaints");
+        }
+
+        /// The two session kinds must not alias at the runtime level either: an
+        /// LSP restart must not discard scan results, and vice versa.
+        #[test]
+        fn the_two_session_generations_are_independent() {
+            let mut st = new_state_with("x\n");
+            let scan_sealed = ResultList::new(
+                vec![],
+                Anchor::new().on(Axis::Session(SessionKind::Scan, st.scan_gen)),
+            );
+            st.bump_lsp_gen();
+            assert!(
+                !scan_sealed.is_stale(&st.world()),
+                "an LSP restart must not discard scan results"
+            );
+            st.bump_scan_gen();
+            assert!(scan_sealed.is_stale(&st.world()), "…but a scan bump does");
+        }
+
+        #[test]
+        fn every_freight_class_seals_on_something() {
+            let mut st = new_state_with("x\n");
+            let active = st.active;
+            for freight in [
+                a_scan(),
+                Freight::Diagnostics {
+                    buffer: active,
+                    path: "a.nix".into(),
+                    text: String::new(),
+                },
+                Freight::Format {
+                    path: "a.nix".into(),
+                    text: String::new(),
+                },
+            ] {
+                let sealed = st.seal(&freight);
+                assert!(
+                    !sealed.as_anchor().is_empty(),
+                    "{} sealed on nothing",
+                    freight.label()
+                );
+            }
+            let _ = &mut st;
+        }
     }
 }

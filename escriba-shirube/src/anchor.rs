@@ -40,24 +40,50 @@ pub struct IndexRev(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct SessionGen(pub u64);
 
+/// WHICH external session a [`Axis::Session`] axis tracks.
+///
+/// Sessions used to be one undifferentiated axis, and that was fine while
+/// nothing bumped them — `bump_session_gen` shipped with zero call sites. The
+/// moment two independent producers anchor on "a session", the single axis
+/// aliases them: `same_subject` answered `true` for any two `Session` axes, so
+/// closing a file picker would have staled every LSP diagnostic in the gutter.
+///
+/// Two external generations that can move independently must not share a
+/// subject. Adding a third session-like producer means adding a variant here,
+/// which is the visible edit that keeps that true.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SessionKind {
+    /// A language-server generation — bumped when a server restarts.
+    Lsp,
+    /// A filesystem-scan generation — bumped when the surface a scan feeds is
+    /// opened or closed, which is what makes a superseded scan's rows stale.
+    Scan,
+}
+
 /// One thing a list can depend on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Axis {
     Text(BufferId, TextRev),
     Index(IndexRev),
-    Session(SessionGen),
+    Session(SessionKind, SessionGen),
 }
 
 impl Axis {
     /// Two axes are COMPARABLE when they name the same thing — the same
-    /// buffer, the index, a session. Comparability is separate from equality
-    /// so freshness can ask "has this axis moved" rather than "is this the
-    /// same axis value", which are different questions with the same shape.
+    /// buffer, the index, **the same kind of** session. Comparability is
+    /// separate from equality so freshness can ask "has this axis moved"
+    /// rather than "is this the same axis value", which are different
+    /// questions with the same shape.
     #[must_use]
     pub const fn same_subject(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Text(a, _), Self::Text(b, _)) => a.0 == b.0,
-            (Self::Index(_), Self::Index(_)) | (Self::Session(_), Self::Session(_)) => true,
+            (Self::Index(_), Self::Index(_)) => true,
+            // NOT a blanket `true` for any two sessions — see [`SessionKind`].
+            (Self::Session(a, _), Self::Session(b, _)) => matches!(
+                (a, b),
+                (SessionKind::Lsp, SessionKind::Lsp) | (SessionKind::Scan, SessionKind::Scan)
+            ),
             _ => false,
         }
     }
@@ -112,6 +138,59 @@ impl Anchor {
         self.axes
             .iter()
             .all(|mine| world.axes.iter().any(|theirs| mine == theirs))
+    }
+}
+
+/// An [`Anchor`] that provably depends on at least one axis.
+///
+/// # Why a whole type for "not empty"
+///
+/// An empty `Anchor` is **vacuously fresh forever** — `is_fresh` is an
+/// all-over-my-axes fold, so with no axes it answers `true` against every
+/// world. That is the correct reading for a list an operator typed by hand,
+/// and it is a silent catastrophe for a result computed off-thread: a reply
+/// carrying an empty anchor passes the freshness gate unconditionally, no
+/// matter how far the world moved while it was being computed.
+///
+/// Worse than passing, it gets *upgraded*. The gate is only the door; the
+/// consumer that stores the result re-seals it against the world it observes
+/// on arrival, so an anchor that earned nothing becomes a durable claim to
+/// have been computed against the current state.
+///
+/// `Anchor` derives `Default` and cannot stop being constructible empty
+/// without breaking every honest caller. So the constraint lives in a wrapper
+/// whose only constructor takes an axis, and which deliberately does **not**
+/// implement `Default`. A courier reply anchored on nothing has no way to be
+/// spelled.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NonEmptyAnchor(Anchor);
+
+impl NonEmptyAnchor {
+    /// The only constructor. Takes an axis by value, so there is no empty case.
+    #[must_use]
+    pub fn on(axis: Axis) -> Self {
+        Self(Anchor::new().on(axis))
+    }
+
+    /// Add another axis. Still non-empty, by induction from [`Self::on`].
+    #[must_use]
+    pub fn and(self, axis: Axis) -> Self {
+        Self(self.0.on(axis))
+    }
+
+    /// Widen back to a plain `Anchor` for comparison and storage.
+    ///
+    /// One-way on purpose: there is no `From<Anchor>`, because that would be
+    /// precisely the hole this type exists to close.
+    #[must_use]
+    pub fn into_anchor(self) -> Anchor {
+        self.0
+    }
+
+    /// Borrow as a plain `Anchor`, for a freshness check that does not consume.
+    #[must_use]
+    pub const fn as_anchor(&self) -> &Anchor {
+        &self.0
     }
 }
 
@@ -184,7 +263,7 @@ mod tests {
         let todos = Anchor::new().on(Axis::Text(B1, TextRev(1)));
         let world = Anchor::new()
             .on(Axis::Text(B1, TextRev(1)))
-            .on(Axis::Session(SessionGen(99)))
+            .on(Axis::Session(SessionKind::Lsp, SessionGen(99)))
             .on(Axis::Index(IndexRev(42)));
         assert!(todos.is_fresh(&world));
     }
@@ -198,5 +277,75 @@ mod tests {
             .on(Axis::Text(B1, TextRev(2)));
         assert_eq!(a.axes().len(), 1, "the later pin replaces the earlier");
         assert!(a.is_fresh(&Anchor::new().on(Axis::Text(B1, TextRev(2)))));
+    }
+
+    /// **Why `SessionKind` exists.** Two independent external generations must
+    /// not alias, or bumping one silently invalidates the other's lists. Before
+    /// the split, `same_subject` answered `true` for any two `Session` axes, so
+    /// closing a file picker would have staled every LSP diagnostic.
+    #[test]
+    fn two_session_kinds_are_different_subjects() {
+        let lsp = Axis::Session(SessionKind::Lsp, SessionGen(1));
+        let scan = Axis::Session(SessionKind::Scan, SessionGen(1));
+        assert!(!lsp.same_subject(&scan), "Lsp and Scan must not alias");
+        assert!(lsp.same_subject(&Axis::Session(SessionKind::Lsp, SessionGen(9))));
+
+        // The consequence that matters: an Anchor pinning both keeps BOTH,
+        // because `on` only replaces a same-subject axis.
+        let a = Anchor::new().on(lsp).on(scan);
+        assert_eq!(a.axes().len(), 2, "one kind must not evict the other");
+    }
+
+    /// The collateral this prevents, spelled out end to end: a diagnostic
+    /// sealed on the LSP session survives a scan-session bump.
+    #[test]
+    fn bumping_the_scan_session_does_not_stale_an_lsp_list() {
+        let diagnostic = Anchor::new().on(Axis::Session(SessionKind::Lsp, SessionGen(3)));
+        let after_scan_bump = Anchor::new()
+            .on(Axis::Session(SessionKind::Lsp, SessionGen(3)))
+            .on(Axis::Session(SessionKind::Scan, SessionGen(4)));
+        assert!(diagnostic.is_fresh(&after_scan_bump));
+
+        // …and the converse still bites, which is the point of anchoring at all.
+        let after_lsp_restart = Anchor::new().on(Axis::Session(SessionKind::Lsp, SessionGen(4)));
+        assert!(!diagnostic.is_fresh(&after_lsp_restart));
+    }
+
+    /// **The F3 hole this type closes.** An empty `Anchor` is fresh against
+    /// every world, so a reply carrying one is never rejected however far the
+    /// world moved. `NonEmptyAnchor` has no constructor that produces it.
+    #[test]
+    fn an_empty_anchor_passes_every_world_which_is_why_nonempty_exists() {
+        let empty = Anchor::new();
+        for world in [
+            Anchor::new(),
+            Anchor::new().on(Axis::Text(B1, TextRev(99))),
+            Anchor::new().on(Axis::Session(SessionKind::Scan, SessionGen(1000))),
+        ] {
+            assert!(empty.is_fresh(&world), "an empty anchor is vacuously fresh");
+        }
+
+        let sealed = NonEmptyAnchor::on(Axis::Session(SessionKind::Scan, SessionGen(1)));
+        assert!(!sealed.as_anchor().is_empty(), "cannot be built empty");
+        assert!(
+            !sealed
+                .as_anchor()
+                .is_fresh(&Anchor::new().on(Axis::Session(SessionKind::Scan, SessionGen(2))))
+        );
+    }
+
+    #[test]
+    fn a_nonempty_anchor_accumulates_and_widens_back() {
+        let a = NonEmptyAnchor::on(Axis::Text(B1, TextRev(1)))
+            .and(Axis::Session(SessionKind::Lsp, SessionGen(2)));
+        let widened = a.into_anchor();
+        assert_eq!(widened.axes().len(), 2);
+        assert!(
+            widened.is_fresh(
+                &Anchor::new()
+                    .on(Axis::Text(B1, TextRev(1)))
+                    .on(Axis::Session(SessionKind::Lsp, SessionGen(2)))
+            )
+        );
     }
 }
