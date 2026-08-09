@@ -390,6 +390,22 @@ impl ModalState {
     }
 }
 
+/// vim's `{count}{operator}{count}{motion}` composition machine.
+///
+/// **Lifted down from `escriba-runtime` (0.1.68).** It only ever needed
+/// [`escriba_core`] + `zenmai`, and living in the runtime made it reachable
+/// only by depending on the whole editor — a rope, an LSP client, a plugin
+/// host and a regex engine — to compose two keystrokes. A consumer that wants
+/// vim key composition over something that is not a text editor (a picker
+/// query, a command palette, a filter box) can now have it for two light
+/// dependencies.
+///
+/// `escriba-runtime` re-exports both types from here, so
+/// `escriba_runtime::{OpState, OperatorPending}` keeps resolving and no
+/// consumer moves.
+mod operator_pending;
+pub use operator_pending::{OpState, OperatorPending};
+
 #[cfg(test)]
 mod tests {
     use super::*;
