@@ -61,7 +61,16 @@
 
 use std::ops::Range;
 
-use escriba_core::{Motion, Operator, TextObject};
+/// The vim vocabulary, re-exported.
+///
+/// unsoku declares none of these — they are `escriba_core`'s, and that is the
+/// point. But a consumer resolving a [`Motion`] must NAME one, and making it
+/// declare `escriba-core` too would be a second dependency for a vocabulary it
+/// reaches only through this crate: the caller ends up pinning two versions
+/// that must agree, which is a drift class rather than a convenience.
+///
+/// One dependency buys the whole model. That is the contract.
+pub use escriba_core::{Motion, Operator, TextObject};
 
 /// A single line of text with a caret, that unsoku can move within and edit.
 ///
