@@ -132,6 +132,28 @@ impl Connection {
         Ok(rx.await.unwrap_or(Err(Abandoned::ServerGone.into())))
     }
 
+    /// `initialize` -> read capabilities -> `initialized`.
+    ///
+    /// The full LSP opening. Nothing else may be sent before this completes:
+    /// a server is entitled to reject or ignore requests that arrive before
+    /// it is initialized, and the failure looks like a hang rather than an
+    /// error.
+    ///
+    /// # Errors
+    /// The write failed, the server answered with an error object, or it
+    /// went away before replying.
+    pub async fn handshake(&self, root: &Path) -> Result<ServerCaps> {
+        let reply = self.request("initialize", initialize_params(root)).await?;
+        let value = reply?;
+        let caps = ServerCaps::from_initialize(&value);
+        // `initialized` is a NOTIFICATION and carries no reply. Sending it is
+        // not optional politeness — servers defer real work until they see
+        // it, so skipping it produces a connection that accepts documents
+        // and never diagnoses them.
+        self.notify("initialized", serde_json::json!({})).await?;
+        Ok(caps)
+    }
+
     /// Fire a notification. There is no reply and no way to await one.
     ///
     /// # Errors
@@ -236,6 +258,61 @@ async fn route(body: &[u8], waiters: &Waiters, inbox: &mpsc::Sender<Incoming>) {
 
 /// LSP `initialize` params, minimal but honest about what we support.
 #[must_use]
+/// What a server said it can do, read from its `initialize` reply.
+///
+/// READ, never assumed. blue is the reason this is a type rather than a
+/// guess: v0.0.21 answers `semanticTokens/full` with `-32601 method not
+/// found` while v0.0.23 answers with data, and a client that assumed the
+/// capability would look broken against the older one for no visible
+/// reason. Only the fields escriba can actually act on are decoded — an
+/// exhaustive mirror of the LSP capability schema would be a second
+/// specification to keep in sync with no consumer for most of it.
+// Independent bools are the right model here and not a smell: LSP
+// capabilities are not mutually exclusive, and ANY combination is legal —
+// blue v0.0.21 offers formatting without semantic tokens, v0.0.23 offers
+// both. Folding them into an enum would make a legal server unrepresentable.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ServerCaps {
+    /// `textDocumentSync` as the server reports it. `1` is full-text sync;
+    /// blue advertises exactly this and its own comment explains that
+    /// incremental is deliberately not offered.
+    pub text_document_sync: Option<u64>,
+    pub hover: bool,
+    pub definition: bool,
+    pub document_formatting: bool,
+    pub semantic_tokens: bool,
+    /// The whole `capabilities` object, kept so a later feature can read a
+    /// field this struct does not name yet without another round trip.
+    pub raw: serde_json::Value,
+}
+
+impl ServerCaps {
+    fn from_initialize(reply: &serde_json::Value) -> Self {
+        let caps = reply
+            .get("capabilities")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        // A capability is present when the key exists and is not `false` —
+        // servers legitimately answer with `true`, with an options object,
+        // or omit the key entirely, and treating an options object as absent
+        // is the classic way to disable a feature the server offers.
+        let has = |k: &str| !matches!(caps.get(k), None | Some(serde_json::Value::Bool(false)));
+        Self {
+            text_document_sync: caps.get("textDocumentSync").and_then(|v| {
+                v.as_u64()
+                    .or_else(|| v.get("change").and_then(serde_json::Value::as_u64))
+            }),
+            hover: has("hoverProvider"),
+            definition: has("definitionProvider"),
+            document_formatting: has("documentFormattingProvider"),
+            semantic_tokens: has("semanticTokensProvider"),
+            raw: caps,
+        }
+    }
+}
+
+#[must_use]
 pub fn initialize_params(root: &Path) -> serde_json::Value {
     let uri = format!("file://{}", root.display());
     serde_json::json!({
@@ -308,7 +385,10 @@ mod tests {
 
     impl Server {
         fn new(io: tokio::io::DuplexStream) -> Self {
-            Self { io, buf: Vec::new() }
+            Self {
+                io,
+                buf: Vec::new(),
+            }
         }
 
         async fn read_one(&mut self) -> serde_json::Value {
@@ -327,12 +407,106 @@ mod tests {
         }
 
         async fn write(&mut self, v: &serde_json::Value) {
-            self.io.write_all(&encode(&serde_json::to_vec(v).unwrap())).await.unwrap();
+            self.io
+                .write_all(&encode(&serde_json::to_vec(v).unwrap()))
+                .await
+                .unwrap();
         }
 
         async fn write_raw(&mut self, b: &[u8]) {
             self.io.write_all(b).await.unwrap();
         }
+    }
+
+    // ── the handshake ────────────────────────────────────────────────
+
+    /// The full opening: initialize -> read capabilities -> initialized.
+    ///
+    /// The capability payload is shaped like blue's real one, which is the
+    /// point of reading rather than assuming: it advertises
+    /// `textDocumentSync: 1` (full sync, deliberately not incremental) and
+    /// offers formatting but NOT semantic tokens — exactly the shape blue
+    /// v0.0.21 answers with, where v0.0.23 also offers tokens.
+    #[tokio::test]
+    async fn handshake_reads_capabilities_and_sends_initialized() {
+        let (conn, mut server) = pair();
+        let call = tokio::spawn(async move {
+            let caps = conn.handshake(std::path::Path::new("/tmp/proj")).await;
+            (caps, conn)
+        });
+
+        let init = server.read_one().await;
+        assert_eq!(init["method"], "initialize");
+        assert_eq!(init["params"]["rootUri"], "file:///tmp/proj");
+        server
+            .write(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": init["id"],
+                "result": {
+                    "capabilities": {
+                        "textDocumentSync": 1,
+                        "hoverProvider": true,
+                        "documentFormattingProvider": true,
+                        "definitionProvider": { "workDoneProgress": false },
+                    }
+                }
+            }))
+            .await;
+
+        // `initialized` MUST follow, or a server defers all real work and the
+        // connection looks alive while diagnosing nothing.
+        let done = server.read_one().await;
+        assert_eq!(done["method"], "initialized");
+        assert!(done.get("id").is_none(), "initialized is a notification");
+
+        let (caps, _conn) = call.await.unwrap();
+        let caps = caps.expect("handshake");
+        assert_eq!(caps.text_document_sync, Some(1));
+        assert!(caps.hover);
+        assert!(caps.document_formatting);
+        // An OPTIONS OBJECT means present, not absent — treating it as absent
+        // is the classic way to silently disable a feature the server offers.
+        assert!(caps.definition, "an options object is a capability");
+        assert!(!caps.semantic_tokens, "absent key is absent");
+    }
+
+    /// A capability explicitly turned OFF is not the same as one omitted,
+    /// and both must read false.
+    #[tokio::test]
+    async fn a_false_capability_is_not_mistaken_for_an_options_object() {
+        let (conn, mut server) = pair();
+        let call = tokio::spawn(async move { conn.handshake(std::path::Path::new("/p")).await });
+        let init = server.read_one().await;
+        server
+            .write(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": init["id"],
+                "result": { "capabilities": { "hoverProvider": false } }
+            }))
+            .await;
+        let _ = server.read_one().await; // initialized
+        let caps = call.await.unwrap().expect("handshake");
+        assert!(!caps.hover);
+    }
+
+    /// A server that refuses `initialize` must surface as a typed error, not
+    /// as a connection that appears open and answers nothing.
+    #[tokio::test]
+    async fn a_refused_initialize_is_an_error_not_a_silent_half_session() {
+        let (conn, mut server) = pair();
+        let call = tokio::spawn(async move { conn.handshake(std::path::Path::new("/p")).await });
+        let init = server.read_one().await;
+        server
+            .write(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": init["id"],
+                "error": { "code": -32603, "message": "no workspace" }
+            }))
+            .await;
+        assert!(
+            call.await.unwrap().is_err(),
+            "a refused initialize must error"
+        );
     }
 
     #[tokio::test]
