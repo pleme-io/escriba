@@ -510,11 +510,28 @@ fn delimited_span(
     let at = index_of(&cs, caret).min(cs.len().saturating_sub(1));
 
     let (o, c) = if open == close {
-        let before = cs[..=at.min(cs.len().saturating_sub(1))]
+        // A quote cannot nest, so the nearest enclosing pair is the last
+        // opener at or before the caret.
+        let enclosing = cs[..=at.min(cs.len().saturating_sub(1))]
             .iter()
-            .rposition(|(_, ch)| *ch == open)?;
-        let after = cs[before + 1..].iter().position(|(_, ch)| *ch == close)? + before + 1;
-        (before, after)
+            .rposition(|(_, ch)| *ch == open)
+            .and_then(|before| {
+                let after = cs[before + 1..].iter().position(|(_, ch)| *ch == close)?;
+                Some((before, after + before + 1))
+            });
+        // **vim searches FORWARD when the caret is not inside a quoted
+        // string** (`:h v_i"` — "if the cursor is not inside a quoted string,
+        // find the next quoted string"). Without the fallback, `ci"` on
+        // `name="old"` with the caret at the start does nothing — and the
+        // start is exactly where a caret sits after typing a filter.
+        if let Some(pair) = enclosing {
+            pair
+        } else {
+            let from = at.min(cs.len().saturating_sub(1));
+            let o = cs[from..].iter().position(|(_, ch)| *ch == open)? + from;
+            let c = cs[o + 1..].iter().position(|(_, ch)| *ch == close)? + o + 1;
+            (o, c)
+        }
     } else {
         let mut depth = 0i32;
         let mut o = None;
