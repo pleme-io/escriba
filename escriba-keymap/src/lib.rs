@@ -121,6 +121,82 @@ impl Collision {
     }
 }
 
+/// What `dispatch` does with a key INSTEAD of consulting the binding table.
+///
+/// Named so a reader can tell the three apart: they look alike from the
+/// dispatcher's side (all three return before `lookup`) and are completely
+/// different to an operator trying to bind the key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Preempted {
+    /// Normal mode: the key is composing a count (`5` of `5dd`).
+    Count,
+    /// Insert mode: a printable character types itself.
+    SelfInsert,
+    /// Insert mode: `<CR>` opens a line.
+    Newline,
+    /// Command mode: a printable character types into the prompt.
+    PromptInsert,
+}
+
+impl Preempted {
+    /// What `dispatch` answers. Kept beside the classification so the two
+    /// cannot drift — the whole point of hoisting this out of `dispatch`.
+    fn resolved(self, key: &Key) -> CountedAction {
+        match self {
+            Self::Count => CountedAction::once(Action::Pending),
+            Self::SelfInsert | Self::PromptInsert => match key {
+                Key::Char(c) => CountedAction::once(Action::InsertChar(*c)),
+                // Unreachable via `preemption`, which only returns these two
+                // for `Key::Char`. Answered rather than `unreachable!()`: a
+                // dispatcher that panics on an unexpected key is a worse
+                // failure than one that declines it.
+                _ => CountedAction::once(Action::Pending),
+            },
+            Self::Newline => CountedAction::once(Action::InsertChar('\n')),
+        }
+    }
+}
+
+/// WHETHER `dispatch` preempts a key, and whether it always does.
+///
+/// The distinction is load-bearing for reachability: `1`–`9` in Normal are
+/// preempted unconditionally, so a binding for one can never fire. `0` is
+/// preempted only while a count is being typed — which is exactly why `0` is
+/// bindable, and IS bound, to `Motion::LineStart`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Preemption {
+    /// The key never reaches the binding table. A declaration is dead.
+    Always(Preempted),
+    /// The key reaches the table unless a count is pending. Bindable.
+    WhenCounting(Preempted),
+}
+
+/// Does `dispatch` answer `(mode, key)` before the binding table is consulted?
+///
+/// **The single statement of the rule.** [`Keymap::dispatch`] reads it to
+/// answer keys; anything auditing whether a DECLARATION could ever fire reads
+/// it to say so. Before it existed the rule lived in three inline `if mode ==`
+/// blocks inside `dispatch`, visible to nothing else, so a binding for a bare
+/// printable character in Insert mode parsed, applied, reported as applied —
+/// and was dead on arrival with nowhere to learn that from.
+///
+/// Total over the preempting cases; everything else falls through to `None`,
+/// which is the safe direction (a key wrongly called reachable shows up as a
+/// binding that does not work, a key wrongly called dead hides a working one).
+#[must_use]
+pub fn preemption(mode: Mode, key: &Key) -> Option<Preemption> {
+    match (mode, key) {
+        (Mode::Normal, Key::Char('0')) => Some(Preemption::WhenCounting(Preempted::Count)),
+        (Mode::Normal, Key::Char(c)) if c.is_ascii_digit() => {
+            Some(Preemption::Always(Preempted::Count))
+        }
+        (Mode::Insert, Key::Char(_)) => Some(Preemption::Always(Preempted::SelfInsert)),
+        (Mode::Insert, Key::Enter) => Some(Preemption::Always(Preempted::Newline)),
+        (Mode::Command, Key::Char(_)) => Some(Preemption::Always(Preempted::PromptInsert)),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Keymap {
     bindings: HashMap<(Mode, Key), Binding>,
@@ -317,6 +393,35 @@ impl Keymap {
             Action::DeleteForward,
             "delete char at caret",
         );
+        // The bigger erases. `<BS>`/`<Del>` landed first and these were left
+        // behind for a day, which made Insert mode able to erase one character
+        // at a time and nothing larger — a mis-typed word had to be dismantled
+        // letter by letter. They share the erase family's routing, so the
+        // binding is the whole change: the runtime already knows whether a
+        // prompt is open.
+        m.bind(
+            Mode::Insert,
+            Key::Ctrl('w'),
+            Action::DeleteWordBefore,
+            "erase word before caret",
+        );
+        m.bind(
+            Mode::Insert,
+            Key::Ctrl('u'),
+            Action::DeleteToLineStart,
+            "erase to line start",
+        );
+        // `<C-h>` IS backspace: terminals send 0x08 for it, and vim treats the
+        // two as one key in Insert. Whether a given terminal reports the
+        // physical Backspace as `Backspace` or as `Ctrl('h')` is the
+        // terminal's business, not the operator's — binding both is what makes
+        // the answer stop mattering.
+        m.bind(
+            Mode::Insert,
+            Key::Ctrl('h'),
+            Action::Backspace,
+            "erase one char",
+        );
         // Arrows in Insert are vi-compatible (vim's `esckeys`) and are what
         // "edit it" means to anyone who did not grow up on hjkl. They reuse
         // the ordinary motions, so the cursor-clamp + viewport-follow
@@ -398,7 +503,7 @@ impl Keymap {
         m.bind(
             Mode::Command,
             Key::Ctrl('w'),
-            Action::PromptDeleteWord,
+            Action::DeleteWordBefore,
             "delete word before caret",
         );
         // Walk the preview without committing — `/pat` then `<C-g><C-g>` is
@@ -418,7 +523,7 @@ impl Keymap {
         m.bind(
             Mode::Command,
             Key::Ctrl('u'),
-            Action::PromptClearToStart,
+            Action::DeleteToLineStart,
             "clear to start",
         );
 
@@ -669,28 +774,19 @@ impl Keymap {
     #[must_use]
     pub fn dispatch(&self, state: &ModalState, key: &Key) -> CountedAction {
         let mode = state.mode();
-        if mode == Mode::Normal {
-            if let Key::Char(c) = key {
-                if c.is_ascii_digit() && *c != '0' {
-                    return CountedAction::once(Action::Pending);
-                }
-                if *c == '0' && state.pending_count().is_some() {
-                    return CountedAction::once(Action::Pending);
-                }
+        // The preemption rule is stated ONCE, in `preemption` below, and read
+        // twice: here, to answer the key, and by `escriba-banzuke`, to decide
+        // whether a DECLARATION for this pair could ever fire. It used to be
+        // three inline `if mode ==` blocks that only this function could see,
+        // so an rc binding a bare `j` in Insert parsed, applied, reported as
+        // applied — and was dead. Nothing could say so, because the fact that
+        // made it dead lived inside the dispatcher.
+        match preemption(mode, key) {
+            Some(Preemption::Always(p)) => return p.resolved(key),
+            Some(Preemption::WhenCounting(p)) if state.pending_count().is_some() => {
+                return p.resolved(key);
             }
-        }
-        if mode == Mode::Insert {
-            if let Key::Char(c) = key {
-                return CountedAction::once(Action::InsertChar(*c));
-            }
-            if matches!(key, Key::Enter) {
-                return CountedAction::once(Action::InsertChar('\n'));
-            }
-        }
-        if mode == Mode::Command {
-            if let Key::Char(c) = key {
-                return CountedAction::once(Action::InsertChar(*c));
-            }
+            _ => {}
         }
         if let Some(b) = self.lookup(mode, key) {
             return CountedAction::repeated(state.pending_count().unwrap_or(1), b.action.clone());

@@ -154,10 +154,27 @@ pub enum Action {
     /// not the "backspaced past the `/`" gesture that means "I changed my
     /// mind".
     DeleteForward,
-    /// `<C-w>` — delete the word before the prompt caret.
-    PromptDeleteWord,
-    /// `<C-u>` — delete from the prompt caret back to the start.
-    PromptClearToStart,
+    /// `<C-w>` — delete the word before the caret, wherever the caret is.
+    ///
+    /// The word-sized member of the same erase family as [`Action::Backspace`]:
+    /// ONE action, three targets (search prompt / ex line / buffer), routed by
+    /// the runtime on typed state it already owns.
+    ///
+    /// Named `PromptDeleteWord` until 2026-08-09, when the Insert-mode target
+    /// landed. `<BS>` and `<Del>` had been given their buffer arm that morning
+    /// and these two were left behind, so Insert mode could erase one character
+    /// at a time and nothing larger — the half-migration is exactly what the
+    /// `Prompt` prefix was hiding.
+    DeleteWordBefore,
+    /// `<C-u>` — delete from the caret back to the start of the line.
+    ///
+    /// The line-sized member of the erase family; routed exactly like
+    /// [`Action::DeleteWordBefore`]. In the buffer it stops at the first
+    /// non-blank before falling through to column 0, so the first press on an
+    /// indented line clears what was typed and the second clears the indent —
+    /// vim's two-step, which is what keeps `<C-u>` from eating alignment you
+    /// wanted to keep.
+    DeleteToLineStart,
     /// Up/Down inside a prompt — walk search history.
     ///
     /// `back = true` is older. Stepping forward past the newest entry restores
@@ -235,8 +252,8 @@ impl Action {
             | Self::Redo
             | Self::Backspace
             | Self::DeleteForward
-            | Self::PromptDeleteWord
-            | Self::PromptClearToStart
+            | Self::DeleteWordBefore
+            | Self::DeleteToLineStart
             | Self::TextObject(_)
             | Self::Command { .. }
             | Self::SearchSubmitOperated { .. }
@@ -301,8 +318,8 @@ impl Action {
             | Self::Backspace
             | Self::PromptCaret { .. }
             | Self::DeleteForward
-            | Self::PromptDeleteWord
-            | Self::PromptClearToStart
+            | Self::DeleteWordBefore
+            | Self::DeleteToLineStart
             | Self::InsertChar(_)
             | Self::SubmitCommand
             | Self::Pending
@@ -368,8 +385,8 @@ impl Action {
     ///
     /// **Total over `Action` — no wildcard arm**, and that totality is the
     /// whole point. The machine originally listed the prompt actions inline;
-    /// when `PromptCaret`, `DeleteForward`, `PromptDeleteWord`,
-    /// `PromptClearToStart` and `SearchPreviewStep` were added later, none was
+    /// when `PromptCaret`, `DeleteForward`, `DeleteWordBefore`,
+    /// `DeleteToLineStart` and `SearchPreviewStep` were added later, none was
     /// added to that list, so pressing `←` or `<C-g>` midway through `d/foo`
     /// silently disarmed the operator — reintroducing exactly the defect the
     /// `AwaitingSearch` state had been created to fix. A new prompt action now
@@ -382,8 +399,8 @@ impl Action {
             | Self::PromptHistory { .. }
             | Self::PromptCaret { .. }
             | Self::DeleteForward
-            | Self::PromptDeleteWord
-            | Self::PromptClearToStart
+            | Self::DeleteWordBefore
+            | Self::DeleteToLineStart
             | Self::SearchPreviewStep { .. } => true,
 
             Self::Move(_)

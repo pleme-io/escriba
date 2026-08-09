@@ -523,6 +523,8 @@ pub fn resolve_action(name: &str) -> (Action, bool) {
         // right thing in all three without saying which.
         "backspace" => (Action::Backspace, false),
         "delete-forward" => (Action::DeleteForward, false),
+        "delete-word-before" => (Action::DeleteWordBefore, false),
+        "delete-to-line-start" => (Action::DeleteToLineStart, false),
 
         // ── Editor-wide actions ────────────────────────────────────
         "undo" => (Action::Undo, false),

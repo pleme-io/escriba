@@ -341,7 +341,7 @@ impl EditorState {
     /// `None` means "editor mechanics" — 23 of the 30 variants are prompt
     /// editing, the operator-pending FSM, motion resolution, the jumplist,
     /// the dot register. Those are the KEYMAP's vocabulary, not the AUTHORED
-    /// one, and forcing them into `Negai` would put `PromptClearToStart` and
+    /// one, and forcing them into `Negai` would put `DeleteToLineStart` and
     /// `SearchPreviewStep` in front of every plugin author and make the
     /// capability question meaningless (what capability does a caret move
     /// read?). One type serving two vocabularies is the mistake this avoids.
@@ -2744,16 +2744,24 @@ impl EditorState {
                     self.delete_after_cursor();
                 }
             }
-            Action::PromptDeleteWord => {
-                if self.search.is_prompting() {
-                    self.search.delete_word_before_caret();
-                    self.preview_search();
+            Action::DeleteWordBefore => {
+                if self.modal.mode() == Mode::Command {
+                    if self.search.is_prompting() {
+                        self.search.delete_word_before_caret();
+                        self.preview_search();
+                    }
+                } else {
+                    self.delete_word_before_cursor();
                 }
             }
-            Action::PromptClearToStart => {
-                if self.search.is_prompting() {
-                    self.search.clear_before_caret();
-                    self.preview_search();
+            Action::DeleteToLineStart => {
+                if self.modal.mode() == Mode::Command {
+                    if self.search.is_prompting() {
+                        self.search.clear_before_caret();
+                        self.preview_search();
+                    }
+                } else {
+                    self.delete_to_line_start();
                 }
             }
             Action::Backspace => {
@@ -2796,8 +2804,8 @@ impl EditorState {
             | Action::PromptCaret { .. }
             | Action::SearchPreviewStep { .. }
             | Action::DeleteForward
-            | Action::PromptDeleteWord
-            | Action::PromptClearToStart
+            | Action::DeleteWordBefore
+            | Action::DeleteToLineStart
             | Action::SearchRepeat { .. }
             | Action::SearchWord { .. }
             | Action::ClearSearchHighlight
@@ -3181,6 +3189,29 @@ impl EditorState {
             // clamp onto something else.
             return;
         };
+        self.erase_back_to(target);
+    }
+
+    /// Delete `[target, cursor)` and park the caret on `target`.
+    ///
+    /// The shared body of every BACKWARD erase against the buffer — `<BS>`,
+    /// `<C-w>`, `<C-u>`. They differ only in how far back they reach, so the
+    /// two properties that must hold for all three live here once rather than
+    /// three times: the edit does NOT route through `apply_operator` (see
+    /// [`Self::delete_before_cursor`] for both reasons), and the caret lands
+    /// via `set_cursor` so the viewport follows and the clamp still runs.
+    ///
+    /// A `target` at or after the cursor is a no-op. That is the guard that
+    /// makes the callers safe to write as "resolve a position, hand it over":
+    /// `word_prev` returns the cursor unchanged at column 0 and
+    /// `first_non_blank` returns a position AHEAD of the cursor inside an
+    /// indent, and a reversed `Range` would be a delete of unknown extent
+    /// rather than nothing.
+    fn erase_back_to(&mut self, target: Position) {
+        let cursor = self.cursor();
+        if (target.line, target.column) >= (cursor.line, cursor.column) {
+            return;
+        }
         let edit = Edit::delete(Range {
             start: target,
             end: cursor,
@@ -3190,6 +3221,55 @@ impl EditorState {
                 self.set_cursor(target);
             }
         }
+    }
+
+    /// `<C-w>` against the BUFFER — the Insert-mode arm of
+    /// [`Action::DeleteWordBefore`].
+    ///
+    /// Reaches back over `Motion::WordStartPrev`, the SAME resolver the cursor
+    /// move and the operator range already stand on, so `<C-w>` and `db` agree
+    /// on where a word starts by construction instead of by two hand-written
+    /// scans that drift.
+    ///
+    /// `word_prev` is single-line and returns the cursor unchanged at column 0,
+    /// which would make `<C-w>` a dead key at the start of a line. vim erases
+    /// the line break there, so the zero-width case falls through to
+    /// [`Self::delete_before_cursor`] — one character back, which at column 0
+    /// IS the newline.
+    fn delete_word_before_cursor(&mut self) {
+        let cursor = self.cursor();
+        let Some(target) = self.resolve_motion(cursor, Motion::WordStartPrev) else {
+            return;
+        };
+        if (target.line, target.column) >= (cursor.line, cursor.column) {
+            self.delete_before_cursor();
+            return;
+        }
+        self.erase_back_to(target);
+    }
+
+    /// `<C-u>` against the BUFFER — the Insert-mode arm of
+    /// [`Action::DeleteToLineStart`].
+    ///
+    /// Two-step, as vim is: the first press erases back to the first non-blank
+    /// (what you typed), and a second press — now sitting ON the first
+    /// non-blank, so that target is no longer behind the cursor — erases the
+    /// indent. Collapsing the two into "always column 0" would destroy
+    /// alignment on the first press, which is the one the hands reach for.
+    ///
+    /// Never joins with the line above: `<C-u>` is a line-scoped verb, and at
+    /// column 0 it is a no-op rather than a silent line-merge.
+    fn delete_to_line_start(&mut self) {
+        let cursor = self.cursor();
+        let Some(indent) = self.resolve_motion(cursor, Motion::LineFirstNonBlank) else {
+            return;
+        };
+        let target = if (indent.line, indent.column) < (cursor.line, cursor.column) {
+            indent
+        } else {
+            Position::new(cursor.line, 0)
+        };
+        self.erase_back_to(target);
     }
 
     /// `<Del>` against the BUFFER — the Insert-mode arm of
