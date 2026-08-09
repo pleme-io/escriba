@@ -60,6 +60,25 @@ pub enum Motion {
 }
 
 impl Motion {
+    /// Does this motion name a character to ACT ON, rather than a boundary to
+    /// stop before?
+    ///
+    /// vim's exclusive/inclusive split, and it is not cosmetic: `dw` deletes
+    /// up to the next word and `de` deletes *through* the current one. An
+    /// operator range is `[cursor, target)`, so an inclusive motion's target
+    /// has to be widened by one character or the operator leaves the last
+    /// character behind — off by exactly one, on the key most likely to be
+    /// used to delete a word without its trailing space.
+    ///
+    /// `WordEndNext` is the only inclusive motion escriba has today. `f`/`t`/
+    /// `%` are the others in vim and are not bound yet; each lands here when
+    /// it does, which is the point of asking the MOTION rather than
+    /// special-casing `e` at the operator.
+    #[must_use]
+    pub const fn is_inclusive(self) -> bool {
+        matches!(self, Self::WordEndNext)
+    }
+
     #[must_use]
     pub const fn is_structural(self) -> bool {
         matches!(

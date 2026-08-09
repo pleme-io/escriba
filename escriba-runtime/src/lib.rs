@@ -1970,8 +1970,34 @@ impl EditorState {
     }
 
     fn set_cursor(&mut self, pos: Position) {
+        self.place_cursor(pos, CursorRest::OnCharacter);
+    }
+
+    /// The **single** cursor-mutation body. `rest` says what kind of place the
+    /// caller is asking for — see [`CursorRest`].
+    fn place_cursor(&mut self, pos: Position, rest: CursorRest) {
         let clamped = if let Some(buf) = self.buffers.get(self.active) {
-            buf.clamp(pos)
+            let on_buffer = buf.clamp(pos);
+            // In Normal mode the cursor sits ON a character; only Insert may
+            // park past the last one, because that is where the next typed
+            // character goes.
+            //
+            // `Buffer::clamp` cannot make this call — it answers "is this
+            // position inside the text", which is a question about the BUFFER,
+            // and one-past-the-end legitimately is. Whether the cursor may
+            // REST there is a question about the MODE, so it is asked here,
+            // once, on the single cursor-mutation path. Every motion inherits
+            // it: `w` onto the last word, `$`, `x` at end of line.
+            if rest == CursorRest::OnCharacter && self.modal.mode() == Mode::Normal {
+                Position::new(
+                    on_buffer.line,
+                    on_buffer
+                        .column
+                        .min(buf.line_len_chars(on_buffer.line).saturating_sub(1)),
+                )
+            } else {
+                on_buffer
+            }
         } else {
             pos
         };
@@ -2949,7 +2975,8 @@ impl EditorState {
                 buf.line_count().saturating_sub(1),
                 buf.line_len_chars(buf.line_count().saturating_sub(1)),
             ),
-            Motion::WordStartNext | Motion::WordEndNext => word_next(buf, pos),
+            Motion::WordStartNext => word_next(buf, pos),
+            Motion::WordEndNext => word_end(buf, pos),
             Motion::WordStartPrev => word_prev(buf, pos),
             Motion::PageDown | Motion::HalfPageDown => {
                 Position::new(pos.line.saturating_add(10), pos.column)
@@ -3025,7 +3052,26 @@ impl EditorState {
             self.apply_operator(op, motion);
             return;
         }
-        self.apply_operator_to(op, to);
+        self.apply_operator_to(op, self.operated_end(motion, to));
+    }
+
+    /// Widen an INCLUSIVE motion's target to the exclusive end an operator
+    /// range needs. See [`Motion::is_inclusive`].
+    ///
+    /// Applied at the OPERATOR, never inside `resolve_motion`: the same
+    /// resolution has to serve the cursor path, where `e` must land ON the
+    /// last character, and the range path, where the range must end after it.
+    /// One target, two readings — putting the widening in the resolver would
+    /// move `e` itself one character too far.
+    fn operated_end(&self, motion: Motion, to: Position) -> Position {
+        if !motion.is_inclusive() {
+            return to;
+        }
+        let line_len = self
+            .buffers
+            .get(self.active)
+            .map_or(to.column, |b| b.line_len_chars(to.line));
+        Position::new(to.line, to.column.saturating_add(1).min(line_len))
     }
 
     fn apply_operator(&mut self, op: Operator, motion: Motion) {
@@ -3045,7 +3091,7 @@ impl EditorState {
             }
             return;
         };
-        self.apply_operator_to(op, to);
+        self.apply_operator_to(op, self.operated_end(motion, to));
     }
 
     /// Apply `op` over `[cursor, to)`.
@@ -3159,7 +3205,7 @@ impl EditorState {
             };
             // Route through the single cursor-mutation path so the viewport
             // follows the cursor (both axes) and the cursor stays clamped.
-            self.set_cursor(next);
+            self.place_cursor(next, CursorRest::AtInsertPoint);
         }
     }
 
@@ -3328,11 +3374,15 @@ impl EditorState {
         // after the capture.
         let line = self.modal.minibuffer().to_string();
         self.modal.escape();
-        let (name, args) = parse_command_line(&line);
-        if name.is_empty() {
+        // The ex-name grammar — vim's abbreviations and its `!` — lives in
+        // `escriba_command::ex` and NOT here. It used to be three arms in a
+        // `match` at the bottom of this file (`"w" => "save"`, …), which is
+        // why `:wq` reported "command not found" while `:w` and `:q` both
+        // worked: there was nowhere for a compound spelling to be known.
+        let Some(inv) = escriba_command::ex::parse(&line) else {
             return;
-        }
-        self.run_command(&name, &args);
+        };
+        self.run_command(&inv.command, &inv.args);
     }
 
     fn run_command(&mut self, name: &str, args: &[String]) {
@@ -3475,7 +3525,7 @@ impl EditorState {
             };
             // Route through the single cursor-mutation path so the viewport
             // follows the cursor (both axes) and the cursor stays clamped.
-            self.set_cursor(next);
+            self.place_cursor(next, CursorRest::AtInsertPoint);
         }
     }
 }
@@ -3491,57 +3541,209 @@ fn first_non_blank(buf: &escriba_buffer::Buffer, line: u32) -> Position {
     Position::new(line, u32::try_from(col).unwrap_or(0))
 }
 
-fn word_next(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
-    let Some(text) = buf.line(pos.line) else {
-        return pos;
-    };
-    let chars: Vec<char> = text.chars().collect();
-    let start = pos.column as usize;
-    let mut i = start;
-    while i < chars.len() && !chars[i].is_whitespace() {
-        i += 1;
-    }
-    while i < chars.len() && chars[i].is_whitespace() {
-        i += 1;
-    }
-    if i >= chars.len() {
-        // No more words on this line — jump to next line.
-        if pos.line + 1 < buf.line_count() {
-            return Position::new(pos.line + 1, 0);
-        }
-    }
-    Position::new(pos.line, u32::try_from(i).unwrap_or(pos.column))
+/// What kind of place a cursor move is asking for.
+///
+/// The Normal-mode rule "the cursor sits ON a character" is about where the
+/// cursor comes to REST. It is not about where text goes next: a write that
+/// appends `abc` leaves the cursor after the `c`, and that position is one
+/// past the last character by construction — clamping it back would make the
+/// next append land inside the text just written. The lisp `(insert …)`
+/// effect is the case that proves it, because it runs in Normal mode.
+///
+/// A parameter rather than two functions, so both readings stay in front of
+/// whoever changes the clamp.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+enum CursorRest {
+    /// A motion's destination — Normal mode pulls it onto a character.
+    OnCharacter,
+    /// Where the next character goes — never pulled back.
+    AtInsertPoint,
 }
 
-fn word_prev(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
-    let Some(text) = buf.line(pos.line) else {
-        return pos;
+/// vim's three character classes — the whole of what "a word" means to `w`,
+/// `b`, `e` and `iw`.
+///
+/// One classifier, not four. `object_word` grew its own copy while the word
+/// MOTIONS were still splitting on whitespace alone, so `diw` on `foo.bar`
+/// took `foo` and `dw` took `foo.bar` — two answers to "where does this word
+/// end" from one editor, on the same keystroke's worth of text.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+enum WordClass {
+    Word,
+    Punct,
+    Space,
+}
+
+fn word_class(c: char) -> WordClass {
+    if c.is_alphanumeric() || c == '_' {
+        WordClass::Word
+    } else if c.is_whitespace() {
+        WordClass::Space
+    } else {
+        WordClass::Punct
+    }
+}
+
+/// A line's characters WITHOUT its terminator.
+///
+/// The newline is not a character the cursor can sit on, and every word scan
+/// wants the line's own text; `line_len_chars` already strips it for exactly
+/// this reason, so the two agree on where a line ends by construction.
+fn line_chars(buf: &escriba_buffer::Buffer, line: u32) -> Vec<char> {
+    let Some(text) = buf.line(line) else {
+        return Vec::new();
     };
-    let chars: Vec<char> = text.chars().collect();
+    let len = buf.line_len_chars(line) as usize;
+    text.chars().take(len).collect()
+}
+
+/// The last line that HOLDS text.
+///
+/// A file ending in `\n` is one line of text plus a terminator, but the rope
+/// reports two lines, the second empty — so `line_count() - 1` names a line
+/// that is not there. A forward word motion walking onto it moves the cursor
+/// off the end of the file onto a row with nothing on it, which is what `w`
+/// on the last word of an ordinary file did.
+///
+/// Scoped to the word motions on purpose. That phantom row is also DRAWN — it
+/// gets a gutter number in every face — and hiding it is a buffer-model change
+/// with a much wider blast radius than a motion fix; it is a separate defect,
+/// named rather than half-fixed here. What is fixed here is the claim these
+/// motions make: there is no next word after the last character of the text.
+fn last_text_line(buf: &escriba_buffer::Buffer) -> u32 {
+    let last = buf.line_count().saturating_sub(1);
+    if last > 0 && buf.line_len_chars(last) == 0 {
+        last - 1
+    } else {
+        last
+    }
+}
+
+/// Where a forward word motion runs out of text — the EXCLUSIVE end, so an
+/// operator reaches the final character. See [`word_next`].
+fn buffer_end(buf: &escriba_buffer::Buffer) -> Position {
+    let line = last_text_line(buf);
+    Position::new(line, buf.line_len_chars(line))
+}
+
+/// `w` — to the start of the next word.
+///
+/// Three vim behaviours this had to grow, each of which was a visible wrong
+/// answer before:
+///
+/// - **Punctuation starts a word.** `w` on `foo.bar` stops at `.` and again
+///   at `b`; the whitespace-only scan sailed past both to the end.
+/// - **It crosses lines onto the first non-blank**, not onto column 0. Landing
+///   on the indent means the next `w` is spent walking out of it.
+/// - **An empty line is a word.** vim stops on one, and that is what makes `w`
+///   usable for walking paragraphs.
+///
+/// When there is no next word it returns the position PAST the last character
+/// — not the last character itself. That looks like the bug it is next to and
+/// is the opposite: an operator needs the exclusive end (`dw` on the final
+/// word must delete the whole word), and it is the Normal-mode cursor that
+/// must not sit there. So the clamp lives in [`EditorState::set_cursor`],
+/// which knows the mode, and this stays a pure range endpoint.
+fn word_next(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
+    let mut line = pos.line;
+    let mut chars = line_chars(buf, line);
+    let mut col = (pos.column as usize).min(chars.len());
+
+    // Leave the run the cursor is standing in. Starting on a blank skips this
+    // — there is no run to leave, only blanks to cross.
+    if col < chars.len() {
+        let start = word_class(chars[col]);
+        if start != WordClass::Space {
+            while col < chars.len() && word_class(chars[col]) == start {
+                col += 1;
+            }
+        }
+    }
+
+    loop {
+        while col < chars.len() && word_class(chars[col]) == WordClass::Space {
+            col += 1;
+        }
+        if col < chars.len() {
+            return Position::new(line, u32::try_from(col).unwrap_or(pos.column));
+        }
+        if line >= last_text_line(buf) {
+            // Out of text: the exclusive end of the last word.
+            return Position::new(line, u32::try_from(chars.len()).unwrap_or(pos.column));
+        }
+        line += 1;
+        col = 0;
+        chars = line_chars(buf, line);
+        if chars.is_empty() {
+            return Position::new(line, 0);
+        }
+    }
+}
+
+/// `b` — back to the start of the current or previous word.
+///
+/// Class-aware like [`word_next`], so `b` and `w` agree on where a word
+/// begins; a disagreement between them is felt as `dw` and `db` deleting
+/// different things from the same spot.
+///
+/// Single-line, and that is load-bearing: `<C-w>` reaches back over this
+/// motion and relies on it returning the cursor UNCHANGED at column 0, which
+/// is what makes the insert-mode erase fall through to `delete_before_cursor`
+/// and join with the line above. Teaching this to cross lines would silently
+/// change that key.
+fn word_prev(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
+    let chars = line_chars(buf, pos.line);
     let mut i = (pos.column as usize).min(chars.len());
-    while i > 0 && chars[i - 1].is_whitespace() {
+    while i > 0 && word_class(chars[i - 1]) == WordClass::Space {
         i -= 1;
     }
-    while i > 0 && !chars[i - 1].is_whitespace() {
-        i -= 1;
+    if i > 0 {
+        let run = word_class(chars[i - 1]);
+        while i > 0 && word_class(chars[i - 1]) == run {
+            i -= 1;
+        }
     }
     Position::new(pos.line, u32::try_from(i).unwrap_or(0))
 }
 
-fn parse_command_line(line: &str) -> (String, Vec<String>) {
-    let mut parts = line.split_whitespace();
-    let Some(first) = parts.next() else {
-        return (String::new(), Vec::new());
-    };
-    let head = first.strip_prefix(':').unwrap_or(first);
-    let name = match head {
-        "w" => "save",
-        "q" => "quit",
-        "u" => "undo",
-        other => other,
-    };
-    (name.to_string(), parts.map(str::to_string).collect())
+/// `e` — to the LAST character of the current or next word.
+///
+/// Always moves, which is what separates it from "the end of this word": on
+/// the last character of a word, `e` goes to the last character of the NEXT
+/// one rather than standing still.
+///
+/// This motion is INCLUSIVE — it names a character to act on, not a boundary
+/// to stop before — see [`Motion::is_inclusive`]. `WordEndNext` used to
+/// resolve through [`word_next`], so `e` and `w` were the same key with two
+/// names.
+fn word_end(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
+    let mut line = pos.line;
+    let mut chars = line_chars(buf, line);
+    // `e` always advances at least one character before it starts looking.
+    let mut col = (pos.column as usize).saturating_add(1);
+
+    loop {
+        while col < chars.len() && word_class(chars[col]) == WordClass::Space {
+            col += 1;
+        }
+        if col < chars.len() {
+            break;
+        }
+        if line >= last_text_line(buf) {
+            return buffer_end(buf);
+        }
+        line += 1;
+        col = 0;
+        chars = line_chars(buf, line);
+    }
+
+    let run = word_class(chars[col]);
+    while col + 1 < chars.len() && word_class(chars[col + 1]) == run {
+        col += 1;
+    }
+    Position::new(line, u32::try_from(col).unwrap_or(pos.column))
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -4538,16 +4740,35 @@ mod tests {
     #[test]
     fn resolve_motion_is_the_shared_target_for_move_and_operator() {
         // The encapsulation proof: apply_motion (cursor move) and
-        // apply_operator (range end) BOTH stand on resolve_motion — so a move
-        // to LineEnd lands at exactly the position the operator deletes to.
+        // apply_operator (range end) BOTH stand on resolve_motion.
+        //
+        // They read its answer differently AT THE BUFFER EDGE, and the
+        // difference is vim's: `d$` deletes the last character, so the RANGE
+        // ends after it; `$` puts the cursor ON it, because Normal mode has
+        // nowhere past the last character to stand. One resolver, one target,
+        // two readings — the reading is the mode's, not the motion's, which
+        // is why the rest rule lives in `place_cursor` and not in here.
         let mut s = new_state_with("hello world");
         let target = s.resolve_motion(Position::ZERO, Motion::LineEnd).unwrap();
-        assert_eq!(target, Position::new(0, 11));
+        assert_eq!(target, Position::new(0, 11), "the exclusive range end");
+
         s.apply_motion(Motion::LineEnd);
         assert_eq!(
             s.cursor(),
-            target,
-            "the move path resolves the same target the operator uses"
+            Position::new(0, 10),
+            "`$` rests on the last character, not past it",
+        );
+
+        let mut d = new_state_with("hello world");
+        d.apply(&Action::ApplyOperator {
+            op: Operator::Delete,
+            motion: Motion::LineEnd,
+        });
+        assert_eq!(
+            line0_len(&d),
+            0,
+            "`d$` deletes through the last character — the range ends where \
+             resolve_motion said, not where the cursor may rest",
         );
     }
 
@@ -4594,10 +4815,11 @@ mod tests {
 
     #[test]
     fn lone_motion_after_no_operator_just_moves() {
-        // Without a preceding operator the motion passes through unchanged.
+        // Without a preceding operator the motion passes through unchanged —
+        // and comes to rest on the last character, as Normal mode requires.
         let mut s = new_state_with("hello world");
         s.apply(&Action::Move(Motion::LineEnd));
-        assert_eq!(s.cursor(), Position::new(0, 11));
+        assert_eq!(s.cursor(), Position::new(0, 10));
         assert_eq!(line0_len(&s), 11, "a bare motion never mutates");
     }
 

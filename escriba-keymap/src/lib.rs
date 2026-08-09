@@ -272,6 +272,12 @@ impl Keymap {
         );
         nm(
             &mut m,
+            Key::Char('e'),
+            Action::Move(Motion::WordEndNext),
+            "word end",
+        );
+        nm(
+            &mut m,
             Key::Char('0'),
             Action::Move(Motion::LineStart),
             "line start",

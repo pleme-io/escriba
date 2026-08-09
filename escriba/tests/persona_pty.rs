@@ -535,10 +535,16 @@ fn mute_persona_never_fatal() {
 /// Insert-mode round-trip: `i` → type a marker → Esc → force a FULL
 /// repaint (winsize shrink → SIGWINCH → ratatui autoresize clears and
 /// redraws every cell) → the marker must appear contiguously in the
-/// frame output → `:q⏎` still exits cleanly. The shrink is load-bearing:
-/// ratatui diffs per keystroke, so the incremental stream only ever
-/// carries one new char (plus the shifted tail) per frame — the full
+/// frame output → `:q⏎` REFUSES, and `:q!⏎` exits cleanly. The shrink is
+/// load-bearing: ratatui diffs per keystroke, so the incremental stream only
+/// ever carries one new char (plus the shifted tail) per frame — the full
 /// repaint is how a persona reads the composed screen.
+///
+/// The two-step exit is the point of the E37 gate, driven through a real PTY
+/// against the real binary: having typed a marker into an unnamed buffer, the
+/// operator has unsaved work, and `:q` must not throw it away. This test used
+/// to end at `:q⏎` and pass, which is what that discard looked like from the
+/// outside — a clean exit.
 #[test]
 fn insert_roundtrip() {
     // Insert-mode chars are taken literally (Mode::Insert dispatch), so
@@ -565,9 +571,14 @@ fn insert_roundtrip() {
             after_alt: Duration::from_millis(2800),
             inject: Inject::ShrinkOneColumn,
         },
+        // Refused — the buffer is modified and has no path to write to.
         Step {
             after_alt: Duration::from_millis(3800),
             inject: Inject::Keys(b":q\r"),
+        },
+        Step {
+            after_alt: Duration::from_millis(4800),
+            inject: Inject::Keys(b":q!\r"),
         },
     ];
     let Some(o) = drive(
@@ -587,6 +598,12 @@ fn insert_roundtrip() {
     assert!(
         find(&o.transcript, MARKER).is_some(),
         "typed insert-mode text must appear contiguously in the forced full repaint: tail={:?}",
+        tail(&o.transcript),
+    );
+    assert!(
+        find(&o.transcript, b"E37").is_some(),
+        "`:q` on a modified unnamed buffer must refuse and SAY so — a silent \
+         refusal reads as a dropped keystroke: tail={:?}",
         tail(&o.transcript),
     );
     assert!(

@@ -2,6 +2,8 @@
 
 extern crate self as escriba_command;
 
+pub mod ex;
+
 use std::collections::HashMap;
 
 use escriba_core::BufferId;
@@ -148,7 +150,51 @@ impl CommandRegistry {
             "Write the active buffer to disk",
             erase::<Save>(),
         ));
-        r.register(Command::native("quit", "Exit the editor", erase::<Quit>()));
+        // ── the write/quit family ────────────────────────────────────────
+        //
+        // One registered command per DISTINCT BEHAVIOUR; the many spellings
+        // an operator can type (`:x`, `:wqa`, `:quita`, …) are the ex
+        // grammar's business, not the registry's. See [`ex::VERBS`].
+        r.register(Command::native(
+            "quit",
+            "Exit the editor, unless a buffer is modified",
+            erase::<QuitChecked<false>>(),
+        ));
+        r.register(Command::native(
+            "quit!",
+            "Exit the editor, discarding unsaved changes",
+            erase::<Quit>(),
+        ));
+        r.register(Command::native(
+            "quit-all",
+            "Exit the editor, unless any buffer is modified",
+            erase::<QuitChecked<true>>(),
+        ));
+        r.register(Command::native(
+            "quit-all!",
+            "Exit the editor, discarding every unsaved change",
+            erase::<Quit>(),
+        ));
+        r.register(Command::native(
+            "write-quit",
+            "Write the active buffer, then exit",
+            erase::<WriteQuit>(),
+        ));
+        r.register(Command::native(
+            "write-quit-all",
+            "Write every modified buffer, then exit",
+            erase::<WriteQuitAll>(),
+        ));
+        r.register(Command::native(
+            "exit-write",
+            "Write the active buffer if modified, then exit",
+            erase::<ExitWrite>(),
+        ));
+        r.register(Command::native(
+            "buffer.write-all",
+            "Write every modified buffer",
+            erase::<WriteAll>(),
+        ));
         // Named for the ACTION SYMBOLS the shipped keybindings use, so
         // `<leader>bn` resolves instead of reporting "declared but not
         // implemented yet". These are the first three entries to leave the
@@ -902,11 +948,133 @@ impl<const FORWARD: bool> Native for TodoWalk<FORWARD> {
     }
 }
 
+/// `:q!` / `:qa!` — leave, whatever the buffers say.
+///
+/// Reads nothing, on purpose. The force form's whole meaning is "do not
+/// consult the thing that would stop you", and a handler that cannot see the
+/// modified flag cannot be talked into honouring it.
 struct Quit;
 impl Native for Quit {
     type Reads = caps!();
     fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
         Outcome::did(vec![Negai::Quit])
+    }
+}
+
+/// vim's E37, worded as vim words it — the `(add ! to override)` tail is the
+/// half that matters, because it names the key that gets the operator out.
+fn no_write_since_last_change(what: &str) -> Outcome {
+    let mut m = String::with_capacity(64);
+    m.push_str("E37: No write since last change in ");
+    m.push_str(what);
+    m.push_str(" (add ! to override)");
+    Outcome::declined(m)
+}
+
+/// How a buffer is named in a message: its path, or `[No Name]` as vim calls
+/// an unsaved scratch.
+fn buffer_label(b: &dyn BufferView) -> String {
+    b.path()
+        .map_or_else(|| "[No Name]".to_string(), |p| p.display().to_string())
+}
+
+/// `:q` — leave, unless that would drop an unsaved change.
+///
+/// The refusal is what makes the bang mean something. Without it `:q` and
+/// `:q!` are the same key sequence with different lengths, and the editor
+/// discards an afternoon's typing without a word — which is the one failure
+/// mode a modal editor's users are trained to expect protection from.
+struct QuitChecked<const ALL: bool>;
+impl<const ALL: bool> Native for QuitChecked<ALL> {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        // `:q` asks about the buffer in front of the operator; `:qa` asks
+        // about every one, because it is the whole editor it is closing.
+        let blocker = if ALL {
+            b.ids()
+                .into_iter()
+                .filter_map(|id| b.get(id))
+                .find(|x| x.is_modified())
+                .map(buffer_label)
+        } else {
+            b.active().filter(|x| x.is_modified()).map(buffer_label)
+        };
+        match blocker {
+            Some(what) => no_write_since_last_change(&what),
+            None => Outcome::did(vec![Negai::Quit]),
+        }
+    }
+}
+
+/// `:wq` — write the active buffer, then leave.
+///
+/// Writes unconditionally, as vim does: `:wq` is how you touch a file's mtime
+/// on purpose. `:x` is the other one. A buffer with no path cannot be written
+/// anywhere, so it declines rather than quitting and silently losing the
+/// text — `:wq` on a scratch buffer promised a write.
+struct WriteQuit;
+impl Native for WriteQuit {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        if buf.path().is_none() {
+            return Outcome::declined("E32: No file name");
+        }
+        Outcome::did(vec![Negai::Save { buffer: buf.id() }, Negai::Quit])
+    }
+}
+
+/// `:x` / `:exit` — write only if modified, then leave.
+///
+/// The difference from `:wq` is one `is_modified` and it is not cosmetic: a
+/// pointless write bumps the mtime, and something is always watching the
+/// mtime.
+struct ExitWrite;
+impl Native for ExitWrite {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        let Some(buf) = b.active() else {
+            return Outcome::declined("no active buffer");
+        };
+        if !buf.is_modified() {
+            return Outcome::did(vec![Negai::Quit]);
+        }
+        if buf.path().is_none() {
+            return Outcome::declined("E32: No file name");
+        }
+        Outcome::did(vec![Negai::Save { buffer: buf.id() }, Negai::Quit])
+    }
+}
+
+/// `:wqa` / `:xa` — write every modified, path-backed buffer, then leave.
+///
+/// Shares [`WriteAll`]'s rule about scratch buffers rather than restating it:
+/// one slip per writable buffer, and a buffer with nowhere to go is skipped.
+/// It does NOT decline on an unwritable buffer the way `:wq` does — `:wqa` is
+/// a request to leave, and refusing the whole thing over one scratch buffer
+/// would leave the operator with no way out but `:qa!`, which discards the
+/// buffers `:wqa` was about to save.
+struct WriteQuitAll;
+impl Native for WriteQuitAll {
+    type Reads = caps!(Buffers);
+    fn run(v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        let b = v.buffers();
+        let mut slips: Vec<Negai> = b
+            .ids()
+            .into_iter()
+            .filter(|id| {
+                b.get(*id)
+                    .is_some_and(|x| x.is_modified() && x.path().is_some())
+            })
+            .map(|buffer| Negai::Save { buffer })
+            .collect();
+        slips.push(Negai::Quit);
+        Outcome::did(slips)
     }
 }
 
