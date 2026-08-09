@@ -355,6 +355,41 @@ fn aw_falls_back_to_leading_whitespace_at_the_end_of_the_line() {
     );
 }
 
+/// **vim searches FORWARD for a quoted string when the caret is not inside
+/// one** (`:h v_i"`). This is not an edge case for a filter box — it is the
+/// common case, because the caret sits at the start or end of what was typed,
+/// not in the middle of a quoted value.
+#[test]
+fn a_quote_object_searches_forward_when_the_caret_is_outside() {
+    let t = "name=\"old\"";
+    assert_eq!(
+        object_span(
+            t,
+            0,
+            TextObject::Delimited {
+                open: '"',
+                close: '"',
+                around: false
+            }
+        ),
+        Some(6..9),
+        "`i\"` from before the quotes finds the next quoted string",
+    );
+    assert_eq!(
+        object_span(
+            t,
+            0,
+            TextObject::Delimited {
+                open: '"',
+                close: '"',
+                around: true
+            }
+        ),
+        Some(5..10),
+        "and `a\"` takes the quotes with it",
+    );
+}
+
 #[test]
 fn delimited_objects_handle_quotes_and_nesting() {
     assert_eq!(
