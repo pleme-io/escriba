@@ -1101,11 +1101,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785553904,
-        "narHash": "sha256-pbwYA0nxVNLv8s3gLMLycPyMuLgei3OS2pdEAQvG9hA=",
+        "lastModified": 1786277855,
+        "narHash": "sha256-UPH5/9qtuxfN2mf4E/fswngUY1Vgk8m+4kn78TPaGeE=",
         "owner": "pleme-io",
         "repo": "garasu",
-        "rev": "3734f3d688e9c4c1c7493c564b0f3ef5f5fbbdc3",
+        "rev": "ac91b1ed3b7e419ef1f47c2b11cb11aef81fa37d",
         "type": "github"
       },
       "original": {
