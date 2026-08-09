@@ -9,6 +9,7 @@ extern crate self as escriba_runtime;
 
 mod courier;
 mod plugin_host;
+pub mod scan;
 pub use plugin_host::{LazyTrigger, PluginHost};
 
 mod operator_pending;
@@ -196,6 +197,10 @@ pub struct EditorState {
     /// hires a crew, so every existing `EditorState::new*` call site is
     /// unchanged and the editor is fully usable with no runners at all.
     courier: courier::Courier,
+    /// Which findings list the open picker is a VIEW of, if any —
+    /// `(workspace, list)`. Set when a picker opens over a live producer,
+    /// cleared whenever the picker closes.
+    picker_projects: Option<(bool, Option<String>)>,
     /// Extension → language facts, populated from `(defmode …)`.
     ///
     /// The consumer `:commentstring` never had. Public so the binary's apply
@@ -836,8 +841,11 @@ impl EditorState {
                         // anchor field on `PublishFindings`; adding one there
                         // now would reopen exactly the hole the wrapper closed.
                         Negai::PublishFindings { list, findings } => {
-                            self.results
-                                .publish(list, escriba_shirube::ResultList::new(findings, anchor));
+                            self.results.publish(
+                                list.clone(),
+                                escriba_shirube::ResultList::new(findings, anchor),
+                            );
+                            self.refresh_projected_picker(&list);
                         }
                         other => self.honour_one(other),
                     }
@@ -1036,6 +1044,7 @@ impl EditorState {
             lsp_gen: escriba_shirube::SessionGen::default(),
             scan_gen: escriba_shirube::SessionGen::default(),
             courier: courier::Courier::inert(),
+            picker_projects: None,
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,
@@ -1131,6 +1140,7 @@ impl EditorState {
     /// to a runner that checks.
     fn close_picker(&mut self) {
         self.picker = None;
+        self.picker_projects = None;
         self.bump_scan_gen();
         self.courier.cancel_all();
         self.bump_gen();
@@ -1192,13 +1202,14 @@ impl EditorState {
     /// is not new — but those touch one file and this walks a tree, which is
     /// the first one big enough to freeze the editor.
     ///
-    /// The DESTINATION is the courier: an errand that scans off-thread and
-    /// delivers results as they arrive, with no ceiling at all. This bound is
-    /// the interim that ships a working grep meanwhile, and it is a real
-    /// limit — a match past the ceiling is NOT found, and the picker says so
-    /// rather than presenting a truncated list as complete.
+    /// GREP NO LONGER USES THIS. The courier carries the scan now, with no
+    /// ceiling at all, and `GREP_HIT_LIMIT` is gone with it — the bound was
+    /// a symptom of walking the tree on the thread that draws the screen.
+    ///
+    /// It survives for the files and project pickers, which still build
+    /// their row set synchronously at open. Moving those onto the courier
+    /// is the same change again and has not been made.
     const GREP_FILE_LIMIT: usize = 2_000;
-    const GREP_HIT_LIMIT: usize = 500;
 
     /// Walk the working directory, bounded, returning `(files, truncated)`.
     ///
@@ -1257,57 +1268,62 @@ impl EditorState {
         }
     }
 
-    /// Scan the working directory for `pattern`, bounded.
+    /// Scan the working directory for `pattern`, off the editor thread.
+    ///
+    /// This used to walk the tree inline, capped at 2,000 files and 500 hits
+    /// because it ran on the thread that draws the screen — and it reported
+    /// that truncation, honestly, as INCOMPLETE. Both ceilings are gone with
+    /// the walk: the courier carries it, and results arrive in batches.
+    ///
+    /// The picker opens EMPTY and then projects the findings list. That is why
+    /// there is no "no matches" message here any more — at dispatch time
+    /// nothing is known yet, and guessing would mean reporting an empty result
+    /// before the scan had read a single file.
     fn grep_project(&mut self, pattern: &str) {
-        use escriba_ui::picker::{Choice, Picker, PickerItem, Source};
+        use escriba_ui::picker::{Picker, Source};
         if pattern.is_empty() {
             self.messages.push("grep: empty pattern".to_string());
             return;
         }
-        let (files, mut truncated) = Self::walk_project(Self::GREP_FILE_LIMIT);
-        let mut items: Vec<PickerItem<Choice>> = Vec::new();
-        'outer: for path in files {
-            let Ok(text) = std::fs::read_to_string(&path) else {
-                continue; // binary or unreadable — not an error worth reporting
-            };
-            for (n, line) in text.lines().enumerate() {
-                if !line.contains(pattern) {
-                    continue;
-                }
-                if items.len() >= Self::GREP_HIT_LIMIT {
-                    truncated = true;
-                    break 'outer;
-                }
-                let Ok(n) = u32::try_from(n) else { break };
-                let mut label = String::with_capacity(80);
-                label.push_str(&path.to_string_lossy());
-                label.push(':');
-                label.push_str(&(n + 1).to_string());
-                label.push_str("  ");
-                label.push_str(line.trim());
-                items.push(PickerItem::new(
-                    Choice::Location {
-                        path: path.clone(),
-                        line: n,
-                    },
-                    label,
-                ));
-            }
-        }
-        if items.is_empty() {
-            let mut m = String::from("grep: no matches for ");
-            m.push_str(pattern);
-            self.messages.push(m);
+        // A fresh scan supersedes whatever was running, and clears the list so
+        // the previous pattern's rows are not shown under the new one.
+        self.bump_scan_gen();
+        self.courier.cancel_all();
+        self.results.clear(crate::scan::LIST);
+
+        let freight = escriba_madoguchi::errand::Freight::Scan {
+            raw: pattern.to_string(),
+            case: escriba_search::CaseMode::Smart,
+            root: std::path::PathBuf::from("."),
+        };
+        let anchor = self.seal(&freight);
+        self.courier.send(freight, anchor);
+
+        self.picker = Some(Picker::open(Source::Grep, Vec::new()));
+        self.picker_projects = Some((true, Some(crate::scan::LIST.to_string())));
+        self.bump_gen();
+    }
+
+    /// Re-list a projecting picker after `published` changed.
+    ///
+    /// A picker over a live producer is a VIEW of the registry, not a snapshot
+    /// taken when it opened — otherwise a scan's later batches would have
+    /// nowhere to land, since `Picker` has no append.
+    fn refresh_projected_picker(&mut self, published: &str) {
+        let Some((workspace, ref list)) = self.picker_projects else {
+            return;
+        };
+        // Only the list this picker is projecting. A diagnostics publish must
+        // not redraw a grep picker.
+        if list.as_deref().is_some_and(|l| l != published) {
             return;
         }
-        if truncated {
-            // Stated, never silent. A truncated list presented as complete is
-            // the failure this whole codebase keeps finding.
-            self.messages
-                .push("grep: stopped at the scan limit — results are INCOMPLETE".to_string());
+        let items = self.finding_items(workspace, list.as_deref());
+        if let Some(p) = self.picker.as_mut() {
+            if p.refresh_items(items) {
+                self.bump_gen();
+            }
         }
-        self.picker = Some(Picker::open(Source::Grep, items));
-        self.bump_gen();
     }
 
     /// Where accepting a finding should take the operator.
@@ -1385,12 +1401,17 @@ impl EditorState {
     fn finding_items(
         &self,
         workspace: bool,
+        only: Option<&str>,
     ) -> Vec<escriba_ui::picker::PickerItem<escriba_ui::picker::Choice>> {
         use escriba_ui::picker::PickerItem;
         let world = self.world();
         let active = Some(self.active);
         let mut items = Vec::new();
-        for name in self.results.names() {
+        // `None` means every list — the trouble.* behaviour, unchanged.
+        // `Some(n)` narrows to one producer, so a grep picker does not also
+        // render LSP diagnostics and the marker scan.
+        let names: Vec<&str> = only.map_or_else(|| self.results.names(), |n| vec![n]);
+        for name in names {
             let Some(list) = self.results.get(name) else {
                 continue;
             };
@@ -1521,7 +1542,7 @@ impl EditorState {
                 (Source::Files, self.file_items(&root))
             }
             escriba_madoguchi::PickerSource::Findings { workspace } => {
-                (Source::Findings, self.finding_items(workspace))
+                (Source::Findings, self.finding_items(workspace, None))
             }
         };
         if items.is_empty() {
@@ -3629,7 +3650,7 @@ mod tests {
             "test",
             escriba_shirube::ResultList::new(vec![finding_at(st.active, 1, "boom")], world),
         );
-        let rows = st.finding_items(true);
+        let rows = st.finding_items(true, None);
         assert_eq!(rows.len(), 1, "the published finding produces a row");
         // The row must SAY something an operator can act on: severity,
         // 1-based line, and the message.
@@ -3651,11 +3672,11 @@ mod tests {
             "test",
             escriba_shirube::ResultList::new(vec![finding_at(st.active, 1, "boom")], world),
         );
-        assert_eq!(st.finding_items(true).len(), 1, "fresh to begin with");
+        assert_eq!(st.finding_items(true, None).len(), 1, "fresh to begin with");
 
         st.apply(&Action::InsertChar('x'));
         assert!(
-            st.finding_items(true).is_empty(),
+            st.finding_items(true, None).is_empty(),
             "an edit moved the text on; the list is stale and must not be shown"
         );
     }
@@ -3677,9 +3698,9 @@ mod tests {
                 world,
             ),
         );
-        let ws = st.finding_items(true);
+        let ws = st.finding_items(true, None);
         assert_eq!(ws.len(), 2, "workspace scope shows both");
-        let doc = st.finding_items(false);
+        let doc = st.finding_items(false, None);
         assert_eq!(doc.len(), 1, "document scope shows only the active buffer");
         assert!(doc[0].label.contains("mine"), "{}", doc[0].label);
     }
@@ -4183,7 +4204,11 @@ mod tests {
                 findings: vec![a_finding(st.active, 1)],
             }),
         });
-        assert_eq!(st.finding_items(true).len(), 1, "the world had not moved");
+        assert_eq!(
+            st.finding_items(true, None).len(),
+            1,
+            "the world had not moved"
+        );
     }
 
     /// THE red run. Without the freshness check this passes findings
@@ -4205,7 +4230,7 @@ mod tests {
             }),
         });
         assert!(
-            st.finding_items(true).is_empty(),
+            st.finding_items(true, None).is_empty(),
             "a reply computed against an older text revision must be DROPPED, \
              not resealed against the current one"
         );
