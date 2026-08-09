@@ -710,9 +710,35 @@ fn draw_status_line(
         Span::styled(c, status_style(chrome))
     };
 
-    // Layout: [pill] [prompt-or-path] … (flex) … [count] [pos]
+    // The newest report — `E37`, `E486`, "command not found".
+    //
+    // This face drew every other field of the model and skipped this one, so
+    // every refusal the editor made was silent HERE while the text face and
+    // the unit tests all saw it. `action_dispatch.rs` asserts the message
+    // reaches the MODEL, which stayed green throughout: the model was right
+    // and the report was missing, the same shape as the `: COMMAND` bug above.
+    //
+    // It sits in the flex gap rather than replacing the path, because the
+    // path is how you know which file the refusal is about. Tier-honest: the
+    // message persists until another one replaces it — `EditorState::messages`
+    // is also the `:messages` log, so there is nothing to clear without
+    // losing the log. Both other faces behave the same way.
+    let msg_span = match model.message {
+        Some(m) if !m.is_empty() => {
+            let mut s = String::with_capacity(m.len() + 2);
+            s.push(' ');
+            s.push_str(m);
+            s.push(' ');
+            Span::styled(s, msg_style(chrome))
+        }
+        _ => Span::raw(""),
+    };
+
+    // Layout: [pill] [prompt-or-path] [message] … (flex) … [count] [pos]
     let available = usize::from(area.width);
-    let left = mode_span.content.chars().count() + context_span.content.chars().count();
+    let left = mode_span.content.chars().count()
+        + context_span.content.chars().count()
+        + msg_span.content.chars().count();
     let right = count_span.content.chars().count() + pos_span.content.chars().count();
     let pad = available.saturating_sub(left + right);
 
@@ -729,6 +755,7 @@ fn draw_status_line(
     let line = Line::from(vec![
         mode_span,
         context_span,
+        msg_span,
         Span::raw(" ".repeat(pad)),
         count_span,
         pos_span,
@@ -822,6 +849,16 @@ fn status_style(c: &ChromePalette) -> Style {
 fn cmd_style(c: &ChromePalette) -> Style {
     Style::default()
         .fg(rgb(c.warning))
+        .bg(rgb(c.surface))
+        .add_modifier(Modifier::BOLD)
+}
+
+/// The status line's message slot. On the statusline GROUND, not the editor
+/// ground — a message painted over `background` inside a `surface` strip reads
+/// as a hole in the bar.
+fn msg_style(c: &ChromePalette) -> Style {
+    Style::default()
+        .fg(rgb(c.error))
         .bg(rgb(c.surface))
         .add_modifier(Modifier::BOLD)
 }
