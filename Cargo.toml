@@ -28,7 +28,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.64"
+version = "0.1.65"
 edition = "2024"
 rust-version = "1.89.0"
 license = "MIT"
@@ -37,22 +37,22 @@ authors = ["pleme-io"]
 
 [workspace.dependencies]
 # Workspace-internal — path deps.
-escriba-core    = { path = "escriba-core", version = "0.1.64" }
-escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.64" }
-escriba-shirube = { path = "escriba-shirube", version = "0.1.64" }
-escriba-buffer  = { path = "escriba-buffer", version = "0.1.64" }
-escriba-config  = { path = "escriba-config", version = "0.1.64" }
-escriba-mode    = { path = "escriba-mode", version = "0.1.64" }
-escriba-memori  = { path = "escriba-memori", version = "0.1.64" }
-escriba-search  = { path = "escriba-search", version = "0.1.64" }
-escriba-keymap  = { path = "escriba-keymap", version = "0.1.64" }
-escriba-command = { path = "escriba-command", version = "0.1.64" }
-escriba-api     = { path = "escriba-api", version = "0.1.64" }
-escriba-spec    = { path = "escriba-spec", version = "0.1.64" }
-escriba-ui      = { path = "escriba-ui", version = "0.1.64" }
-escriba-render  = { path = "escriba-render", version = "0.1.64" }
-escriba-plugin  = { path = "escriba-plugin", version = "0.1.64" }
-escriba-vm      = { path = "escriba-vm", version = "0.1.64" }
+escriba-core    = { path = "escriba-core", version = "0.1.65" }
+escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.65" }
+escriba-shirube = { path = "escriba-shirube", version = "0.1.65" }
+escriba-buffer  = { path = "escriba-buffer", version = "0.1.65" }
+escriba-config  = { path = "escriba-config", version = "0.1.65" }
+escriba-mode    = { path = "escriba-mode", version = "0.1.65" }
+escriba-memori  = { path = "escriba-memori", version = "0.1.65" }
+escriba-search  = { path = "escriba-search", version = "0.1.65" }
+escriba-keymap  = { path = "escriba-keymap", version = "0.1.65" }
+escriba-command = { path = "escriba-command", version = "0.1.65" }
+escriba-api     = { path = "escriba-api", version = "0.1.65" }
+escriba-spec    = { path = "escriba-spec", version = "0.1.65" }
+escriba-ui      = { path = "escriba-ui", version = "0.1.65" }
+escriba-render  = { path = "escriba-render", version = "0.1.65" }
+escriba-plugin  = { path = "escriba-plugin", version = "0.1.65" }
+escriba-vm      = { path = "escriba-vm", version = "0.1.65" }
 escriba-input   = { path = "escriba-input", version = "0.1.1" }
 escriba-runtime = { path = "escriba-runtime", version = "0.1.1" }
 escriba-ts      = { path = "escriba-ts", version = "0.1.1" }
@@ -74,7 +74,7 @@ hikari-ts       = "0.1"
 zahyou          = { version = "0.1", features = ["serde"] }
 escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
 escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
-escriba-lisp    = { path = "escriba-lisp", version = "0.1.64" }
+escriba-lisp    = { path = "escriba-lisp", version = "0.1.65" }
 
 # Third-party.
 serde            = { version = "1", features = ["derive"] }
