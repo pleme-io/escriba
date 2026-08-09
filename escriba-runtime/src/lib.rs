@@ -12,10 +12,17 @@ mod plugin_host;
 pub mod scan;
 pub use plugin_host::{LazyTrigger, PluginHost};
 
-mod operator_pending;
 pub mod status;
 
-pub use operator_pending::{OpState, OperatorPending};
+/// Re-exported from [`escriba_mode`], which now OWNS the operator-pending FSM.
+///
+/// It moved down in 0.1.68 because it only ever needed `escriba-core` +
+/// `zenmai`; keeping it here meant a consumer had to depend on the entire
+/// editor to compose `d` with `w`. This re-export is deliberate rather than a
+/// deprecation shim: `escriba_runtime::OpState` is the spelling every existing
+/// consumer and test uses, and a path change would be a breaking one for no
+/// gain.
+pub use escriba_mode::{OpState, OperatorPending};
 
 /// What one key meant to the operator-pending object layer.
 enum ObjectKey {

@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "8459f97788d70b2c24f9704e6909343f44ab167c744a2201ab6483a8a6452db2",
+  "cargo_lock_sha256": "afccb4d24f4d8a2ed523402d9c54ef7b959c205cbdf94e7672e809f44cc991d4",
   "manifest_sha256": {
     "Cargo.toml": "fd202b79849cc43e10f94052044916a3c4d9456bb6dbc56c8c13c51875aa9312",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -15,7 +15,7 @@
     "escriba-madoguchi/Cargo.toml": "3f7a118c33375f29500a730786122829511298d43b57e7bd896f56f5f61b6881",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
-    "escriba-mode/Cargo.toml": "e1699c281dcc7ed6e07994dd97010a3888ada40fee00cc0dcba70ee87eeeb8c6",
+    "escriba-mode/Cargo.toml": "f7d2075326cbb61d7792887fc06cdb9ab9425c04b70158003f7e92d9a0a16d0d",
     "escriba-plugin/Cargo.toml": "cec2d70d3abe6eef0685bc38551cdbfa0b9056e91ede7fe2dd139177467dbc38",
     "escriba-render/Cargo.toml": "a74fb96a37515c11e570b48dd169e3f327dd054ed1ce6f7b3a73b3230428872f",
     "escriba-runtime/Cargo.toml": "54959b4c1c907984f7add6e7246c87ec9016960fe98c52e38e4f0b2ad74555e1",
@@ -2652,6 +2652,16 @@
             "features": [
               "derive"
             ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "zenmai",
+            "package_key": "zenmai-0.0.2",
+            "kind": "normal",
+            "features": [],
             "uses_default_features": true,
             "optional": false,
             "target": null,

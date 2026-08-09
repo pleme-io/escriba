@@ -11,6 +11,12 @@ authors.workspace = true
 [dependencies]
 escriba-core   = { workspace = true }
 escriba-memori = { workspace = true }
+# The fleet Mealy-machine-with-effects primitive. Arrived with
+# `operator_pending` when that module moved down from escriba-runtime — the
+# FSM only ever needed escriba-core + zenmai, and sitting in the runtime made
+# it unreachable for every consumer that wants vim key composition without an
+# editor. Dependency-free and std-only, so this costs escriba-mode nothing.
+zenmai       = { workspace = true }
 serde        = { workspace = true }
 schemars     = { workspace = true }
 
