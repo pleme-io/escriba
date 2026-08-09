@@ -550,6 +550,12 @@ fn run_gpu(mut initial: EditorState, args: &Args) -> Result<()> {
         .size(args.width, args.win_height)
         .on_event(move |event, _renderer| {
             let mut s = event_state.lock().unwrap_or_else(|e| e.into_inner());
+            // Courier replies BEFORE the event is translated.
+            //
+            // `AppEvent::RedrawRequested` translates to `InputOutcome::None`,
+            // so draining inside `tick` would never see the frames that carry
+            // no keystroke — which, while a scan is running, is all of them.
+            s.deliver();
             s.tick(event);
             let mut resp = madori::EventResponse::default();
             if s.quit_requested {

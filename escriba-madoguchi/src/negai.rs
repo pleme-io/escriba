@@ -6,6 +6,7 @@
 //! this vocabulary, so "authored behaviour corrupted the editor" stops being
 //! a thing that can happen and becomes a thing that cannot be expressed.
 
+use crate::errand::Freight;
 use escriba_core::{BufferId, Edit, Mode, Position};
 
 /// Identifies work handed to the courier (`denrei`, plan §V Phase 5).
@@ -258,8 +259,24 @@ pub enum Negai {
         /// What to do if that world still holds.
         then: Box<Negai>,
     },
-    /// Run an errand out of process. See [`ErrandId`].
-    Errand(ErrandId),
+    /// Hand work to the courier. See [`crate::errand`].
+    ///
+    /// Carries a [`Freight`] — the class and its inputs — and **nothing else**.
+    /// In particular it does not carry an anchor, and that omission is the
+    /// point.
+    ///
+    /// The anchor decides whether a reply still applies, so whoever mints it
+    /// decides freshness. A handler sees only a read-only `Snapshot`; it does
+    /// not know the world and must not be able to claim it does. If this
+    /// variant carried a sealed errand, any handler could attach an anchor of
+    /// its choosing — including one depending on nothing, which is fresh
+    /// forever — and the freshness gate would become decorative. So the
+    /// dispatcher seals: it is the only party holding the state the anchor
+    /// describes.
+    ///
+    /// Boxed because [`Freight`] carries owned buffer text and `Negai` is
+    /// moved around by value on every dispatch.
+    Errand(Box<Freight>),
     /// Capture the next keypress and resume. See [`Continuation`].
     AwaitKey {
         then: Continuation,

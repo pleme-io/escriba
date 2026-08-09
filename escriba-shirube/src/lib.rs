@@ -43,7 +43,7 @@ pub mod finding;
 pub mod list;
 pub mod text;
 
-pub use anchor::{Anchor, Axis, IndexRev, SessionGen};
+pub use anchor::{Anchor, Axis, IndexRev, NonEmptyAnchor, SessionGen, SessionKind};
 pub use finding::{Finding, Origin, Severity, Site};
 pub use list::{ListRegistry, ResultList};
 pub use text::scan_markers;
