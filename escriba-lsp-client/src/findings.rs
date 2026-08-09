@@ -179,7 +179,7 @@ fn to_core_range(lines: &Lines, text: &str, r: WireRange) -> CoreRange {
 
 #[cfg(test)]
 mod tests {
-    use super::{path_of, severity_of, to_findings, PublishDiagnostics, WireDiagnostic, WireRange};
+    use super::{PublishDiagnostics, WireDiagnostic, WireRange, path_of, severity_of, to_findings};
     use crate::Position;
     use escriba_shirube::{Origin, Severity};
 
@@ -212,7 +212,10 @@ mod tests {
         assert_eq!(f[0].message, "boom");
         assert_eq!(f[0].severity, Severity::Error);
         assert_eq!(f[0].origin, Origin::Lsp("sui".to_string()));
-        assert_eq!(f[0].site.path.as_deref(), Some(std::path::Path::new("/t.nix")));
+        assert_eq!(
+            f[0].site.path.as_deref(),
+            Some(std::path::Path::new("/t.nix"))
+        );
     }
 
     /// **The bug this bridge exists to not have.** The server counts the emoji
@@ -281,7 +284,11 @@ mod tests {
     fn an_unparseable_uri_leaves_the_path_unset_rather_than_invented() {
         assert_eq!(path_of("file:///a/b.nix"), Some("/a/b.nix".into()));
         assert_eq!(path_of("untitled:Untitled-1"), None);
-        assert_eq!(path_of("file://host/a"), None, "an authority is not a local path");
+        assert_eq!(
+            path_of("file://host/a"),
+            None,
+            "an authority is not a local path"
+        );
     }
 
     /// A server that omits `version` has not claimed the diagnostics are
@@ -305,6 +312,10 @@ mod tests {
         let f = to_findings(&p, "abc", None);
         assert_eq!(f.len(), 1);
         assert_eq!(f[0].severity, Severity::Warning);
-        assert_eq!(f[0].detail.as_deref(), Some("sui/x"), "the code is kept as detail");
+        assert_eq!(
+            f[0].detail.as_deref(),
+            Some("sui/x"),
+            "the code is kept as detail"
+        );
     }
 }

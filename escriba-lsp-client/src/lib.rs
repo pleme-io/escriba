@@ -35,6 +35,12 @@ pub enum LspError {
     Io(#[from] std::io::Error),
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
+    /// The server answered a request with an error object, or went away
+    /// before answering. Typed rather than stringified so a caller can tell
+    /// "this server refuses" from "this server is gone" — the first is a
+    /// capability question, the second is a restart.
+    #[error("lsp: {0}")]
+    Reply(#[from] crate::conn::ReplyError),
 }
 
 pub type Result<T> = std::result::Result<T, LspError>;
@@ -187,7 +193,10 @@ mod tests {
         let r = ServerRegistry::default_set();
         assert!(r.for_language("rust").is_some());
         assert!(r.for_language("caixa").is_some());
-        assert!(r.for_language("nix").is_some(), "nix must resolve to sui-lsp");
+        assert!(
+            r.for_language("nix").is_some(),
+            "nix must resolve to sui-lsp"
+        );
         assert_eq!(r.for_language("nix").unwrap().command, "sui-lsp");
         assert_eq!(r.all().len(), 3);
     }
