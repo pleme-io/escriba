@@ -34,6 +34,15 @@ escriba-command = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-render  = { workspace = true }
 escriba-runtime = { workspace = true }
+# THE COMPOSITION ROOT. This is the only crate that can see both the
+# interpreter and the crates its runners live in, which is why hiring the
+# courier crew happens here and not inside EditorState::new. It was a
+# dev-dependency (for a test`s FakeSnapshot) until the crew needed naming.
+escriba-madoguchi = { workspace = true }
+# The LSP diagnostics runner. Adding this edge is what puts tokio in the
+# BINARY`s closure — deliberately, and only here: escriba-runtime still has
+# no path to it, which is the containment this arrangement buys.
+escriba-lsp-client = { workspace = true }
 escriba-input   = { workspace = true }
 escriba-tui     = { workspace = true }
 escriba-plugin  = { workspace = true }
@@ -51,9 +60,6 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 # The reserved-chord audit asks whether escriba's bindings are ours to make.
 awase = { workspace = true }
-# FakeSnapshot — the alias-revival test dispatches real catalog commands
-# without standing up an EditorState.
-escriba-madoguchi = { workspace = true }
 
 # ─── persona_pty integration test (espelho guest conformance) ──────────
 # Drives the REAL escriba TUI binary on a real PTY: nix owns the forkpty

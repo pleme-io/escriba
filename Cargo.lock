@@ -757,6 +757,7 @@ dependencies = [
  "escriba-input",
  "escriba-keymap",
  "escriba-lisp",
+ "escriba-lsp-client",
  "escriba-madoguchi",
  "escriba-mode",
  "escriba-plugin",
@@ -901,6 +902,7 @@ name = "escriba-lsp-client"
 version = "0.1.63"
 dependencies = [
  "escriba-core",
+ "escriba-madoguchi",
  "escriba-shirube",
  "pretty_assertions",
  "serde",
