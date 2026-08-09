@@ -136,17 +136,37 @@ fn grep_declines_without_a_pattern_rather_than_opening_an_empty_overlay() {
 
 #[test]
 fn grep_finds_matches_and_accepting_one_opens_that_file() {
-    // The first source that reads the FILESYSTEM. Run from the workspace
-    // root, so a pattern that certainly exists in this repo is used.
+    // The first source that reads the FILESYSTEM, and since the courier it is
+    // the first that does so OFF the editor thread. The picker therefore opens
+    // EMPTY and fills as batches land — which is the whole point, and is why
+    // this test now drives `deliver()` instead of reading results straight out
+    // of the dispatch.
     let mut st = editor();
-    ex(&mut st, "picker.grep GREP_FILE_LIMIT");
-    let Some(p) = st.picker() else {
-        // A sandbox with no readable cwd is a legitimate environment; the
-        // decline path is tested above, so skip rather than fail falsely.
-        eprintln!("no matches in this environment — skipping the accept half");
-        return;
-    };
-    assert!(p.visible_count() > 0);
+    st.hire(escriba_madoguchi::errand::Crew {
+        scan: Box::new(escriba_runtime::scan::ScanRunner),
+        diagnostics: Box::new(escriba_madoguchi::errand::Idle("t")),
+        format: Box::new(escriba_madoguchi::errand::Idle("t")),
+    });
+    ex(&mut st, "picker.grep GREP_HIT_LIMIT");
+    assert!(
+        st.picker().is_some(),
+        "the picker opens at dispatch, before any result exists"
+    );
+
+    // Pump the tick until rows arrive. Bounded, so a regression that never
+    // delivers FAILS rather than hanging the suite.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while st.picker().is_some_and(|p| p.visible_count() == 0) {
+        if std::time::Instant::now() > deadline {
+            // A sandbox with no readable cwd is a legitimate environment; the
+            // decline path is tested above, so skip rather than fail falsely.
+            eprintln!("no matches in this environment — skipping the accept half");
+            return;
+        }
+        st.deliver();
+        std::thread::yield_now();
+    }
+    assert!(st.picker().expect("still open").visible_count() > 0);
     st.on_key(&Key::Enter);
     assert!(st.picker().is_none(), "accepting closes the picker");
     let path = st

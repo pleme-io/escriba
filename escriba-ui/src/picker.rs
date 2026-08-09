@@ -125,6 +125,38 @@ impl Picker {
         self.source
     }
 
+    /// Replace the rows from a live producer, if it is safe to do so.
+    ///
+    /// A scan posts results in batches while the operator is already looking at
+    /// the picker, so the row set grows under them. `FuzzyPicker::set_items`
+    /// preserves the query and the open state but **resets the highlight to the
+    /// top** — so re-listing under someone who has scrolled down would move
+    /// their selection on every batch, which is worse than showing them fewer
+    /// rows.
+    ///
+    /// The rule: refresh only while the highlight is still where it started.
+    /// Once the operator navigates, they have chosen a row set to work with and
+    /// keep it. Returns whether the refresh was taken, so a caller can tell the
+    /// difference between "updated" and "deliberately left alone".
+    pub fn refresh_items(&mut self, items: Vec<PickerItem<Choice>>) -> bool {
+        if !self.is_at_top() {
+            return false;
+        }
+        self.inner.set_items(items);
+        true
+    }
+
+    /// Is the highlight still on the first visible row — i.e. has the operator
+    /// not navigated yet?
+    ///
+    /// An empty picker counts as "at the top": there is nothing to have moved
+    /// away from, and the first batch must be able to land.
+    #[must_use]
+    pub fn is_at_top(&self) -> bool {
+        let rows = self.rows();
+        rows.first().is_none_or(|(_, selected)| *selected)
+    }
+
     #[must_use]
     pub fn query(&self) -> &str {
         self.inner.query()
