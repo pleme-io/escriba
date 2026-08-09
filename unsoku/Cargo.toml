@@ -1,0 +1,26 @@
+[package]
+name = "unsoku"
+description = "unsoku (運足) — footwork: vim motions, operators and text objects resolved against a single line of text. Gives a query, filter or command-palette line real modal editing without depending on an editor."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# escriba-core for the VOCABULARY (Motion / Operator / TextObject) and
+# escriba-mode for the operator-pending FSM. unsoku declares neither: a second
+# `Motion` enum beside a published one is exactly the duplication the fleet's
+# PRIME DIRECTIVE forbids, and it is why this crate is small.
+#
+# NOTHING ELSE. In particular no widget crate — the text is reached through
+# `TextTarget`, so unsoku is coupled to no renderer and no editor.
+[dependencies]
+escriba-core = { workspace = true }
+escriba-mode = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true
