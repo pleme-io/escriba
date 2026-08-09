@@ -54,7 +54,7 @@ pub fn translate_key(event: &KeyEvent) -> Option<Key> {
             }
             Key::Char(c)
         }
-        // `Delete` is a real prompt verb (`Action::PromptDelete`), not noise —
+        // `Delete` is a real prompt verb (`Action::DeleteForward`), not noise —
         // dropping it here is why `<Del>` was documented but unreachable.
         KeyCode::Delete => Key::Delete,
         // F-keys used to die here — declared in an rc, never delivered.

@@ -241,6 +241,58 @@ does not exist: with one operation there is only ever one yank.
 structural), named registers (`"ay`), and objects that span lines (the
 bracket scan is single-line today).
 
+## Insert mode could be typed into but not corrected (2026-08-09, fixed)
+
+`Esc` was the ONLY binding `Mode::Insert` had, and `Keymap::dispatch`
+answers `Key::Char` and `Key::Enter` *before* it consults the table. So
+every other key — Backspace, `<Del>`, the arrows, Home/End — resolved to
+`Action::Pending` and did nothing. **The executor was not missing; the
+keys were unbound**, which is why the whole thing was invisible to the
+unit tests: `Action::Backspace` was implemented and tested for prompts,
+and nothing asked which KEY produced it in Insert.
+
+Now bound, and the erase pair is ONE action per direction with three
+targets — search prompt, ex line, buffer — routed by the runtime on typed
+state it already owns. `Action::PromptBackspace`/`PromptDelete` were
+renamed `Backspace`/`DeleteForward` to say so; `text_effect`'s doc had
+described the buffer arm for months as though it existed. A face binding
+`<BS>` should not have to know which of the three the operator is typing
+into. Authorable as `:action "backspace"` / `"delete-forward"`.
+
+Two things the buffer arm does NOT do, both deliberate: it does not route
+through `apply_operator` (that captures the unnamed register, and erasing
+a typo must not overwrite what you yanked), and it does not resolve
+through `Motion::Left`/`Right` (those saturate at the line edge, so
+column 0 would stop dead instead of joining the line above).
+
+## One key translation per face, not two (2026-08-09, fixed)
+
+`escriba-tui` carried its own crossterm→`Key` match in `keys.rs` while
+`run.rs` carried an independent crossterm→`madori::KeyEvent` match, and
+the event loop used the FIRST as a gate before feeding the runtime
+through the SECOND. Two tables that had to agree and didn't: `Delete` and
+the F-keys were in `run.rs`'s and absent from `keys.rs`'s, so the gate
+dropped them before the runtime saw one. `<Del>` was bound to
+`DeleteForward`, implemented, unit-tested — and **unreachable in the
+default face**. `translate_crossterm_key` is now the composition of the
+one crossterm-shaped match with `escriba_input::translate_key`, the same
+function the GPU face uses; a key the two faces disagree about is no
+longer constructible.
+
+## The search caret was correct and invisible (2026-08-09, fixed)
+
+`StatusModel::prompt_caret` carried the sentence *"a face draws its
+cursor at `sigil_width + prompt_caret`"* for as long as **no face did**.
+`←`/`→`/`Home`/`<C-w>` all moved the caret in the model, every unit test
+agreed, and nothing on screen moved — so editing the middle of a pattern
+was blind guesswork and the prompt never looked focused (ratatui hides
+the cursor unless a frame asks for it). The sentence is now
+`prompt_caret_offset()`, and the TUI parks the terminal cursor there,
+measured off the spans it is actually painting rather than a hand-counted
+column. Pinned in `escriba-tui/tests/status_line_frame.rs` against the
+frame's cursor position. **The GPU face still does not draw a prompt
+caret** — `pending-prompt-caret: gpu-face`.
+
 > **★★★ CSE / Knowable Construction.** This repo operates under
 > **Constructive Substrate Engineering** — canonical specification at
 > [`pleme-io/theory/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md`](https://github.com/pleme-io/theory/blob/main/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md).

@@ -2732,12 +2732,16 @@ impl EditorState {
                     self.preview_search();
                 }
             }
-            Action::PromptDelete => {
-                if self.search.is_prompting() {
-                    self.search.delete_at_caret();
-                    self.preview_search();
+            Action::DeleteForward => {
+                if self.modal.mode() == Mode::Command {
+                    if self.search.is_prompting() {
+                        self.search.delete_at_caret();
+                        self.preview_search();
+                    } else {
+                        self.modal.delete_minibuffer_at_caret();
+                    }
                 } else {
-                    self.modal.delete_minibuffer_at_caret();
+                    self.delete_after_cursor();
                 }
             }
             Action::PromptDeleteWord => {
@@ -2752,13 +2756,17 @@ impl EditorState {
                     self.preview_search();
                 }
             }
-            Action::PromptBackspace => {
-                self.prompt_backspace();
-                // Shortening the pattern changes which matches exist, so the
-                // preview must re-run — otherwise the cursor sits on a match
-                // of a pattern that is no longer typed.
-                if self.search.is_prompting() {
-                    self.preview_search();
+            Action::Backspace => {
+                if self.modal.mode() == Mode::Command {
+                    self.prompt_backspace();
+                    // Shortening the pattern changes which matches exist, so
+                    // the preview must re-run — otherwise the cursor sits on a
+                    // match of a pattern that is no longer typed.
+                    if self.search.is_prompting() {
+                        self.preview_search();
+                    }
+                } else {
+                    self.delete_before_cursor();
                 }
             }
             Action::PromptHistory { back } => {
@@ -2784,10 +2792,10 @@ impl EditorState {
             // cursor move would leave stale highlights on untouched lines.
             Action::SearchOpen(_)
             | Action::PromptHistory { .. }
-            | Action::PromptBackspace
+            | Action::Backspace
             | Action::PromptCaret { .. }
             | Action::SearchPreviewStep { .. }
-            | Action::PromptDelete
+            | Action::DeleteForward
             | Action::PromptDeleteWord
             | Action::PromptClearToStart
             | Action::SearchRepeat { .. }
@@ -3144,6 +3152,69 @@ impl EditorState {
             // Route through the single cursor-mutation path so the viewport
             // follows the cursor (both axes) and the cursor stays clamped.
             self.set_cursor(next);
+        }
+    }
+
+    /// `<BS>` against the BUFFER — the Insert-mode arm of [`Action::Backspace`].
+    ///
+    /// Deletes `[target, cursor)` where `target` is the previous character
+    /// position, so column 0 JOINS with the line above rather than stopping
+    /// dead: the range spans the newline and one `Edit::delete` removes it.
+    /// `Motion::Left` cannot express that — it saturates at column 0, which is
+    /// why this does not route through `apply_operator`.
+    ///
+    /// The other reason it does not: `Operator::Delete` captures the unnamed
+    /// register, and vim's insert-mode backspace does not. Erasing a typo
+    /// should not silently overwrite what you yanked to paste.
+    fn delete_before_cursor(&mut self) {
+        let cursor = self.cursor();
+        let Some(buf) = self.buffers.get(self.active) else {
+            return;
+        };
+        let target = if cursor.column > 0 {
+            Position::new(cursor.line, cursor.column.saturating_sub(1))
+        } else if cursor.line > 0 {
+            let above = cursor.line.saturating_sub(1);
+            Position::new(above, buf.line_len_chars(above))
+        } else {
+            // Start of the document — nothing to the left. A no-op, not a
+            // clamp onto something else.
+            return;
+        };
+        let edit = Edit::delete(Range {
+            start: target,
+            end: cursor,
+        });
+        if let Some(buf) = self.buffers.get_mut(self.active) {
+            if buf.apply(&edit).is_ok() {
+                self.set_cursor(target);
+            }
+        }
+    }
+
+    /// `<Del>` against the BUFFER — the Insert-mode arm of
+    /// [`Action::DeleteForward`]. The cursor does NOT move: forward-delete
+    /// pulls the rest of the line leftwards under a stationary caret.
+    fn delete_after_cursor(&mut self) {
+        let cursor = self.cursor();
+        let Some(buf) = self.buffers.get(self.active) else {
+            return;
+        };
+        let target = if cursor.column < buf.line_len_chars(cursor.line) {
+            Position::new(cursor.line, cursor.column.saturating_add(1))
+        } else if cursor.line.saturating_add(1) < buf.line_count() {
+            // At end-of-line the character ahead IS the newline, so this
+            // joins the line below — the mirror of `delete_before_cursor`.
+            Position::new(cursor.line.saturating_add(1), 0)
+        } else {
+            return;
+        };
+        let edit = Edit::delete(Range {
+            start: cursor,
+            end: target,
+        });
+        if let Some(buf) = self.buffers.get_mut(self.active) {
+            let _ = buf.apply(&edit);
         }
     }
 
@@ -3555,7 +3626,7 @@ mod tests {
             st.apply(&Action::InsertChar(c));
         }
         assert_eq!(st.search.prompt().unwrap().text(), "bravox");
-        st.apply(&Action::PromptBackspace);
+        st.apply(&Action::Backspace);
         assert_eq!(
             st.search.prompt().unwrap().text(),
             "bravo",
@@ -3574,8 +3645,8 @@ mod tests {
         let mut st = new_state_with("alpha\n");
         st.apply(&Action::SearchOpen(SearchDirection::Forward));
         st.apply(&Action::InsertChar('a'));
-        st.apply(&Action::PromptBackspace);
-        st.apply(&Action::PromptBackspace);
+        st.apply(&Action::Backspace);
+        st.apply(&Action::Backspace);
         assert!(!st.search.is_prompting(), "prompt closed");
         assert_eq!(st.modal.mode(), Mode::Normal);
     }
@@ -3606,7 +3677,7 @@ mod tests {
         st.apply(&Action::ChangeMode(Mode::Command));
         st.apply(&Action::InsertChar('w'));
         st.apply(&Action::InsertChar('q'));
-        st.apply(&Action::PromptBackspace);
+        st.apply(&Action::Backspace);
         assert_eq!(st.status_model().prompt_text, "w");
         assert!(st.search.prompt().is_none(), "no search was involved");
     }

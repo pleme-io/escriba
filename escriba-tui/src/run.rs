@@ -11,11 +11,10 @@ use crossterm::terminal::{
 use crossterm::{ExecutableCommand, execute};
 use escriba_runtime::EditorState;
 use madori::AppEvent;
-use madori::event::{KeyEvent as MadoriKey, Modifiers as MadoriMods};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
-use crate::keys::translate_crossterm_key;
+use crate::keys::crossterm_key_event;
 use crate::render::draw_frame;
 
 /// Enter raw mode + alt screen, loop until `EditorState::quit_requested`.
@@ -57,11 +56,12 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
             match event::read()? {
                 Event::Key(ke) if ke.kind == KeyEventKind::Press => {
                     // Translate into escriba's madori-shaped AppEvent so the
-                    // runtime can use the same tick() pipeline the GPU path does.
-                    if let Some(_key) = translate_crossterm_key(&ke) {
-                        let app_event = crossterm_to_app_event(&ke);
-                        state.tick(&app_event);
-                    }
+                    // runtime can use the same tick() pipeline the GPU path
+                    // does. No pre-gate: `tick` already drops what it cannot
+                    // translate, and the gate that used to stand here read a
+                    // SECOND table which disagreed with this one about
+                    // `Delete` and the F-keys.
+                    state.tick(&AppEvent::Key(crossterm_key_event(&ke)));
                 }
                 Event::Resize(w, h) => {
                     // ratatui picks up the new size for PAINTING on its own.
@@ -82,42 +82,3 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
     }
 }
 
-/// Convert a crossterm key event into the madori-shaped AppEvent the
-/// runtime expects. This keeps a single `EditorState::tick` path across
-/// GPU (madori), text (snapshot), and TUI (crossterm) backends.
-fn crossterm_to_app_event(ke: &crossterm::event::KeyEvent) -> AppEvent {
-    use crossterm::event::KeyCode as CkKey;
-    use madori::event::KeyCode as MdKey;
-    let mods = MadoriMods {
-        shift: ke.modifiers.contains(crossterm::event::KeyModifiers::SHIFT),
-        ctrl: ke
-            .modifiers
-            .contains(crossterm::event::KeyModifiers::CONTROL),
-        alt: ke.modifiers.contains(crossterm::event::KeyModifiers::ALT),
-        meta: ke.modifiers.contains(crossterm::event::KeyModifiers::SUPER),
-    };
-    let code = match ke.code {
-        CkKey::Enter => MdKey::Enter,
-        CkKey::Esc => MdKey::Escape,
-        CkKey::Backspace => MdKey::Backspace,
-        CkKey::Tab => MdKey::Tab,
-        CkKey::Up => MdKey::Up,
-        CkKey::Down => MdKey::Down,
-        CkKey::Left => MdKey::Left,
-        CkKey::Right => MdKey::Right,
-        CkKey::Home => MdKey::Home,
-        CkKey::End => MdKey::End,
-        CkKey::PageUp => MdKey::PageUp,
-        CkKey::PageDown => MdKey::PageDown,
-        CkKey::Delete => MdKey::Delete,
-        CkKey::Char(' ') => MdKey::Space,
-        CkKey::Char(c) => MdKey::Char(c),
-        _ => MdKey::Unknown,
-    };
-    AppEvent::Key(MadoriKey {
-        key: code,
-        pressed: true,
-        modifiers: mods,
-        text: None,
-    })
-}

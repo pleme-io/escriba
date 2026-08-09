@@ -716,6 +716,16 @@ fn draw_status_line(
     let right = count_span.content.chars().count() + pos_span.content.chars().count();
     let pad = available.saturating_sub(left + right);
 
+    // Where the caret would land, measured off the spans actually being
+    // painted rather than off a hand-counted constant — the pill's width
+    // changes with the mode label, so a literal here would drift the first
+    // time `SEARCH` became something longer.
+    let prompt_caret_col = model.prompt_caret_offset().map(|off| {
+        mode_span.content.chars().count()
+            + 1 // the context span's own leading space
+            + off
+    });
+
     let line = Line::from(vec![
         mode_span,
         context_span,
@@ -724,6 +734,21 @@ fn draw_status_line(
         pos_span,
     ]);
     f.render_widget(Paragraph::new(line).style(status_style(chrome)), area);
+
+    // Park the terminal cursor in the prompt while one is open. Without this
+    // the caret is invisible: `←`/`→`/`Home`/`<C-w>` all worked on the model
+    // and nothing on screen moved, so correcting the middle of a pattern was
+    // guesswork. Ratatui hides the cursor unless a frame asks for it, so this
+    // is also what makes the prompt look focused at all.
+    if let Some(col) = prompt_caret_col {
+        if let Ok(col) = u16::try_from(col) {
+            // Clamp INTO the line rather than skipping the call on overflow —
+            // a pattern longer than the terminal is wide should pin the caret
+            // at the edge, not make it vanish.
+            let x = area.x + col.min(area.width.saturating_sub(1));
+            f.set_cursor_position((x, area.y));
+        }
+    }
 }
 
 // ─── Styles — Vellum (warm aged-paper Nord-matte) ───────────────────────
