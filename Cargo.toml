@@ -25,6 +25,7 @@ members = [
     "escriba-tui",
     "escriba-lisp",
     "escriba",
+    "unsoku",
 ]
 
 [workspace.package]
@@ -134,6 +135,7 @@ shikumi            = "0.1"
 # The fleet Mealy-machine-with-effects primitive — escriba-runtime's
 # operator-pending FSM stands on it (3rd consumer after bolso + gaveta).
 zenmai             = "0.0"
+unsoku             = { path = "unsoku", version = "0.1.68" }
 
 # Testing.
 pretty_assertions = "1"
