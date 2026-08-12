@@ -7,6 +7,76 @@ use crate::mode::Mode;
 use crate::motion::TextObject;
 use crate::motion::{Motion, Operator};
 
+/// WHERE the caret lands when Insert mode is entered — vim's insert-entry
+/// family (`i` `I` `a` `A` `o` `O`) as ONE typed surface.
+///
+/// Until 2026-08-12 the family was a single key. `i` was bound straight to
+/// `Action::ChangeMode(Mode::Insert)` and the other five did not exist —
+/// pressing `A` in escriba 0.1.71 moved nothing, changed no mode, and reported
+/// nothing, because an unbound Normal-mode key resolves to `Action::Pending`.
+/// The absence was invisible from inside: `escriba --keymap` lists what IS
+/// bound, so nothing named the four keys a vim user reaches for first.
+///
+/// Modelling the ENTRY POINT rather than the destination mode is what makes
+/// that class of omission unrepresentable. A new entry is a variant here, and
+/// [`Action::text_effect`], [`Action::highlight_effect`],
+/// [`Action::edits_prompt`] and the runtime's damage classifier are all total
+/// over `Action` — so adding one cannot compile until every consequence has
+/// been decided.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum InsertAt {
+    /// `i` — insert BEFORE the caret. The caret does not move.
+    Caret,
+    /// `I` — the first non-blank character of the line.
+    FirstNonBlank,
+    /// `a` — one column right of the caret ("append"), clamped to one past the
+    /// last character so `a` on the final character still appends.
+    AfterCaret,
+    /// `A` — one column past the last character of the line.
+    LineEnd,
+    /// `o` — open a fresh line BELOW the caret's and land on it.
+    OpenBelow,
+    /// `O` — open a fresh line ABOVE the caret's and land on it.
+    OpenAbove,
+}
+
+impl InsertAt {
+    /// Does this entry ADD a line to the buffer?
+    ///
+    /// `o` and `O` are the only two members of the family that change text;
+    /// the other four move the caret and nothing else. Read by
+    /// [`Action::text_effect`], so the answer lives here beside the variants
+    /// rather than being re-derived by each classifier that needs it.
+    #[must_use]
+    pub const fn opens_a_line(self) -> bool {
+        matches!(self, Self::OpenBelow | Self::OpenAbove)
+    }
+
+    /// The stable label — `escriba --keymap`, the command palette, the rc's
+    /// `:action` names.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Caret => "caret",
+            Self::FirstNonBlank => "first-non-blank",
+            Self::AfterCaret => "after-caret",
+            Self::LineEnd => "line-end",
+            Self::OpenBelow => "open-below",
+            Self::OpenAbove => "open-above",
+        }
+    }
+
+    /// Every entry, so a matrix test cannot silently miss one.
+    pub const ALL: [Self; 6] = [
+        Self::Caret,
+        Self::FirstNonBlank,
+        Self::AfterCaret,
+        Self::LineEnd,
+        Self::OpenBelow,
+        Self::OpenAbove,
+    ];
+}
+
 /// A fully-resolved editor action — what the keymap emits, what the buffer
 /// consumes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -26,6 +96,14 @@ pub enum Action {
     Edit(Edit),
     /// Enter the given mode.
     ChangeMode(Mode),
+    /// Enter Insert mode AT a named place — vim's `i` `I` `a` `A` `o` `O`.
+    ///
+    /// Distinct from `ChangeMode(Mode::Insert)`, which is still what the
+    /// *runtime* emits when an operator leaves you inserting (`ciw`) and what
+    /// `<Esc>`'s counterpart looks like. This variant is the KEYBOARD's entry
+    /// point, and it carries the one thing `ChangeMode` cannot: where the caret
+    /// goes. See [`InsertAt`].
+    EnterInsert(InsertAt),
     /// Run a named command (via the command registry).
     Command {
         name: String,
@@ -260,6 +338,19 @@ impl Action {
             | Self::RepeatLastChange
             | Self::SubmitCommand => TextEffect::Mutates,
 
+            // `o`/`O` add a line; `i`/`I`/`a`/`A` move the caret and nothing
+            // else. Classified from the payload rather than reported as
+            // "Mutates" wholesale: over-reporting here costs a re-scan of the
+            // match set on every `i`, which is the most-pressed key in the
+            // editor.
+            Self::EnterInsert(at) => {
+                if at.opens_a_line() {
+                    TextEffect::Mutates
+                } else {
+                    TextEffect::Preserves
+                }
+            }
+
             Self::Move(_)
             | Self::Operator(_)
             | Self::ChangeMode(_)
@@ -358,6 +449,11 @@ impl Action {
                 }
             },
 
+            // Every member of the family begins editing, so the search is
+            // over — the same reading as `ChangeMode(Insert)` above, and it
+            // must not drift from it.
+            Self::EnterInsert(_) => HighlightEffect::Clear,
+
             Self::Move(m) => match m {
                 Motion::SearchNext | Motion::SearchPrev => HighlightEffect::Keep,
                 _ => HighlightEffect::Clear,
@@ -410,6 +506,10 @@ impl Action {
             | Self::TextObject(_)
             | Self::Edit(_)
             | Self::ChangeMode(_)
+            // Insert-entry acts on the BUFFER, never on an open prompt — and
+            // it is unreachable while one is open anyway, because Command mode
+            // preempts every printable key before the table is consulted.
+            | Self::EnterInsert(_)
             | Self::Command { .. }
             | Self::SubmitCommand
             | Self::Undo

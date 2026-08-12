@@ -5,7 +5,7 @@ extern crate self as escriba_keymap;
 use escriba_search::{CaretMove, Direction as SearchDirection};
 use std::collections::HashMap;
 
-use escriba_core::{Action, CountedAction, Mode, Motion, Operator, TextObject};
+use escriba_core::{Action, CountedAction, InsertAt, Mode, Motion, Operator, TextObject};
 use escriba_mode::ModalState;
 use serde::{Deserialize, Serialize};
 
@@ -339,13 +339,35 @@ impl Keymap {
             Action::Move(Motion::DownList),
             "down list",
         );
-        // Mode changes.
-        nm(
-            &mut m,
-            Key::Char('i'),
-            Action::ChangeMode(Mode::Insert),
-            "insert",
-        );
+        // ── Insert entry — the whole vim family, one row each ──────────
+        //
+        // Until 2026-08-12 this was ONE row: `i`. `a`, `A`, `I`, `o` and `O`
+        // were unbound, so `A` on a line resolved to `Action::Pending` and did
+        // nothing at all — no move, no mode change, no message.
+        //
+        // Binding bare `a` and `i` is safe DESPITE the text objects (`daw`,
+        // `di(`) that also begin with them, and the reason is worth stating
+        // because it is the one thing that makes this table correct: the
+        // runtime's `consume_object_key` runs BEFORE the sequence stepper and
+        // before this table, and claims `i`/`a` only while an operator is
+        // armed (`escriba-runtime`, `OpState::Awaiting`). With nothing pending
+        // they fall through to here. `escriba-keymap`'s own "single bindings
+        // win over sequence prefixes" rule would otherwise have shadowed every
+        // text object the moment `a` got a binding.
+        //
+        // Every entry is `EnterInsert`, never `ChangeMode(Insert)`: the caret
+        // placement IS the difference between the six, and a mode change
+        // cannot carry it.
+        for (key, at, label) in [
+            (Key::Char('i'), InsertAt::Caret, "insert"),
+            (Key::Char('I'), InsertAt::FirstNonBlank, "first non-blank"),
+            (Key::Char('a'), InsertAt::AfterCaret, "append"),
+            (Key::Char('A'), InsertAt::LineEnd, "append at end of line"),
+            (Key::Char('o'), InsertAt::OpenBelow, "open line below"),
+            (Key::Char('O'), InsertAt::OpenAbove, "open line above"),
+        ] {
+            nm(&mut m, key, Action::EnterInsert(at), label);
+        }
         nm(
             &mut m,
             Key::Char('v'),

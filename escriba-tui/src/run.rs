@@ -4,6 +4,7 @@ use std::io::stdout;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{self, Event, KeyEventKind};
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -23,8 +24,24 @@ pub fn run(mut state: EditorState) -> Result<()> {
     out.execute(EnterAlternateScreen)
         .context("claiming alt screen")?;
     enable_raw_mode().context("enabling raw mode")?;
+    // Shape the terminal's own cursor as a bar, ONCE.
+    //
+    // The terminal cursor is only ever made visible in the two places a bar is
+    // the right shape: Insert mode (parked by `draw_pane`) and an open prompt
+    // (parked by `draw_status_line`). Normal and Visual paint their own block /
+    // underline into the cell and leave the terminal cursor hidden, so there is
+    // no per-frame shape to track — a `SetCursorStyle` per draw would be a
+    // write to the tty on every keystroke to say something that never changes.
+    //
+    // Best-effort: a terminal that does not implement DECSCUSR ignores it and
+    // shows its default cursor, which is still a real cursor in the right cell.
+    // That is why this is not `?` — failing to launch the editor over a
+    // shape hint would be the worse outcome.
+    let _ = out.execute(SetCursorStyle::SteadyBar);
     let result = inner_loop(&mut state);
-    // Always restore the terminal, even on error.
+    // Always restore the terminal, even on error. The cursor style is part of
+    // that: leaving a bar behind would edit the operator's SHELL prompt.
+    let _ = execute!(out, SetCursorStyle::DefaultUserShape);
     let _ = disable_raw_mode();
     let _ = execute!(out, LeaveAlternateScreen);
     result
@@ -81,4 +98,3 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
         terminal.draw(|f| draw_frame(f, state))?;
     }
 }
-
