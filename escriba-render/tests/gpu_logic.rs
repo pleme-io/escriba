@@ -352,3 +352,181 @@ mod syntax_follows_the_theme {
         );
     }
 }
+
+// ─── paint_pieces: composing the lexer, the server and search ────────────
+//
+// Three colour sources meet at one partition, and getting the composition
+// wrong is invisible: glyphon shapes whatever runs it is handed, so a gap, an
+// overlap or a lost recolour renders as text that simply looks a bit off. The
+// pieces are therefore checked directly rather than through anything drawn.
+
+mod paint {
+    use escriba_render::gpu::{Paint, paint_pieces};
+    use hikari_core::HlClass;
+
+    /// The invariant `set_rich_text` depends on, asserted on every case below:
+    /// pieces are contiguous, in order, non-empty, and exactly cover the span.
+    fn assert_partition(span: std::ops::Range<usize>, out: &[(std::ops::Range<usize>, Paint)]) {
+        assert!(!out.is_empty(), "a span must yield at least one piece");
+        assert_eq!(out[0].0.start, span.start, "starts where the span starts");
+        assert_eq!(out[out.len() - 1].0.end, span.end, "ends where it ends");
+        for (r, _) in out {
+            assert!(r.start < r.end, "an empty piece is a shaping hazard: {r:?}");
+        }
+        for w in out.windows(2) {
+            assert_eq!(w[0].0.end, w[1].0.start, "contiguous, no gap or overlap");
+        }
+    }
+
+    /// With nothing overlaid, the lexer's answer stands — the fallback that
+    /// every buffer with no language server relies on, which is most of them.
+    #[test]
+    fn with_no_overlay_the_lexer_keeps_the_whole_span() {
+        let out = paint_pieces(0..10, HlClass::Variable, &[], &[]);
+        assert_eq!(out, vec![(0..10, Paint::Class(HlClass::Variable))]);
+        assert_partition(0..10, &out);
+    }
+
+    /// **The point of the whole feature.** hikari's lexer sees an identifier
+    /// and says `Variable`; the server knows it is a call head and says
+    /// `Function`. The server's answer must reach the pixel.
+    ///
+    /// RED RUN 2026-08-12: replacing the `is_token` arm's `class_at(…)` with
+    /// plain `lexer` leaves the piece `Class(Variable)` and this fails — which
+    /// is the shape of "the request went out, the reply decoded, and nothing
+    /// on screen changed".
+    #[test]
+    fn a_server_token_overrides_the_lexers_guess() {
+        let out = paint_pieces(0..3, HlClass::Variable, &[(0, 3, HlClass::Function)], &[]);
+        assert_eq!(out, vec![(0..3, Paint::Class(HlClass::Function))]);
+        assert_partition(0..3, &out);
+    }
+
+    /// A token covering PART of a lexer span recolours only its own bytes.
+    ///
+    /// The two partitions do not have to agree about where anything begins —
+    /// hikari lexes `foo.bar` as one run where a server may claim only `bar` —
+    /// so the cut has to happen inside the span, not around it.
+    #[test]
+    fn a_token_inside_a_lexer_span_recolours_only_its_own_bytes() {
+        let out = paint_pieces(0..7, HlClass::Variable, &[(4, 7, HlClass::Function)], &[]);
+        assert_eq!(
+            out,
+            vec![
+                (0..4, Paint::Class(HlClass::Variable)),
+                (4..7, Paint::Class(HlClass::Function)),
+            ],
+        );
+        assert_partition(0..7, &out);
+    }
+
+    /// Two tokens inside one lexer span each keep their OWN class.
+    ///
+    /// The gate against resolving the class once per span instead of once per
+    /// piece — which would paint both with whichever token happened to be
+    /// found first and look entirely plausible.
+    #[test]
+    fn two_tokens_in_one_span_do_not_share_a_colour() {
+        let out = paint_pieces(
+            0..10,
+            HlClass::Plain,
+            &[(0, 3, HlClass::Keyword), (6, 10, HlClass::Str)],
+            &[],
+        );
+        assert_eq!(
+            out,
+            vec![
+                (0..3, Paint::Class(HlClass::Keyword)),
+                (3..6, Paint::Class(HlClass::Plain)),
+                (6..10, Paint::Class(HlClass::Str)),
+            ],
+        );
+        assert_partition(0..10, &out);
+    }
+
+    /// **Search wins.** A hit inside a server-coloured token paints as a hit.
+    ///
+    /// Order matters and is the reason the LSP cut runs FIRST: a search
+    /// highlight is a transient answer to "where is what I just typed", and a
+    /// match that lost its colour to a token would make `n` step through
+    /// matches the operator cannot see.
+    ///
+    /// RED RUN 2026-08-12: swapping the two `split_on_matches` passes (search
+    /// first, then LSP) paints the matched bytes `Class(Function)` and fails
+    /// here.
+    #[test]
+    fn a_search_match_outranks_a_server_token() {
+        let out = paint_pieces(
+            0..10,
+            HlClass::Plain,
+            &[(0, 10, HlClass::Function)],
+            &[(4, 6)],
+        );
+        assert_eq!(
+            out,
+            vec![
+                (0..4, Paint::Class(HlClass::Function)),
+                (4..6, Paint::SearchMatch),
+                (6..10, Paint::Class(HlClass::Function)),
+            ],
+        );
+        assert_partition(0..10, &out);
+    }
+
+    /// A match straddling a token boundary stays one contiguous highlight and
+    /// the token colour resumes either side of it.
+    #[test]
+    fn a_match_across_a_token_boundary_keeps_both_neighbours_intact() {
+        let out = paint_pieces(
+            0..12,
+            HlClass::Plain,
+            &[(0, 6, HlClass::Keyword), (6, 12, HlClass::Str)],
+            &[(4, 8)],
+        );
+        assert_eq!(
+            out,
+            vec![
+                (0..4, Paint::Class(HlClass::Keyword)),
+                (4..6, Paint::SearchMatch),
+                (6..8, Paint::SearchMatch),
+                (8..12, Paint::Class(HlClass::Str)),
+            ],
+            "the two match halves are adjacent and identically painted, so \
+             they read as one highlight",
+        );
+        assert_partition(0..12, &out);
+    }
+
+    /// Tokens that miss this span entirely change nothing — the common case
+    /// once a whole screen's tokens are handed to every span in turn.
+    #[test]
+    fn tokens_outside_the_span_are_ignored() {
+        let out = paint_pieces(
+            10..20,
+            HlClass::Comment { multiline: false },
+            &[(0, 5, HlClass::Function), (30, 40, HlClass::Str)],
+            &[],
+        );
+        assert_eq!(
+            out,
+            vec![(10..20, Paint::Class(HlClass::Comment { multiline: false }))],
+        );
+        assert_partition(10..20, &out);
+    }
+
+    /// A token boundary exactly on a span edge must not emit a zero-width
+    /// piece — the same edge case the search overlay already pins, re-checked
+    /// through the composed path because that is where it would now appear.
+    #[test]
+    fn boundaries_on_the_span_edges_produce_no_empty_pieces() {
+        for lsp in [
+            vec![(10usize, 20usize, HlClass::Str)],
+            vec![(0, 10, HlClass::Str)],
+            vec![(20, 30, HlClass::Str)],
+            vec![(10, 15, HlClass::Str), (15, 20, HlClass::Keyword)],
+        ] {
+            let out = paint_pieces(10..20, HlClass::Plain, &lsp, &[(10, 12), (18, 20)]);
+            assert_partition(10..20, &out);
+        }
+    }
+}

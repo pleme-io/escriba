@@ -109,7 +109,7 @@ pub mod outcome;
 pub mod snapshot;
 
 pub use errand::{Crew, Errand, Freight, Idle, Parcel, Runner};
-pub use negai::{Continuation, ErrandId, Negai, PickerSource, Register};
+pub use negai::{Continuation, ErrandId, HlClass, Negai, PickerSource, Register, SemanticSpan};
 pub use outcome::{Outcome, Verdict};
 pub use snapshot::{
     BufferView, CursorView, FakeBuffer, FakeSnapshot, SearchView, Snapshot, SyntaxView, View,

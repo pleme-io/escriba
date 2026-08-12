@@ -16,6 +16,7 @@ pub mod findings;
 pub mod format;
 pub mod pending;
 pub mod runner;
+pub mod tokens;
 pub mod wire;
 
 /// Byte offsets ↔ LSP positions, from [`zahyou`].

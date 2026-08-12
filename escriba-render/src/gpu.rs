@@ -132,13 +132,122 @@ impl GpuRenderer {
     }
 }
 
+/// The visible text, and everything that indexes INTO it.
+///
+/// One struct rather than a tuple because there are now two independent
+/// overlays keyed by byte offset into `text`, and both are built in the SAME
+/// pass that builds it — which is the property that matters. `text` is a
+/// reconstructed string (rows trimmed, char-sliced to the horizontal window,
+/// `\n`-joined), so an offset computed against anything else — the document,
+/// the previous frame — indexes the wrong characters. Carrying them together
+/// is what makes computing them apart impossible to do by accident.
+struct TextFrame {
+    /// The visible rows, joined. Every offset below indexes this.
+    text: String,
+    /// The buffer's path, which is what resolves hikari's language.
+    path: String,
+    /// Search-match byte ranges.
+    matches: Vec<(usize, usize)>,
+    /// Language-server token byte ranges and what the server says they are.
+    /// Empty when no server answered, when the answer was about another
+    /// buffer, or when the operator has typed since — all three read the same
+    /// to the painter, which then uses hikari's lexer alone.
+    lsp: Vec<(usize, usize, hikari_core::HlClass)>,
+}
+
+/// The server-declared class covering byte `at`, if any.
+///
+/// Linear on purpose: `lsp` holds one screen's worth of tokens, and
+/// [`split_on_matches`] beside it already scans its own list the same way.
+/// Making this a binary search would add an ordering precondition to a list
+/// whose ordering is not this function's to guarantee.
+fn class_at(
+    at: usize,
+    lsp: &[(usize, usize, hikari_core::HlClass)],
+) -> Option<hikari_core::HlClass> {
+    lsp.iter()
+        .find(|&&(a, b, _)| a <= at && at < b)
+        .map(|&(_, _, c)| c)
+}
+
+/// What one piece of the final partition is painted as.
+///
+/// A search match is NOT a `HlClass` and must not be modelled as one: it is a
+/// transient UI affordance that outranks meaning, so folding it into the
+/// syntax vocabulary would let a theme rebinding change what "you are looking
+/// at a hit" looks like, and let a lexer class accidentally claim it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Paint {
+    /// Meaning — from the language server when it claimed this span, from
+    /// hikari's lexer otherwise.
+    Class(hikari_core::HlClass),
+    /// A live search hit. Wins over everything underneath it.
+    SearchMatch,
+}
+
+/// Cut one hikari span into painted pieces: the LSP overlay recolours it, the
+/// search overlay then wins over whatever is underneath.
+///
+/// **Extracted rather than left inline**, per this face's standing rule: logic
+/// that can be WRONG belongs outside `render()`, which needs a live wgpu
+/// device and cannot run under `cargo test`. A mis-composed partition here
+/// renders perfectly — glyphon shapes whatever runs it is handed — so the only
+/// place the check can live is a test of this function.
+///
+/// The result is contiguous, in order, and exactly covers `span`. That is not
+/// incidental: [`set_rich_text`](glyphon::Buffer::set_rich_text) is fed the
+/// concatenation of these across every span and a gap or an overlap garbles
+/// the text rather than failing. Two `split_on_matches` passes are what
+/// preserve it — splitting a coverage-complete partition yields another one,
+/// so composing the passes cannot lose the property, where a bespoke three-way
+/// splitter would be a second chance to lose it.
+///
+/// `lsp` is `(start, end, class)` byte ranges; `matches` is `(start, end)`.
+/// Both index the same string `span` does.
+#[must_use]
+pub fn paint_pieces(
+    span: std::ops::Range<usize>,
+    lexer: hikari_core::HlClass,
+    lsp: &[(usize, usize, hikari_core::HlClass)],
+    matches: &[(usize, usize)],
+) -> Vec<(std::ops::Range<usize>, Paint)> {
+    let lsp_bounds: Vec<(usize, usize)> = lsp.iter().map(|&(a, b, _)| (a, b)).collect();
+    split_on_matches(span, &lsp_bounds)
+        .into_iter()
+        .flat_map(|(piece, is_token)| {
+            // The server's word for this piece if it claimed one, hikari's
+            // otherwise. A token type escriba has no class for never reaches
+            // here — it was dropped at the decode — so the lexer's answer
+            // survives rather than being overwritten with a guess.
+            let class = if is_token {
+                class_at(piece.start, lsp).unwrap_or(lexer)
+            } else {
+                lexer
+            };
+            split_on_matches(piece, matches)
+                .into_iter()
+                .map(move |(r, is_match)| {
+                    (
+                        r,
+                        if is_match {
+                            Paint::SearchMatch
+                        } else {
+                            Paint::Class(class)
+                        },
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 impl RenderCallback for GpuRenderer {
     fn render(&mut self, ctx: &mut RenderContext<'_>) {
         // ── 1. Read state under lock. The visible text is built ONLY when a
         //    rebuild is due (the refresh-generation gate): an idle frame reads
         //    just mode/cursor for the status line and reuses the cached shaped
         //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
-        //    is Some((text, path)) exactly when the generation moved.
+        //    is `Some(TextFrame)` exactly when the generation moved.
         let (rebuild_input, gutter_rows, splash_chunks, mode, status_core, cur_gen, palette) = {
             let s = self
                 .state
@@ -163,10 +272,9 @@ impl RenderCallback for GpuRenderer {
                 })
                 .filter(|c| !c.is_empty());
             let rebuild = rebuild && splash_chunks.is_none();
-            // (rendered text, path, search-match byte ranges INTO that text).
-            // The match ranges ride along with the text they index so the two
-            // cannot be computed against different frames.
-            let rebuild_input: Option<(String, String, Vec<(usize, usize)>)> = if rebuild {
+            // The rendered text and both overlays that index it — see
+            // [`TextFrame`] for why they travel together.
+            let rebuild_input: Option<TextFrame> = if rebuild {
                 // The open file's path drives hikari language resolution.
                 let path = buf
                     .path
@@ -193,6 +301,20 @@ impl RenderCallback for GpuRenderer {
                 // confusion out of the painting code below.
                 let mut match_bytes: Vec<(usize, usize)> = Vec::new();
                 let hl = s.search.highlights();
+                // What the language server said, for THIS buffer, at THIS
+                // revision — the accessor answers empty for any other case,
+                // so there is nothing to re-check here. Columns are `char`s
+                // within a document line (the conversion from LSP's UTF-16
+                // happened at the boundary), which is the same scale
+                // `left_column` counts in.
+                let lsp_spans = s.semantic_spans(s.active);
+                let mut lsp_bytes: Vec<(usize, usize, hikari_core::HlClass)> = Vec::new();
+                // A cursor into `lsp_spans`, advanced monotonically as the
+                // rows do. Sound because LSP's delta encoding carries UNSIGNED
+                // line deltas, so a decoded token list cannot go backwards in
+                // line order — the sortedness is structural, not a promise
+                // some server might break.
+                let mut si = 0usize;
                 for row in 0..visible_lines {
                     let ln = top_line + row;
                     if ln >= buf.line_count() {
@@ -209,20 +331,28 @@ impl RenderCallback for GpuRenderer {
                             .skip(left_column)
                             .take(visible_columns)
                             .collect();
+                        let seg_byte0 = out.len();
+                        let seg_chars = sliced.chars().count();
+                        // char index -> byte index within this segment. Built
+                        // ONCE and shared by both overlays: it used to live
+                        // inside the search branch, and a second copy for the
+                        // token overlay is exactly how two overlays start
+                        // disagreeing about where a character is.
+                        let bytes: Vec<usize> = if hl.is_empty() && lsp_spans.is_empty() {
+                            Vec::new()
+                        } else {
+                            sliced
+                                .char_indices()
+                                .map(|(b, _)| b)
+                                .chain(std::iter::once(sliced.len()))
+                                .collect()
+                        };
                         if !hl.is_empty() {
-                            let seg_byte0 = out.len();
                             // Document char span this rendered segment covers.
                             let doc0 = buf
                                 .position_to_char(escriba_core::Position::new(ln, 0))
                                 .unwrap_or(0)
                                 + left_column;
-                            let seg_chars = sliced.chars().count();
-                            // char index -> byte index within this segment.
-                            let bytes: Vec<usize> = sliced
-                                .char_indices()
-                                .map(|(b, _)| b)
-                                .chain(std::iter::once(sliced.len()))
-                                .collect();
                             for m in hl {
                                 let a = m.start.max(doc0);
                                 let b = m.end.min(doc0 + seg_chars);
@@ -234,11 +364,38 @@ impl RenderCallback for GpuRenderer {
                                 }
                             }
                         }
+                        // The token overlay, clipped to the horizontal window
+                        // the same way the search overlay is. A token whose
+                        // start is scrolled off the left keeps its visible
+                        // tail coloured rather than vanishing.
+                        while si < lsp_spans.len() && lsp_spans[si].line < ln {
+                            si += 1;
+                        }
+                        let mut sj = si;
+                        while sj < lsp_spans.len() && lsp_spans[sj].line == ln {
+                            let sp = &lsp_spans[sj];
+                            sj += 1;
+                            let a = (sp.start_char as usize).max(left_column);
+                            let b = (sp.start_char as usize + sp.len_chars as usize)
+                                .min(left_column + seg_chars);
+                            if a < b {
+                                lsp_bytes.push((
+                                    seg_byte0 + bytes[a - left_column],
+                                    seg_byte0 + bytes[b - left_column],
+                                    sp.class,
+                                ));
+                            }
+                        }
                         out.push_str(&sliced);
                         out.push('\n');
                     }
                 }
-                Some((out, path, match_bytes))
+                Some(TextFrame {
+                    text: out,
+                    path,
+                    matches: match_bytes,
+                    lsp: lsp_bytes,
+                })
             } else {
                 None
             };
@@ -308,7 +465,13 @@ impl RenderCallback for GpuRenderer {
             // numbers painted down its left edge.
             self.cached_gutter = None;
             self.last_gen = cur_gen;
-        } else if let Some((text, path, match_bytes)) = rebuild_input {
+        } else if let Some(TextFrame {
+            text,
+            path,
+            matches: match_bytes,
+            lsp: lsp_bytes,
+        }) = rebuild_input
+        {
             let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
             buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
             // hikari: resolve the language, highlight the visible text, paint
@@ -347,22 +510,26 @@ impl RenderCallback for GpuRenderer {
             // more thing to remember to update on a theme change, and the
             // last one that was stored is exactly why code stayed Nord.
             let syntax_theme = ChromeSyntax::new(palette);
+            // The LSP overlay is a SECOND cut of the same kind, applied before
+            // search so search still wins the pixel. All of that composition
+            // lives in `paint_pieces` — pure, and therefore testable, which is
+            // the only place a mis-composed partition can be caught: glyphon
+            // shapes whatever runs it is handed and renders a wrong one
+            // perfectly.
             let runs: Vec<(&str, Attrs)> = spans
                 .iter()
                 .flat_map(|sp| {
-                    let syntax = base
-                        .clone()
-                        .color(hl_to_glyph(syntax_theme.color(sp.class)));
-                    split_on_matches(sp.span.range(), &match_bytes)
+                    paint_pieces(sp.span.range(), sp.class, &lsp_bytes, &match_bytes)
                         .into_iter()
-                        .filter_map(|(r, is_match)| {
+                        .filter_map(|(r, paint)| {
                             text.get(r).map(|slice| {
                                 (
                                     slice,
-                                    if is_match {
-                                        base.clone().color(search_color)
-                                    } else {
-                                        syntax.clone()
+                                    match paint {
+                                        Paint::SearchMatch => base.clone().color(search_color),
+                                        Paint::Class(c) => {
+                                            base.clone().color(hl_to_glyph(syntax_theme.color(c)))
+                                        }
                                     },
                                 )
                             })

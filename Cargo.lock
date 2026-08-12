@@ -923,6 +923,7 @@ dependencies = [
  "escriba-core",
  "escriba-search",
  "escriba-shirube",
+ "hikari-core",
 ]
 
 [[package]]

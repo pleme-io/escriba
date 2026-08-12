@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "501a6b956a184b39930f30a6fc6753b5e2e682ecbcd848905d3c9f6289db6107",
+  "cargo_lock_sha256": "b30d687e4bf6c526cbaa91ac31efd785b983873ba40466beeab2473f1f8a12f1",
   "manifest_sha256": {
     "Cargo.toml": "8751a4f42be08b32c6a1fd680be7fd2373a57fc49c428622a801b6f1b4450e8c",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -12,7 +12,7 @@
     "escriba-keymap/Cargo.toml": "a5877214f5022ca454a4a1b5d3724b47cb9b0636654dd40d6a5098fe63655b5f",
     "escriba-lisp/Cargo.toml": "4fda5e439d93cdf7949b5a8e8cf976dc7f13bb0ce57deba1d0a6c2080c66c0c5",
     "escriba-lsp-client/Cargo.toml": "c23b100242c02d39636ec6010bd25bae6e2d8c520a39d4f43da447b6d673eedd",
-    "escriba-madoguchi/Cargo.toml": "3f7a118c33375f29500a730786122829511298d43b57e7bd896f56f5f61b6881",
+    "escriba-madoguchi/Cargo.toml": "578eb9dd6643ae3fa40da101c77b743aea3f0e13d493935b7c033bab9f3212b8",
     "escriba-mcp/Cargo.toml": "d7b6fe210ffee1729d7ec7ef48bcd3f5d2bd8c3c7d5d017218568900a0bf6d71",
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
     "escriba-mode/Cargo.toml": "f7d2075326cbb61d7792887fc06cdb9ab9425c04b70158003f7e92d9a0a16d0d",
@@ -2473,6 +2473,16 @@
           {
             "name": "escriba_shirube",
             "package_key": "escriba-shirube-0.1.73",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "hikari_core",
+            "package_key": "hikari-core-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,

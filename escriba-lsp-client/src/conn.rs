@@ -323,6 +323,38 @@ pub fn initialize_params(root: &Path) -> serde_json::Value {
                 "synchronization": { "didSave": true },
                 "publishDiagnostics": { "relatedInformation": false },
                 "hover": { "contentFormat": ["plaintext"] },
+                // DECLARED, not optional. blue advertises its
+                // `semanticTokensProvider` unconditionally, so it answers a
+                // client that never asked for the feature — which is exactly
+                // what makes this omission invisible: escriba would work
+                // against blue and silently get NO provider from
+                // rust-analyzer, tower-lsp servers and most others, all of
+                // which gate the capability on the client declaring it.
+                //
+                // `requests` / `tokenTypes` / `tokenModifiers` / `formats` are
+                // all REQUIRED members of `SemanticTokensClientCapabilities`;
+                // a server reading the object is entitled to reject one that
+                // omits them.
+                "semanticTokens": {
+                    // Only `full`, and `range: false` deliberately: escriba
+                    // asks about a whole document because that is what the
+                    // diagnostics conversation already has in hand, and
+                    // claiming `range` would invite a request shape this
+                    // client never sends.
+                    "requests": { "full": true, "range": false },
+                    // The types escriba can COLOUR — read from the ONE list
+                    // that is also `tokens::class_of`'s domain, never spelled
+                    // out again here. A second copy would be a claim about
+                    // what escriba renders that could drift from what escriba
+                    // renders, and nothing would fail.
+                    "tokenTypes": crate::tokens::RENDERABLE_TOKEN_TYPES,
+                    // Empty, and honestly so: `SemanticSpan` has nowhere to
+                    // put a modifier and the decoder does not read the
+                    // bitset. Declaring `declaration` here would be a claim
+                    // that a declaration renders differently, and it does not.
+                    "tokenModifiers": [],
+                    "formats": ["relative"],
+                },
             }
         },
         "workspaceFolders": [{ "uri": uri, "name": "root" }],
@@ -468,6 +500,46 @@ mod tests {
         // is the classic way to silently disable a feature the server offers.
         assert!(caps.definition, "an options object is a capability");
         assert!(!caps.semantic_tokens, "absent key is absent");
+    }
+
+    /// **The declaration most servers gate on, and the one easiest to omit.**
+    ///
+    /// blue advertises `semanticTokensProvider` unconditionally, so it answers
+    /// a client that never asked — which is exactly what makes leaving this
+    /// out invisible: escriba would colour blue buffers correctly and get NO
+    /// provider at all from rust-analyzer and the tower-lsp family, with no
+    /// error anywhere to explain why.
+    ///
+    /// `requests` / `tokenTypes` / `tokenModifiers` / `formats` are all
+    /// REQUIRED members of `SemanticTokensClientCapabilities`, so the test
+    /// asserts each rather than merely that the object exists — a
+    /// half-declared capability is a shape a strict server may reject.
+    ///
+    /// RED RUN 2026-08-12: deleting the `semanticTokens` block from
+    /// `initialize_params` fails this on the first assertion; deleting only
+    /// `formats` fails it on the fourth.
+    #[test]
+    fn the_client_declares_the_semantic_tokens_capability() {
+        let p = super::initialize_params(std::path::Path::new("/p"));
+        let st = &p["capabilities"]["textDocument"]["semanticTokens"];
+        assert_eq!(st["requests"]["full"], true, "escriba asks for full");
+        assert!(
+            st["tokenTypes"].as_array().is_some_and(|a| !a.is_empty()),
+            "a required member, and empty would claim we render nothing",
+        );
+        assert!(
+            st["tokenModifiers"].is_array(),
+            "required, and legitimately empty — escriba renders no modifier",
+        );
+        assert_eq!(
+            st["formats"][0], "relative",
+            "the delta encoding is the only format LSP defines",
+        );
+        // The declared set IS the renderer's domain, not a second copy of it.
+        assert_eq!(
+            st["tokenTypes"].as_array().map(Vec::len),
+            Some(crate::tokens::RENDERABLE_TOKEN_TYPES.len()),
+        );
     }
 
     /// A capability explicitly turned OFF is not the same as one omitted,

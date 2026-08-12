@@ -39,11 +39,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 
-use escriba_madoguchi::Negai;
 use escriba_madoguchi::errand::{Errand, Freight, Parcel, Runner};
+use escriba_madoguchi::{Negai, SemanticSpan};
 
 use crate::conn::Connection;
 use crate::findings::{PublishDiagnostics, to_findings};
+use crate::tokens::Legend;
 use crate::wire::Incoming;
 use crate::{ServerConfig, ServerRegistry, detect_root};
 
@@ -166,9 +167,33 @@ impl Runner for LspRunner {
                 let outcome = rt.block_on(converse(&cfg, &path, &text, &cancel));
 
                 let slip = match outcome {
-                    Ok(published) => {
+                    Ok((published, tokens)) => {
                         if cancel.load(Ordering::Relaxed) {
                             return;
+                        }
+                        // Colour, when the server offered any, sealed with the
+                        // SAME anchor as the diagnostics beside it — it came
+                        // out of the same conversation about the same text at
+                        // the same revision, so anything that stales one
+                        // stales the other.
+                        //
+                        // A SECOND parcel rather than a second payload inside
+                        // the first, because `ErrandReply` wraps exactly one
+                        // slip and the interpreter special-cases
+                        // `PublishFindings` BY NAME to reseal it with the
+                        // reply's anchor. Folding tokens into that variant
+                        // would either duplicate the reseal or route them past
+                        // it. The courier has always carried many parcels per
+                        // errand (`Courier::drain` is budgeted, not one-shot),
+                        // and both land in the same `deliver()` batch.
+                        if !tokens.is_empty() {
+                            let _ = reply.send(Parcel {
+                                id,
+                                slip: Negai::ErrandReply {
+                                    anchor: anchor.clone(),
+                                    then: Box::new(Negai::PublishSemanticTokens { buffer, tokens }),
+                                },
+                            });
                         }
                         // The BUFFER, not `None`.
                         //
@@ -309,18 +334,87 @@ pub(crate) async fn open_document(
     Ok((conn, caps, uri))
 }
 
+/// Ask for the document's semantic tokens, if the server offers any.
+///
+/// **Best effort, and never fatal.** Every failure — no provider, no legend, a
+/// `-32601 method not found` from an older build, a reply shaped differently
+/// than expected — returns an empty vec. Colour is an improvement on a
+/// highlight escriba already has; a server that cannot supply it must not cost
+/// the operator their diagnostics, which is the thing they cannot get anywhere
+/// else.
+///
+/// The legend comes from the `initialize` reply escriba already kept
+/// ([`ServerCaps::raw`](crate::conn::ServerCaps::raw)), so this is ONE round
+/// trip, not two.
+async fn ask_for_tokens(
+    conn: &Connection,
+    caps: &crate::conn::ServerCaps,
+    uri: &str,
+    text: &str,
+) -> Vec<SemanticSpan> {
+    // READ, not assumed — the same discipline as the `textDocumentSync` check
+    // below. blue v0.0.21 answers `semanticTokens/full` with `-32601 method
+    // not found` and v0.0.23 answers with data; asking regardless would put a
+    // typed error on the status line for a server behaving correctly.
+    if !caps.semantic_tokens {
+        return Vec::new();
+    }
+    let Some(legend) = Legend::from_capabilities(&caps.raw) else {
+        return Vec::new();
+    };
+    let reply = conn
+        .request(
+            "textDocument/semanticTokens/full",
+            serde_json::json!({ "textDocument": { "uri": uri } }),
+        )
+        .await;
+    // Three layers of "no answer" collapse to the same nothing: the write
+    // failed, the server sent an error object, or it replied `null` — which is
+    // what blue sends for a document it does not have open, and is a
+    // deliberately different thing from an empty `data` array.
+    let Ok(Ok(value)) = reply else {
+        return Vec::new();
+    };
+    let Some(data) = value.get("data").and_then(serde_json::Value::as_array) else {
+        return Vec::new();
+    };
+    let ints: Vec<u32> = data
+        .iter()
+        .filter_map(|v| v.as_u64().and_then(|n| u32::try_from(n).ok()))
+        .collect();
+    // A non-integer in the middle would shorten the vec and re-phase every
+    // quintuple after it, which paints the whole rest of the file wrong. A
+    // length that is no longer a multiple of five is the visible symptom, so
+    // refuse rather than paint.
+    if ints.len() != data.len() {
+        return Vec::new();
+    }
+    crate::tokens::decode(&ints, &legend, text)
+}
+
 /// Spawn, handshake, open, and wait for the first word about this document.
 ///
-/// Returns the published diagnostics, or a message describing why there are
-/// none. The `Connection` is dropped on every path out, which kills the child
-/// — that is the only thing reaping the server, and it is why no path here may
-/// return without leaving this scope.
+/// Returns the published diagnostics **and whatever colour the server was
+/// willing to supply**, or a message describing why there are neither. The
+/// `Connection` is dropped on every path out, which kills the child — that is
+/// the only thing reaping the server, and it is why no path here may return
+/// without leaving this scope.
+///
+/// # Why tokens ride in this conversation rather than their own
+///
+/// A `semanticTokens/full` errand of its own would need a `Freight` variant, a
+/// `Crew` slot, a `seal` arm and a second server spawn per open — and its
+/// anchor would have to be `Axis::Text(buffer, rev) ∧ Session(Lsp, gen)`,
+/// which is the diagnostics anchor, exactly. Two errands that are stale under
+/// precisely the same conditions are one errand; the only thing the split
+/// would buy is a second chance for the two to disagree about which revision
+/// they read.
 async fn converse(
     cfg: &ServerConfig,
     path: &Path,
     text: &str,
     cancel: &Arc<AtomicBool>,
-) -> Result<PublishDiagnostics, String> {
+) -> Result<(PublishDiagnostics, Vec<SemanticSpan>), String> {
     let (mut conn, caps, uri) = open_document(cfg, path, text).await?;
 
     // READ, not assumed. A server advertising no `textDocumentSync` does not
@@ -337,6 +431,16 @@ async fn converse(
             &cfg.command,
         ));
     }
+
+    // Colour first, and deliberately BEFORE the diagnostics wait.
+    //
+    // The wait below parks on the inbox for up to `REPLY_TIMEOUT`; a request
+    // issued after it would not be written until the server had already
+    // spoken. Asking first costs one round trip against a server that is
+    // computing diagnostics anyway, and the pump routes the reply while the
+    // wait is still ahead of us — replies and notifications travel the same
+    // stream and the correlation is `pending`'s job, not the ordering's.
+    let tokens = ask_for_tokens(&conn, &caps, &uri, text).await;
 
     // Wait for the first publish ABOUT THIS DOCUMENT. A server may say other
     // things first — progress, logs, diagnostics for a file it decided to read
@@ -368,7 +472,7 @@ async fn converse(
                     continue;
                 };
                 if published.uri == uri {
-                    return Ok(published);
+                    return Ok((published, tokens));
                 }
             }
         }
@@ -377,8 +481,230 @@ async fn converse(
 
 #[cfg(test)]
 mod tests {
-    use super::{LspRunner, REPLY_TIMEOUT, language_of, list_for, root_for, uri_of};
+    use super::{
+        LspRunner, REPLY_TIMEOUT, ask_for_tokens, language_of, list_for, root_for, uri_of,
+    };
     use crate::{ServerConfig, ServerRegistry};
+    // At the module head, not inside the functions that need them: an item
+    // after a statement is legal and reads as if it were scoped to the point
+    // it appears, which it is not.
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // ── the token half of the conversation, driven over real pipes ────
+    //
+    // `Connection::new` takes any AsyncRead/AsyncWrite, so the request that
+    // goes on the wire is the thing under test — not a mocked decision about
+    // whether to send one. That distinction is what `conn.rs`'s own module
+    // note says this crate learned twice.
+
+    /// A `ServerCaps` shaped like a real reply, with `raw` carrying the legend
+    /// the way an `initialize` answer does.
+    fn caps_with_tokens(offers: bool) -> crate::conn::ServerCaps {
+        let raw = if offers {
+            serde_json::json!({
+                "textDocumentSync": 1,
+                "semanticTokensProvider": {
+                    "legend": {
+                        "tokenTypes": ["keyword", "comment", "string", "number",
+                                       "operator", "variable", "function"],
+                        "tokenModifiers": ["declaration"],
+                    },
+                    "full": true,
+                },
+            })
+        } else {
+            serde_json::json!({ "textDocumentSync": 1 })
+        };
+        crate::conn::ServerCaps {
+            text_document_sync: Some(1),
+            hover: false,
+            definition: false,
+            document_formatting: false,
+            semantic_tokens: offers,
+            raw,
+        }
+    }
+
+    /// Read one frame off the server side of a duplex pair.
+    async fn read_frame(io: &mut tokio::io::DuplexStream, buf: &mut Vec<u8>) -> serde_json::Value {
+        let mut chunk = [0u8; 4096];
+        loop {
+            if let Ok(crate::wire::Decoded::Message { body, consumed }) = crate::wire::decode(buf) {
+                buf.drain(..consumed);
+                return serde_json::from_slice(&body).unwrap();
+            }
+            let n = io.read(&mut chunk).await.unwrap();
+            assert!(n > 0, "server side closed while a frame was expected");
+            buf.extend_from_slice(&chunk[..n]);
+        }
+    }
+
+    /// The request really goes out, names the document, and its reply is
+    /// decoded through the server's OWN legend.
+    ///
+    /// The fixture legend deliberately differs from the spec's canonical
+    /// ordering — `function` is index 6 here — so a decoder that resolved
+    /// indices against anything but this array would report a different class
+    /// and fail.
+    ///
+    /// RED RUN 2026-08-12: replacing `Legend::from_capabilities(&caps.raw)`
+    /// with a legend built from the spec-order `RENDERABLE_TOKEN_TYPES` fails
+    /// with `Namespace` where `Keyword` is expected — index 0 already means
+    /// something else, before the wire has said anything at all.
+    #[tokio::test]
+    async fn a_server_offering_tokens_is_asked_and_its_legend_is_used() {
+        let (client_side, mut server_side) = tokio::io::duplex(64 * 1024);
+        let (r, w) = tokio::io::split(client_side);
+        let conn = crate::conn::Connection::new(r, w);
+        let caps = caps_with_tokens(true);
+
+        let call = tokio::spawn(async move {
+            let got = ask_for_tokens(&conn, &caps, "file:///t.b", "def add\n").await;
+            (got, conn)
+        });
+
+        let mut buf = Vec::new();
+        let req = read_frame(&mut server_side, &mut buf).await;
+        assert_eq!(req["method"], "textDocument/semanticTokens/full");
+        assert_eq!(
+            req["params"]["textDocument"]["uri"], "file:///t.b",
+            "the request must name the document it is about",
+        );
+
+        // `def` keyword at 0..3, `add` function at 4..7.
+        let reply = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": req["id"],
+            "result": { "data": [0, 0, 3, 0, 0, 0, 4, 3, 6, 1] },
+        });
+        server_side
+            .write_all(&crate::wire::encode(&serde_json::to_vec(&reply).unwrap()))
+            .await
+            .unwrap();
+
+        let (got, _conn) = tokio::time::timeout(std::time::Duration::from_secs(5), call)
+            .await
+            .expect("must not hang")
+            .unwrap();
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].class, escriba_madoguchi::HlClass::Keyword);
+        assert_eq!(got[1].class, escriba_madoguchi::HlClass::Function);
+        assert_eq!(
+            (got[1].line, got[1].start_char, got[1].len_chars),
+            (0, 4, 3)
+        );
+    }
+
+    /// A server that does not offer the provider is NOT asked.
+    ///
+    /// Silence here is the whole point: blue v0.0.21 answers
+    /// `semanticTokens/full` with `-32601 method not found`, and a client that
+    /// asked anyway would spend a round trip per open to be told no. The test
+    /// asserts the wire stays EMPTY, which is the only way to see the
+    /// difference between "asked and got nothing" and "did not ask".
+    ///
+    /// The call is SPAWNED and the server side dropped afterwards, so a mutant
+    /// that does write parks on a reply nobody will send and is then failed by
+    /// EOF — a red test rather than a hung suite.
+    ///
+    /// RED RUN 2026-08-12, and it took two attempts, which is the part worth
+    /// recording. Deleting only `if !caps.semantic_tokens` stays GREEN: a
+    /// `ServerCaps` whose `semantic_tokens` is false necessarily has no
+    /// `semanticTokensProvider` in `raw` (`from_initialize` derives one from
+    /// the other), so `Legend::from_capabilities` refuses the same input a
+    /// step later and the mutation is semantically equivalent. That is this
+    /// repo's own trap — "a break attempt that is semantically equivalent
+    /// proves nothing" — and the honest reading is that the guard is a
+    /// SECOND, cheaper reason, not the only one. Removing BOTH (the guard, and
+    /// `from_capabilities(…)?` → `unwrap_or_default()`) puts a frame on the
+    /// wire and fails this on `wrote a request anyway`.
+    #[tokio::test]
+    async fn a_server_without_the_capability_is_never_asked() {
+        let (client_side, mut server_side) = tokio::io::duplex(64 * 1024);
+        let (r, w) = tokio::io::split(client_side);
+        let conn = crate::conn::Connection::new(r, w);
+        let caps = caps_with_tokens(false);
+        // The redundancy stated rather than assumed: with no provider there is
+        // also no legend, which is the reason the guard alone cannot be
+        // red-run.
+        assert_eq!(crate::tokens::Legend::from_capabilities(&caps.raw), None);
+
+        let call = tokio::spawn(async move {
+            let got = ask_for_tokens(&conn, &caps, "file:///t.b", "x\n").await;
+            (got, conn)
+        });
+
+        let mut chunk = [0u8; 256];
+        let quiet = tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            server_side.read(&mut chunk),
+        )
+        .await;
+        assert!(quiet.is_err(), "wrote a request anyway");
+
+        drop(server_side);
+        let (got, _conn) = tokio::time::timeout(std::time::Duration::from_secs(5), call)
+            .await
+            .expect("must not hang")
+            .unwrap();
+        assert!(got.is_empty());
+    }
+
+    /// A `null` result — what blue sends for a document it does not have open
+    /// — is nothing, not a panic and not an empty positive claim that would
+    /// blank the buffer's colour.
+    #[tokio::test]
+    async fn a_null_token_reply_is_no_colour_rather_than_a_failure() {
+        let (client_side, mut server_side) = tokio::io::duplex(64 * 1024);
+        let (r, w) = tokio::io::split(client_side);
+        let conn = crate::conn::Connection::new(r, w);
+        let caps = caps_with_tokens(true);
+
+        let call = tokio::spawn(async move {
+            let got = ask_for_tokens(&conn, &caps, "file:///t.b", "x\n").await;
+            (got, conn)
+        });
+        let mut buf = Vec::new();
+        let req = read_frame(&mut server_side, &mut buf).await;
+        server_side
+            .write_all(&crate::wire::encode(
+                &serde_json::to_vec(&serde_json::json!({
+                    "jsonrpc": "2.0", "id": req["id"], "result": serde_json::Value::Null
+                }))
+                .unwrap(),
+            ))
+            .await
+            .unwrap();
+
+        let (got, _conn) = tokio::time::timeout(std::time::Duration::from_secs(5), call)
+            .await
+            .expect("must not hang")
+            .unwrap();
+        assert!(got.is_empty());
+    }
+
+    /// A server that dies mid-request costs colour, never the thread.
+    ///
+    /// The failure this forbids is the one `converse` cannot recover from: an
+    /// `ask_for_tokens` that propagated an error would take the diagnostics
+    /// down with it, and diagnostics are the thing the operator cannot get
+    /// anywhere else.
+    #[tokio::test]
+    async fn a_server_that_vanishes_mid_request_costs_only_the_colour() {
+        let (client_side, server_side) = tokio::io::duplex(64 * 1024);
+        let (r, w) = tokio::io::split(client_side);
+        let conn = crate::conn::Connection::new(r, w);
+        let caps = caps_with_tokens(true);
+        drop(server_side);
+
+        let got = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            ask_for_tokens(&conn, &caps, "file:///t.b", "x\n"),
+        )
+        .await
+        .expect("must not hang");
+        assert!(got.is_empty());
+    }
 
     /// The root is NEVER the empty path — `current_dir("")` is `ENOENT`.
     ///

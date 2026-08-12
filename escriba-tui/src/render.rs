@@ -437,6 +437,20 @@ fn draw_buffer_in(
         .as_ref()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_default();
+    // hikari's LEXER, and deliberately still only that.
+    //
+    // The GPU face additionally consumes `textDocument/semanticTokens/full`
+    // (`EditorState::semantic_spans`) so a blue buffer is coloured by blue's
+    // own server. This face is NOT wired to it yet, and the reason is a shape
+    // difference rather than an omission: the GPU face cuts a byte-indexed
+    // partition over one reconstructed string, while this one composites
+    // highlights at paint time in CHARACTER COLUMNS, per line, inside
+    // `line_with_gutter`. The token spans would need a second, differently
+    // shaped conversion, and building both before either has been proven
+    // against a real server doubles the surface that can be silently wrong.
+    //
+    // The state is face-agnostic and already fresh-sealed, so wiring this one
+    // is an addition here — not a change to anything above.
     let syntax = syntax_runs(
         &visible_text,
         &path,
