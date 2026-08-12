@@ -427,6 +427,13 @@ pub fn run() -> Result<()> {
     // `:commentstring` finally reaches live state — see escriba-core's
     // filetype table. Before this, `defmode` validated it and nothing read it.
     let ft_count = escriba_lisp::apply_plan_to_filetypes(&plan, &mut state.filetypes);
+    // The file named on the command line gets diagnosed too — and this must
+    // come AFTER the line above, not with `hire` where it looks like it
+    // belongs. `ask_for_diagnostics` resolves the language through the
+    // filetype table that line just filled; run any earlier and every errand
+    // goes out carrying `language: None`, which the runner declines in
+    // silence. See `EditorState::diagnose_open_buffers`.
+    state.diagnose_open_buffers();
     let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
     tracing::info!(
         "plan applied: {}; keymap={}; {}; {}; filetypes={ft_count}",
@@ -704,24 +711,44 @@ fn activate_plugin(
 }
 
 /// Resolve the plugins directory: `$ESCRIBA_PLUGINS_DIR`, else
-/// `$XDG_DATA_HOME/escriba/plugins`, else `$HOME/.local/share/escriba/plugins`.
+/// `$XDG_DATA_HOME/escriba/plugins`.
+///
+/// # Why this is never a relative path
+///
+/// This directory is a source of **executable plugin code**, so where it
+/// resolves is a trust decision, not a convenience.
+///
+/// The hand-rolled version this replaced ended `PathBuf::from("plugins")` when
+/// `$HOME` was unset, and used `$XDG_DATA_HOME` verbatim — which the XDG spec
+/// forbids: *"If an implementation encounters a relative path in any of these
+/// variables it should consider the path invalid and ignore it."* Both routes
+/// produced a path resolved against the **current working directory**, so
+/// starting the editor inside a directory that happens to contain `plugins/`
+/// would load code from it.
+///
+/// `okiba` refuses a relative override and has no arm that returns a relative
+/// path, so the directory is always absolute or the load is skipped.
+/// `$ESCRIBA_PLUGINS_DIR` gets the same rule for the same reason: a relative
+/// override there is the identical trust hole spelled differently.
 fn plugins_dir() -> PathBuf {
     if let Ok(p) = std::env::var("ESCRIBA_PLUGINS_DIR") {
-        if !p.is_empty() {
-            return PathBuf::from(p);
+        let p = PathBuf::from(p);
+        if p.is_absolute() {
+            return p;
+        }
+        if !p.as_os_str().is_empty() {
+            tracing::warn!(
+                path = %p.display(),
+                "ESCRIBA_PLUGINS_DIR is relative and was ignored — a plugin \
+                 directory resolved against the cwd would load code from \
+                 wherever the editor happened to start",
+            );
         }
     }
-    if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-        return PathBuf::from(xdg).join("escriba").join("plugins");
-    }
-    if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home)
-            .join(".local")
-            .join("share")
-            .join("escriba")
-            .join("plugins");
-    }
-    PathBuf::from("plugins")
+    // `path` is the infallible arm: it falls back to an absolute temp dir when
+    // there is no home to resolve against, rather than inventing a relative
+    // one. `for_app` already contributes the `escriba` segment.
+    okiba::Okiba::for_app("escriba").path(okiba::Tier::Data, "plugins")
 }
 
 /// Map an `escriba-lisp` `PluginSpec` (the lazy.nvim-shaped `defplugin`)

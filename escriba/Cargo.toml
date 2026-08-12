@@ -54,6 +54,10 @@ madori          = { workspace = true }
 garasu          = { workspace = true }
 clap            = { workspace = true }
 anyhow          = { workspace = true }
+# okiba (置き場) — XDG resolution where a RELATIVE override is ignored per
+# spec. The plugin directory is a source of EXECUTABLE code, so a path
+# resolved against the cwd is a trust hole, not a cosmetic bug.
+okiba           = { workspace = true }
 tracing         = { workspace = true }
 tracing-subscriber = { workspace = true }
 
