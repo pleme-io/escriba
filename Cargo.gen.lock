@@ -17,7 +17,7 @@
     "escriba-memori/Cargo.toml": "9dd3e604c549aa7ce088943f1b49324bf3a22ee1f0e4bd8124260e5a5622cc56",
     "escriba-mode/Cargo.toml": "f7d2075326cbb61d7792887fc06cdb9ab9425c04b70158003f7e92d9a0a16d0d",
     "escriba-plugin/Cargo.toml": "cec2d70d3abe6eef0685bc38551cdbfa0b9056e91ede7fe2dd139177467dbc38",
-    "escriba-render/Cargo.toml": "a74fb96a37515c11e570b48dd169e3f327dd054ed1ce6f7b3a73b3230428872f",
+    "escriba-render/Cargo.toml": "c3488e5d2da4d36e7c591e21f94eb421cef08512ca27e197bc40288a80172673",
     "escriba-runtime/Cargo.toml": "54959b4c1c907984f7add6e7246c87ec9016960fe98c52e38e4f0b2ad74555e1",
     "escriba-search/Cargo.toml": "840b30efc8b5a826cd50c6b09ef7e6b60a94ca6b7e8e13a2f6d931f054b0ac65",
     "escriba-shirube/Cargo.toml": "e60f6f1678653b7a5750505e7297841758f7416ffbf5a7a9c6c4eda225fb1104",
