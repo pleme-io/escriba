@@ -188,10 +188,24 @@ pub fn severity_color(c: &ChromePalette, severity: escriba_shirube::Severity) ->
     }
 }
 
-// The GLYPH a severity shows lives in `super::gutter::mark_glyph`, not here.
-// Chrome answers "what colour"; the gutter answers "what characters". Both
-// answers used to live in this file, which meant two definitions of one table
-// and a coin-flip about which a new face would call.
+/// The colour a debug breakpoint paints in the gutter.
+///
+/// The `error` role, and that is a decision rather than a shortcut: red is
+/// what every debugger in the category uses for a breakpoint, and a role
+/// lookup is what keeps it tracking a theme change. It is a SEPARATE function
+/// from [`severity_color`] because a breakpoint is not a severity — nothing
+/// found it, the operator put it there — and collapsing the two would put a
+/// `Severity::Error` argument at a call site that has no finding to name.
+#[must_use]
+pub const fn breakpoint_color(c: &ChromePalette) -> Rgb {
+    c.error
+}
+
+// The GLYPH a severity shows lives in `super::gutter::mark_glyph`, not here;
+// the breakpoint's is `super::gutter::breakpoint_glyph`. Chrome answers "what
+// colour"; the gutter answers "what characters". Both answers used to live in
+// this file, which meant two definitions of one table and a coin-flip about
+// which a new face would call.
 
 /// The name of the theme the chrome is prescribed to paint — `"nord"`
 /// today.

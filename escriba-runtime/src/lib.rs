@@ -7,9 +7,11 @@
 
 extern crate self as escriba_runtime;
 
+pub mod breakpoint;
 mod courier;
 mod plugin_host;
 pub mod scan;
+pub use breakpoint::Breakpoints;
 pub use plugin_host::{LazyTrigger, PluginHost};
 
 pub mod status;
@@ -235,6 +237,16 @@ pub struct EditorState {
     /// which is worse than absent. A stale read is an empty read and the face
     /// falls back to its own lexer.
     semantic: Option<SemanticPaint>,
+    /// Where the operator asked the debugger to stop.
+    ///
+    /// Its own field rather than a [`escriba_shirube::ResultList`], and the
+    /// difference is the whole reason [`Breakpoints`] exists as a type: every
+    /// result list is ANCHORED and a stale read is an empty read, so a
+    /// breakpoint published as a finding would vanish on the next keystroke —
+    /// and `publish` also FOCUSES the list it replaces, so `]d` would start
+    /// walking breakpoints. See [`crate::breakpoint`] for the full argument
+    /// and for what the line-number key does not yet survive.
+    breakpoints: Breakpoints,
 }
 
 /// Semantic tokens for one buffer, sealed with the world they describe.
@@ -877,6 +889,7 @@ impl EditorState {
             }
             Negai::GrepProject { pattern } => self.grep_project(&pattern),
             Negai::FormatBuffer => self.ask_for_format(self.active),
+            Negai::ToggleBreakpoint => self.toggle_breakpoint(),
             Negai::CycleBuffer { forward } => self.cycle_buffer(forward),
             Negai::FocusBuffer(id) => {
                 if self.buffers.get(id).is_some() {
@@ -1181,6 +1194,7 @@ impl EditorState {
             chrome: ChromePalette::prescribed(),
             splash: None,
             semantic: None,
+            breakpoints: Breakpoints::default(),
         }
     }
 
@@ -1197,6 +1211,40 @@ impl EditorState {
         self.semantic
             .as_ref()
             .map_or(&[][..], |p| p.fresh(&self.world(), buffer))
+    }
+
+    /// Everything the gutter has to say about one line of one buffer.
+    ///
+    /// ONE function, so the three faces cannot disagree about which planes
+    /// the gutter reads. Before this each face called `worst_on_line` for
+    /// itself, which was fine while there was one plane and is exactly how a
+    /// second plane lands on two faces out of three — the divergence
+    /// `escriba_ui::gutter` was extracted to stop, reappearing one layer up
+    /// in the ARGUMENTS rather than in the composition.
+    ///
+    /// Takes `world` rather than computing it so a face that already holds
+    /// one for the frame does not rebuild it per line.
+    #[must_use]
+    pub fn gutter_marks(
+        &self,
+        world: &escriba_shirube::Anchor,
+        buffer: BufferId,
+        line: u32,
+    ) -> escriba_ui::gutter::GutterMarks {
+        escriba_ui::gutter::GutterMarks::new(
+            self.results.worst_on_line(world, buffer, line),
+            self.breakpoints.is_set(buffer, line),
+        )
+    }
+
+    /// Where the operator asked the debugger to stop.
+    ///
+    /// Read-only: the only way to change it is [`Negai::ToggleBreakpoint`],
+    /// so the refresh-generation bump that makes a face repaint cannot be
+    /// forgotten by a caller that reached in and mutated the set.
+    #[must_use]
+    pub const fn breakpoints(&self) -> &Breakpoints {
+        &self.breakpoints
     }
 
     /// The theme this editor is set to.
@@ -1349,6 +1397,44 @@ impl EditorState {
         };
         let anchor = self.seal(&freight);
         self.courier.send(freight, anchor);
+    }
+
+    /// Set or clear a breakpoint on the cursor's line of the active buffer.
+    ///
+    /// The SOLE writer of `self.breakpoints`, which is why the field is
+    /// private and [`breakpoints`](Self::breakpoints) hands out a `&`: the
+    /// mark has to reach the screen, and the GPU face rebuilds its cached
+    /// shaped gutter buffer ONLY on a refresh-generation change
+    /// (`escriba-render/src/gpu.rs:260`). A caller that reached in and
+    /// mutated the set would change the state and not the picture until some
+    /// unrelated edit invalidated the cache — the defect `set_theme` had.
+    ///
+    /// It does NOT bump the generation itself, and that is deliberate rather
+    /// than an omission: [`honour`](Self::honour) widens the damage and bumps
+    /// for EVERY slip, so doing it here as well would be a second
+    /// implementation of one guarantee — measured 2026-08-12, the first cut
+    /// of this method did exactly that and the redundancy was invisible
+    /// because both spellings produce the same answer.
+    fn toggle_breakpoint(&mut self) {
+        let buffer = self.active;
+        let line = self.cursor().line;
+        // No buffer means no line to mark, and marking a row of nothing would
+        // put a breakpoint somewhere a future DAP client cannot name.
+        if self.buffers.get(buffer).is_none() {
+            return;
+        }
+        let set = self.breakpoints.toggle(buffer, line);
+        // Built by `push_str` + `Display`, not `format!` — ★★ TYPED EMISSION.
+        // The number is 1-based, like the gutter it appears beside and like
+        // every message vim prints; reporting the internal 0-based row would
+        // disagree with the label painted next to the mark.
+        let mut msg = String::from(if set {
+            "breakpoint set at line "
+        } else {
+            "breakpoint cleared at line "
+        });
+        msg.push_str(&(line + 1).to_string());
+        self.messages.push(msg);
     }
 
     /// Close the picker — the SOLE writer of `self.picker = None`.
@@ -4545,6 +4631,67 @@ mod tests {
         let mut bufs = BufferSet::new();
         let id = bufs.scratch(text);
         EditorState::new_with_buffer(bufs, id)
+    }
+
+    /// A breakpoint toggle reaches the GPU face's rebuild gate.
+    ///
+    /// ## What this does and does not claim
+    ///
+    /// The GPU face is the only one that CACHES its gutter: it shapes a
+    /// glyphon buffer and rebuilds it only when `s.edit_gen() != self.last_gen`
+    /// (`escriba-render/src/gpu.rs:260`). Both testable faces repaint from
+    /// scratch every draw, so no rendered-cells test can see this — measured
+    /// 2026-08-12 by removing the bump and watching all eight breakpoint
+    /// render tests stay green.
+    ///
+    /// The guarantee is STRUCTURAL, not local: [`EditorState::honour`] widens
+    /// the damage and bumps the generation after every slip, so the property
+    /// holds for `ToggleBreakpoint` the way it holds for the other thirty.
+    /// This pins the INSTANCE, and says so rather than pretending to gate a
+    /// line inside `toggle_breakpoint` — there is no such line, deliberately.
+    ///
+    /// RED RUN (2026-08-12): deleting `self.bump_gen()` from `honour` fails
+    /// this (and much else, which is the honest shape of a structural
+    /// guarantee). The evidence is the generation counter itself — the exact
+    /// value the GPU gate compares — not a restatement of "was a method
+    /// called".
+    #[test]
+    fn setting_a_breakpoint_repaints() {
+        let mut s = new_state_with("alpha\nbravo\ncharlie\n");
+        let before = s.edit_gen();
+        s.run_command("dap.toggle-breakpoint", &[]);
+        assert!(
+            s.breakpoints().is_set(s.active, 0),
+            "precondition: the toggle ran",
+        );
+        assert_ne!(
+            s.edit_gen(),
+            before,
+            "the GPU face rebuilds its cached gutter ONLY on a generation \
+             change — without this the mark never reaches that screen",
+        );
+        assert!(
+            !s.damage().is_none(),
+            "and a scoped-repaint face has to be told the viewport moved",
+        );
+    }
+
+    #[test]
+    fn a_breakpoint_toggle_with_no_open_buffer_marks_nothing() {
+        // A mark on a buffer that does not exist is one no future DAP client
+        // could ever name, and the honest report is silence rather than a
+        // confirmation of something that did not happen. `active` names no
+        // open buffer here, which is the state a `--no-defaults` boot and a
+        // just-closed buffer both pass through.
+        let mut s = new_state_with("alpha\n");
+        s.active = BufferId(9_999);
+        s.run_command("dap.toggle-breakpoint", &[]);
+        assert!(!s.breakpoints().is_set(s.active, 0), "nothing was marked");
+        assert!(
+            !s.messages.iter().any(|m| m.contains("breakpoint")),
+            "and nothing was claimed: {:?}",
+            s.messages,
+        );
     }
 
     /// The refresh-seal driver (theory/ESCRIBA.md §Refresh-Seal): an applied

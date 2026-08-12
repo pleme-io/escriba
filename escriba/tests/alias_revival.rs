@@ -83,7 +83,11 @@ const UNHANDLED_ALIASES: &[&str] = &[
     "colorizer.toggle",
     "comment.toggle-context-aware",
     "dap.continue",
-    "dap.toggle-breakpoint",
+    // `dap.toggle-breakpoint` dispatches as of 2026-08-12 — see
+    // `escriba-command`'s `DapToggleBreakpoint`. Like `lsp.format` before it,
+    // it left this list and `action_resolution.rs`'s INERT set in ONE commit;
+    // `dap.continue` stays because a breakpoint needs no adapter and
+    // continuing does.
     "git.diff",
     "git.status",
     "indent.toggle",

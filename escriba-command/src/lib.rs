@@ -240,6 +240,11 @@ impl CommandRegistry {
             erase::<LspFormat>(),
         ));
         r.register(Command::native(
+            "dap.toggle-breakpoint",
+            "Set or clear a breakpoint on the cursor's line",
+            erase::<DapToggleBreakpoint>(),
+        ));
+        r.register(Command::native(
             "picker.files",
             "Pick a file under the working directory",
             erase::<WalkPicker<false>>(),
@@ -673,6 +678,27 @@ impl Native for LspFormat {
     type Reads = caps!();
     fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
         Outcome::did(vec![Negai::FormatBuffer])
+    }
+}
+
+/// `dap.toggle-breakpoint` — mark the cursor's line, or unmark it.
+///
+/// The name `escriba-dap.escribaplugin.lisp` has bound to `<leader>db` and to
+/// the `:DapToggleBreakpoint` alias since it was written; both resolved to
+/// nothing, and BOTH ratchets said so out loud (`tests/action_resolution.rs`'s
+/// INERT set and `tests/alias_revival.rs`'s `UNHANDLED_ALIASES`).
+///
+/// **It is a mark, not a debugger.** There is no adapter, no session, no
+/// protocol — the other six `dap.*` actions stay inert and stay listed. What
+/// this buys, besides the thing an operator can see on the first keypress, is
+/// the gutter cell every later DAP feature needs: `escriba_ui::gutter` now
+/// carries a breakpoint plane beside the severity plane, so a stopped-line
+/// arrow or a hit-count is a role, not a widening.
+struct DapToggleBreakpoint;
+impl Native for DapToggleBreakpoint {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::ToggleBreakpoint])
     }
 }
 

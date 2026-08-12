@@ -51,12 +51,18 @@ const INERT: &[&str] = &[
     "cmp.complete",
     // Merge conflicts — needs the git layer.
     // Debugging — needs escriba-dap-client (Wave 3).
+    //
+    // `dap.toggle-breakpoint` left this set on 2026-08-12. It is a registered
+    // native now (`escriba-command`'s `DapToggleBreakpoint` →
+    // `Negai::ToggleBreakpoint` → a `Breakpoints` field the gutter paints) —
+    // and it is a MARK, not a debugger. The other six stay listed because
+    // there is genuinely nothing to continue, step or REPL into: a breakpoint
+    // you can set and see needs no adapter, and every one of these does.
     "dap.continue",
     "dap.repl",
     "dap.step-into",
     "dap.step-out",
     "dap.step-over",
-    "dap.toggle-breakpoint",
     "dap.toggle-ui",
     // File browsing — needs escriba-tree (Wave 3).
     // Folding — needs the tree-sitter fold layer (Wave 4).
