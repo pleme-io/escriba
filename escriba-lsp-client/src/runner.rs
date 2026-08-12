@@ -84,6 +84,9 @@ pub fn language_of(path: &Path) -> Option<&'static str> {
 }
 
 /// Runs one diagnostics conversation per errand.
+///
+/// See [`root_for`] for the empty-parent trap that made every language's
+/// diagnostics silently dead for a relative path outside a project.
 pub struct LspRunner {
     registry: ServerRegistry,
 }
@@ -110,7 +113,13 @@ fn uri_of(path: &Path) -> String {
 
 impl Runner for LspRunner {
     fn start(&self, errand: Errand, cancel: Arc<AtomicBool>, reply: Sender<Parcel>) {
-        let Freight::Diagnostics { path, text, .. } = errand.freight.clone() else {
+        let Freight::Diagnostics {
+            path,
+            text,
+            language,
+            ..
+        } = errand.freight.clone()
+        else {
             let _ = reply.send(Parcel {
                 id: errand.id,
                 slip: Negai::Message("lsp runner received the wrong freight".into()),
@@ -120,12 +129,16 @@ impl Runner for LspRunner {
         let id = errand.id;
         let anchor = errand.anchor.into_anchor();
 
-        let Some(language) = language_of(&path) else {
+        // The EDITOR's answer first — it owns the filetype table the catalog
+        // populates. `language_of` is the fallback for a dispatcher that had no
+        // opinion, which is what keeps a bare `--no-defaults` boot (empty
+        // filetype table) diagnosing Rust and Nix as it always did.
+        let Some(language) = language.or_else(|| language_of(&path).map(str::to_owned)) else {
             // Not an error. Most files have no server, and saying so on every
             // open would be noise — the errand simply produces nothing.
             return;
         };
-        let Some(cfg) = self.registry.for_language(language).cloned() else {
+        let Some(cfg) = self.registry.for_language(&language).cloned() else {
             return;
         };
 
@@ -161,7 +174,7 @@ impl Runner for LspRunner {
                         Negai::ErrandReply {
                             anchor,
                             then: Box::new(Negai::PublishFindings {
-                                list: list_for(language),
+                                list: list_for(&language),
                                 findings,
                             }),
                         }
@@ -202,40 +215,64 @@ fn describe(what: &str, e: &impl std::fmt::Display) -> String {
     m
 }
 
-/// Spawn, handshake, open, and wait for the first word about this document.
+/// The directory to start the server in: a project root if one can be found,
+/// else the file's own directory, else the working directory.
 ///
-/// Returns the published diagnostics, or a message describing why there are
-/// none. The `Connection` is dropped on every path out, which kills the child
-/// — that is the only thing reaping the server, and it is why no path here may
-/// return without leaving this scope.
-async fn converse(
+/// # The empty-parent trap
+///
+/// **Every step of this chain must yield a directory that EXISTS**, because the
+/// result becomes `Command::current_dir`, and spawning into a directory that is
+/// not there fails with `ENOENT` — reported as `io: No such file or directory`,
+/// which reads as "the SERVER BINARY is missing" and sends you looking in
+/// entirely the wrong place.
+///
+/// The trap is `Path::parent`. For a bare relative filename it returns
+/// `Some("")`, not `None` — so the old chain's `.unwrap_or(".")` could never
+/// fire, and `""` went straight through to `current_dir`. Measured 2026-08-12:
+/// `escriba t.b` in a directory with no `.git` and no `Bluefile` reported
+/// `lsp: could not start (blue): io: No such file or directory` while `blue` was
+/// on `PATH` and working. `escriba $PWD/t.b` in the same directory formatted
+/// fine. It was never about the binary, and it was never specific to blue —
+/// every language's diagnostics were dead under the same two conditions.
+fn root_for(path: &Path, markers: &[String]) -> std::path::PathBuf {
+    detect_root(path, markers)
+        .or_else(|| path.parent().map(Path::to_path_buf))
+        // `Some("")` is the trap; treat it as "no answer" so the fallback runs.
+        // RED RUN 2026-08-12: removing this line fails both
+        // `the_root_is_never_the_empty_path` and
+        // `a_bare_filename_roots_at_the_working_directory`.
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+}
+
+/// Spawn, handshake and open one document — the opening every conversation
+/// shares.
+///
+/// Extracted when formatting became the second consumer. Root detection, spawn,
+/// handshake and `didOpen` are identical for both errands; only the question
+/// asked afterwards differs, and duplicating four steps to ask a different
+/// fifth is how the two would have drifted (the `initialized` notification in
+/// particular is easy to omit in a copy, and a server that never sees it
+/// accepts documents and then does no work).
+///
+/// Returns the live connection, the capabilities it advertised, and the
+/// document's URI. **The caller owns the `Connection` from here on, and
+/// dropping it is what reaps the child** — no path may return without leaving
+/// the caller's scope.
+pub(crate) async fn open_document(
     cfg: &ServerConfig,
     path: &Path,
     text: &str,
-    cancel: &Arc<AtomicBool>,
-) -> Result<PublishDiagnostics, String> {
-    let root = detect_root(path, &cfg.root_markers)
-        .or_else(|| path.parent().map(Path::to_path_buf))
-        .unwrap_or_else(|| std::path::PathBuf::from("."));
+) -> Result<(Connection, crate::conn::ServerCaps, String), String> {
+    let root = root_for(path, &cfg.root_markers);
 
-    let mut conn = Connection::spawn(cfg, &root)
+    let conn = Connection::spawn(cfg, &root)
         .map_err(|e| describe(&named("lsp: could not start", &cfg.command), &e))?;
 
     let caps = conn
         .handshake(&root)
         .await
         .map_err(|e| describe(&named("lsp: could not initialize", &cfg.command), &e))?;
-
-    // READ, not assumed. A server advertising no `textDocumentSync` does not
-    // track documents, so it will never publish anything about one — waiting
-    // the full timeout for a diagnostic it was never going to send would look
-    // like a hang, and would be reported as one.
-    if caps.text_document_sync.unwrap_or(0) == 0 {
-        return Err(named(
-            "lsp: tracks no documents, so it publishes no diagnostics",
-            &cfg.command,
-        ));
-    }
 
     let uri = uri_of(path);
     conn.notify(
@@ -251,6 +288,38 @@ async fn converse(
     )
     .await
     .map_err(|e| describe("lsp: didOpen failed", &e))?;
+
+    Ok((conn, caps, uri))
+}
+
+/// Spawn, handshake, open, and wait for the first word about this document.
+///
+/// Returns the published diagnostics, or a message describing why there are
+/// none. The `Connection` is dropped on every path out, which kills the child
+/// — that is the only thing reaping the server, and it is why no path here may
+/// return without leaving this scope.
+async fn converse(
+    cfg: &ServerConfig,
+    path: &Path,
+    text: &str,
+    cancel: &Arc<AtomicBool>,
+) -> Result<PublishDiagnostics, String> {
+    let (mut conn, caps, uri) = open_document(cfg, path, text).await?;
+
+    // READ, not assumed. A server advertising no `textDocumentSync` does not
+    // track documents, so it will never publish anything about one — waiting
+    // the full timeout for a diagnostic it was never going to send would look
+    // like a hang, and would be reported as one.
+    //
+    // Checked AFTER the open rather than before: the open is what obtains the
+    // capabilities, and refusing to open in order to read them is circular.
+    // An extra `didOpen` to a server that ignores documents costs nothing.
+    if caps.text_document_sync.unwrap_or(0) == 0 {
+        return Err(named(
+            "lsp: tracks no documents, so it publishes no diagnostics",
+            &cfg.command,
+        ));
+    }
 
     // Wait for the first publish ABOUT THIS DOCUMENT. A server may say other
     // things first — progress, logs, diagnostics for a file it decided to read
@@ -291,8 +360,79 @@ async fn converse(
 
 #[cfg(test)]
 mod tests {
-    use super::{LspRunner, REPLY_TIMEOUT, language_of, list_for, uri_of};
+    use super::{LspRunner, REPLY_TIMEOUT, language_of, list_for, root_for, uri_of};
     use crate::{ServerConfig, ServerRegistry};
+
+    /// The root is NEVER the empty path — `current_dir("")` is `ENOENT`.
+    ///
+    /// The regression gate for the empty-parent trap, and it is stated as
+    /// non-emptiness rather than existence deliberately. An earlier draft
+    /// asserted `root.exists()` for every shape and failed on `sub/t.b`, whose
+    /// parent `"sub"` does not exist relative to THIS test's working directory —
+    /// while being exactly right in the editor, where a file at `sub/t.b` means
+    /// a `sub` that is really there. `root_for` cannot promise existence for an
+    /// arbitrary path it was handed; it can promise never to hand back the one
+    /// value that is broken by construction, which is what this checks.
+    ///
+    /// RED RUN 2026-08-12: dropping `.filter(|p| !p.as_os_str().is_empty())`
+    /// from `root_for` fails this on the two bare filenames. Measured in the
+    /// live editor before the fix as
+    /// `lsp: could not start (blue): io: No such file or directory` — a message
+    /// that blamed the server BINARY for a bad working directory, which is why
+    /// it took a live probe rather than a test to find.
+    #[test]
+    fn the_root_is_never_the_empty_path() {
+        let markers = vec!["Cargo.toml".to_string(), ".git".to_string()];
+        for path in [
+            // The trap: a bare relative filename. `Path::parent` answers
+            // `Some("")` here, not `None`.
+            std::path::Path::new("t.b"),
+            std::path::Path::new("main.rs"),
+            std::path::Path::new("sub/t.b"),
+            std::path::Path::new("/tmp/t.b"),
+            std::path::Path::new(file!()),
+        ] {
+            let root = root_for(path, &markers);
+            assert!(
+                !root.as_os_str().is_empty(),
+                "root for {path:?} is the empty path — `current_dir` would ENOENT"
+            );
+        }
+    }
+
+    /// A bare filename roots at the working directory, not at nothing.
+    #[test]
+    fn a_bare_filename_roots_at_the_working_directory() {
+        let root = root_for(std::path::Path::new("t.b"), &[]);
+        assert_eq!(root, std::path::PathBuf::from("."));
+    }
+
+    /// A file that really exists roots somewhere that really exists.
+    ///
+    /// The existence half, on paths where existence is actually `root_for`'s to
+    /// deliver: a file in a temp directory (no marker ⇒ the parent), and the
+    /// same file under a directory carrying a marker (⇒ the marker's directory).
+    #[test]
+    fn a_real_file_roots_somewhere_that_exists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let deep = tmp.path().join("a/b");
+        std::fs::create_dir_all(&deep).unwrap();
+        let file = deep.join("t.b");
+        std::fs::write(&file, "x = 1\n").unwrap();
+
+        let no_marker = root_for(&file, &["Bluefile".to_string()]);
+        assert!(no_marker.exists(), "{no_marker:?} must exist");
+        assert_eq!(no_marker, deep, "no marker ⇒ the file's own directory");
+
+        std::fs::write(tmp.path().join("Bluefile"), "").unwrap();
+        let with_marker = root_for(&file, &["Bluefile".to_string()]);
+        assert!(with_marker.exists());
+        assert_eq!(
+            with_marker,
+            tmp.path().canonicalize().unwrap(),
+            "a marker upward wins over the file's directory"
+        );
+    }
     use escriba_madoguchi::errand::{Errand, Freight, Runner};
     use escriba_madoguchi::{ErrandId, Negai};
     use escriba_shirube::{Axis, NonEmptyAnchor, SessionGen, SessionKind};
@@ -307,6 +447,9 @@ mod tests {
             freight: Freight::Diagnostics {
                 buffer: escriba_core::BufferId(1),
                 path: path.into(),
+                // `None` on purpose: these tests exercise the FALLBACK, which
+                // is what a bare boot with an empty filetype table gets.
+                language: None,
                 text: text.into(),
             },
             anchor: NonEmptyAnchor::on(Axis::Session(SessionKind::Lsp, SessionGen(1))),
@@ -412,6 +555,7 @@ mod tests {
                 freight: Freight::Diagnostics {
                     buffer: escriba_core::BufferId(1),
                     path: file.clone(),
+                    language: None,
                     text: "{ x = ; }\n".into(),
                 },
                 anchor: NonEmptyAnchor::on(Axis::Session(SessionKind::Lsp, SessionGen(1))),

@@ -237,15 +237,77 @@ struct EvalArgs {
 /// `Crew` is a struct rather than a map precisely so a new `Freight` variant
 /// cannot ship without somebody deciding who runs it.
 ///
-/// `Format` is still idle. A formatter runner needs a bounded child process —
-/// a deadline that actually kills, not one that stops listening — and shipping
-/// it without that would be a "cancellation" that cancels nothing.
-fn courier_crew() -> escriba_madoguchi::errand::Crew {
+/// Both language-server carriers read the SAME registry, and that registry is
+/// built from the catalog — see [`lsp_registry`].
+fn courier_crew(plan: &escriba_lisp::ApplyPlan) -> escriba_madoguchi::errand::Crew {
+    let registry = lsp_registry(plan);
     escriba_madoguchi::errand::Crew {
         scan: Box::new(escriba_runtime::scan::ScanRunner),
-        diagnostics: Box::new(escriba_lsp_client::runner::LspRunner::default()),
-        format: Box::new(escriba_madoguchi::errand::Idle("no formatter runner yet")),
+        diagnostics: Box::new(escriba_lsp_client::runner::LspRunner::new(registry.clone())),
+        // Idle until 2026-08-12. The note that stood here said a formatter
+        // runner "needs a bounded child process — a deadline that actually
+        // kills". That was the right objection to the route it assumed: running
+        // `defformatter`'s external command. `escriba_lsp_client::format` takes
+        // the other route — `textDocument/formatting` over the server that is
+        // already being spawned for diagnostics — where the bound is a
+        // `tokio::time::timeout` on the request and the kill is dropping the
+        // `Connection`, which owns the child. The external route is still
+        // unbuilt and still needs that reaping story.
+        format: Box::new(escriba_lsp_client::format::FormatRunner::new(registry)),
     }
+}
+
+/// The live server registry: every `deflsp` the catalog declares, then the
+/// built-ins for anything it did not mention.
+///
+/// **This is the wire that was missing.** `escriba-lisp` has parsed `deflsp`
+/// into `ApplyPlan::lsp_servers` for as long as the form has existed, and the
+/// catalog carries 11 of them — `escriba-lspconfig.escribaplugin.lisp` declares
+/// blue's `(deflsp :name "blue" :command "blue" :args ("lsp") …)` explicitly.
+/// Nothing read that field. The registry was a hardcoded `vec![rust_analyzer,
+/// caixa_lsp, sui_lsp]`, so ten of the eleven declarations were decoration and
+/// `escriba app.b` opened a blue file with no server at all.
+///
+/// Catalog entries are registered FIRST because [`ServerRegistry::for_language`]
+/// returns the first match — that ordering is what lets an operator's rc
+/// override a built-in rather than be shadowed by it.
+///
+/// `manual_only` servers are skipped: the field exists to say "do not start this
+/// on your own", and the diagnostics errand fires automatically on open.
+///
+/// One `ServerConfig` per (server, filetype) pair, because `deflsp` names a LIST
+/// of filetypes and the registry is keyed by one language.
+fn lsp_registry(plan: &escriba_lisp::ApplyPlan) -> escriba_lsp_client::ServerRegistry {
+    let mut registry = escriba_lsp_client::ServerRegistry::default();
+    let mut declared: Vec<String> = Vec::new();
+    for spec in &plan.lsp_servers {
+        if spec.manual_only {
+            continue;
+        }
+        for filetype in &spec.filetypes {
+            declared.push(filetype.clone());
+            registry.register(escriba_lsp_client::ServerConfig {
+                language: filetype.clone(),
+                command: spec.command.clone(),
+                args: spec.args.clone(),
+                root_markers: spec.root_markers.clone(),
+            });
+        }
+    }
+    // The built-ins fill the gaps rather than being replaced wholesale: a
+    // catalog that mentions no Rust server must still get rust-analyzer, or
+    // adding one `deflsp` would silently take three away.
+    for built_in in escriba_lsp_client::ServerRegistry::default_set().all() {
+        if !declared.iter().any(|l| l == &built_in.language) {
+            registry.register(built_in.clone());
+        }
+    }
+    tracing::info!(
+        declared = declared.len(),
+        total = registry.all().len(),
+        "lsp registry built from the catalog"
+    );
+    registry
 }
 
 pub fn run() -> Result<()> {
@@ -351,7 +413,7 @@ pub fn run() -> Result<()> {
     // interpreter is the whole point of the arrangement. The binary can see
     // both halves, so the binary assembles them.
     let mut state = EditorState::new_with_buffer(buffers, active_id);
-    state.hire(courier_crew());
+    state.hire(courier_crew(&plan));
     // Register `defcmd` forms into the live command registry FIRST, so
     // the deferred-keybind dispatch path (`Action::Command { name }`)
     // that the keymap apply produces has real commands to resolve

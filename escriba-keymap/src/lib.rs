@@ -605,6 +605,34 @@ impl Keymap {
             "previous match (object)",
         );
 
+        // ── `ff` — format the buffer ───────────────────────────────────
+        //
+        // The operator's blnvim binding, which escriba ships parity with:
+        // `blackmatter-nvim`'s `groups/keybindings/init.lua` maps a bare `ff`
+        // in normal mode to conform's format. Same keys here so the muscle
+        // memory transfers between the two editors.
+        //
+        // A SEQUENCE, and it costs nothing today: `f` (find-char) is not
+        // implemented in escriba, so there is no single binding for `ff` to
+        // shadow. When `f` lands it will need deciding — keymap's rule is that
+        // a single binding WINS over a sequence prefix, so binding `f` would
+        // silently kill `ff` rather than conflict with it. nvim pays the mirror
+        // cost of that today: `ff` there shadows `f` followed by `f`.
+        //
+        // `Action::Command` rather than a dedicated action: `lsp.format` is the
+        // name the catalog already binds from `<leader>lf`, `:Format` and a
+        // `BufWritePre` hook, and a second route to the same verb is how two
+        // spellings of one thing drift apart.
+        m.bind_sequence(
+            Mode::Normal,
+            vec![Key::Char('f'), Key::Char('f')],
+            Action::Command {
+                name: "lsp.format".to_string(),
+                args: Vec::new(),
+            },
+            "format buffer",
+        );
+
         // ── jumplist ──────────────────────────────────────────────────
         // The return ticket for every far jump above. Without it a committed
         // search is a one-way door.

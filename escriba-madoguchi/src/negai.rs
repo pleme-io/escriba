@@ -318,6 +318,16 @@ pub enum Negai {
     GrepProject {
         pattern: String,
     },
+    /// Format the ACTIVE buffer through its language server.
+    ///
+    /// Carries no payload for the same reason [`Self::GrepProject`] carries
+    /// only a pattern: a command reads a `View` and cannot see the buffer set,
+    /// its paths or its text, and the runtime owns all three. So the command
+    /// says what it wants and the runtime builds the [`Freight::Format`]
+    /// errand — which also keeps the courier's anchor sealed against the
+    /// revision the runtime actually read, rather than one a command captured
+    /// at some earlier moment.
+    FormatBuffer,
     Quit,
 }
 
