@@ -40,8 +40,8 @@ use escriba_buffer::BufferSet;
 use escriba_buffer::TextRev;
 use escriba_command::CommandRegistry;
 use escriba_core::{
-    Action, Anchored, Bound, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, JumpList,
-    Mode, Motion, Operator, Position, Range, TextEffect, WindowId,
+    Action, Anchored, Bound, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, InsertAt,
+    JumpList, Mode, Motion, Operator, Position, Range, TextEffect, WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -2737,6 +2737,7 @@ impl EditorState {
                 }
                 self.modal.enter(*m);
             }
+            Action::EnterInsert(at) => self.enter_insert_at(*at),
             Action::InsertChar(c) => self.insert_char(*c),
 
             Action::SubmitCommand => {
@@ -2855,6 +2856,13 @@ impl EditorState {
             | Action::Edit(_)
             | Action::Undo
             | Action::Redo
+            // Insert-entry belongs in THIS group rather than beside
+            // `ChangeMode` below, even though four of its six members only move
+            // the caret: `o`/`O` add a line, and this arm's body is already the
+            // one that asks whether the line COUNT changed. Grouping it with
+            // the pure mode change would repaint a one-line span after `o` and
+            // leave every line below the new one stale.
+            | Action::EnterInsert(_)
             | Action::ApplyOperator { .. } => {
                 if lines_after == lines_before {
                     Damage::span(cline_before, cline_after)
@@ -3213,6 +3221,79 @@ impl EditorState {
             // Route through the single cursor-mutation path so the viewport
             // follows the cursor (both axes) and the cursor stays clamped.
             self.place_cursor(next, CursorRest::AtInsertPoint);
+        }
+    }
+
+    /// Enter Insert mode at `at` — the ONE body behind `i` `I` `a` `A` `o` `O`.
+    ///
+    /// # What lets `A` park past the last character
+    ///
+    /// [`Self::place_cursor`] pulls a caret back to `len - 1` — but only when
+    /// **both** halves of its guard hold: `rest == CursorRest::OnCharacter`
+    /// *and* the mode is `Normal`. `A` and `a`-at-end-of-line need that clamp
+    /// lifted, and this function lifts it twice over: it enters Insert before
+    /// placing anything, and it asks for `CursorRest::AtInsertPoint`.
+    ///
+    /// **Either one alone is sufficient**, which is worth writing down because
+    /// it is the opposite of what it looks like. An earlier version of this
+    /// comment claimed the ORDER was load-bearing on its own; the red run
+    /// refuted it — reversing the order while keeping `AtInsertPoint` stays
+    /// green, and so does `OnCharacter` while entering Insert first. Only
+    /// removing BOTH goes red, and then `a` on the `o` of "hello" reports
+    /// column 4 instead of 5: the caret sits back on the character it was meant
+    /// to append after. Belt and braces here is deliberate — the two guards
+    /// answer different questions ("what kind of place is this?" and "what mode
+    /// are we in?") and a later refactor is free to change one.
+    ///
+    /// `o`/`O` are in this function rather than in an `Edit` action because
+    /// they are ONE gesture: vim's `o` is not "insert a newline, then enter
+    /// insert" — the caret must land on the new line, and an operator watching
+    /// two separate actions would record two dot-repeat entries for one press.
+    fn enter_insert_at(&mut self, at: InsertAt) {
+        self.modal.enter_insert();
+        let cursor = self.cursor();
+        // Resolve everything that needs the buffer BEFORE mutating, so the
+        // immutable borrow ends before `place_cursor`/`apply` want `&mut self`.
+        let Some(buf) = self.buffers.get(self.active) else {
+            return;
+        };
+        let line_len = buf.line_len_chars(cursor.line);
+        let target = match at {
+            // `i` — the caret is already the insert point.
+            InsertAt::Caret => Some(cursor),
+            // One past the last char is a legal insert point, which is what
+            // lets `a` on the final character append rather than stall.
+            InsertAt::AfterCaret => Some(Position::new(
+                cursor.line,
+                cursor.column.saturating_add(1).min(line_len),
+            )),
+            InsertAt::LineEnd => Some(Position::new(cursor.line, line_len)),
+            InsertAt::FirstNonBlank => Some(first_non_blank(buf, cursor.line)),
+            // Handled below — these two edit the buffer first.
+            InsertAt::OpenBelow | InsertAt::OpenAbove => None,
+        };
+        if let Some(pos) = target {
+            self.place_cursor(pos, CursorRest::AtInsertPoint);
+            return;
+        }
+        // `o`/`O` — open a line by inserting the terminator at the boundary the
+        // direction names, then land on the fresh line. Expressed as an
+        // `Edit::insert` through `Buffer::apply` so it joins the undo history
+        // the same way typed text does.
+        let (at_pos, land_on) = match at {
+            InsertAt::OpenBelow => (
+                Position::new(cursor.line, line_len),
+                Position::new(cursor.line.saturating_add(1), 0),
+            ),
+            // Inserting at column 0 pushes the current line DOWN, so the fresh
+            // line takes the caret's own line number.
+            _ => (Position::new(cursor.line, 0), Position::new(cursor.line, 0)),
+        };
+        let Some(buf) = self.buffers.get_mut(self.active) else {
+            return;
+        };
+        if buf.apply(&Edit::insert(at_pos, "\n")).is_ok() {
+            self.place_cursor(land_on, CursorRest::AtInsertPoint);
         }
     }
 
@@ -3750,7 +3831,6 @@ fn word_end(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
     }
     Position::new(line, u32::try_from(col).unwrap_or(pos.column))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -4399,9 +4479,221 @@ mod tests {
         assert_eq!(got, "c\nd\n", "count applies to the doubled operator");
     }
 
-    /// Text objects FROM THE KEYBOARD — the layer the last commit said was
-    /// missing. `i` is `ChangeMode(Insert)` in Normal and `a` and every
-    /// bracket are unbound, so all of this had to be decided on the KEY.
+    // ── The insert-entry family: `i` `I` `a` `A` `o` `O` ─────────────────
+    //
+    // Measured before the family existed (escriba 0.1.71, live 80×24 TUI):
+    // pressing `A` moved nothing, changed no mode and printed nothing, because
+    // an unbound Normal key resolves to `Action::Pending`. Only `i` was bound.
+
+    /// Press one key on `text` from `at`, and report (mode, cursor, buffer).
+    ///
+    /// The buffer is part of the tuple on purpose: four of the six entries must
+    /// leave it byte-identical, and a caret-only assertion cannot see a stray
+    /// edit — which is the exact shape of the phantom-space report that started
+    /// this work.
+    fn entry(text: &str, at: Position, key: char) -> (Mode, Position, String) {
+        let mut st = new_state_with(text);
+        st.set_cursor(at);
+        st.tick(&press(KeyCode::Char(key)));
+        (
+            st.modal.mode(),
+            st.cursor(),
+            st.buffers
+                .get(st.active)
+                .map(|b| b.to_string())
+                .unwrap_or_default(),
+        )
+    }
+
+    /// The whole family, one row per entry — vim's caret placement exactly.
+    ///
+    /// A matrix rather than six tests so the ★★ CLOSED-LOOP MASS-SYNTHESIS
+    /// rule has something to bite on: `every_insert_entry_has_a_key` below
+    /// fails the build when a seventh `InsertAt` variant lands without a row.
+    #[test]
+    fn the_insert_entry_family_places_the_caret_like_vim() {
+        // "  hello" — two leading blanks, so `I` and `0` differ, and 7 chars,
+        // so "one past the end" is column 7.
+        const TEXT: &str = "  hello\nworld\n";
+        let from = Position::new(0, 4); // on the first `l`
+        for (key, want_cursor, want_text, why) in [
+            (
+                'i',
+                Position::new(0, 4),
+                TEXT,
+                "`i` inserts before the caret",
+            ),
+            (
+                'I',
+                Position::new(0, 2),
+                TEXT,
+                "`I` goes to the first NON-BLANK, not to column 0",
+            ),
+            (
+                'a',
+                Position::new(0, 5),
+                TEXT,
+                "`a` appends after the caret",
+            ),
+            (
+                'A',
+                Position::new(0, 7),
+                TEXT,
+                "`A` parks one PAST the last char — the whole point of the key",
+            ),
+            (
+                'o',
+                Position::new(1, 0),
+                "  hello\n\nworld\n",
+                "`o` opens below and lands on the new line",
+            ),
+            (
+                'O',
+                Position::new(0, 0),
+                "\n  hello\nworld\n",
+                "`O` opens above; the fresh line takes the caret's line number",
+            ),
+        ] {
+            let (mode, cursor, text) = entry(TEXT, from, key);
+            assert_eq!(mode, Mode::Insert, "`{key}` must enter Insert");
+            assert_eq!(cursor, want_cursor, "{why}");
+            assert_eq!(text, want_text, "`{key}`: {why}");
+        }
+    }
+
+    /// Every `InsertAt` has a Normal-mode key, and every one of those keys
+    /// actually resolves to it.
+    ///
+    /// The forcing function. Adding a variant to `InsertAt` without binding it
+    /// fails here rather than shipping a key that silently does nothing — which
+    /// is precisely how `a`, `A`, `I`, `o` and `O` were missing for so long
+    /// without any test noticing.
+    #[test]
+    fn every_insert_entry_has_a_key() {
+        let km = escriba_keymap::Keymap::default_vim();
+        let bound: Vec<InsertAt> = km
+            .entries_sorted()
+            .into_iter()
+            .filter_map(|(mode, _, b)| match (mode, &b.action) {
+                (Mode::Normal, Action::EnterInsert(at)) => Some(*at),
+                _ => None,
+            })
+            .collect();
+        for at in InsertAt::ALL {
+            assert!(
+                bound.contains(&at),
+                "InsertAt::{at:?} ({}) has no Normal-mode key",
+                at.as_str()
+            );
+        }
+        assert_eq!(
+            bound.len(),
+            InsertAt::ALL.len(),
+            "one key per entry, no duplicates: {bound:?}"
+        );
+    }
+
+    /// `A` then typing appends at the end — the end-to-end gesture, not just
+    /// the caret placement.
+    ///
+    /// The caret assertion above would still pass if Insert mode refused to
+    /// write at a column past the last character; this is what proves the
+    /// `CursorRest::AtInsertPoint` rest actually holds through a keystroke.
+    #[test]
+    fn shift_a_then_typing_appends_at_the_end_of_the_line() {
+        let mut st = new_state_with("hello\nworld\n");
+        st.set_cursor(Position::new(0, 0));
+        st.tick(&press(KeyCode::Char('A')));
+        for c in "!!".chars() {
+            st.tick(&press(KeyCode::Char(c)));
+        }
+        assert_eq!(
+            st.buffers
+                .get(st.active)
+                .map(|b| b.to_string())
+                .unwrap_or_default(),
+            "hello!!\nworld\n"
+        );
+    }
+
+    /// `a` on the LAST character still appends, rather than stalling.
+    ///
+    /// The case the Normal-mode clamp would break, and the test that measured
+    /// how. RED RUN 2026-08-12: `place_cursor`'s clamp needs BOTH
+    /// `CursorRest::OnCharacter` and `Mode::Normal`, so this stays green if
+    /// either guard is removed and goes red only when both are — reporting
+    /// `column: 4` (back on the `o`) instead of 5. See `enter_insert_at`, whose
+    /// doc comment originally over-claimed that the ordering alone carried it.
+    #[test]
+    fn a_on_the_last_character_appends_after_it() {
+        let mut st = new_state_with("hello\n");
+        st.set_cursor(Position::new(0, 4)); // the `o`
+        st.tick(&press(KeyCode::Char('a')));
+        assert_eq!(st.cursor(), Position::new(0, 5), "one past the `o`");
+        st.tick(&press(KeyCode::Char('?')));
+        assert_eq!(
+            st.buffers
+                .get(st.active)
+                .map(|b| b.to_string())
+                .unwrap_or_default(),
+            "hello?\n"
+        );
+    }
+
+    /// No insert-entry key touches the buffer except `o`/`O`.
+    ///
+    /// The direct gate on the reported symptom: "hitting insert creates a
+    /// space". It never did — the space was a RENDER defect (see
+    /// `escriba-tui`'s `entering_insert_does_not_widen_the_rendered_line`) —
+    /// and this test is what keeps the two explanations from being confused
+    /// again, by pinning that the text really is untouched.
+    #[test]
+    fn entering_insert_types_nothing() {
+        const TEXT: &str = "  hello\nworld\n";
+        for key in ['i', 'I', 'a', 'A'] {
+            let (_, _, text) = entry(TEXT, Position::new(0, 4), key);
+            assert_eq!(text, TEXT, "`{key}` must not write a character");
+        }
+        for key in ['o', 'O'] {
+            let (_, _, text) = entry(TEXT, Position::new(0, 4), key);
+            assert_eq!(
+                text.chars().filter(|c| *c == '\n').count(),
+                3,
+                "`{key}` adds exactly one line terminator and no other char"
+            );
+            assert!(
+                text.contains("  hello") && text.contains("world"),
+                "`{key}` must not disturb the existing lines: {text:?}"
+            );
+        }
+    }
+
+    /// Binding bare `a` and `i` must NOT shadow the text objects.
+    ///
+    /// The regression this whole family risked. `escriba-keymap`'s rule is that
+    /// a single binding beats a sequence prefix, so a naive `a` binding would
+    /// have made `daw` mean "delete, then append". It does not, because
+    /// `consume_object_key` runs before both and claims `i`/`a` only while an
+    /// operator is armed — this test is the evidence for that sentence.
+    #[test]
+    fn the_insert_entry_keys_do_not_shadow_text_objects() {
+        assert_eq!(keys("one two three\n", 0, 5, "daw"), "one three\n");
+        assert_eq!(keys("one two three\n", 0, 5, "diw"), "one  three\n");
+        assert_eq!(keys("f(a, b)\n", 0, 3, "di("), "f()\n");
+        // And the operator-free path still reaches the new bindings.
+        let (mode, cursor, _) = entry("one two\n", Position::new(0, 0), 'a');
+        assert_eq!(mode, Mode::Insert);
+        assert_eq!(cursor, Position::new(0, 1), "no operator ⇒ `a` appends");
+    }
+
+    /// Text objects FROM THE KEYBOARD.
+    ///
+    /// Every bracket is unbound, and `i`/`a` are claimed by
+    /// `consume_object_key` only while an operator waits, so all of this is
+    /// decided on the KEY rather than in the binding table. (Until 2026-08-12
+    /// this comment read "`i` is `ChangeMode(Insert)` in Normal and `a` … are
+    /// unbound" — true when written, and made false by the insert-entry family
+    /// above.)
 
     fn keys(text: &str, line: u32, col: u32, seq: &str) -> String {
         let mut st = new_state_with(text);

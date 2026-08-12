@@ -501,6 +501,33 @@ fn draw_buffer_in(
         .borders(Borders::NONE)
         .style(buffer_style(chrome));
     f.render_widget(Paragraph::new(lines).block(block), area);
+
+    // Insert mode's caret is the TERMINAL's cursor, not a painted cell.
+    //
+    // A between-glyphs caret is not expressible as a cell — the previous
+    // attempt painted a `▏` in its own column and displaced the rest of the
+    // line, which read as insert mode inserting a space (see `cursor_spans`).
+    // The terminal draws a real sub-cell bar for free, which is also what nvim
+    // does in a terminal, so this is parity rather than approximation.
+    //
+    // Only for `Bar`: Block and Underline are painted, and asking for the
+    // terminal cursor as well would show two cursors in Normal mode. Parked
+    // BEFORE `draw_status_line`, whose own park for an open prompt therefore
+    // wins — which is the right precedence, since a prompt is where the typing
+    // is going.
+    if focused && shape == CursorShape::Bar && cursor.line >= top {
+        let row = cursor.line - top;
+        let col = (cursor.column as usize).saturating_sub(left as usize);
+        // Clamp inside the pane: a caret one past the last column of a full
+        // line must not be parked into the neighbouring pane.
+        if row < u32::from(visible) && col < vis_cols {
+            #[allow(clippy::cast_possible_truncation)]
+            f.set_cursor_position((
+                area.x + gutter_cols as u16 + col as u16,
+                area.y + row as u16,
+            ));
+        }
+    }
 }
 
 /// Render one line with a gutter, sliced horizontally to the visible
@@ -618,19 +645,44 @@ fn push_runs(spans: &mut Vec<Span<'static>>, chars: &[char], styles: &[Option<St
 
 /// Render the cell under the cursor in its per-mode [`CursorShape`].
 ///
+/// **Every arm emits exactly ONE cell, and that is the invariant.** A painter
+/// that returns two spans for one cell does not "draw a caret" — it inserts a
+/// column, and every glyph after it on that line shifts right.
+///
 /// - [`CursorShape::Block`]: fill the cell (dark glyph on the cursor color)
 ///   — the Normal/Command "you are here" indicator.
-/// - [`CursorShape::Bar`]: a thin vertical bar drawn BEFORE the glyph
-///   (Insert mode's between-glyphs caret), the glyph itself left plain.
+/// - [`CursorShape::Bar`]: **nothing painted.** Insert mode's caret sits
+///   BETWEEN glyphs, which no cell can represent, so it is drawn by the
+///   TERMINAL's own cursor — parked by `draw_pane` and shaped once in
+///   `run::run`. See the regression note below.
 /// - [`CursorShape::Underline`]: the glyph with an underline modifier
 ///   (Visual mode), so the highlighted selection stays readable.
+///
+/// # The two-cell bug this arm used to have
+///
+/// Until 2026-08-12 `Bar` emitted `["▏", glyph]` — a styled bar cell FOLLOWED
+/// by the character it was supposed to sit before. Measured on escriba 0.1.71:
+/// pressing `i` at the start of `hello world` rendered `▏hello world`, one
+/// column wider than the line, so the entire line appeared to gain a leading
+/// SPACE the moment insert mode was entered. Nothing was inserted — the buffer
+/// was byte-identical — which is precisely why it survived: every text
+/// assertion passed, and only a column-aware look at the grid shows it.
+///
+/// The lesson is the one this repo keeps relearning about formatters: a test
+/// that measures the MODEL cannot see a rendering defect. `render.rs`'s own
+/// unit test asserted `bar[0].content == "▏"` and so pinned the bug in place.
 fn cursor_spans(c: &ChromePalette, under: char, shape: CursorShape) -> Vec<Span<'static>> {
     match shape {
         CursorShape::Block => vec![Span::styled(under.to_string(), cursor_block_style(c))],
-        CursorShape::Bar => vec![
-            Span::styled("▏".to_string(), cursor_bar_style(c)),
-            Span::raw(under.to_string()),
-        ],
+        // One cell, unstyled: the real terminal cursor is the caret here.
+        //
+        // RED RUN RECORDED 2026-08-12: restoring the two-span form
+        // (`["▏", glyph]`) fails all three gates below —
+        // `cursor_spans_render_per_mode_shape` (2 cells vs 1),
+        // `entering_insert_does_not_widen_the_rendered_line` (20 vs 19) and
+        // `the_insert_caret_paints_no_glyph_of_its_own`. The 20-vs-19 is the
+        // displacement itself, in cells.
+        CursorShape::Bar => vec![Span::raw(under.to_string())],
         CursorShape::Underline => vec![Span::styled(under.to_string(), cursor_underline_style(c))],
     }
 }
@@ -811,13 +863,14 @@ fn cursor_block_style(c: &ChromePalette) -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
-/// Bar cursor (Insert) — the thin vertical caret drawn between glyphs,
-/// colored in the cursor accent.
-fn cursor_bar_style(c: &ChromePalette) -> Style {
-    Style::default()
-        .fg(rgb(c.cursor))
-        .add_modifier(Modifier::BOLD)
-}
+// `cursor_bar_style` lived here until 2026-08-12. It styled the painted `▏`
+// caret cell, and it went with that cell: Insert's caret is now the terminal's
+// own cursor, which no `ratatui::Style` can reach. Removed rather than retired
+// behind a flag because it is a genuinely orphan private leaf — its sole call
+// site is gone from this crate and there is no operator-visible surface to keep
+// switched off. The bar's COLOUR is now the terminal's cursor colour; escriba
+// does not set it (an OSC 12 write would be a global change to the operator's
+// terminal with a restore obligation on every exit path, including a panic).
 
 /// Underline cursor (Visual) — the glyph kept legible with an underline in
 /// the cursor accent.
@@ -968,6 +1021,92 @@ mod tests {
         let mut spans = vec![];
         push_runs(&mut spans, &[], &[]);
         assert!(spans.is_empty());
+    }
+
+    /// Entering Insert mode must not change the WIDTH of the rendered line.
+    ///
+    /// The regression gate for the phantom-space bug. Measured on escriba
+    /// 0.1.71 in a live 80×24 TUI: `hello world` rendered as `   1  │ hello
+    /// world` in Normal and `   1  │ ▏hello world` after pressing `i` — one
+    /// column wider, with every glyph after the caret displaced right, which
+    /// reads to an operator as insert mode having typed a space.
+    ///
+    /// **Why no existing test caught it.** Every assertion in this module
+    /// measured WHICH spans were painted and with what style; none measured how
+    /// many CELLS came out. The buffer was never touched, so the runtime's text
+    /// assertions were all green too. This is the same shape as the formatter
+    /// lesson recorded in `CLAUDE.md` — a law over the model cannot see a
+    /// defect in the rendering — so the gate has to be dimensional.
+    ///
+    /// Asserting equality against Block (rather than a literal width) keeps the
+    /// gate alive if the gutter ever changes shape: it pins the RELATION, which
+    /// is the actual invariant.
+    #[test]
+    fn entering_insert_does_not_widen_the_rendered_line() {
+        let render = |shape| {
+            let line = line_with_gutter(
+                &chrome(),
+                None,
+                0,
+                64,
+                &[],
+                "hello world",
+                // Cursor ON this line, at column 0 — where the displacement
+                // was most visible.
+                escriba_core::Position::new(0, 0),
+                0,
+                80,
+                shape,
+                &[],
+            );
+            line.spans
+                .iter()
+                .map(|s| s.content.chars().count())
+                .sum::<usize>()
+        };
+        let normal = render(CursorShape::Block);
+        assert_eq!(
+            render(CursorShape::Bar),
+            normal,
+            "the insert caret must occupy the cell it is in, never add one"
+        );
+        assert_eq!(
+            render(CursorShape::Underline),
+            normal,
+            "and the same holds for visual"
+        );
+    }
+
+    /// The insert caret paints no glyph of its own, so the text on screen is
+    /// exactly the buffer's text.
+    ///
+    /// The companion to the width gate: width alone would still pass if the
+    /// caret REPLACED a character with `▏` instead of inserting one, which
+    /// would hide a glyph rather than shift the line.
+    #[test]
+    fn the_insert_caret_paints_no_glyph_of_its_own() {
+        let line = line_with_gutter(
+            &chrome(),
+            None,
+            0,
+            64,
+            &[],
+            "hello world",
+            escriba_core::Position::new(0, 3),
+            0,
+            80,
+            CursorShape::Bar,
+            &[],
+        );
+        let rendered: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(
+            rendered.ends_with("hello world"),
+            "the line's text survives the caret verbatim, got {rendered:?}"
+        );
+        assert!(
+            !rendered.contains('▏'),
+            "the bar is the TERMINAL's cursor, not a painted cell"
+        );
     }
 
     #[test]
@@ -1134,8 +1273,9 @@ mod tests {
     }
 
     /// The cursor is rendered in its per-mode shape: a block fills the
-    /// cell (Normal), a bar precedes the glyph (Insert), an underline marks
-    /// the glyph (Visual). The shape is selected by `Mode::cursor_shape`.
+    /// cell (Normal), an underline marks the glyph (Visual), and Insert paints
+    /// NOTHING — the terminal's own cursor is the caret. The shape is selected
+    /// by `Mode::cursor_shape`.
     #[test]
     fn cursor_spans_render_per_mode_shape() {
         // Block: a single span styled with the cursor BG (block fill).
@@ -1147,12 +1287,17 @@ mod tests {
         // to one theme and would have had to change on every theme move.
         assert_eq!(block[0].style.bg, Some(rgb(chrome().cursor)));
 
-        // Bar: a thin caret span BEFORE the (unstyled) glyph.
+        // Bar: the glyph, unchanged and unstyled. This assertion used to read
+        // `bar.len() == 2` with `bar[0].content == "▏"`, which is how the
+        // displacement bug stayed pinned in place for so long: a painted bar
+        // cell PLUS the glyph is two cells for one column, so entering insert
+        // mode shifted the whole line right and looked like a space had been
+        // typed. See `cursor_spans`' doc for the measurement.
         let bar = cursor_spans(&chrome(), 'a', CursorShape::Bar);
-        assert_eq!(bar.len(), 2);
-        assert_eq!(bar[0].content, "▏");
-        assert_eq!(bar[1].content, "a");
-        assert_eq!(bar[1].style.bg, None, "bar leaves the glyph cell unfilled");
+        assert_eq!(bar.len(), 1, "one cell in, one cell out — never two");
+        assert_eq!(bar[0].content, "a");
+        assert_eq!(bar[1..].len(), 0);
+        assert_eq!(bar[0].style.bg, None, "bar leaves the glyph cell unfilled");
 
         // Underline: one glyph span carrying the UNDERLINED modifier.
         let under = cursor_spans(&chrome(), 'a', CursorShape::Underline);

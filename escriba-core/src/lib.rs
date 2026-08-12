@@ -32,7 +32,7 @@ pub mod position;
 pub mod range;
 pub mod selection;
 
-pub use action::{Action, CountedAction, HighlightEffect, TextEffect};
+pub use action::{Action, CountedAction, HighlightEffect, InsertAt, TextEffect};
 // `Action::SearchOpen` carries it, so anything that CONSTRUCTS an action needs
 // it. Re-exported here rather than making every such crate take a direct
 // escriba-search dependency for one enum.
