@@ -491,14 +491,15 @@ fn draw_buffer_in(
             })
             .filter(|(s, e)| e > s)
             .collect();
-        // The worst finding on this line, if any — one cell, always, so a
-        // diagnostic arriving does not shift every line sideways.
-        let mark = state
-            .results
-            .worst_on_line(&state.world(), state.active, ln);
+        // Everything the gutter shows for this line — the worst finding, and
+        // whether a breakpoint sits here. One cell each, always, so neither a
+        // diagnostic arriving nor a breakpoint being set shifts every line
+        // sideways. Asked of the STATE rather than assembled here, so the
+        // three faces cannot read different planes.
+        let marks = state.gutter_marks(&state.world(), state.active, ln);
         lines.push(line_with_gutter(
             chrome,
-            mark,
+            marks,
             ln,
             line_count,
             syntax.get(row as usize).map_or(&[][..], Vec::as_slice),
@@ -551,7 +552,7 @@ fn draw_buffer_in(
 /// horizontal scroll.
 fn line_with_gutter(
     chrome: &ChromePalette,
-    mark: Option<escriba_shirube::Severity>,
+    marks: escriba_ui::gutter::GutterMarks,
     ln: u32,
     // The buffer's total line count — the gutter's width derives from it, so
     // every line of one buffer agrees. Passed in rather than read here so a
@@ -570,12 +571,15 @@ fn line_with_gutter(
     // only job is to turn each cell's role into a ratatui `Style` — which is
     // what makes the GPU face able to paint the identical gutter by answering
     // the same question in its own colours.
-    let mut spans: Vec<Span<'static>> = escriba_ui::gutter::gutter_cells(ln, mark, line_count)
+    let mut spans: Vec<Span<'static>> = escriba_ui::gutter::gutter_cells(ln, marks, line_count)
         .into_iter()
         .map(|c| {
             let style = match c.role {
                 escriba_ui::gutter::GutterRole::Mark(sev) => {
                     Style::default().fg(rgb(escriba_ui::chrome::severity_color(chrome, sev)))
+                }
+                escriba_ui::gutter::GutterRole::Breakpoint => {
+                    Style::default().fg(rgb(escriba_ui::chrome::breakpoint_color(chrome)))
                 }
                 _ => muted_style(chrome),
             };
@@ -1060,7 +1064,7 @@ mod tests {
         let render = |shape| {
             let line = line_with_gutter(
                 &chrome(),
-                None,
+                escriba_ui::gutter::GutterMarks::clear(),
                 0,
                 64,
                 &[],
@@ -1101,7 +1105,7 @@ mod tests {
     fn the_insert_caret_paints_no_glyph_of_its_own() {
         let line = line_with_gutter(
             &chrome(),
-            None,
+            escriba_ui::gutter::GutterMarks::clear(),
             0,
             64,
             &[],
@@ -1128,7 +1132,7 @@ mod tests {
         // "hello world", match on "world" (cols 6..11), cursor elsewhere.
         let line = line_with_gutter(
             &chrome(),
-            None,
+            escriba_ui::gutter::GutterMarks::clear(),
             0,
             64,
             &[],
@@ -1157,7 +1161,7 @@ mod tests {
         // region — this is the case it structurally could not render.
         let line = line_with_gutter(
             &chrome(),
-            None,
+            escriba_ui::gutter::GutterMarks::clear(),
             0,
             64,
             &[],
@@ -1182,7 +1186,7 @@ mod tests {
         // place the moment you land on a match — which is always, after `n`.
         let line = line_with_gutter(
             &chrome(),
-            None,
+            escriba_ui::gutter::GutterMarks::clear(),
             0,
             64,
             &[],
@@ -1205,7 +1209,7 @@ mod tests {
         // Scrolled right by 4: the match at cols 6..11 must shift left by 4.
         let line = line_with_gutter(
             &chrome(),
-            None,
+            escriba_ui::gutter::GutterMarks::clear(),
             0,
             64,
             &[],
@@ -1232,7 +1236,7 @@ mod tests {
     fn no_highlights_renders_a_plain_line() {
         let line = line_with_gutter(
             &chrome(),
-            None,
+            escriba_ui::gutter::GutterMarks::clear(),
             0,
             64,
             &[],

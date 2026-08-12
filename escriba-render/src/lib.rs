@@ -74,11 +74,20 @@ impl Renderer for TextRenderer {
             }
             let line = buf.line(ln).unwrap_or_default();
             let line = line.trim_end_matches('\n').trim_end_matches('\r');
-            let mark = state.results.worst_on_line(&world, state.active, ln);
-            for cell in escriba_ui::gutter::gutter_cells(ln, mark, line_count) {
+            // Both gutter planes, asked of the STATE — see
+            // `EditorState::gutter_marks`. Reading `worst_on_line` here (what
+            // this face used to do) is how a second plane lands on two faces
+            // out of three.
+            let marks = state.gutter_marks(&world, state.active, ln);
+            for cell in escriba_ui::gutter::gutter_cells(ln, marks, line_count) {
                 match cell.role {
                     escriba_ui::gutter::GutterRole::Mark(sev) => {
                         push_fg(&mut out, escriba_ui::chrome::severity_color(&chrome, sev));
+                        out.push_str(&cell.text);
+                        out.push_str(RESET);
+                    }
+                    escriba_ui::gutter::GutterRole::Breakpoint => {
+                        push_fg(&mut out, escriba_ui::chrome::breakpoint_color(&chrome));
                         out.push_str(&cell.text);
                         out.push_str(RESET);
                     }

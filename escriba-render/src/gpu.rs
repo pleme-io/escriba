@@ -406,7 +406,7 @@ impl RenderCallback for GpuRenderer {
             #[allow(clippy::type_complexity)]
             let gutter_rows: Option<(
                 u32,
-                Vec<(u32, Option<escriba_shirube::Severity>)>,
+                Vec<(u32, escriba_ui::gutter::GutterMarks)>,
             )> = rebuild_input.is_some().then(|| {
                 let win = s.layout.active_window().cloned();
                 let top_line = win.as_ref().map_or(0, |w| w.viewport.top_line);
@@ -417,7 +417,7 @@ impl RenderCallback for GpuRenderer {
                 let rows = (0..visible_lines)
                     .map(|row| top_line + row)
                     .take_while(|ln| *ln < buf.line_count())
-                    .map(|ln| (ln, s.results.worst_on_line(&world, s.active, ln)))
+                    .map(|ln| (ln, s.gutter_marks(&world, s.active, ln)))
                     .collect();
                 (buf.line_count(), rows)
             });
@@ -565,11 +565,14 @@ impl RenderCallback for GpuRenderer {
             // Owned strings first: `set_rich_text` borrows its slices, so the
             // runs cannot reference temporaries created inside the same call.
             let mut owned: Vec<(String, GlyphColor)> = Vec::with_capacity(rows.len() * 5);
-            for (ln, mark) in &rows {
-                for cell in escriba_ui::gutter::gutter_cells(*ln, *mark, line_count) {
+            for (ln, marks) in &rows {
+                for cell in escriba_ui::gutter::gutter_cells(*ln, *marks, line_count) {
                     let color = match cell.role {
                         escriba_ui::gutter::GutterRole::Mark(sev) => {
                             chrome_glyph(escriba_ui::chrome::severity_color(&palette, sev))
+                        }
+                        escriba_ui::gutter::GutterRole::Breakpoint => {
+                            chrome_glyph(escriba_ui::chrome::breakpoint_color(&palette))
                         }
                         _ => muted,
                     };

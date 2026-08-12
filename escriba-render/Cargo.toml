@@ -14,9 +14,14 @@ escriba-buffer  = { workspace = true }
 escriba-ui      = { workspace = true }
 escriba-mode    = { workspace = true }
 escriba-runtime = { workspace = true }
-# Severity — the gutter paints a finding's mark, so this face needs to NAME
-# one. The composition itself lives in `escriba_ui::gutter`, shared with the
-# ratatui face; only the colour lookup is this crate's.
+# Severity used to be NAMED here: the gutter's mark cell was an
+# `Option<Severity>` this face passed through. Since the breakpoint plane
+# landed (2026-08-12) both gutter planes arrive as one opaque
+# `escriba_ui::gutter::GutterMarks` built by `EditorState::gutter_marks`, so
+# this crate no longer spells `escriba_shirube` anywhere. KEPT rather than
+# removed: dropping a workspace edge rewrites `Cargo.lock`, which drags the
+# committed `Cargo.gen.lock` delta with it — not a trade worth making for one
+# unused edge. Drop it the next time the lock moves for a real reason.
 escriba-shirube = { workspace = true }
 # Vellum fleet theme — GPU + text chrome read BORN ishou tokens; the
 # `wgpu` feature gives `From<LinearRgba> for wgpu_types::Color` for the

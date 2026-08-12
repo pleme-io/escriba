@@ -394,6 +394,21 @@ pub enum Negai {
     /// revision the runtime actually read, rather than one a command captured
     /// at some earlier moment.
     FormatBuffer,
+
+    // ── debugging ────────────────────────────────────────────────────
+    /// Set a breakpoint on the cursor's line of the ACTIVE buffer, or clear
+    /// the one already there.
+    ///
+    /// Carries no payload, for the same reason [`Self::FormatBuffer`] does
+    /// not: a command reads a `View`, the runtime owns the buffer set and the
+    /// cursor, and a command that captured a line number would be naming a
+    /// row it read at some earlier moment.
+    ///
+    /// **This is a MARK, not a debugger.** There is no adapter, no session
+    /// and no protocol behind it — honouring it flips one bit of editor state
+    /// that the gutter paints. A future DAP client reads the set; it does not
+    /// get a second slip.
+    ToggleBreakpoint,
     Quit,
 }
 
