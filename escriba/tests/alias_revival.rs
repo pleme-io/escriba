@@ -88,7 +88,11 @@ const UNHANDLED_ALIASES: &[&str] = &[
     "git.status",
     "indent.toggle",
     "leap.forward",
-    "lsp.format",
+    // `lsp.format` dispatches as of 2026-08-12 — see `escriba-command`'s
+    // `LspFormat`. It left this list and `action_resolution.rs`'s INERT set in
+    // the same commit; both are set-equality ratchets, and needing to edit BOTH
+    // is the point — two independent inventories of what is dead cannot quietly
+    // disagree about it.
     "lsp.info",
     "lsp.outline",
     "lsp.restart",

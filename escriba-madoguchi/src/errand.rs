@@ -70,6 +70,17 @@ pub enum Freight {
     Diagnostics {
         buffer: escriba_core::BufferId,
         path: std::path::PathBuf,
+        /// Which language this document is, as the EDITOR resolved it.
+        ///
+        /// Sent rather than re-derived because the editor owns the real answer:
+        /// `escriba_core::FiletypeTable`, populated from every `defmode` in the
+        /// catalog. The runner's own `language_of` knows two extensions and is
+        /// explicit in its doc that a dispatcher wanting to disagree "should
+        /// send the language rather than teach this function more extensions" —
+        /// this field is that. `None` means the editor had no opinion, and the
+        /// runner falls back, which is what keeps `--no-defaults` (an empty
+        /// filetype table) working exactly as before.
+        language: Option<String>,
         text: String,
     },
     /// Run a formatter over text.
@@ -79,7 +90,18 @@ pub enum Freight {
     /// interpreter noticed the operator kept typing — the anchor fences the
     /// reply, and it can only fence a reply that has not happened yet.
     Format {
+        /// The buffer the reply edits.
+        ///
+        /// Carried rather than re-found by path, because the reply IS a
+        /// `Negai::Edit` and an edit needs a `BufferId`. The seal used to
+        /// resolve this with `find_by_path`, which was the honest shape while
+        /// nothing constructed this variant outside a test; with a real runner
+        /// the id has to survive the round trip.
+        buffer: escriba_core::BufferId,
         path: std::path::PathBuf,
+        /// The language, as the editor resolved it. See
+        /// [`Freight::Diagnostics`]' field of the same name.
+        language: Option<String>,
         text: String,
     },
 }
@@ -268,13 +290,16 @@ mod tests {
                 Freight::Diagnostics {
                     buffer: escriba_core::BufferId(1),
                     path: "a.nix".into(),
+                    language: None,
                     text: String::new(),
                 },
                 "diag",
             ),
             (
                 Freight::Format {
+                    buffer: escriba_core::BufferId(1),
                     path: "a.rs".into(),
+                    language: None,
                     text: String::new(),
                 },
                 "fmt",

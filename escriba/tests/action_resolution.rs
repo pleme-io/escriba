@@ -84,7 +84,12 @@ const INERT: &[&str] = &[
     "lsp.definition",
     "lsp.diagnostic-next",
     "lsp.diagnostic-prev",
-    "lsp.format",
+    // `lsp.format` left this set on 2026-08-12 — it is a registered native
+    // command now (`escriba-command`'s `LspFormat` → `Negai::FormatBuffer` →
+    // the courier's `FormatRunner`). This ratchet is set-EQUALITY, so wiring a
+    // subsystem fails the test until its name is deleted from here; that is the
+    // half that makes the list a record of what is dead rather than a list
+    // somebody once wrote.
     "lsp.hover",
     "lsp.implementation",
     "lsp.incoming-calls",

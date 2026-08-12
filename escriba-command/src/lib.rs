@@ -235,6 +235,11 @@ impl CommandRegistry {
             erase::<GrepPicker>(),
         ));
         r.register(Command::native(
+            "lsp.format",
+            "Format the buffer through its language server",
+            erase::<LspFormat>(),
+        ));
+        r.register(Command::native(
             "picker.files",
             "Pick a file under the working directory",
             erase::<WalkPicker<false>>(),
@@ -652,6 +657,22 @@ impl Native for GrepPicker {
             return Outcome::declined("grep: give a pattern — `:picker.grep <pattern>`");
         }
         Outcome::did(vec![Negai::GrepProject { pattern }])
+    }
+}
+
+/// `lsp.format` — format the active buffer through its language server.
+///
+/// The name the catalog already binds. `escriba-conform.escribaplugin.lisp`
+/// has declared `(defcmd :name "Format" :action "lsp.format")`, a
+/// `<leader>lf` keybind and a `BufWritePre` hook against this name since it
+/// was written; all three resolved to nothing, and `tests/action_resolution.rs`
+/// listed `lsp.format` in its INERT set to say so out loud. This is the
+/// implementation those declarations were waiting for.
+struct LspFormat;
+impl Native for LspFormat {
+    type Reads = caps!();
+    fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+        Outcome::did(vec![Negai::FormatBuffer])
     }
 }
 

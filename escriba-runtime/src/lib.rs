@@ -777,6 +777,7 @@ impl EditorState {
                 // layout, and vim says nothing there either.
             }
             Negai::GrepProject { pattern } => self.grep_project(&pattern),
+            Negai::FormatBuffer => self.ask_for_format(self.active),
             Negai::CycleBuffer { forward } => self.cycle_buffer(forward),
             Negai::FocusBuffer(id) => {
                 if self.buffers.get(id).is_some() {
@@ -1153,10 +1154,61 @@ impl EditorState {
         let Some(path) = b.path.clone() else {
             return;
         };
+        let text = b.to_string();
+        let language = self.language_of(&path);
         let freight = escriba_madoguchi::errand::Freight::Diagnostics {
             buffer,
             path,
-            text: b.to_string(),
+            language,
+            text,
+        };
+        let anchor = self.seal(&freight);
+        self.courier.send(freight, anchor);
+    }
+
+    /// The language of `path`, as the CATALOG declared it.
+    ///
+    /// `FiletypeTable` is populated from every `(defmode … :extensions …)` the
+    /// catalog carries, so this answer covers every language escriba has been
+    /// told about — 11 of them today — rather than the two extensions
+    /// `escriba_lsp_client::runner::language_of` hardcodes. That is why blue
+    /// resolves here without anything in this crate naming blue: the
+    /// declaration already existed, and nothing was reading it.
+    ///
+    /// `None` when the table has no entry, which is not an error — it is the
+    /// answer for a plain `.txt`, and it is also what a `--no-defaults` boot
+    /// gives for everything, so the runner keeps its own fallback.
+    fn language_of(&self, path: &std::path::Path) -> Option<String> {
+        self.filetypes.resolve(path).map(|f| f.name.clone())
+    }
+
+    /// Ask the formatter runner to format `buffer`.
+    ///
+    /// The buffer's CURRENT text goes with the errand and the anchor seals on
+    /// its revision, so a reply computed against text the operator has since
+    /// changed is refused rather than applied — see `seal`'s `Format` arm,
+    /// which was written before anything could construct this errand.
+    fn ask_for_format(&mut self, buffer: escriba_core::BufferId) {
+        let Some(b) = self.buffers.get(buffer) else {
+            return;
+        };
+        // A formatter needs a path: it is how the server is chosen and how the
+        // project root is found. A scratch buffer has none, and saying so beats
+        // silently doing nothing to a keystroke the operator pressed.
+        let Some(path) = b.path.clone() else {
+            self.messages
+                .push("format: this buffer has no path".to_string());
+            self.damage = self.damage.join(Damage::Viewport);
+            self.bump_gen();
+            return;
+        };
+        let text = b.to_string();
+        let language = self.language_of(&path);
+        let freight = escriba_madoguchi::errand::Freight::Format {
+            buffer,
+            path,
+            language,
+            text,
         };
         let anchor = self.seal(&freight);
         self.courier.send(freight, anchor);
@@ -6017,10 +6069,13 @@ mod tests {
                 Freight::Diagnostics {
                     buffer: active,
                     path: "a.nix".into(),
+                    language: None,
                     text: String::new(),
                 },
                 Freight::Format {
+                    buffer: active,
                     path: "a.nix".into(),
+                    language: None,
                     text: String::new(),
                 },
             ] {
