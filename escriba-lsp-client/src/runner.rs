@@ -114,10 +114,10 @@ fn uri_of(path: &Path) -> String {
 impl Runner for LspRunner {
     fn start(&self, errand: Errand, cancel: Arc<AtomicBool>, reply: Sender<Parcel>) {
         let Freight::Diagnostics {
+            buffer,
             path,
             text,
             language,
-            ..
         } = errand.freight.clone()
         else {
             let _ = reply.send(Parcel {
@@ -170,7 +170,24 @@ impl Runner for LspRunner {
                         if cancel.load(Ordering::Relaxed) {
                             return;
                         }
-                        let findings = to_findings(&published, &text, None);
+                        // The BUFFER, not `None`.
+                        //
+                        // `Finding::site.buffer` is what attributes a
+                        // diagnostic to an open buffer, and
+                        // `FindingLists::worst_on_line` — the gutter's only
+                        // reader — filters on `f.site.buffer == Some(buffer)`.
+                        // A finding carrying `None` therefore cannot match any
+                        // buffer, ever, so it can never produce a mark.
+                        //
+                        // Measured 2026-08-12: blue's server published a
+                        // correct diagnostic (line 7, chars 2-7, verified by
+                        // driving `blue lsp` directly over stdio) while
+                        // escriba's gutter stayed empty. This was never
+                        // language-specific — every LSP diagnostic escriba has
+                        // ever received was invisible in the gutter for the
+                        // same reason. The errand has carried the id the whole
+                        // time; the destructure discarded it with `..`.
+                        let findings = to_findings(&published, &text, Some(buffer));
                         Negai::ErrandReply {
                             anchor,
                             then: Box::new(Negai::PublishFindings {

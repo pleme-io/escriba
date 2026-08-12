@@ -772,6 +772,7 @@ dependencies = [
  "libc",
  "madori",
  "nix",
+ "okiba",
  "shikumi",
  "tatara-lisp",
  "tempfile",
@@ -2329,6 +2330,12 @@ dependencies = [
  "objc2-core-location",
  "objc2-foundation",
 ]
+
+[[package]]
+name = "okiba"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f9c1a09ac313282383bd44d48fda567bcfeff7afcd1b18ab65e55fde6720f7"
 
 [[package]]
 name = "once_cell"

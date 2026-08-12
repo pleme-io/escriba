@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "b2b2f0a319b0bf52fdd4f883512f35cf6cfb87aa33ba9e0b24cd28b297512982",
+  "cargo_lock_sha256": "abe5f7d08891a65c50021f9c2b8549af55f5ad851eae3131f33b982c84d672df",
   "manifest_sha256": {
-    "Cargo.toml": "192494987dfe9ebe701ac6b30d593bb6c165fb0f29dedeb8bf2c92e5b979a35d",
+    "Cargo.toml": "eff57a8d35d15c66a509b19556bf72811e707fa7fd6d2720a32a26fcb5c3fefd",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -26,7 +26,7 @@
     "escriba-tui/Cargo.toml": "0efd476b9dbf926f75b04eb6cd4b031af69b3c50bc6a1af6fc1d5a386508fb7e",
     "escriba-ui/Cargo.toml": "2371881f85f937233af0f685fd3fb313849ab87f3635f40cf205de62793f9382",
     "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
-    "escriba/Cargo.toml": "9f0c71a08cb9dd9ce024d7505f76bff45ef25dcdb6baefef1cdc689435d5f9a2",
+    "escriba/Cargo.toml": "9b9dee1105ed47d885ad64cb55f705789133a058438da120d6fec2b9b03c60d6",
     "unsoku/Cargo.toml": "44f842a01a0b8468b795bedfe4fb634610c39476bb168d8265aee7f5e55c3bf3"
   },
   "target_resolves": {
@@ -1610,6 +1610,16 @@
           {
             "name": "madori",
             "package_key": "madori-0.1.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "okiba",
+            "package_key": "okiba-0.1.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -5679,6 +5689,11 @@
           "libm",
           "std"
         ]
+      },
+      "okiba-0.1.1": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
       },
       "once_cell-1.21.4": {
         "runtime_dependencies": [],
@@ -25450,6 +25465,9 @@
     },
     "objc2-quartz-core-0.2.2": {
       "edition": "2021"
+    },
+    "okiba-0.1.1": {
+      "edition": "2024"
     },
     "once_cell-1.21.4": {
       "edition": "2021"

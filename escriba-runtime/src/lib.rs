@@ -482,6 +482,48 @@ impl EditorState {
         self.courier.hire(crew);
     }
 
+    /// Diagnose every buffer that is already open.
+    ///
+    /// **Call this LAST, after the plan has been applied.** It has two
+    /// prerequisites and they are in different places: the courier needs its
+    /// crew ([`hire`](Self::hire)), and `language_of` needs the filetype table,
+    /// which `apply_plan_to_filetypes` fills from the catalog's `defmode`
+    /// forms. Both are set up by the composition root, in that order, and this
+    /// belongs after both.
+    ///
+    /// # Why this exists at all
+    ///
+    /// `ask_for_diagnostics` had exactly one caller — `Negai::OpenPath`, the
+    /// path a file takes when opened from INSIDE the editor. A file named on
+    /// the command line never travels it: the composition root reads the file
+    /// and hands the buffer to `new_with_buffer`. So `escriba main.rs` opened a
+    /// buffer that was never diagnosed while `:e main.rs` on the same file was,
+    /// and nothing on screen distinguished them — a file with errors simply
+    /// looked clean.
+    ///
+    /// # The ordering trap, which cost an hour
+    ///
+    /// The first fix hung this off `hire`, reasoning that hiring is the moment
+    /// diagnosis becomes possible. It is not: hiring makes the courier able to
+    /// RUN, but the filetype table is still empty there, so every errand went
+    /// out carrying `language: None`. The runner then fell back to its own
+    /// two-extension `language_of`, which does not know `.b`, and declined —
+    /// **silently, and correctly**, because "most files have no server" is the
+    /// common case and saying so on every open would be noise.
+    ///
+    /// Nothing was broken enough to report. `blue check` said `diag.b:8:3`
+    /// while the gutter stayed empty, and the only visible difference between
+    /// "no server for this language" and "the language was not resolved yet"
+    /// was a `None` in a struct field. **A prerequisite that is satisfied
+    /// somewhere else, later, is not a prerequisite the caller can see.**
+    pub fn diagnose_open_buffers(&mut self) {
+        // Every buffer, not just the active one: a session restored with a
+        // split, or a future `escriba a.rs b.rs`, opens more than one.
+        for id in self.buffers.ids() {
+            self.ask_for_diagnostics(id);
+        }
+    }
+
     /// What an errand of this class depends on — the ONE place a courier
     /// anchor is minted.
     ///
