@@ -191,6 +191,54 @@ mod tests {
         }
     }
 
+    /// A finding must carry the buffer it belongs to, or it is invisible.
+    ///
+    /// `FindingLists::worst_on_line` — the gutter's ONLY reader — filters on
+    /// `f.site.buffer == Some(buffer)`. A `None` there cannot match any buffer,
+    /// so the finding is stored, counted, listed by `trouble.document`… and
+    /// never drawn. Nothing errors.
+    ///
+    /// Measured 2026-08-12: `LspRunner` called `to_findings(…, None)` while the
+    /// errand carried the id, so EVERY LSP diagnostic escriba had ever received
+    /// was invisible in the gutter — in every language, not just blue. blue's
+    /// server published a correct range (line 7, chars 2-7, verified by driving
+    /// `blue lsp` over stdio by hand) and the gutter stayed empty.
+    ///
+    /// The gate is stated as "attribution is preserved" rather than pinning a
+    /// call site, because the defect was a caller passing the wrong thing to a
+    /// function that was working correctly.
+    #[test]
+    fn a_finding_keeps_the_buffer_it_was_asked_about() {
+        let id = escriba_core::BufferId(7);
+        let p = publish(
+            "file:///tmp/a.b",
+            vec![WireDiagnostic {
+                range: WireRange {
+                    start: Position {
+                        line: 1,
+                        character: 2,
+                    },
+                    end: Position {
+                        line: 1,
+                        character: 7,
+                    },
+                },
+                severity: Some(1),
+                message: "boom".into(),
+                source: Some("types".into()),
+                code: None,
+            }],
+        );
+        let got = to_findings(&p, "x = 1\n  a + 1\n", Some(id));
+        assert_eq!(got.len(), 1);
+        assert_eq!(
+            got[0].site.buffer,
+            Some(id),
+            "a finding with no buffer can never reach the gutter"
+        );
+        assert_eq!(got[0].site.line(), 1, "and it lands on the reported line");
+    }
+
     fn diag(l0: u32, c0: u32, l1: u32, c1: u32, msg: &str) -> WireDiagnostic {
         WireDiagnostic {
             range: WireRange {
