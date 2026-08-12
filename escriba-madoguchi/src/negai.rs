@@ -132,6 +132,55 @@ pub enum PickerSource {
     Findings { workspace: bool },
 }
 
+/// The highlight class vocabulary, re-exported so a producer of
+/// [`SemanticSpan`] takes ONE dependency and cannot end up on a different
+/// `hikari-core` than the slip it fills in.
+///
+/// The same reasoning `escriba-ts` records for re-exporting hikari-ts: a
+/// payload type and its vocabulary belong to the same crate boundary, or two
+/// consumers can compile against two `HlClass`es that are structurally equal
+/// and nominally distinct.
+pub use hikari_core::HlClass;
+
+/// One span a language server claims to know the meaning of.
+///
+/// # Why this is not a `Finding`
+///
+/// A [`Finding`](escriba_shirube::Finding) keys on SEVERITY, and severity is
+/// what `worst_on_line` (the gutter's only reader), `on_line` and `]d` all
+/// sort and filter by. A token is not a problem — there is no severity that
+/// honestly describes "this word is a function name" — so publishing tokens as
+/// findings would put thousands of severity-less rows into the list `]d` steps
+/// through and the gutter paints. They are a different KIND of located thing
+/// and get their own slip.
+///
+/// # Coordinates
+///
+/// `line` is zero-based and absolute. **`start_char` and `len_chars` count
+/// `char`s, not UTF-16 code units** — the conversion happens once, at the LSP
+/// boundary in `escriba-lsp-client`, for exactly the reason
+/// [`escriba_shirube::Finding`] positions do: the two agree on every ASCII file
+/// and differ by one per astral-plane character, so a span that carried the
+/// wire's number would be right in every test and wrong for any reader with an
+/// emoji in a comment.
+///
+/// A span never crosses a line break — LSP requires that of the wire format,
+/// and it is what lets the renderer resolve a span against one rendered row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SemanticSpan {
+    /// Zero-based, absolute — the delta encoding is undone at the boundary.
+    pub line: u32,
+    /// Zero-based column within `line`, in `char`s.
+    pub start_char: u32,
+    /// Length in `char`s. Never spans a line break.
+    pub len_chars: u32,
+    /// What the server says this is, lowered onto the fleet's one highlight
+    /// class vocabulary. `escriba_ui::syntax::ChromeSyntax::color` is total
+    /// over it with no wildcard arm, so every token is themed on every face
+    /// without a second colour table to keep in sync.
+    pub class: HlClass,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Negai {
     // ── text ─────────────────────────────────────────────────────────
@@ -226,6 +275,23 @@ pub enum Negai {
     WalkList {
         list: String,
         forward: bool,
+    },
+
+    // ── server-authored colour ───────────────────────────────────────
+    /// Replace what a language server said one buffer's tokens MEAN.
+    ///
+    /// Deliberately not a [`PublishFindings`](Self::PublishFindings) — see
+    /// [`SemanticSpan`] for why a token is not a finding.
+    ///
+    /// Like findings, this is only trustworthy against the revision it was
+    /// computed for: colours derived from text the operator has since edited
+    /// are confidently wrong rather than merely absent. The interpreter
+    /// therefore stores it sealed with the anchor the reply carried, exactly
+    /// as it does a `PublishFindings` arriving inside an
+    /// [`ErrandReply`](Self::ErrandReply), and a stale read is an empty read.
+    PublishSemanticTokens {
+        buffer: BufferId,
+        tokens: Vec<SemanticSpan>,
     },
 
     // ── operator feedback ────────────────────────────────────────────

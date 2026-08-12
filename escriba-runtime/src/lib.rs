@@ -222,6 +222,63 @@ pub struct EditorState {
     /// keeps the modal state machine's variant set — and every exhaustive
     /// match over it — untouched.
     splash: Option<Splash>,
+    /// What a language server last said one buffer's tokens MEAN.
+    ///
+    /// One slot, not a per-buffer map, and that is the honest shape of what
+    /// produces it: the diagnostics errand runs per OPEN, so at any moment
+    /// there is one buffer whose tokens are both present and fresh. A map
+    /// would model a fan-out that has no producer.
+    ///
+    /// Sealed, and read through [`semantic_spans`](Self::semantic_spans) —
+    /// never directly — for the same reason a `ResultList` is: a colour
+    /// derived from text the operator has since edited is *confidently wrong*,
+    /// which is worse than absent. A stale read is an empty read and the face
+    /// falls back to its own lexer.
+    semantic: Option<SemanticPaint>,
+}
+
+/// Semantic tokens for one buffer, sealed with the world they describe.
+///
+/// A twin of [`escriba_shirube::ResultList`] rather than a use of it: that
+/// type's payload is `Vec<Finding>`, and a token is deliberately not a finding
+/// (see [`escriba_madoguchi::SemanticSpan`]). What IS shared is the part that
+/// matters — the [`Anchor`](escriba_shirube::Anchor) and the rule that a stale
+/// read yields nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemanticPaint {
+    buffer: BufferId,
+    spans: Vec<escriba_madoguchi::SemanticSpan>,
+    anchor: escriba_shirube::Anchor,
+}
+
+impl SemanticPaint {
+    #[must_use]
+    pub const fn new(
+        buffer: BufferId,
+        spans: Vec<escriba_madoguchi::SemanticSpan>,
+        anchor: escriba_shirube::Anchor,
+    ) -> Self {
+        Self {
+            buffer,
+            spans,
+            anchor,
+        }
+    }
+
+    /// The spans, IF they describe `buffer` AND are still fresh against
+    /// `world`. Anything else is empty.
+    #[must_use]
+    pub fn fresh(
+        &self,
+        world: &escriba_shirube::Anchor,
+        buffer: BufferId,
+    ) -> &[escriba_madoguchi::SemanticSpan] {
+        if self.buffer == buffer && self.anchor.is_fresh(world) {
+            &self.spans
+        } else {
+            &[]
+        }
+    }
 }
 
 /// What the start screen did with a keypress.
@@ -866,6 +923,15 @@ impl EditorState {
                 self.results
                     .publish(list, escriba_shirube::ResultList::new(findings, world));
             }
+            // Sealed at `world()`, exactly like the `PublishFindings` above and
+            // for the same reason: an ON-TICK producer computed this against
+            // the world as it is right now. The off-tick path is the
+            // `ErrandReply` arm below, which must NOT reseal — see the note
+            // there.
+            Negai::PublishSemanticTokens { buffer, tokens } => {
+                let world = self.world();
+                self.semantic = Some(SemanticPaint::new(buffer, tokens, world));
+            }
             // A reply from off the tick. Honour it only if the world it was
             // computed against still holds.
             //
@@ -899,6 +965,19 @@ impl EditorState {
                                 escriba_shirube::ResultList::new(findings, anchor),
                             );
                             self.refresh_projected_picker(&list);
+                        }
+                        // The second payload of one language-server
+                        // conversation, and special-cased here for exactly the
+                        // reason `PublishFindings` is: it must keep the
+                        // reply's OWN anchor. Falling through to
+                        // `honour_one` would reseal it at `world()` — passing
+                        // the gate and then widening the claim, which turns
+                        // "these colours describe buffer 3 at revision 7" into
+                        // "these colours describe the world", so the next
+                        // keystroke in ANY buffer would blank them and an
+                        // unearned claim would have been made durable.
+                        Negai::PublishSemanticTokens { buffer, tokens } => {
+                            self.semantic = Some(SemanticPaint::new(buffer, tokens, anchor));
                         }
                         other => self.honour_one(other),
                     }
@@ -1101,7 +1180,23 @@ impl EditorState {
             theme: FleetTheme::prescribed_default(),
             chrome: ChromePalette::prescribed(),
             splash: None,
+            semantic: None,
         }
+    }
+
+    /// What a language server says `buffer`'s tokens mean, if that answer is
+    /// still about this buffer at this revision.
+    ///
+    /// The ONLY reader — the field is private so a face cannot reach past the
+    /// freshness check the way an earlier `results` reader could have. Empty is
+    /// the honest answer for "no server", "not this buffer" and "you have typed
+    /// since", and every one of them means the same thing to a renderer: paint
+    /// with your own lexer.
+    #[must_use]
+    pub fn semantic_spans(&self, buffer: BufferId) -> &[escriba_madoguchi::SemanticSpan] {
+        self.semantic
+            .as_ref()
+            .map_or(&[][..], |p| p.fresh(&self.world(), buffer))
     }
 
     /// The theme this editor is set to.

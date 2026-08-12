@@ -18,6 +18,13 @@ escriba-shirube = { workspace = true }
 # `CaseMode` on `Freight::Scan`. escriba-search deps are serde/schemars/thiserror/
 # memori/regex — it names no crate above this one, so the arrow stays acyclic.
 escriba-search = { workspace = true }
+# `HlClass` — the payload vocabulary of `Negai::PublishSemanticTokens`. The
+# same reason `PickerSource` is declared here: a slip's payload types are
+# madoguchi's vocabulary. hikari-core is a ZERO-DEPENDENCY crate, so this
+# widens the seam's closure by one leaf and nothing else, and it is the class
+# `escriba_ui::syntax::ChromeSyntax` is already total over — so a token type
+# lowered onto it is themed on every face without a second colour table.
+hikari-core    = { workspace = true }
 
 [lints]
 workspace = true
