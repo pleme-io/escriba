@@ -3231,6 +3231,8 @@ impl EditorState {
                 None => self.report_pattern_not_found(),
             },
             Action::Put { before } => self.put(*before, count),
+            Action::ReplaceChar(ch) => self.replace_char(*ch, count),
+            Action::JoinLines { space } => self.join_lines(*space, count),
             Action::RepeatLastChange => self.repeat_last_change(),
             Action::JumpBack => {
                 let here = self.spot();
@@ -3986,6 +3988,108 @@ impl EditorState {
         }
     }
 
+    /// `r{char}` — overwrite `count` characters from the cursor with `char`.
+    ///
+    /// Three things it deliberately is NOT, each of which a `Change`-operator
+    /// composition would get wrong: it does not enter Insert, it does not
+    /// touch the register, and it REFUSES rather than truncating when the
+    /// count runs past the end of the line. vim's rule is that `5rx` on a
+    /// three-character tail does nothing at all — a partial replace would
+    /// silently destroy two characters you did not mean to name.
+    fn replace_char(&mut self, ch: char, count: u32) {
+        let n = count.max(1);
+        let here = self.cursor();
+        let Some(buf) = self.buffers.get(self.active) else {
+            return;
+        };
+        let len = buf.line_len_chars(here.line);
+        if here.column.saturating_add(n) > len {
+            // Silent, like vim. The line is short — there is nothing to say
+            // that the unchanged text does not already say.
+            return;
+        }
+        let end = Position::new(here.line, here.column + n);
+        let mut text = String::with_capacity(n as usize);
+        for _ in 0..n {
+            text.push(ch);
+        }
+        let Some(buf) = self.buffers.get_mut(self.active) else {
+            return;
+        };
+        if buf
+            .apply(&Edit::replace(Range::new(here, end), text))
+            .is_err()
+        {
+            return;
+        }
+        // vim leaves the cursor on the LAST character replaced, not after it.
+        self.set_cursor(Position::new(here.line, here.column + n - 1));
+    }
+
+    /// `J` / `gJ` — join `count` lines into one.
+    ///
+    /// One `Edit::replace` over the whole span rather than `n` splices, so a
+    /// `3J` is one `u` away from gone and the damage classifier sees a single
+    /// line-count change.
+    ///
+    /// `space: true` (`J`) drops the next line's leading whitespace and puts a
+    /// single space in the newline's place, with vim's two exceptions: no
+    /// space is added when the line already ends in one, or when the next line
+    /// starts with `)`. `space: false` (`gJ`) splices verbatim — the reason to
+    /// reach for it is that `J` is lossy.
+    fn join_lines(&mut self, space: bool, count: u32) {
+        // `J` and `2J` both mean "join ONE following line": vim counts LINES
+        // involved, not joins performed, so the join count is `count - 1`
+        // floored at 1.
+        let joins = count.max(2) - 1;
+        let here = self.cursor();
+        let Some(buf) = self.buffers.get(self.active) else {
+            return;
+        };
+        let last = last_text_line(buf);
+        if here.line >= last {
+            // Nothing below to join. vim beeps; escriba says so, because a key
+            // that silently does nothing is indistinguishable from an unbound
+            // one — which is how `<C-h>` hid for a month.
+            self.messages
+                .push("E36: Not enough lines to join".to_string());
+            return;
+        }
+        let end_line = here.line.saturating_add(joins).min(last);
+        let mut joined = buf.line(here.line).unwrap_or_default().to_string();
+        // Where the cursor lands: vim puts it ON the join — the position the
+        // newline used to occupy, which is the space it inserted.
+        let mut caret = u32::try_from(joined.chars().count()).unwrap_or(0);
+        for l in (here.line + 1)..=end_line {
+            let next = buf.line(l).unwrap_or_default().to_string();
+            caret = u32::try_from(joined.chars().count()).unwrap_or(0);
+            if space {
+                let trimmed = next.trim_start();
+                let needs_space = !joined.is_empty()
+                    && !joined.ends_with(char::is_whitespace)
+                    && !trimmed.starts_with(')')
+                    && !trimmed.is_empty();
+                if needs_space {
+                    joined.push(' ');
+                }
+                joined.push_str(trimmed);
+            } else {
+                joined.push_str(&next);
+            }
+        }
+        let span = Range::new(
+            Position::new(here.line, 0),
+            Position::new(end_line, buf.line_len_chars(end_line)),
+        );
+        let Some(buf) = self.buffers.get_mut(self.active) else {
+            return;
+        };
+        if buf.apply(&Edit::replace(span, joined)).is_err() {
+            return;
+        }
+        self.set_cursor(Position::new(here.line, caret));
+    }
+
     /// Where the cursor rests once an operator has finished.
     ///
     /// Keyed on the operated KIND rather than on the operator, because that is
@@ -4656,6 +4760,11 @@ fn absorbs_count(action: &Action) -> bool {
         action,
         Action::ApplyOperator { .. }
             | Action::Put { .. }
+            // `3ra` is one replace of three characters (and refuses if there
+            // are not three), `3J` is one join of three lines. Repeating
+            // either would walk the cursor and do the wrong thing three times.
+            | Action::ReplaceChar(_)
+            | Action::JoinLines { .. }
             // Only the LINEWISE object can express an `n`-fold extent today.
             // `2diw` still repeats, which is the same over-count-a-yank defect
             // waiting on a general "resolve this object n times" — named here
