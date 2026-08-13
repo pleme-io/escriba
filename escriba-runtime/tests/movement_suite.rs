@@ -38,6 +38,16 @@ fn editor(text: &str, from: (u32, u32)) -> EditorState {
     st
 }
 
+/// 200 numbered lines — more than any viewport, so the screen-relative and
+/// scroll tests have somewhere to scroll to.
+fn long_buffer() -> String {
+    use std::fmt::Write as _;
+    (0..200).fold(String::new(), |mut s, i| {
+        let _ = writeln!(s, "line {i}");
+        s
+    })
+}
+
 fn press(st: &mut EditorState, keys: &str) {
     for c in keys.chars() {
         st.on_key(&Key::Char(c));
@@ -222,7 +232,7 @@ fn plus_and_minus_land_on_the_first_non_blank() {
 
 #[test]
 fn h_m_l_land_inside_the_viewport() {
-    let src: String = (0..200).map(|i| format!("line {i}\n")).collect();
+    let src = long_buffer();
     let mut st = editor(&src, (0, 0));
     press(&mut st, "H");
     let top = st.cursor().line;
@@ -234,6 +244,184 @@ fn h_m_l_land_inside_the_viewport() {
     assert!(
         (top..=bottom).contains(&middle),
         "M ({middle}) must lie between H ({top}) and L ({bottom})",
+    );
+}
+
+// ── marks (`m` / `` ` `` / `'`) ───────────────────────────────────────
+
+#[test]
+fn a_mark_returns_the_cursor_to_where_it_was_set() {
+    let src = "alpha\n    beta\ngamma\n";
+    let mut st = editor(src, (1, 7));
+    press(&mut st, "ma");
+    press(&mut st, "gg");
+    assert_eq!(st.cursor(), Position::new(0, 0));
+    press(&mut st, "`a");
+    assert_eq!(st.cursor(), Position::new(1, 7), "backtick is exact");
+}
+
+#[test]
+fn the_two_mark_spellings_are_two_motions() {
+    // `` `a `` returns to the COLUMN; `'a` returns to the line's first
+    // non-blank. vim's two spellings are two motions, not one plus a flag.
+    let src = "alpha\n    beta\ngamma\n";
+    let mut st = editor(src, (1, 7));
+    press(&mut st, "magg'a");
+    assert_eq!(st.cursor(), Position::new(1, 4), "quote is linewise");
+}
+
+#[test]
+fn m_claims_its_letter_before_the_keymap() {
+    // `ma` must set mark `a`, NOT append — `a` is bound to EnterInsert.
+    let mut st = editor("hello\n", (0, 2));
+    press(&mut st, "ma");
+    assert_eq!(
+        st.modal.mode(),
+        escriba_core::Mode::Normal,
+        "`ma` entered Insert — the operand reached the keymap",
+    );
+}
+
+#[test]
+fn an_unset_mark_is_a_failed_motion_not_a_jump_to_zero() {
+    // `` `q `` with no `q` must leave the cursor alone, and `` d`q `` must
+    // not delete to the top of the file.
+    assert_eq!(
+        cursor_after("a\nbb\nccc\n", (2, 1), "`q"),
+        Position::new(2, 1)
+    );
+    assert_eq!(text_after("a\nbb\nccc\n", (2, 1), "d`q"), "a\nbb\nccc\n");
+}
+
+#[test]
+fn a_mark_composes_with_an_operator() {
+    let mut st = editor("one\ntwo\nthree\n", (0, 0));
+    press(&mut st, "ma");
+    press(&mut st, "jj");
+    press(&mut st, "d`a");
+    assert_eq!(
+        st.buffers
+            .get(st.active)
+            .map(escriba_buffer::Buffer::to_string)
+            .unwrap_or_default(),
+        "three\n",
+    );
+}
+
+#[test]
+fn only_a_to_z_are_accepted_as_mark_names() {
+    // `A-Z` are vim's CROSS-FILE marks and this map is per-editor, so
+    // accepting one would promise a jump to another file.
+    let mut st = editor("one\ntwo\n", (1, 0));
+    press(&mut st, "mA");
+    press(&mut st, "gg");
+    press(&mut st, "`A");
+    assert_eq!(
+        st.cursor(),
+        Position::new(0, 0),
+        "`A must not have been set"
+    );
+}
+
+// ── `zt` / `zz` / `zb` ────────────────────────────────────────────────
+
+#[test]
+fn scroll_reframes_the_window_without_moving_the_cursor() {
+    let src = long_buffer();
+    let mut st = editor(&src, (0, 0));
+    for _ in 0..80 {
+        press(&mut st, "j");
+    }
+    let before = st.cursor();
+    let top_of = |st: &EditorState| st.layout.active_window().map_or(0, |w| w.viewport.top_line);
+
+    press(&mut st, "zt");
+    assert_eq!(st.cursor(), before, "zt must not move the cursor");
+    assert_eq!(top_of(&st), before.line, "zt puts the line at the top");
+
+    press(&mut st, "zb");
+    let h = st
+        .layout
+        .active_window()
+        .map_or(1, |w| w.viewport.visible_lines);
+    assert_eq!(st.cursor(), before, "zb must not move the cursor");
+    assert_eq!(
+        top_of(&st),
+        before.line - (h - 1),
+        "zb puts it at the bottom"
+    );
+
+    press(&mut st, "zz");
+    assert_eq!(top_of(&st), before.line - h / 2, "zz centres it");
+}
+
+// ── `%` over language word pairs (matchit) ────────────────────────────
+
+/// An editor over a NAMED file, so the filetype table resolves and `%` can
+/// find the language's word pairs. `%` on an unnamed buffer is bracket-only,
+/// which is why every other test in this file gets brackets.
+fn editor_for(path: &str, text: &str, from: (u32, u32)) -> EditorState {
+    let dir = std::env::temp_dir().join(format!("escriba-matchit-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("fixture dir");
+    let file = dir.join(path);
+    std::fs::write(&file, text).expect("fixture");
+
+    let mut bufs = BufferSet::new();
+    let id = bufs.open(&file).expect("open fixture");
+    let mut st = EditorState::new_with_buffer(bufs, id);
+    // Only the two filetypes these tests need. The SHIPPED table is asserted
+    // separately (`escriba/tests/matchit_filetypes.rs`) — building it here
+    // would make a `%` test fail when a major-mode declaration moved.
+    for (name, ext) in [("sh", "sh"), ("rust", "rs")] {
+        st.filetypes.insert(escriba_core::Filetype {
+            name: name.to_string(),
+            extensions: vec![ext.to_string()],
+            comment: None,
+        });
+    }
+    for _ in 0..from.0 {
+        st.on_key(&Key::Char('j'));
+    }
+    st.on_key(&Key::Char('0'));
+    for _ in 0..from.1 {
+        st.on_key(&Key::Char('l'));
+    }
+    st
+}
+
+#[test]
+fn percent_steps_through_a_shell_if_chain() {
+    let src = "if x; then\n  a\nelif y; then\n  b\nelse\n  c\nfi\n";
+    let mut st = editor_for("t.sh", src, (0, 0));
+    press(&mut st, "%");
+    assert_eq!(st.cursor(), Position::new(2, 0), "if → elif");
+    press(&mut st, "%");
+    assert_eq!(st.cursor(), Position::new(4, 0), "elif → else");
+    press(&mut st, "%");
+    assert_eq!(st.cursor(), Position::new(6, 0), "else → fi");
+}
+
+#[test]
+fn a_word_pair_scan_counts_nesting_and_respects_word_boundaries() {
+    // The inner `if`/`fi` must not steal the outer `fi`, and `notify` must
+    // not be read as containing a keyword.
+    let src = "if a; then\n  notify\n  if b; then\n    c\n  fi\nfi\n";
+    let mut st = editor_for("n.sh", src, (0, 0));
+    press(&mut st, "%");
+    assert_eq!(st.cursor(), Position::new(5, 0), "outer if → outer fi");
+}
+
+#[test]
+fn a_brace_language_keeps_bracket_only_percent() {
+    // Rust has no word pairs, and that is correct rather than missing: `if`
+    // in Rust is followed by a `{`, which `%` already handles.
+    let src = "fn f() {\n    if x { y }\n}\n";
+    let mut st = editor_for("t.rs", src, (1, 4));
+    press(&mut st, "%");
+    assert_eq!(
+        st.cursor(),
+        Position::new(1, 13),
+        "`%` on `if` in Rust finds the brace, not a word pair",
     );
 }
 

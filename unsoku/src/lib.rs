@@ -324,8 +324,7 @@ pub fn find_char(text: &str, from: usize, ch: char, backward: bool, till: bool) 
 #[must_use]
 pub fn last_non_blank(text: &str) -> usize {
     text.char_indices()
-        .filter(|(_, c)| !c.is_whitespace())
-        .next_back()
+        .rfind(|(_, c)| !c.is_whitespace())
         .map_or(0, |(i, _)| i)
 }
 
@@ -441,7 +440,11 @@ fn resolve_once(text: &str, at: usize, motion: Motion) -> Option<usize> {
         // `;` repeats the LAST find, and unsoku holds no state between calls
         // — a stateless resolver cannot answer it. A caller that wants `;`
         // remembers its own `FindChar` and passes that.
-        | Motion::RepeatFind { .. } => return None,
+        | Motion::RepeatFind { .. }
+        // A mark is a remembered position in a DOCUMENT. unsoku holds one
+        // line and no history, so it has nowhere for `ma` to have happened.
+        | Motion::MarkExact(_)
+        | Motion::MarkLine(_) => return None,
     })
 }
 

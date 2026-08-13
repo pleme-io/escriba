@@ -385,15 +385,91 @@ it was a sequence left with a note saying it would "need deciding when `f`
 lands". `lsp.format` keeps `<leader>lf`, `:Format` and its `BufWritePre`
 hook; only the fourth spelling is gone.
 
-Pinned in `escriba-runtime/tests/movement_suite.rs` (20 tests, all
+Pinned in `escriba-runtime/tests/movement_suite.rs` (30 tests, all
 key-driven — the fixture even walks the cursor to its start position by
 keys, because a `set_cursor` hook can place it where no keystroke can and
 then prove a motion from a state the editor never reaches).
 
-**Still not bound:** marks (`m`/`` ` ``/`'`), `zt`/`zz`/`zb`, and `<C-u>`
-(taken by the insert-mode erase). `%` is bracket-only — no
-`matchit`-style word pairs. `ge`/`b`/`<C-w>` remain single-line by
-design; see the insert-mode note below for why widening them is not free.
+### The second pass — marks, `z`-scroll, `<C-u>`, matchit (same day)
+
+The four things the first pass named as missing are in.
+
+- **Marks.** `m{a-z}` sets, `` `{a-z} `` returns to the exact position,
+  `'{a-z}` to the line's first non-blank. Two `Motion` arms, not one plus
+  a flag: `` `a `` is exclusive and `'a` is linewise, so ``d`a`` and
+  `d'a` delete different things. An UNSET mark is a failed motion —
+  `` `q `` leaves the cursor alone and ``d`q`` leaves the buffer alone,
+  rather than jumping to the origin and deleting to the top of the file.
+  Only `a-z`: `A-Z` are vim's cross-file marks and this map is
+  per-editor, so accepting one would promise a jump to another FILE and
+  deliver a jump to that line in this one.
+- **`zt`/`zz`/`zb`** re-frame the window and do NOT move the cursor —
+  which is the whole reason they are an `Action::ScrollView`, not a
+  motion. Folding them into `Motion` would make them composable with an
+  operator, and `dzz` is not a thing. They must also not route through
+  `set_cursor`, which scrolls the viewport to contain the cursor and
+  would undo the re-frame it was just asked for.
+- **`<C-u>` was never conflicted.** The first pass listed it as "taken by
+  the insert-mode erase". Bindings are per-mode and the erase is bound in
+  Insert and Command only, so Normal was free the whole time. It is
+  half-page-up now, and a test pins both readings coexisting.
+- **matchit** — `%` over language WORD pairs. A typed table keyed by
+  filetype name (`if`/`elif`/`else`/`fi`, `do`/`end`, `case`/`esac`, …),
+  walked by the same depth-counting scan as the bracket case. Middles are
+  first-class: `%` STEPS THROUGH `elif` and `else` on its way to `fi`
+  rather than jumping straight past them, which is what makes it useful
+  for reading a chain rather than just finding its end. Word-BOUNDED on
+  both sides, so `endif` is not read as `end` and `notify` contains no
+  keyword — an unbounded scan is worse than no word pairs at all, because
+  a `%` that lands inside an identifier is a silent wrong answer.
+
+**Two more defects the wiring surfaced, both invisible to every test:**
+
+- **`gg` was never bound.** `G` was; `gg` was not, and the only `gg` in
+  the repo was a unit test that *bound it itself* before pressing it — so
+  it proved the sequence machinery worked and said nothing about the
+  default keymap, while vim's most-pressed motion did nothing in the
+  shipped editor. A test that constructs the thing it is checking cannot
+  fail the way the product is broken. Now bound and covered by the
+  composite-plan gate.
+- **`f`/`t` were eating the second key of every sequence.** The find
+  capture runs before the sequence stepper — correct for the FIRST key of
+  a gesture, wrong for a later one — so `zt` armed a till-find and the
+  `z` sequence never completed. Both operand-capture paths now decline
+  while `pending_keys` is non-empty: by then the gesture has already been
+  chosen.
+
+**Ordering, which is now load-bearing in three places.** The dispatch
+order is mark → object → find → sequence → keymap, and each step is a
+real dependency rather than a convenience:
+
+- **mark before object**, because the object path claims `i`/`a` whenever
+  an operator is armed and a mark LETTER can be either — ``d`a`` lost its
+  `a` to it. They do not fight over the first key: the mark path arms
+  only while `pending_object` is clear, so `di'` still reaches the object
+  path while `d'a` becomes a mark jump. Same key, two gestures,
+  distinguished by which one is already half-typed.
+- **object before find**, unchanged: `di(` must not read as `d`, insert,
+  `(`.
+- **both before the keymap**, and neither after the sequence stepper.
+
+**Where `%`'s word-pair table stands.** Six languages are declared; only
+`lua` and `sh` have a shipped `(defmode …)`, so `%` in Ruby, Bash,
+Elixir and Vimscript is bracket-only today. The rows stay — the grammar
+of `if`/`elsif`/`end` does not change when a major mode lands, and
+deleting correct knowledge to shorten a list is how it gets re-derived
+wrong — but `escriba/tests/matchit_filetypes.rs` pins the unreachable set
+by SET EQUALITY, the same shape `action_resolution.rs` uses for
+bound-but-inert keybinds. A new dead row fails; shipping the major mode
+also fails until the row is promoted. Neither direction drifts quietly,
+which is what makes "declared but unreachable" honest rather than wrong.
+
+**Still not done:** `A-Z` and numbered marks, `` `` ``/`''` (the previous
+position — the jumplist holds it, the mark map does not), marks surviving
+edits above them (vim adjusts them; these are plain positions, clamped on
+jump), `%` over HTML/XML tags, and `ge`/`b`/`<C-w>` remain single-line by
+design — see the insert-mode note below for why widening them is not
+free.
 
 ## Insert mode could be typed into but not corrected (2026-08-09, fixed)
 

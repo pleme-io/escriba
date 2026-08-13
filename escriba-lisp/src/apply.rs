@@ -520,6 +520,13 @@ pub fn resolve_action(name: &str) -> (Action, bool) {
         // picks another leader authors this to get `,` back.
         "find-repeat" => (Action::Move(Motion::RepeatFind { reverse: false }), false),
         "find-reverse" => (Action::Move(Motion::RepeatFind { reverse: true }), false),
+        // `zt` / `zz` / `zb`. No `mark-set` / `mark-goto` counterpart: those
+        // carry a LETTER the rc has no way to supply, and the keys that do
+        // supply it (`m`, `` ` ``, `'`) are claimed by the runtime before the
+        // keymap. An action name for them would be unreachable by construction.
+        "scroll-top" => (Action::ScrollView(escriba_core::ViewAlign::Top), false),
+        "scroll-center" => (Action::ScrollView(escriba_core::ViewAlign::Center), false),
+        "scroll-bottom" => (Action::ScrollView(escriba_core::ViewAlign::Bottom), false),
 
         // ── Structural Lisp motions (paredit) ──────────────────────
         "forward-sexp" => (Action::Move(Motion::ForwardSexp), false),
