@@ -57,7 +57,9 @@ fn said(st: &EditorState, needle: &str) -> bool {
 /// The headline: every spelling of write-and-quit does both halves.
 #[test]
 fn every_spelling_of_write_and_quit_writes_and_quits() {
-    for spelling in ["wq", "wq!", "wqa", "wqall", "xa", "xall", "x", "xit", "exi", "exit"] {
+    for spelling in [
+        "wq", "wq!", "wqa", "wqall", "xa", "xall", "x", "xit", "exi", "exit",
+    ] {
         let (mut st, _dir, path) = on_file("before\n");
         type_into(&mut st, "AFTER ");
         ex(&mut st, spelling);
@@ -92,7 +94,12 @@ fn exit_write_leaves_an_unmodified_file_alone() {
 /// with two lengths and the editor discards unsaved work without a word.
 #[test]
 fn quit_refuses_unsaved_work_and_the_bang_overrides() {
-    for (plain, forced) in [("q", "q!"), ("quit", "quit!"), ("qa", "qa!"), ("qall", "qall!")] {
+    for (plain, forced) in [
+        ("q", "q!"),
+        ("quit", "quit!"),
+        ("qa", "qa!"),
+        ("qall", "qall!"),
+    ] {
         let mut st = scratch("");
         type_into(&mut st, "unsaved");
 
