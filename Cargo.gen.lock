@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "c34cd2a990a4220fac949c0840927bc83c10214d4d5cfa7052a6988188a7b67b",
+  "cargo_lock_sha256": "20990ad68901464a3e6d6126e5c718d4b7a3dd69b1d93bb7cd37f92e2ffcf3f8",
   "manifest_sha256": {
-    "Cargo.toml": "5f701108dd5905ddbce5bd48638b34d3d6d2b960bf328f612d784a749746236a",
+    "Cargo.toml": "b729e24576deb8f88e3e23938668e10c8f431d97416548f73d4f10c18a700772",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -1619,7 +1619,7 @@
           },
           {
             "name": "okiba",
-            "package_key": "okiba-0.1.1",
+            "package_key": "okiba-0.2.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -5700,7 +5700,7 @@
           "std"
         ]
       },
-      "okiba-0.1.1": {
+      "okiba-0.2.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -25476,7 +25476,7 @@
     "objc2-quartz-core-0.2.2": {
       "edition": "2021"
     },
-    "okiba-0.1.1": {
+    "okiba-0.2.1": {
       "edition": "2024"
     },
     "once_cell-1.21.4": {
