@@ -873,19 +873,80 @@ pub fn load_rc(path: &Path) -> LispResult<ApplyPlan> {
 /// Resolve the default rc path — `$ESCRIBARC` if set, else
 /// `$XDG_CONFIG_HOME/escriba/rc.lisp`, else `$HOME/.escribarc.lisp`.
 /// Matches the shape frost uses for `$FROSTRC`.
+///
+/// # Why every env arm is filtered for absoluteness
+///
+/// The rc file is **executable authoring** — it declares commands, hooks,
+/// keybinds and which plugins load — so where it resolves is a trust decision,
+/// the same one already settled one file over for `$ESCRIBA_PLUGINS_DIR` (see
+/// `escriba::plugins_dir`).
+///
+/// Every arm here used to take its variable verbatim, and the degenerate values
+/// all landed in the **current working directory**:
+///
+/// * `XDG_CONFIG_HOME=""` → `escriba/rc.lisp`
+/// * `HOME=""` → `.escribarc.lisp`
+/// * `ESCRIBARC="rel/rc.lisp"` → `rel/rc.lisp`
+///
+/// The `ESCRIBARC` arm is the instructive one: it *did* check `!is_empty()`,
+/// which is what made the function read as finished — someone considered the
+/// degenerate value and stopped one step short of the one that matters. So
+/// starting the editor inside a directory that happens to contain a
+/// `.escribarc.lisp` (or an `escriba/` directory) would author the session from
+/// it. The XDG spec says the same thing about its own variables: *"If an
+/// implementation encounters a relative path in any of these variables it
+/// should consider the path invalid and ignore it."*
+///
+/// A rejected arm therefore **falls through to the next one** rather than
+/// failing — an invalid override is ignored, exactly as if it were unset, so no
+/// working configuration moves.
+///
+/// # Why this is not routed through `okiba`
+///
+/// `okiba::Tier::Config` falls back to `$HOME/.config/<app>` when
+/// `$XDG_CONFIG_HOME` is unset, but this chain falls back to
+/// `$HOME/.escribarc.lisp`. `$XDG_CONFIG_HOME` is unset on most machines, so
+/// adopting okiba here would silently relocate the default rc to
+/// `~/.config/escriba/rc.lisp` and orphan every rc already on disk. A
+/// compatibility break in a config-discovery path is worse than the bug it
+/// fixes; the invariant is worth having, the relocation is not.
 #[must_use]
 pub fn default_rc_path() -> PathBuf {
-    if let Ok(p) = std::env::var("ESCRIBARC") {
-        if !p.is_empty() {
-            return PathBuf::from(p);
-        }
+    resolve_rc_path(
+        std::env::var("ESCRIBARC").ok(),
+        std::env::var("XDG_CONFIG_HOME").ok(),
+        std::env::var("HOME").ok(),
+    )
+}
+
+/// The pure core of [`default_rc_path`], taking the three variables explicitly.
+///
+/// Split out so the resolution rules are testable without mutating
+/// `std::env`, which is process-global and races under the test harness's
+/// parallel threads — the arms this guards are precisely the ones a
+/// `set_var`-based test would have to fight for.
+fn resolve_rc_path(
+    escribarc: Option<String>,
+    xdg_config_home: Option<String>,
+    home: Option<String>,
+) -> PathBuf {
+    if let Some(p) = escribarc.map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return p;
     }
-    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
-        return PathBuf::from(xdg).join("escriba").join("rc.lisp");
+    if let Some(dir) = xdg_config_home
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+    {
+        return dir.join("escriba").join("rc.lisp");
     }
-    if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home).join(".escribarc.lisp");
+    if let Some(home) = home.map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return home.join(".escribarc.lisp");
     }
+    // The one deliberately relative arm, and the only one that cannot be
+    // reached by a hostile environment variable: it fires only when there is no
+    // absolute `$HOME` at all. Left as-is on purpose — it is the documented
+    // cwd-local rc, and rewriting it would change where a valid configuration
+    // resolves on a home-less machine rather than closing a masked branch.
     PathBuf::from(".escribarc.lisp")
 }
 
@@ -1363,6 +1424,75 @@ mod tests {
     #[test]
     fn default_rc_path_is_nonempty() {
         assert!(!default_rc_path().as_os_str().is_empty());
+    }
+
+    /// Every env arm of the rc chain refuses a relative value and falls
+    /// through, so no environment variable can point the rc at the cwd.
+    ///
+    /// Driven through the explicit-value seam rather than `env::set_var`: the
+    /// variables are process-global and the harness runs tests in parallel, so
+    /// a mutating test would be reading another test's writes.
+    #[test]
+    fn rc_path_arms_reject_relative_and_fall_through() {
+        let s = |v: &str| Some(v.to_string());
+
+        // Each arm, when absolute, wins where it should.
+        assert_eq!(
+            resolve_rc_path(s("/o/rc.lisp"), s("/x"), s("/h")),
+            PathBuf::from("/o/rc.lisp"),
+        );
+        assert_eq!(
+            resolve_rc_path(None, s("/x"), s("/h")),
+            PathBuf::from("/x/escriba/rc.lisp"),
+        );
+        assert_eq!(
+            resolve_rc_path(None, None, s("/h")),
+            PathBuf::from("/h/.escribarc.lisp"),
+        );
+
+        // The partial guard that made this look finished: `ESCRIBARC` checked
+        // non-empty but not absolute, so a relative override was honoured.
+        assert_eq!(
+            resolve_rc_path(s("rel/rc.lisp"), None, s("/h")),
+            PathBuf::from("/h/.escribarc.lisp"),
+            "a relative $ESCRIBARC must be ignored, not honoured",
+        );
+        assert_eq!(
+            resolve_rc_path(s(""), None, s("/h")),
+            PathBuf::from("/h/.escribarc.lisp"),
+        );
+
+        // The unguarded arms an operator actually sets.
+        assert_eq!(
+            resolve_rc_path(None, s(""), s("/h")),
+            PathBuf::from("/h/.escribarc.lisp"),
+            "an empty $XDG_CONFIG_HOME must not yield cwd-relative escriba/rc.lisp",
+        );
+        assert_eq!(
+            resolve_rc_path(None, s("rel"), s("/h")),
+            PathBuf::from("/h/.escribarc.lisp"),
+        );
+        assert_eq!(
+            resolve_rc_path(None, None, s("")),
+            PathBuf::from(".escribarc.lisp"),
+        );
+        assert_eq!(
+            resolve_rc_path(None, None, s("rel")),
+            PathBuf::from(".escribarc.lisp"),
+        );
+
+        // The invariant itself: no combination of env values can produce a
+        // relative path other than the home-less literal last resort.
+        for esc in [None, s(""), s("rel/rc.lisp"), s("/o/rc.lisp")] {
+            for xdg in [None, s(""), s("rel"), s("/x")] {
+                let got = resolve_rc_path(esc.clone(), xdg.clone(), s("/h"));
+                assert!(
+                    got.is_absolute(),
+                    "with an absolute $HOME the rc path must be absolute; \
+                     ESCRIBARC={esc:?} XDG_CONFIG_HOME={xdg:?} gave {got:?}",
+                );
+            }
+        }
     }
 
     #[test]
