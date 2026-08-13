@@ -412,6 +412,21 @@ impl Keymap {
             Action::Operator(Operator::Yank),
             "yank (operator)",
         );
+        // The other half of every `d`/`c`/`y` above. An editor that captures
+        // text and cannot put it back is a delete key with extra steps, which
+        // is what escriba was until these two bindings landed.
+        nm(
+            &mut m,
+            Key::Char('p'),
+            Action::Put { before: false },
+            "put after",
+        );
+        nm(
+            &mut m,
+            Key::Char('P'),
+            Action::Put { before: true },
+            "put before",
+        );
         // Structural Lisp motions — Alt-prefixed like emacs paredit.
         nm(
             &mut m,

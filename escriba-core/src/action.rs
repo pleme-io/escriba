@@ -538,6 +538,7 @@ impl Action {
             | Self::RepeatLastChange
             | Self::Edit(_)
             | Self::Command { .. }
+            | Self::Put { .. }
             | Self::Undo
             | Self::Redo => HighlightEffect::Clear,
         }
@@ -585,6 +586,9 @@ impl Action {
             | Self::EnterInsert(_)
             | Self::Command { .. }
             | Self::SubmitCommand
+            // A put edits the BUFFER. It is also unreachable while a prompt is
+            // open, for the same reason `EnterInsert` is.
+            | Self::Put { .. }
             | Self::Undo
             | Self::Redo
             | Self::Save

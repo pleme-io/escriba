@@ -554,6 +554,14 @@ pub fn resolve_action(name: &str) -> (Action, bool) {
         "delete-word-before" => (Action::DeleteWordBefore, false),
         "delete-to-line-start" => (Action::DeleteToLineStart, false),
 
+        // ── Registers ──────────────────────────────────────────────
+        //
+        // Named for vim's verb (`:put`), not "paste": a put replays escriba's
+        // REGISTER, while a paste will replay the system clipboard through
+        // `hasami`. Two sources, two verbs — see `Action::Put`.
+        "put-after" => (Action::Put { before: false }, false),
+        "put-before" => (Action::Put { before: true }, false),
+
         // ── Editor-wide actions ────────────────────────────────────
         "undo" => (Action::Undo, false),
         "redo" => (Action::Redo, false),

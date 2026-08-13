@@ -471,6 +471,99 @@ jump), `%` over HTML/XML tags, and `ge`/`b`/`<C-w>` remain single-line by
 design — see the insert-mode note below for why widening them is not
 free.
 
+## `dd` worked and `p` did not exist (2026-08-13, fixed)
+
+The operators captured text and the editor had **nowhere to put it back**
+— `p`/`P` were unbound and `Action::Put` did not exist. `dd` and `yy`
+were a delete key and a no-op with extra steps. Fixing that surfaced
+four more defects, all in the same seam.
+
+**The register is a TYPE now, not a `String`.** `escriba_core::Register`
+= text + `RegisterKind::{Charwise, Linewise}`, and the KIND is what
+chooses the put's behaviour — `p` after `dw` splices at a column, `p`
+after `dd` opens a line. That had to land before `p` could exist at all:
+with a `String` the put has to guess, and the only guess available drops
+a terminated line into the middle of another. The kind comes from
+`TextObject::register_kind()` (total over the enum, so a future `ip`/`ap`
+paragraph object must decide) — never inferred from the range, because
+`dd` on line 1 and a charwise motion produce the *same two positions*.
+`Blockwise` is the arm vim has and escriba does not; when it lands it
+will fail to compile at every consumer rather than silently pasting a
+rectangle as a run of text.
+
+**`dd`'s cursor was wrong twice, and every existing test was green** —
+because every `dd` test asserted the TEXT. Deleting a line is easy to get
+right, so the text was always correct while the cursor was not:
+
+- It landed at **column 0** instead of the first non-blank. Untidy on
+  flat prose; actively wrong on indented code, where it drops the cursor
+  into the indentation and the next `i` types at the margin.
+- On the last line it landed on the **phantom row** a trailing newline
+  makes the rope report (see `last_text_line`). Nothing is there to edit,
+  and the NEXT `dd` — issued from that row — took the "no following
+  newline" branch and deleted the file's **terminator instead of a
+  line**. The text shrank by one byte and the operator saw nothing
+  happen. That is what "`dd` brings me to the top line" was: repeated
+  `dd` near the end of a file walking the cursor up a line at a time,
+  one line earlier than it should each round.
+
+The rule is now vim's, in one place (`rest_after_operator`), keyed on the
+KIND rather than on the operator, because that is what vim keys it on:
+**first non-blank of the line that took the deleted line's place, never
+past `last_text_line`.** `object_line_n` also clamps its extent to
+`last_text_line` rather than to `line_count() - 1`, which makes a `dd`
+issued FROM the phantom row resolve to an empty range instead of a
+destructive one.
+
+**`yy` moved the cursor and `yy` should not.** vim moves after a yank
+only when the yank reached BACKWARDS; `yy`'s range starts at column 0, so
+comparing POSITIONS read every `yy` as backwards and knocked the cursor
+to the left margin. Invisible for `yw`, whose range starts exactly at the
+cursor, so the move was a no-op there. A linewise yank compares LINES; a
+charwise one compares positions. `yb` still rests at the start, so the
+fix cannot be satisfied by "never move".
+
+**Removal range ≠ register capture.** They are two views of one gesture
+and they come apart on the last line of a file with no trailing newline:
+there is no terminator to take forward, so the removal has to swallow the
+PRECEDING one and the raw slice reads `"\nbravo"`. Right to remove, wrong
+to put back. `as_linewise_capture` states the invariant once — a linewise
+capture is newline-TERMINATED, never newline-LED — and
+`Register::replayed` handles the other half (a capture that ends without
+one), so `yyp` on an unterminated file gives two lines rather than
+`bravobravo`.
+
+**The counted forms were bypassing the bookkeeping entirely, and that is
+the load-bearing find.** `3dw` / `2dd` / `3p` are ONE operation over an
+`n`-fold extent, not `n` operations — the distinction is invisible for
+delete (the text vanishes, so the repeat lands correctly by accident) and
+wrong for yank (`2dd`'s register kept only the second line, so `2ddp` put
+back half). The three absorbing arms used to short-circuit from
+`apply_counted` **straight to their executors, skipping `apply_resolved`
+altogether** — which is where damage classification and the dot-register
+live. So `.` after any of them replayed nothing and the repaint span was
+whatever the *previous* action had asked for. Now everything goes through
+`apply_resolved(action, count)`; a free `absorbs_count()` says which arms
+read the count instead of looping. `LastChange` records the real count
+too, so `3dw` then `.` deletes three words rather than one.
+
+`p`/`P` are pinned in `escriba/tests/movement_survives_defaults.rs` — a
+bundled caixa taking `p` would be as invisible as the `<C-h>` shadowing
+was — and the whole surface is in
+`escriba-runtime/tests/linewise_and_put.rs` (26 key-driven tests, each
+asserting cursor AND register AND text, because a wrong register KIND is
+invisible to any one of the three alone).
+
+**Still not done:** named registers (`"ay`), the numbered ring
+(`"0`…`"9`), the system clipboard (that is a *paste*, a different verb
+over a different source — `hasami`, not this register, which is why
+`Action::Put` is not called `Paste`), `x`/`X`/`D`/`C`/`Y`/`s`/`S`/`J`/`r`
+(none of them bound), and `cc` still deletes the line rather than
+clearing it in place the way vim does. `2diw` also still repeats rather
+than absorbing — the same over-count-a-yank defect, waiting on a general
+"resolve this object n times"; `absorbs_count` names the gap rather than
+half-fixing it.
+
 ## Insert mode could be typed into but not corrected (2026-08-09, fixed)
 
 `Esc` was the ONLY binding `Mode::Insert` had, and `Keymap::dispatch`
@@ -592,7 +685,7 @@ cargo test --workspace --lib        # workspace unit tests (all green)
 
 | Crate | Purpose | Key types |
 |-------|---------|-----------|
-| `escriba-core` | Typed primitives — no I/O, no rendering | `Position`, `Range`, `Cursor`, `Selection`, `Mode`, `Motion`, `Operator`, `Edit`, `Action`, `CountedAction`, `BufferId`, `WindowId` |
+| `escriba-core` | Typed primitives — no I/O, no rendering | `Position`, `Range`, `Cursor`, `Selection`, `Mode`, `Motion`, `Operator`, `TextObject`, `Edit`, `Action`, `CountedAction`, `Register`, `RegisterKind`, `BufferId`, `WindowId` |
 | `escriba-buffer` | Gap-buffer / rope backed text buffers, edits, undo | `Buffer`, `BufferSet`, `BufferError` |
 | `escriba-config` | Config loading via shikumi | — |
 | `escriba-mode` | Modal state machine (Normal / Insert / Visual / Command) with pending count + operator | `ModalState` |
@@ -789,7 +882,7 @@ what escriba does today and what it is absorbing next.
 | Buffer backing | gap buffer | rope (ropey) | rope | gap buffer | rope | array | rope | array | configurable | — |
 | Modal editing | yes (vi) | yes (helix) | yes (kak) | no | no | no | no | no | yes (vi-like) | add helix noun-verb option |
 | Multi-selection | weak | primary | primary | kill-ring only | primary | primary | primary | primary | single selection | **absorb: Selections (Vec<Selection>)** |
-| Registers / kill-ring | `"a…"z` + `"0`…`"9` | `"` + `_` | `"` + `*` | kill-ring | clipboard | clipboard | clipboard | clipboard | — | **absorb: Registers** |
+| Registers / kill-ring | `"a…"z` + `"0`…`"9` | `"` + `_` | `"` + `*` | kill-ring | clipboard | clipboard | clipboard | clipboard | unnamed register, typed charwise/linewise, `p`/`P` | **absorb: named registers `"ay`, `"0`…`"9`, system clipboard via `hasami`** |
 | Marks / jumplist | `m[a-z]` + jumplist | jumplist | marks | marks + registers | — | — | — | — | — | **absorb: Marks + Jumplist** |
 | Tree-sitter | yes (plugin) | yes (built-in) | no | tree-sitter.el | yes (built-in) | yes | no | yes | yes (`escriba-ts`) | expand captures + folds |
 | LSP client | yes (plugin / built-in 0.5) | yes (built-in) | lsp-kak plugin | lsp-mode / eglot | yes (built-in) | yes (built-in) | LSP plugin | yes | yes (`escriba-lsp-client`) | enrich (inlay hints, semantic tokens, workspace symbols) |
