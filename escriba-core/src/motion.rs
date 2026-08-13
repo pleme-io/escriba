@@ -269,3 +269,25 @@ pub enum TextObject {
         around: bool,
     },
 }
+
+impl TextObject {
+    /// How an operator over this object leaves the register — and therefore
+    /// how a later `p` replays it.
+    ///
+    /// **Total over `TextObject`, no wildcard arm.** The mapping lives here,
+    /// beside the variants, rather than at the one call site that needs it
+    /// today: a new linewise object (vim's `ip`/`ap` paragraph objects are the
+    /// obvious next ones) must decide, and a wildcard would silently answer
+    /// `Charwise` for them — the direction that pastes a paragraph into the
+    /// middle of whatever line the cursor happens to be on.
+    #[must_use]
+    pub const fn register_kind(self) -> crate::register::RegisterKind {
+        use crate::register::RegisterKind as K;
+        match self {
+            Self::Line => K::Linewise,
+            Self::NextMatch | Self::PrevMatch | Self::Word { .. } | Self::Delimited { .. } => {
+                K::Charwise
+            }
+        }
+    }
+}
