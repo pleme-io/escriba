@@ -99,7 +99,9 @@ fn the_erase_verbs_are_reachable_in_the_default_keymap_too() {
     let km = Keymap::default_vim();
     for (key, expected, spelling) in ERASE_VERBS {
         assert_eq!(
-            km.lookup(Mode::Insert, key).map(|b| b.action.clone()).as_ref(),
+            km.lookup(Mode::Insert, key)
+                .map(|b| b.action.clone())
+                .as_ref(),
             Some(expected),
             "Insert-mode {spelling} is wrong in Keymap::default_vim()",
         );

@@ -76,25 +76,85 @@ impl ExVerb {
 /// cannot keep.
 pub const VERBS: &[ExVerb] = &[
     // ── write ────────────────────────────────────────────────────────
-    ExVerb { full: "write", min: 1, plain: "save", forced: "save" },
-    ExVerb { full: "wall", min: 2, plain: "buffer.write-all", forced: "buffer.write-all" },
+    ExVerb {
+        full: "write",
+        min: 1,
+        plain: "save",
+        forced: "save",
+    },
+    ExVerb {
+        full: "wall",
+        min: 2,
+        plain: "buffer.write-all",
+        forced: "buffer.write-all",
+    },
     // ── write-and-quit ───────────────────────────────────────────────
-    ExVerb { full: "wq", min: 2, plain: "write-quit", forced: "write-quit" },
-    ExVerb { full: "wqall", min: 3, plain: "write-quit-all", forced: "write-quit-all" },
+    ExVerb {
+        full: "wq",
+        min: 2,
+        plain: "write-quit",
+        forced: "write-quit",
+    },
+    ExVerb {
+        full: "wqall",
+        min: 3,
+        plain: "write-quit-all",
+        forced: "write-quit-all",
+    },
     // `:x` differs from `:wq` by ONE thing and it is the thing that matters
     // to anything watching the file: it writes only when the buffer is
     // modified, so `:x` on an untouched file leaves the mtime alone and a
     // watching build does not rebuild.
-    ExVerb { full: "xit", min: 1, plain: "exit-write", forced: "exit-write" },
-    ExVerb { full: "xall", min: 2, plain: "write-quit-all", forced: "write-quit-all" },
-    ExVerb { full: "exit", min: 3, plain: "exit-write", forced: "exit-write" },
+    ExVerb {
+        full: "xit",
+        min: 1,
+        plain: "exit-write",
+        forced: "exit-write",
+    },
+    ExVerb {
+        full: "xall",
+        min: 2,
+        plain: "write-quit-all",
+        forced: "write-quit-all",
+    },
+    ExVerb {
+        full: "exit",
+        min: 3,
+        plain: "exit-write",
+        forced: "exit-write",
+    },
     // ── quit ─────────────────────────────────────────────────────────
-    ExVerb { full: "quit", min: 1, plain: "quit", forced: "quit!" },
-    ExVerb { full: "qall", min: 2, plain: "quit-all", forced: "quit-all!" },
-    ExVerb { full: "quitall", min: 5, plain: "quit-all", forced: "quit-all!" },
+    ExVerb {
+        full: "quit",
+        min: 1,
+        plain: "quit",
+        forced: "quit!",
+    },
+    ExVerb {
+        full: "qall",
+        min: 2,
+        plain: "quit-all",
+        forced: "quit-all!",
+    },
+    ExVerb {
+        full: "quitall",
+        min: 5,
+        plain: "quit-all",
+        forced: "quit-all!",
+    },
     // ── the two the old table carried ────────────────────────────────
-    ExVerb { full: "undo", min: 1, plain: "undo", forced: "undo" },
-    ExVerb { full: "redo", min: 3, plain: "redo", forced: "redo" },
+    ExVerb {
+        full: "undo",
+        min: 1,
+        plain: "undo",
+        forced: "undo",
+    },
+    ExVerb {
+        full: "redo",
+        min: 3,
+        plain: "redo",
+        forced: "redo",
+    },
 ];
 
 /// The verb `word` spells, if any. `word` carries no `!` and no arguments.
@@ -230,7 +290,10 @@ mod tests {
     #[test]
     fn a_leading_colon_and_surrounding_space_are_not_part_of_the_name() {
         assert_eq!(parse(":wq").map(|i| i.command), Some("write-quit".into()));
-        assert_eq!(parse("  wq  ").map(|i| i.command), Some("write-quit".into()));
+        assert_eq!(
+            parse("  wq  ").map(|i| i.command),
+            Some("write-quit".into())
+        );
     }
 
     #[test]

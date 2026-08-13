@@ -84,7 +84,11 @@ fn backspace_erases_the_character_just_typed() {
         text_of(&st)
     );
     assert_eq!(st.cursor().column, 2, "the caret follows the deletion");
-    assert_eq!(st.modal.mode(), Mode::Insert, "backspace does not leave Insert");
+    assert_eq!(
+        st.modal.mode(),
+        Mode::Insert,
+        "backspace does not leave Insert"
+    );
 }
 
 #[test]
@@ -93,7 +97,11 @@ fn delete_removes_the_character_ahead_and_leaves_the_caret_put() {
     insert(&mut st);
     press(&mut st, KeyCode::Delete);
 
-    assert!(text_of(&st).starts_with("lpha bravo"), "got {:?}", text_of(&st));
+    assert!(
+        text_of(&st).starts_with("lpha bravo"),
+        "got {:?}",
+        text_of(&st)
+    );
     assert_eq!(
         st.cursor().column,
         0,

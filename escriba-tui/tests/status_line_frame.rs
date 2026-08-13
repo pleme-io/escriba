@@ -113,7 +113,8 @@ fn cursor_after(keys: &[Key]) -> (u16, u16) {
         st.on_key(k);
     }
     let mut term = Terminal::new(TestBackend::new(W, H)).expect("test terminal");
-    term.draw(|f| escriba_tui::draw_frame(f, &st)).expect("draw");
+    term.draw(|f| escriba_tui::draw_frame(f, &st))
+        .expect("draw");
     let p = term.get_cursor_position().expect("cursor position");
     (p.x, p.y)
 }

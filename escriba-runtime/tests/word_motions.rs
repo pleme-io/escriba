@@ -151,7 +151,11 @@ fn w_crosses_a_line_onto_its_first_non_blank() {
 fn an_empty_line_is_a_word() {
     let mut st = editor("one\n\ntwo");
     press(&mut st, "w");
-    assert_eq!(st.cursor(), Position::new(1, 0), "`w` stops on the blank line");
+    assert_eq!(
+        st.cursor(),
+        Position::new(1, 0),
+        "`w` stops on the blank line"
+    );
     press(&mut st, "w");
     assert_eq!(st.cursor(), Position::new(2, 0));
 }
@@ -169,7 +173,11 @@ fn e_lands_on_the_last_character_of_a_word() {
     press(&mut punct, "e");
     assert_eq!(punct.cursor(), Position::new(0, 2));
     press(&mut punct, "e");
-    assert_eq!(punct.cursor(), Position::new(0, 3), "`.` is a word to `e` too");
+    assert_eq!(
+        punct.cursor(),
+        Position::new(0, 3),
+        "`.` is a word to `e` too"
+    );
 }
 
 /// `e` is INCLUSIVE: `de` deletes through the character it names. Getting
