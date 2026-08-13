@@ -219,6 +219,30 @@ pub enum Action {
         before: bool,
     },
 
+    /// `r{char}` — overwrite the character(s) under the cursor with `char`.
+    ///
+    /// Carries the replacement rather than reading it from pending state, so
+    /// the action is self-contained and `.` can replay it. The KEY that
+    /// supplies it is captured at the key layer (`consume_replace_key`),
+    /// the same place `f`'s operand and `` ` ``'s mark letter are: `rw` must
+    /// not read as `r` then *move a word*.
+    ///
+    /// Not a `Change` operator over one character — `r` does not enter Insert,
+    /// does not touch the register, and refuses at end of line rather than
+    /// appending, all three of which an operator composition would get wrong.
+    ReplaceChar(char),
+
+    /// `J` / `gJ` — join the following line onto this one.
+    ///
+    /// `space: true` is `J`: the next line's leading whitespace is dropped and
+    /// a single space takes the newline's place. `space: false` is `gJ`, which
+    /// splices the lines exactly as they are — the reason to reach for it is
+    /// that `J` is lossy, and a `gJ` spelled as "`J` without the fixup" would
+    /// still have stripped the indent.
+    JoinLines {
+        space: bool,
+    },
+
     /// `.` — repeat the last text change.
     ///
     /// Vim's most-used key, and the half that makes `cgn` a workflow rather
@@ -400,6 +424,8 @@ impl Action {
             // while under-reporting paints stale columns over freshly pasted
             // text. The asymmetry decides it, exactly as for `Command`.
             | Self::Put { .. }
+            | Self::ReplaceChar(_)
+            | Self::JoinLines { .. }
             | Self::SubmitCommand => TextEffect::Mutates,
 
             // `o`/`O` add a line; `i`/`I`/`a`/`A` move the caret and nothing
@@ -539,6 +565,8 @@ impl Action {
             | Self::Edit(_)
             | Self::Command { .. }
             | Self::Put { .. }
+            | Self::ReplaceChar(_)
+            | Self::JoinLines { .. }
             | Self::Undo
             | Self::Redo => HighlightEffect::Clear,
         }
@@ -586,9 +614,11 @@ impl Action {
             | Self::EnterInsert(_)
             | Self::Command { .. }
             | Self::SubmitCommand
-            // A put edits the BUFFER. It is also unreachable while a prompt is
-            // open, for the same reason `EnterInsert` is.
+            // These edit the BUFFER. They are also unreachable while a prompt
+            // is open, for the same reason `EnterInsert` is.
             | Self::Put { .. }
+            | Self::ReplaceChar(_)
+            | Self::JoinLines { .. }
             | Self::Undo
             | Self::Redo
             | Self::Save
