@@ -29,7 +29,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.78"
+version = "0.1.79"
 edition = "2024"
 rust-version = "1.89.0"
 license = "MIT"
@@ -38,22 +38,22 @@ authors = ["pleme-io"]
 
 [workspace.dependencies]
 # Workspace-internal — path deps.
-escriba-core    = { path = "escriba-core", version = "0.1.78" }
-escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.78" }
-escriba-shirube = { path = "escriba-shirube", version = "0.1.78" }
-escriba-buffer  = { path = "escriba-buffer", version = "0.1.78" }
-escriba-config  = { path = "escriba-config", version = "0.1.78" }
-escriba-mode    = { path = "escriba-mode", version = "0.1.78" }
-escriba-memori  = { path = "escriba-memori", version = "0.1.78" }
-escriba-search  = { path = "escriba-search", version = "0.1.78" }
-escriba-keymap  = { path = "escriba-keymap", version = "0.1.78" }
-escriba-command = { path = "escriba-command", version = "0.1.78" }
-escriba-api     = { path = "escriba-api", version = "0.1.78" }
-escriba-spec    = { path = "escriba-spec", version = "0.1.78" }
-escriba-ui      = { path = "escriba-ui", version = "0.1.78" }
-escriba-render  = { path = "escriba-render", version = "0.1.78" }
-escriba-plugin  = { path = "escriba-plugin", version = "0.1.78" }
-escriba-vm      = { path = "escriba-vm", version = "0.1.78" }
+escriba-core    = { path = "escriba-core", version = "0.1.79" }
+escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.79" }
+escriba-shirube = { path = "escriba-shirube", version = "0.1.79" }
+escriba-buffer  = { path = "escriba-buffer", version = "0.1.79" }
+escriba-config  = { path = "escriba-config", version = "0.1.79" }
+escriba-mode    = { path = "escriba-mode", version = "0.1.79" }
+escriba-memori  = { path = "escriba-memori", version = "0.1.79" }
+escriba-search  = { path = "escriba-search", version = "0.1.79" }
+escriba-keymap  = { path = "escriba-keymap", version = "0.1.79" }
+escriba-command = { path = "escriba-command", version = "0.1.79" }
+escriba-api     = { path = "escriba-api", version = "0.1.79" }
+escriba-spec    = { path = "escriba-spec", version = "0.1.79" }
+escriba-ui      = { path = "escriba-ui", version = "0.1.79" }
+escriba-render  = { path = "escriba-render", version = "0.1.79" }
+escriba-plugin  = { path = "escriba-plugin", version = "0.1.79" }
+escriba-vm      = { path = "escriba-vm", version = "0.1.79" }
 escriba-input   = { path = "escriba-input", version = "0.1.1" }
 escriba-runtime = { path = "escriba-runtime", version = "0.1.1" }
 escriba-ts      = { path = "escriba-ts", version = "0.1.1" }
@@ -75,7 +75,7 @@ hikari-ts       = "0.1"
 zahyou          = { version = "0.1", features = ["serde"] }
 escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
 escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
-escriba-lisp    = { path = "escriba-lisp", version = "0.1.78" }
+escriba-lisp    = { path = "escriba-lisp", version = "0.1.79" }
 
 # Third-party.
 serde            = { version = "1", features = ["derive"] }
@@ -136,7 +136,7 @@ shikumi            = "0.1"
 # The fleet Mealy-machine-with-effects primitive — escriba-runtime's
 # operator-pending FSM stands on it (3rd consumer after bolso + gaveta).
 zenmai             = "0.0"
-unsoku             = { path = "unsoku", version = "0.1.78" }
+unsoku             = { path = "unsoku", version = "0.1.79" }
 
 # Testing.
 pretty_assertions = "1"
