@@ -331,6 +331,70 @@ walk the cursor onto it, which is a claim about the motions ("there is no next
 word after the last character") and not a fix for the row being drawn. Hiding
 it is a buffer-model change with a much wider blast radius.
 
+## The rest of the vim movement suite (2026-08-13, landed)
+
+`h j k l w b e 0 $ G` and the operators were the whole of it. Everything
+else vim moves with is now here: **`W`/`E`/`B`/`gE`** (the WORD width —
+whitespace-delimited, so `foo.bar` is one WORD and three words),
+**`ge`**, **`f`/`F`/`t`/`T`** and **`;`**, **`%`**, **`{`/`}`**,
+**`(`/`)`**, **`H`/`M`/`L`**, **`^`/`_`/`g_`**, **`|`**, **`+`/`-`**,
+**`<C-f>`/`<C-b>`/`<C-d>`**. Each is a `Motion` arm with a resolver, so
+each composes with an operator and a count for free — `d}`, `3fx`, `dg_`
+and `y%` all work because `apply_operator` was already the one place a
+motion becomes an edit.
+
+Four things are worth knowing before touching this:
+
+- **`f`'s operand is a KEY, not a binding**, so `consume_find_key` claims
+  it before the sequence stepper and before the keymap — exactly where
+  `consume_object_key` claims `di(`. Otherwise `fw` reads as `f` then
+  *move a word* and `fi` enters Insert. The consequence is that
+  `f`/`F`/`t`/`T` must stay UNBOUND: a binding on one of them is a table
+  entry no keypress can reach, which reads as configured and behaves as
+  absent. `movement_survives_defaults.rs` asserts that absence.
+- **`|` is the one motion whose count is an ARGUMENT.** `40|` means
+  column 40, not column 1 forty times (which is column 1). Folded in at
+  `apply_counted` before the operator FSM sees it, so the machine keeps
+  its single rule — counts repeat — and the exception lives in one place.
+- **`;` cannot answer `is_inclusive` by itself.** Whether it widens
+  depends on the direction of the find it repeats, which is runtime
+  state, so `operated_end` resolves it to the concrete `FindChar` and
+  asks that. `d;` after `fx` must delete THROUGH the `x`.
+- **`,` is NOT bound, and that is a decision.** escriba's shipped leader
+  IS `,` (blnvim parity), and the keymap's rule is that a single binding
+  wins over a sequence prefix — so binding `,` would have silently killed
+  all 93 `<leader>…` bindings the catalog ships. Reverse-repeat is
+  authorable as `:action "find-reverse"`; `F`/`T` search backwards
+  directly.
+
+**What wiring it surfaced — three more `<C-h>`-class shadowings.**
+`<S-h>`/`<S-l>` (bufferline's buffer prev/next) ARE `H` and `L`, and `-`
+(oil's parent directory) is vim's previous-line motion. All three were
+bound by bundled caixas applied ON TOP of the default keymap, so all three
+motions were dead in the shipped build while every unit test stayed green
+— the tests build `Keymap::default_vim()`, which was correct. They moved
+to `[b`/`]b` and `<leader>-`. `escriba/tests/movement_survives_defaults.rs`
+is the gate: it builds the keymap the BINARY boots with and fails, naming
+the caixa's own action, if any motion or operator key is displaced again.
+That file and `insert_erase_survives_defaults.rs` are the only two tests
+in the repo that see the composite plan; a key defect that is invisible to
+everything else will be visible to exactly these.
+
+`ff` (blnvim's bare format binding) was removed to make room for `f` —
+it was a sequence left with a note saying it would "need deciding when `f`
+lands". `lsp.format` keeps `<leader>lf`, `:Format` and its `BufWritePre`
+hook; only the fourth spelling is gone.
+
+Pinned in `escriba-runtime/tests/movement_suite.rs` (20 tests, all
+key-driven — the fixture even walks the cursor to its start position by
+keys, because a `set_cursor` hook can place it where no keystroke can and
+then prove a motion from a state the editor never reaches).
+
+**Still not bound:** marks (`m`/`` ` ``/`'`), `zt`/`zz`/`zb`, and `<C-u>`
+(taken by the insert-mode erase). `%` is bracket-only — no
+`matchit`-style word pairs. `ge`/`b`/`<C-w>` remain single-line by
+design; see the insert-mode note below for why widening them is not free.
+
 ## Insert mode could be typed into but not corrected (2026-08-09, fixed)
 
 `Esc` was the ONLY binding `Mode::Insert` had, and `Keymap::dispatch`

@@ -19,11 +19,64 @@ pub enum Motion {
     WordStartNext,
     WordEndNext,
     WordStartPrev,
+    /// `ge` — to the END of the previous word. vim's only backward-inclusive
+    /// motion, and the reason `is_inclusive` cannot simply mean "widen right".
+    WordEndPrev,
+    // ── WORD motions (`W`/`E`/`B`/`gE`) ────────────────────────────
+    //
+    // vim's second word width: whitespace-delimited, so `foo.bar` is ONE
+    // WORD and three words. A separate arm rather than a `Width` field
+    // because every call site that resolves a motion has to decide, and a
+    // field is a decision a `match` arm cannot forget to make.
+    BigWordStartNext,
+    BigWordEndNext,
+    BigWordStartPrev,
+    BigWordEndPrev,
     LineStart,
     LineFirstNonBlank,
+    /// `g_` — the LAST non-blank on the line. Inclusive, unlike `$`.
+    LineLastNonBlank,
     LineEnd,
+    /// `|` — to a 1-based screen column on the current line.
+    Column(u32),
+    /// `+` / `<CR>` — first non-blank of the next line.
+    LineDownFirstNonBlank,
+    /// `-` — first non-blank of the previous line.
+    LineUpFirstNonBlank,
     DocStart,
     DocEnd,
+    // ── character search (`f` / `F` / `t` / `T`, and `;` / `,`) ─────
+    /// `f{c}` (`backward=false, till=false`), `t{c}` (`till=true`),
+    /// `F{c}` / `T{c}` (`backward=true`). The character is carried IN the
+    /// motion so `df(` is one composed `ApplyOperator` like every other
+    /// operated motion — a separate "pending char" the operator had to read
+    /// would be a second composition mechanism beside the FSM.
+    FindChar {
+        ch: char,
+        backward: bool,
+        till: bool,
+    },
+    /// `;` (`reverse=false`) / `,` (`reverse=true`) — repeat the last
+    /// [`Motion::FindChar`]. Resolved against runtime state, so like
+    /// [`Motion::SearchNext`] the enum stays a pure description.
+    RepeatFind {
+        reverse: bool,
+    },
+    /// `%` — to the match of the bracket under (or next on) the cursor.
+    MatchPair,
+    // ── paragraph / sentence ───────────────────────────────────────
+    /// `}` — to the next blank line (paragraph boundary).
+    ParagraphNext,
+    /// `{` — to the previous blank line.
+    ParagraphPrev,
+    /// `)` — to the start of the next sentence.
+    SentenceNext,
+    /// `(` — to the start of the previous sentence.
+    SentencePrev,
+    // ── viewport-relative (`H` / `M` / `L`) ────────────────────────
+    ScreenTop,
+    ScreenMiddle,
+    ScreenBottom,
     PageUp,
     PageDown,
     HalfPageUp,
@@ -75,8 +128,22 @@ impl Motion {
     /// it does, which is the point of asking the MOTION rather than
     /// special-casing `e` at the operator.
     #[must_use]
+    /// `RepeatFind` is deliberately absent: whether `;` is inclusive depends
+    /// on the direction of the find it repeats, which is runtime state. The
+    /// executor resolves it to the concrete [`Motion::FindChar`] and asks
+    /// THAT — so there is still exactly one rule, applied to a known motion.
     pub const fn is_inclusive(self) -> bool {
-        matches!(self, Self::WordEndNext)
+        matches!(
+            self,
+            Self::WordEndNext
+                | Self::BigWordEndNext
+                | Self::LineLastNonBlank
+                | Self::MatchPair
+                | Self::FindChar {
+                    backward: false,
+                    ..
+                }
+        )
     }
 
     #[must_use]

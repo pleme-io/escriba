@@ -151,6 +151,14 @@ pub struct EditorState {
     /// `Action::Pending` with the character already discarded. vim has a
     /// whole operator-pending keymap for the same reason.
     pending_object: Option<bool>,
+    /// `f`/`F`/`t`/`T` was pressed and the editor is waiting for the character
+    /// to search for. Like [`Self::pending_object`] this is a KEY-layer
+    /// concern: the character never reaches the keymap, so it cannot be a
+    /// binding, and it must be claimed before the sequence stepper or `f` then
+    /// `f` would resolve as the bound `ff` sequence.
+    pending_find: Option<FindSpec>,
+    /// The last resolved character search — what `;` and `,` repeat.
+    last_find: Option<FindSpec>,
     /// Monotonic refresh-generation stamp — the root of the sealed refresh
     /// tree (`theory/ESCRIBA.md` §Refresh-Seal). Bumped on every applied
     /// action + resize; the renderer gates on it so an idle frame does zero
@@ -1171,6 +1179,8 @@ impl EditorState {
             register: None,
             op_pending: zenmai::Stateful::new(OpState::Resting),
             pending_object: None,
+            pending_find: None,
+            last_find: None,
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
@@ -1953,6 +1963,55 @@ impl EditorState {
         None
     }
 
+    /// Claim the operand of a pending `f`/`F`/`t`/`T`, or arm one.
+    ///
+    /// Runs BEFORE the sequence stepper and before the keymap, for the same
+    /// reason [`Self::consume_object_key`] does: the character is an OPERAND,
+    /// not a binding. `dfx` is undecidable from actions — `x` would resolve as
+    /// whatever `x` is bound to — and `f` then `f` has to reach here rather
+    /// than resolve as a two-key sequence.
+    ///
+    /// Composition with an operator is free: the armed motion is emitted as an
+    /// ordinary `Action::Move`, so the operator-pending FSM composes `dfx`
+    /// exactly the way it composes `dw`.
+    fn consume_find_key(&mut self, key: Key) -> Option<ObjectKey> {
+        if let Some(spec) = self.pending_find.take() {
+            let Key::Char(ch) = key else {
+                // Esc (or any non-printable) abandons a half-typed find rather
+                // than leaving the editor armed for the next keystroke.
+                if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
+                    self.op_pending
+                        .dispatch((Action::ChangeMode(Mode::Normal), 1));
+                }
+                return Some(ObjectKey::Consumed);
+            };
+            let spec = FindSpec { ch, ..spec };
+            self.last_find = Some(spec);
+            return Some(ObjectKey::Compose(Action::Move(Motion::FindChar {
+                ch,
+                backward: spec.backward,
+                till: spec.till,
+            })));
+        }
+        if self.modal.mode() != Mode::Normal && self.modal.mode() != Mode::Visual {
+            return None;
+        }
+        let Key::Char(c) = key else { return None };
+        let (backward, till) = match c {
+            'f' => (false, false),
+            'F' => (true, false),
+            't' => (false, true),
+            'T' => (true, true),
+            _ => return None,
+        };
+        self.pending_find = Some(FindSpec {
+            ch: '\0',
+            backward,
+            till,
+        });
+        Some(ObjectKey::Consumed)
+    }
+
     fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
         let Some(splash) = self.splash.as_ref() else {
             return SplashKey::NotShowing;
@@ -2146,6 +2205,22 @@ impl EditorState {
                 }
             }
         }
+        // `f`/`F`/`t`/`T` and their operand, for the same reason: the
+        // character searched for is not a binding. Its result goes through
+        // `apply_counted` — NOT `apply` — so a pending operator composes it
+        // (`dfx`) and a count repeats it (`3fx`) on the one path every other
+        // motion uses.
+        if let Some(outcome) = self.consume_find_key(key.clone()) {
+            match outcome {
+                ObjectKey::Consumed => return,
+                ObjectKey::Compose(a) => {
+                    let count = self.modal.pending_count().unwrap_or(1);
+                    self.modal.clear_count();
+                    self.apply_counted(&a, count);
+                    return;
+                }
+            }
+        }
         // Multi-key sequence resolution runs first: a key that begins or
         // continues a bound sequence (`<leader>ff`, `gg`) is held or
         // resolved here before the single-key path sees it.
@@ -2328,6 +2403,19 @@ impl EditorState {
             }
         }
 
+        // `|` is the one motion whose count is an ARGUMENT rather than a
+        // repetition: `40|` means column 40, not "column 1, forty times"
+        // (which is column 1). Folded in before the FSM sees it, so the
+        // machine keeps one rule — counts repeat — and the exception lives
+        // where the exception is.
+        let action = &match action {
+            Action::Move(Motion::Column(_)) => Action::Move(Motion::Column(count)),
+            a => a.clone(),
+        };
+        let count = match action {
+            Action::Move(Motion::Column(_)) => 1,
+            _ => count,
+        };
         for (resolved, times) in self.op_pending.dispatch((action.clone(), count)) {
             // `3dw` is ONE delete of three words as far as the register is
             // concerned, not three deletes of one. Each repetition emits its
@@ -3260,14 +3348,79 @@ impl EditorState {
             Motion::LineStart => Position::new(pos.line, 0),
             Motion::LineEnd => Position::new(pos.line, buf.line_len_chars(pos.line)),
             Motion::LineFirstNonBlank => first_non_blank(buf, pos.line),
+            // `g_` — the last non-blank. Inclusive, so the operator widens it;
+            // the resolver names the CHARACTER, which is where `$` differs.
+            Motion::LineLastNonBlank => {
+                let chars = line_chars(buf, pos.line);
+                let col = chars
+                    .iter()
+                    .rposition(|c| !c.is_whitespace())
+                    .and_then(|i| u32::try_from(i).ok())
+                    .unwrap_or(0);
+                Position::new(pos.line, col)
+            }
+            // `|` is 1-based, and clamped to the line rather than refused —
+            // vim puts `500|` on the last character.
+            Motion::Column(n) => Position::new(
+                pos.line,
+                n.saturating_sub(1).min(buf.line_len_chars(pos.line)),
+            ),
+            Motion::LineDownFirstNonBlank => {
+                first_non_blank(buf, pos.line.saturating_add(1).min(last_text_line(buf)))
+            }
+            Motion::LineUpFirstNonBlank => first_non_blank(buf, pos.line.saturating_sub(1)),
             Motion::DocStart => Position::ZERO,
             Motion::DocEnd => Position::new(
                 buf.line_count().saturating_sub(1),
                 buf.line_len_chars(buf.line_count().saturating_sub(1)),
             ),
-            Motion::WordStartNext => word_next(buf, pos),
-            Motion::WordEndNext => word_end(buf, pos),
-            Motion::WordStartPrev => word_prev(buf, pos),
+            Motion::WordStartNext => word_next(buf, pos, Width::Small),
+            Motion::WordEndNext => word_end(buf, pos, Width::Small),
+            Motion::WordStartPrev => word_prev(buf, pos, Width::Small),
+            Motion::WordEndPrev => word_end_prev(buf, pos, Width::Small),
+            Motion::BigWordStartNext => word_next(buf, pos, Width::Big),
+            Motion::BigWordEndNext => word_end(buf, pos, Width::Big),
+            Motion::BigWordStartPrev => word_prev(buf, pos, Width::Big),
+            Motion::BigWordEndPrev => word_end_prev(buf, pos, Width::Big),
+            Motion::FindChar { ch, backward, till } => find_char(buf, pos, ch, backward, till)?,
+            // `;` / `,` resolve through the LAST `f`/`t`, which is runtime
+            // state — the same shape as the search motions above, and the
+            // reason neither can be resolved by the enum alone.
+            Motion::RepeatFind { reverse } => {
+                let last = self.last_find?;
+                let backward = last.backward != reverse;
+                find_char(buf, pos, last.ch, backward, last.till)?
+            }
+            Motion::MatchPair => match_pair(buf, pos)?,
+            Motion::ParagraphNext => paragraph(buf, pos, true),
+            Motion::ParagraphPrev => paragraph(buf, pos, false),
+            Motion::SentenceNext => sentence(buf, pos, true),
+            Motion::SentencePrev => sentence(buf, pos, false),
+            // `H` / `M` / `L` are about the VIEWPORT, not the buffer — which
+            // is what makes them the only motions whose target changes when
+            // nothing in the text did.
+            Motion::ScreenTop | Motion::ScreenMiddle | Motion::ScreenBottom => {
+                let vp = self.layout.active_window().map_or(
+                    Viewport {
+                        top_line: 0,
+                        left_column: 0,
+                        visible_lines: 1,
+                        visible_columns: 1,
+                    },
+                    |w| w.viewport,
+                );
+                let last = last_text_line(buf);
+                let bottom = vp
+                    .top_line
+                    .saturating_add(vp.visible_lines.saturating_sub(1))
+                    .min(last);
+                let line = match motion {
+                    Motion::ScreenTop => vp.top_line.min(last),
+                    Motion::ScreenBottom => bottom,
+                    _ => vp.top_line.min(last) + (bottom - vp.top_line.min(last)) / 2,
+                };
+                first_non_blank(buf, line)
+            }
             Motion::PageDown | Motion::HalfPageDown => {
                 Position::new(pos.line.saturating_add(10), pos.column)
             }
@@ -3354,6 +3507,20 @@ impl EditorState {
     /// One target, two readings — putting the widening in the resolver would
     /// move `e` itself one character too far.
     fn operated_end(&self, motion: Motion, to: Position) -> Position {
+        // `;` inherits the inclusiveness of the find it repeats — resolve it
+        // to that concrete motion rather than teaching `is_inclusive` about
+        // state it cannot see. `d;` after `fx` must delete THROUGH the `x`.
+        let motion = match motion {
+            Motion::RepeatFind { reverse } => match self.last_find {
+                Some(f) => Motion::FindChar {
+                    ch: f.ch,
+                    backward: f.backward != reverse,
+                    till: f.till,
+                },
+                None => return to,
+            },
+            m => m,
+        };
         if !motion.is_inclusive() {
             return to;
         }
@@ -3904,6 +4071,18 @@ fn first_non_blank(buf: &escriba_buffer::Buffer, line: u32) -> Position {
     Position::new(line, u32::try_from(col).unwrap_or(0))
 }
 
+/// A character search: which character, which direction, and whether it stops
+/// ON it (`f`/`F`) or just BEFORE it (`t`/`T`).
+///
+/// The same value serves the pending operand and the `;`/`,` memory, so the
+/// thing repeated is the thing that ran.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FindSpec {
+    ch: char,
+    backward: bool,
+    till: bool,
+}
+
 /// What kind of place a cursor move is asking for.
 ///
 /// The Normal-mode rule "the cursor sits ON a character" is about where the
@@ -3944,6 +4123,28 @@ fn word_class(c: char) -> WordClass {
         WordClass::Space
     } else {
         WordClass::Punct
+    }
+}
+
+/// vim's two word WIDTHS. `w` splits on the three [`WordClass`]es; `W` splits
+/// on whitespace alone, so `foo.bar` is three words and one WORD.
+///
+/// A parameter on the scanners rather than a second family of them: `w` and
+/// `W` differ in exactly one place — how a character is classified — and two
+/// copies of the cross-line, empty-line and end-of-buffer rules is how they
+/// would drift.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+enum Width {
+    /// `w` / `e` / `b` / `ge` — alphanumeric, punctuation and space.
+    Small,
+    /// `W` / `E` / `B` / `gE` — non-space and space, nothing else.
+    Big,
+}
+
+fn class_at(c: char, width: Width) -> WordClass {
+    match (width, word_class(c)) {
+        (Width::Big, WordClass::Punct) => WordClass::Word,
+        (_, k) => k,
     }
 }
 
@@ -4007,7 +4208,7 @@ fn buffer_end(buf: &escriba_buffer::Buffer) -> Position {
 /// word must delete the whole word), and it is the Normal-mode cursor that
 /// must not sit there. So the clamp lives in [`EditorState::set_cursor`],
 /// which knows the mode, and this stays a pure range endpoint.
-fn word_next(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
+fn word_next(buf: &escriba_buffer::Buffer, pos: Position, width: Width) -> Position {
     let mut line = pos.line;
     let mut chars = line_chars(buf, line);
     let mut col = (pos.column as usize).min(chars.len());
@@ -4015,16 +4216,16 @@ fn word_next(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
     // Leave the run the cursor is standing in. Starting on a blank skips this
     // — there is no run to leave, only blanks to cross.
     if col < chars.len() {
-        let start = word_class(chars[col]);
+        let start = class_at(chars[col], width);
         if start != WordClass::Space {
-            while col < chars.len() && word_class(chars[col]) == start {
+            while col < chars.len() && class_at(chars[col], width) == start {
                 col += 1;
             }
         }
     }
 
     loop {
-        while col < chars.len() && word_class(chars[col]) == WordClass::Space {
+        while col < chars.len() && class_at(chars[col], width) == WordClass::Space {
             col += 1;
         }
         if col < chars.len() {
@@ -4054,17 +4255,48 @@ fn word_next(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
 /// is what makes the insert-mode erase fall through to `delete_before_cursor`
 /// and join with the line above. Teaching this to cross lines would silently
 /// change that key.
-fn word_prev(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
+fn word_prev(buf: &escriba_buffer::Buffer, pos: Position, width: Width) -> Position {
     let chars = line_chars(buf, pos.line);
     let mut i = (pos.column as usize).min(chars.len());
-    while i > 0 && word_class(chars[i - 1]) == WordClass::Space {
+    while i > 0 && class_at(chars[i - 1], width) == WordClass::Space {
         i -= 1;
     }
     if i > 0 {
-        let run = word_class(chars[i - 1]);
-        while i > 0 && word_class(chars[i - 1]) == run {
+        let run = class_at(chars[i - 1], width);
+        while i > 0 && class_at(chars[i - 1], width) == run {
             i -= 1;
         }
+    }
+    Position::new(pos.line, u32::try_from(i).unwrap_or(0))
+}
+
+/// `ge` / `gE` — back to the LAST character of the previous word.
+///
+/// The mirror of [`word_end`], and INCLUSIVE like it: `dge` deletes through
+/// the character it lands on. Single-line for the same reason [`word_prev`]
+/// is — the backward scanners are what the insert-mode erases stand on, and
+/// teaching them to cross lines changes those keys silently.
+fn word_end_prev(buf: &escriba_buffer::Buffer, pos: Position, width: Width) -> Position {
+    let chars = line_chars(buf, pos.line);
+    let start = (pos.column as usize).min(chars.len());
+    // `ge` always retreats at least one character before it starts looking,
+    // so standing on the last character of a word does not stand still.
+    let Some(mut i) = start.checked_sub(1) else {
+        return pos;
+    };
+    // Leave the run the cursor is standing in FIRST. Without this, `ge` from
+    // the middle (or the end) of a word lands one character to its left —
+    // inside the same word, which is the one place `ge` must never stop.
+    if let Some(&here) = chars.get(start) {
+        let run = class_at(here, width);
+        if run != WordClass::Space {
+            while i > 0 && class_at(chars[i], width) == run {
+                i -= 1;
+            }
+        }
+    }
+    while i > 0 && class_at(chars[i], width) == WordClass::Space {
+        i -= 1;
     }
     Position::new(pos.line, u32::try_from(i).unwrap_or(0))
 }
@@ -4079,14 +4311,14 @@ fn word_prev(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
 /// to stop before — see [`Motion::is_inclusive`]. `WordEndNext` used to
 /// resolve through [`word_next`], so `e` and `w` were the same key with two
 /// names.
-fn word_end(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
+fn word_end(buf: &escriba_buffer::Buffer, pos: Position, width: Width) -> Position {
     let mut line = pos.line;
     let mut chars = line_chars(buf, line);
     // `e` always advances at least one character before it starts looking.
     let mut col = (pos.column as usize).saturating_add(1);
 
     loop {
-        while col < chars.len() && word_class(chars[col]) == WordClass::Space {
+        while col < chars.len() && class_at(chars[col], width) == WordClass::Space {
             col += 1;
         }
         if col < chars.len() {
@@ -4100,11 +4332,186 @@ fn word_end(buf: &escriba_buffer::Buffer, pos: Position) -> Position {
         chars = line_chars(buf, line);
     }
 
-    let run = word_class(chars[col]);
-    while col + 1 < chars.len() && word_class(chars[col + 1]) == run {
+    let run = class_at(chars[col], width);
+    while col + 1 < chars.len() && class_at(chars[col + 1], width) == run {
         col += 1;
     }
     Position::new(line, u32::try_from(col).unwrap_or(pos.column))
+}
+
+/// `f` / `F` / `t` / `T` — the character search, resolved on ONE line.
+///
+/// vim's character search never crosses a line, which is what makes it safe
+/// to compose with an operator: `df;` can only ever delete within the line.
+/// `None` when the character is not there — the motion fails and the operator
+/// aborts with the buffer untouched, rather than deleting to the line edge.
+fn find_char(
+    buf: &escriba_buffer::Buffer,
+    pos: Position,
+    ch: char,
+    backward: bool,
+    till: bool,
+) -> Option<Position> {
+    let chars = line_chars(buf, pos.line);
+    let cur = (pos.column as usize).min(chars.len());
+    let hit = if backward {
+        // `T` stops AFTER the character, so it has to start one further back
+        // or a repeated `T` would never leave the spot it already reached.
+        let from = if till { cur.checked_sub(1)? } else { cur };
+        (0..from).rev().find(|&i| chars[i] == ch)?
+    } else {
+        let from = if till { cur.saturating_add(2) } else { cur + 1 };
+        (from.min(chars.len())..chars.len()).find(|&i| chars[i] == ch)?
+    };
+    let col = match (backward, till) {
+        (false, true) => hit - 1,
+        (true, true) => hit + 1,
+        _ => hit,
+    };
+    Some(Position::new(pos.line, u32::try_from(col).ok()?))
+}
+
+/// The four bracket pairs `%` knows.
+const MATCH_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
+
+/// `%` — to the match of the bracket under the cursor, or of the first
+/// bracket to its right on the same line (vim scans forward to find one).
+///
+/// Depth-counting and buffer-wide, because a brace pair that fits on one line
+/// is the case `%` is least needed for.
+fn match_pair(buf: &escriba_buffer::Buffer, pos: Position) -> Option<Position> {
+    let chars = line_chars(buf, pos.line);
+    let start = (pos.column as usize).min(chars.len());
+    let (col, open, close, forward) = (start..chars.len()).find_map(|i| {
+        MATCH_PAIRS.iter().find_map(|&(o, c)| {
+            if chars[i] == o {
+                Some((i, o, c, true))
+            } else if chars[i] == c {
+                Some((i, o, c, false))
+            } else {
+                None
+            }
+        })
+    })?;
+
+    let last = buf.line_count().saturating_sub(1);
+    let mut depth = 0i32;
+    let (mut line, mut i) = (pos.line, col);
+    let mut text = chars;
+    loop {
+        let c = text[i];
+        if c == open {
+            depth += if forward { 1 } else { -1 };
+        } else if c == close {
+            depth += if forward { -1 } else { 1 };
+        }
+        if depth == 0 {
+            return Some(Position::new(line, u32::try_from(i).ok()?));
+        }
+        if forward {
+            i += 1;
+            while i >= text.len() {
+                if line >= last {
+                    return None;
+                }
+                line += 1;
+                text = line_chars(buf, line);
+                i = 0;
+            }
+        } else {
+            while i == 0 {
+                if line == 0 {
+                    return None;
+                }
+                line -= 1;
+                text = line_chars(buf, line);
+                i = text.len();
+            }
+            i -= 1;
+        }
+    }
+}
+
+/// `{` / `}` — to the nearest blank line in `dir`, or the buffer edge.
+///
+/// vim's paragraph boundary is an EMPTY line, not an indentation change; a
+/// line of spaces is not one. `line_len_chars` already excludes the
+/// terminator, so "empty" is exactly `len == 0`.
+fn paragraph(buf: &escriba_buffer::Buffer, pos: Position, forward: bool) -> Position {
+    let last = last_text_line(buf);
+    let mut line = pos.line;
+    loop {
+        if forward {
+            if line >= last {
+                return buffer_end(buf);
+            }
+            line += 1;
+        } else {
+            if line == 0 {
+                return Position::ZERO;
+            }
+            line -= 1;
+        }
+        if buf.line_len_chars(line) == 0 {
+            return Position::new(line, 0);
+        }
+    }
+}
+
+/// `(` / `)` — to the start of the adjacent sentence.
+///
+/// A sentence ends at `.`/`!`/`?` followed by whitespace or end-of-line; the
+/// next one starts at the following non-blank. A paragraph boundary is also a
+/// sentence boundary, which is what stops `)` at the end of a block of prose
+/// instead of sailing into the next one.
+fn sentence(buf: &escriba_buffer::Buffer, pos: Position, forward: bool) -> Position {
+    let starts = sentence_starts(buf);
+    let here = (pos.line, pos.column);
+    if forward {
+        starts
+            .iter()
+            .find(|&&(l, c)| (l, c) > here)
+            .map_or_else(|| buffer_end(buf), |&(l, c)| Position::new(l, c))
+    } else {
+        starts
+            .iter()
+            .rev()
+            .find(|&&(l, c)| (l, c) < here)
+            .map_or(Position::ZERO, |&(l, c)| Position::new(l, c))
+    }
+}
+
+/// Every sentence start in the buffer, in order.
+///
+/// Computed wholesale rather than scanned directionally: the backward and
+/// forward cases are then the same list read two ways, so `(` and `)` cannot
+/// disagree about where a sentence begins.
+fn sentence_starts(buf: &escriba_buffer::Buffer) -> Vec<(u32, u32)> {
+    let mut out = vec![(0u32, 0u32)];
+    let mut ended = false;
+    for line in 0..=last_text_line(buf) {
+        let chars = line_chars(buf, line);
+        if chars.is_empty() {
+            // A blank line is a paragraph break, and so a sentence break.
+            out.push((line, 0));
+            ended = false;
+            continue;
+        }
+        for (i, &c) in chars.iter().enumerate() {
+            if ended && !c.is_whitespace() {
+                out.push((line, u32::try_from(i).unwrap_or(0)));
+                ended = false;
+            }
+            if matches!(c, '.' | '!' | '?') {
+                ended = true;
+            } else if !matches!(c, ')' | ']' | '"' | '\'') && !c.is_whitespace() {
+                ended = false;
+            }
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 #[cfg(test)]

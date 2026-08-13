@@ -112,7 +112,15 @@ fn the_audit_can_actually_see_escribas_bindings() {
         // rather than quietly widening the blind spot.
         "Normal Char('#')",
         "Normal Char('$')",
+        // The vim movement suite added four more shifted-punctuation motions
+        // (`%` match-pair, `(`/`)` sentence, `^` first-non-blank) on
+        // 2026-08-13. Listed rather than the assertion loosened: they are
+        // UNAUDITED against the reserved-chord table, same as `$`.
+        "Normal Char('%')",
+        "Normal Char('(')",
+        "Normal Char(')')",
         "Normal Char('*')",
+        "Normal Char('^')",
     ];
     assert_eq!(
         unmapped, expected,

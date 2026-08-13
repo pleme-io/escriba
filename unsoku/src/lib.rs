@@ -266,6 +266,69 @@ pub fn word_end_next(text: &str, from: usize, width: Width) -> usize {
     cs[i].0
 }
 
+/// `ge` — the LAST character of the PREVIOUS word. Mirror of
+/// [`word_end_next`], and inclusive for the same reason.
+#[must_use]
+pub fn word_end_prev(text: &str, from: usize, width: Width) -> usize {
+    let cs = chars(text);
+    if cs.is_empty() {
+        return 0;
+    }
+    let start = index_of(&cs, from);
+    // Always retreat, so standing on a word's last character does not stand
+    // still — the mirror of `e`'s always-advance.
+    let Some(mut i) = start.checked_sub(1) else {
+        return 0;
+    };
+    // Leave the current run first, or `ge` from inside a word lands one
+    // character left — still inside the word it was asked to leave.
+    if let Some(&(_, here)) = cs.get(start) {
+        let run = width.class(here);
+        if run != Class::Space {
+            while i > 0 && width.class(cs[i].1) == run {
+                i -= 1;
+            }
+        }
+    }
+    while i > 0 && width.class(cs[i].1) == Class::Space {
+        i -= 1;
+    }
+    cs[i].0
+}
+
+/// `f` / `F` / `t` / `T` — the character search. `None` when the character is
+/// not on the line, so an operator over it aborts rather than reaching the
+/// line edge.
+#[must_use]
+pub fn find_char(text: &str, from: usize, ch: char, backward: bool, till: bool) -> Option<usize> {
+    let cs = chars(text);
+    let cur = index_of(&cs, from);
+    let hit = if backward {
+        // `T` stops AFTER the character, so it starts one further back or a
+        // repeat would never leave the spot it already reached.
+        let end = if till { cur.checked_sub(1)? } else { cur };
+        (0..end).rev().find(|&i| cs[i].1 == ch)?
+    } else {
+        let start = if till { cur + 2 } else { cur + 1 };
+        (start.min(cs.len())..cs.len()).find(|&i| cs[i].1 == ch)?
+    };
+    let i = match (backward, till) {
+        (false, true) => hit - 1,
+        (true, true) => hit + 1,
+        _ => hit,
+    };
+    Some(cs[i].0)
+}
+
+/// The last non-blank of the line (`g_`). Inclusive, unlike `$`.
+#[must_use]
+pub fn last_non_blank(text: &str) -> usize {
+    text.char_indices()
+        .filter(|(_, c)| !c.is_whitespace())
+        .next_back()
+        .map_or(0, |(i, _)| i)
+}
+
 /// The first non-blank of the line (`^`).
 #[must_use]
 pub fn first_non_blank(text: &str) -> usize {
@@ -323,6 +386,19 @@ fn resolve_once(text: &str, at: usize, motion: Motion) -> Option<usize> {
         Motion::WordStartNext => word_start_next(text, at, Width::Small),
         Motion::WordStartPrev => word_start_prev(text, at, Width::Small),
         Motion::WordEndNext => word_end_next(text, at, Width::Small),
+        Motion::WordEndPrev => word_end_prev(text, at, Width::Small),
+        Motion::BigWordStartNext => word_start_next(text, at, Width::Big),
+        Motion::BigWordStartPrev => word_start_prev(text, at, Width::Big),
+        Motion::BigWordEndNext => word_end_next(text, at, Width::Big),
+        Motion::BigWordEndPrev => word_end_prev(text, at, Width::Big),
+        Motion::LineLastNonBlank => last_non_blank(text),
+        Motion::FindChar { ch, backward, till } => find_char(text, at, ch, backward, till)?,
+        // `|` is 1-based and clamped, which is what makes `500|` land on the
+        // last character instead of refusing.
+        Motion::Column(n) => {
+            let cs = chars(text);
+            cs.get((n.max(1) as usize) - 1).map_or(text.len(), |c| c.0)
+        }
         // `gg` and `0` coincide here, as do `G` and `$` — on one line the
         // document IS the line. Merged rather than written twice so the
         // coincidence is stated instead of looking like a copy-paste.
@@ -347,7 +423,25 @@ fn resolve_once(text: &str, at: usize, motion: Motion) -> Option<usize> {
         | Motion::BeginningOfDefun
         | Motion::EndOfDefun
         | Motion::BeginningOfSexp
-        | Motion::EndOfSexp => return None,
+        | Motion::EndOfSexp
+        // Multi-line by definition — a paragraph, a sentence boundary and a
+        // screen row have no single-line reading. Reported, never faked.
+        | Motion::ParagraphNext
+        | Motion::ParagraphPrev
+        | Motion::SentenceNext
+        | Motion::SentencePrev
+        | Motion::ScreenTop
+        | Motion::ScreenMiddle
+        | Motion::ScreenBottom
+        | Motion::LineDownFirstNonBlank
+        | Motion::LineUpFirstNonBlank
+        // `%` needs a buffer to scan; a bracket that closes on the same line
+        // is exactly the case nobody presses `%` for.
+        | Motion::MatchPair
+        // `;` repeats the LAST find, and unsoku holds no state between calls
+        // — a stateless resolver cannot answer it. A caller that wants `;`
+        // remembers its own `FindChar` and passes that.
+        | Motion::RepeatFind { .. } => return None,
     })
 }
 
@@ -363,7 +457,15 @@ fn resolve_once(text: &str, at: usize, motion: Motion) -> Option<usize> {
 pub fn is_inclusive(motion: Motion) -> bool {
     matches!(
         motion,
-        Motion::WordEndNext | Motion::LineEnd | Motion::DocEnd
+        Motion::WordEndNext
+            | Motion::BigWordEndNext
+            | Motion::LineEnd
+            | Motion::DocEnd
+            | Motion::LineLastNonBlank
+            | Motion::FindChar {
+                backward: false,
+                ..
+            }
     )
 }
 

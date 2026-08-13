@@ -294,6 +294,75 @@ impl Keymap {
             Action::Move(Motion::DocEnd),
             "doc end",
         );
+        // ── the rest of the vim movement suite ────────────────────────
+        //
+        // Everything below was a MOTION escriba already had a vocabulary for
+        // and no key to reach. Grouped as a table because the interesting
+        // content is the key→motion pairing, and eighteen `nm(...)` calls
+        // spelled out is eighteen places to mistype one.
+        //
+        // `f`/`F`/`t`/`T` are NOT here: their operand is the next keystroke,
+        // so the runtime claims them before the keymap is consulted (see
+        // `EditorState::consume_find_key`). `;`/`,` ARE here — they carry no
+        // operand, only a direction.
+        for (key, motion, label) in [
+            (Key::Char('W'), Motion::BigWordStartNext, "WORD forward"),
+            (Key::Char('E'), Motion::BigWordEndNext, "WORD end"),
+            (Key::Char('B'), Motion::BigWordStartPrev, "WORD back"),
+            (Key::Char('^'), Motion::LineFirstNonBlank, "first non-blank"),
+            (Key::Char('_'), Motion::LineFirstNonBlank, "first non-blank"),
+            (Key::Char('|'), Motion::Column(1), "to column"),
+            (
+                Key::Char('+'),
+                Motion::LineDownFirstNonBlank,
+                "next line, first non-blank",
+            ),
+            (
+                Key::Char('-'),
+                Motion::LineUpFirstNonBlank,
+                "previous line, first non-blank",
+            ),
+            (Key::Char('%'), Motion::MatchPair, "matching bracket"),
+            (Key::Char('}'), Motion::ParagraphNext, "next paragraph"),
+            (Key::Char('{'), Motion::ParagraphPrev, "previous paragraph"),
+            (Key::Char(')'), Motion::SentenceNext, "next sentence"),
+            (Key::Char('('), Motion::SentencePrev, "previous sentence"),
+            (Key::Char('H'), Motion::ScreenTop, "screen top"),
+            (Key::Char('M'), Motion::ScreenMiddle, "screen middle"),
+            (Key::Char('L'), Motion::ScreenBottom, "screen bottom"),
+            (
+                Key::Char(';'),
+                Motion::RepeatFind { reverse: false },
+                "repeat find",
+            ),
+            // `,` is NOT here, and the reason is a real conflict rather than
+            // an oversight: escriba's shipped leader IS `,` (blnvim parity),
+            // and this keymap's rule is that a single binding WINS over a
+            // sequence prefix — so binding `,` would silently kill all 93
+            // `<leader>…` bindings the catalog ships. The leader keeps it.
+            // Reverse-repeat is reachable as `:action "find-reverse"` for an
+            // rc that chooses a different leader, and `F`/`T` remain the
+            // direct way to search backwards.
+            (Key::Ctrl('f'), Motion::PageDown, "page down"),
+            (Key::Ctrl('b'), Motion::PageUp, "page up"),
+            (Key::Ctrl('d'), Motion::HalfPageDown, "half page down"),
+            (Key::Enter, Motion::LineDownFirstNonBlank, "next line"),
+        ] {
+            nm(&mut m, key, Action::Move(motion), label);
+        }
+        // `ge` / `gE` — the `g`-prefixed motions, and `g_`.
+        for (k, motion, label) in [
+            (Key::Char('e'), Motion::WordEndPrev, "previous word end"),
+            (Key::Char('E'), Motion::BigWordEndPrev, "previous WORD end"),
+            (Key::Char('_'), Motion::LineLastNonBlank, "last non-blank"),
+        ] {
+            m.bind_sequence(
+                Mode::Normal,
+                vec![Key::Char('g'), k],
+                Action::Move(motion),
+                label,
+            );
+        }
         // Operators — `d`/`c`/`y` arm the operator-pending FSM; the next
         // motion composes (e.g. `dw`, `c$`, `y0`).
         nm(
@@ -605,33 +674,21 @@ impl Keymap {
             "previous match (object)",
         );
 
-        // ── `ff` — format the buffer ───────────────────────────────────
+        // ── `ff` — REMOVED 2026-08-13, and this is the deciding it was
+        // waiting for ────────────────────────────────────────────────────
         //
-        // The operator's blnvim binding, which escriba ships parity with:
-        // `blackmatter-nvim`'s `groups/keybindings/init.lua` maps a bare `ff`
-        // in normal mode to conform's format. Same keys here so the muscle
-        // memory transfers between the two editors.
+        // `ff` was blnvim's bare format binding, taken here as a SEQUENCE with
+        // a note saying it cost nothing "because `f` (find-char) is not
+        // implemented", and that when `f` landed it would need deciding.
+        // `f` has landed. It wins: `f` is the character search in every vi
+        // lineage, and it is claimed by the runtime BEFORE the sequence
+        // stepper (its operand is a keystroke, not a binding), so leaving the
+        // sequence here would not have conflicted — it would have been dead
+        // table entry nobody could reach, which is worse than a conflict.
         //
-        // A SEQUENCE, and it costs nothing today: `f` (find-char) is not
-        // implemented in escriba, so there is no single binding for `ff` to
-        // shadow. When `f` lands it will need deciding — keymap's rule is that
-        // a single binding WINS over a sequence prefix, so binding `f` would
-        // silently kill `ff` rather than conflict with it. nvim pays the mirror
-        // cost of that today: `ff` there shadows `f` followed by `f`.
-        //
-        // `Action::Command` rather than a dedicated action: `lsp.format` is the
-        // name the catalog already binds from `<leader>lf`, `:Format` and a
-        // `BufWritePre` hook, and a second route to the same verb is how two
-        // spellings of one thing drift apart.
-        m.bind_sequence(
-            Mode::Normal,
-            vec![Key::Char('f'), Key::Char('f')],
-            Action::Command {
-                name: "lsp.format".to_string(),
-                args: Vec::new(),
-            },
-            "format buffer",
-        );
+        // Nothing is lost: `lsp.format` is the SAME command name the catalog
+        // already binds from `<leader>lf`, `:Format` and a `BufWritePre` hook.
+        // The verb keeps three routes; only this fourth spelling is gone.
 
         // ── jumplist ──────────────────────────────────────────────────
         // The return ticket for every far jump above. Without it a committed

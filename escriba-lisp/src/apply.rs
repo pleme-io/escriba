@@ -499,6 +499,27 @@ pub fn resolve_action(name: &str) -> (Action, bool) {
         "page-down" => (Action::Move(Motion::PageDown), false),
         "half-page-up" => (Action::Move(Motion::HalfPageUp), false),
         "half-page-down" => (Action::Move(Motion::HalfPageDown), false),
+        "word-prev-end" => (Action::Move(Motion::WordEndPrev), false),
+        "big-word-next-start" => (Action::Move(Motion::BigWordStartNext), false),
+        "big-word-next-end" => (Action::Move(Motion::BigWordEndNext), false),
+        "big-word-prev-start" => (Action::Move(Motion::BigWordStartPrev), false),
+        "big-word-prev-end" => (Action::Move(Motion::BigWordEndPrev), false),
+        "line-last-non-blank" => (Action::Move(Motion::LineLastNonBlank), false),
+        "line-down-first-non-blank" => (Action::Move(Motion::LineDownFirstNonBlank), false),
+        "line-up-first-non-blank" => (Action::Move(Motion::LineUpFirstNonBlank), false),
+        "match-pair" => (Action::Move(Motion::MatchPair), false),
+        "paragraph-next" => (Action::Move(Motion::ParagraphNext), false),
+        "paragraph-prev" => (Action::Move(Motion::ParagraphPrev), false),
+        "sentence-next" => (Action::Move(Motion::SentenceNext), false),
+        "sentence-prev" => (Action::Move(Motion::SentencePrev), false),
+        "screen-top" => (Action::Move(Motion::ScreenTop), false),
+        "screen-middle" => (Action::Move(Motion::ScreenMiddle), false),
+        "screen-bottom" => (Action::Move(Motion::ScreenBottom), false),
+        // `;` / `,`. The reverse spelling exists because the DEFAULT keymap
+        // deliberately leaves `,` to the leader (blnvim parity) — an rc that
+        // picks another leader authors this to get `,` back.
+        "find-repeat" => (Action::Move(Motion::RepeatFind { reverse: false }), false),
+        "find-reverse" => (Action::Move(Motion::RepeatFind { reverse: true }), false),
 
         // ── Structural Lisp motions (paredit) ──────────────────────
         "forward-sexp" => (Action::Move(Motion::ForwardSexp), false),
