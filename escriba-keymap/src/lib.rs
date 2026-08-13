@@ -5,7 +5,9 @@ extern crate self as escriba_keymap;
 use escriba_search::{CaretMove, Direction as SearchDirection};
 use std::collections::HashMap;
 
-use escriba_core::{Action, CountedAction, InsertAt, Mode, Motion, Operator, TextObject};
+use escriba_core::{
+    Action, CountedAction, InsertAt, Mode, Motion, Operator, TextObject, ViewAlign,
+};
 use escriba_mode::ModalState;
 use serde::{Deserialize, Serialize};
 
@@ -346,12 +348,39 @@ impl Keymap {
             (Key::Ctrl('f'), Motion::PageDown, "page down"),
             (Key::Ctrl('b'), Motion::PageUp, "page up"),
             (Key::Ctrl('d'), Motion::HalfPageDown, "half page down"),
+            // `<C-u>` IS free in Normal — the erase verb of the same name is
+            // bound in Insert and Command only, and a binding is per-mode.
+            // It was listed as "conflicted" once; it never was.
+            (Key::Ctrl('u'), Motion::HalfPageUp, "half page up"),
             (Key::Enter, Motion::LineDownFirstNonBlank, "next line"),
         ] {
             nm(&mut m, key, Action::Move(motion), label);
         }
-        // `ge` / `gE` — the `g`-prefixed motions, and `g_`.
+        // `zt` / `zz` / `zb` — re-frame the window, leaving the cursor put.
+        // Sequences, and `z` is bound to nothing on its own, so there is no
+        // single binding for these to lose to.
+        for (k, align, label) in [
+            (Key::Char('t'), ViewAlign::Top, "cursor line to top"),
+            (Key::Char('z'), ViewAlign::Center, "centre cursor line"),
+            (Key::Char('b'), ViewAlign::Bottom, "cursor line to bottom"),
+        ] {
+            m.bind_sequence(
+                Mode::Normal,
+                vec![Key::Char('z'), k],
+                Action::ScrollView(align),
+                label,
+            );
+        }
+        // The `g`-prefixed motions.
+        //
+        // **`gg` was never bound** (found 2026-08-13). `G` was, and the only
+        // `gg` in the repo was a test that BOUND IT ITSELF before pressing it
+        // — so the test proved the sequence machinery worked and said nothing
+        // about the default keymap, and vim's most-pressed motion did nothing
+        // in the shipped editor. A test that constructs the thing it is
+        // checking cannot fail the way the product is broken.
         for (k, motion, label) in [
+            (Key::Char('g'), Motion::DocStart, "doc start"),
             (Key::Char('e'), Motion::WordEndPrev, "previous word end"),
             (Key::Char('E'), Motion::BigWordEndPrev, "previous WORD end"),
             (Key::Char('_'), Motion::LineLastNonBlank, "last non-blank"),

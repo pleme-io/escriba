@@ -64,6 +64,13 @@ pub enum Motion {
     },
     /// `%` — to the match of the bracket under (or next on) the cursor.
     MatchPair,
+    // ── marks (`m` sets, `` ` `` and `'` jump) ─────────────────────
+    /// `` `{a-z} `` — to a mark's exact line AND column.
+    MarkExact(char),
+    /// `'{a-z}` — to the first non-blank of a mark's LINE. vim's two spellings
+    /// are two motions, not one motion and a modifier: `` `a `` is exclusive
+    /// and `'a` is linewise, so `d'a` and ``d`a`` delete different things.
+    MarkLine(char),
     // ── paragraph / sentence ───────────────────────────────────────
     /// `}` — to the next blank line (paragraph boundary).
     ParagraphNext,

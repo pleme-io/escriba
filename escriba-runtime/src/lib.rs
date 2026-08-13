@@ -159,6 +159,14 @@ pub struct EditorState {
     pending_find: Option<FindSpec>,
     /// The last resolved character search — what `;` and `,` repeat.
     last_find: Option<FindSpec>,
+    /// `m`, `` ` `` or `'` was pressed and the editor is waiting for the mark
+    /// letter. Same key-layer shape as [`Self::pending_find`].
+    pending_mark: Option<MarkKey>,
+    /// `m{a-z}` → position. Buffer-agnostic today, which is honest and
+    /// limited: vim's `a-z` marks are per-buffer and `A-Z` are global, and a
+    /// single map is `a-z`-shaped. Jumping to a mark set in another buffer
+    /// would land at that position in THIS one, so only `a-z` are accepted.
+    marks: HashMap<char, Position>,
     /// Monotonic refresh-generation stamp — the root of the sealed refresh
     /// tree (`theory/ESCRIBA.md` §Refresh-Seal). Bumped on every applied
     /// action + resize; the renderer gates on it so an idle frame does zero
@@ -1181,6 +1189,8 @@ impl EditorState {
             pending_object: None,
             pending_find: None,
             last_find: None,
+            pending_mark: None,
+            marks: HashMap::new(),
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
@@ -1996,6 +2006,17 @@ impl EditorState {
         if self.modal.mode() != Mode::Normal && self.modal.mode() != Mode::Visual {
             return None;
         }
+        // A key that is CONTINUING a sequence belongs to the sequence.
+        //
+        // Without this, `zt` was unreachable: `z` starts a pending sequence,
+        // then `t` was claimed here as a till-find and the sequence never
+        // completed. The rule "an operand key outranks a binding" is right
+        // for the FIRST key of a gesture and wrong for a later one — by then
+        // the gesture has already been chosen. Note the operand branch above
+        // runs before this guard, so `zt` and `ft` are both reachable.
+        if !self.pending_keys.is_empty() {
+            return None;
+        }
         let Key::Char(c) = key else { return None };
         let (backward, till) = match c {
             'f' => (false, false),
@@ -2192,6 +2213,25 @@ impl EditorState {
             SplashKey::Ran(action) => {
                 self.apply(&action);
                 return;
+            }
+        }
+        // `m` / `` ` `` / `'` and their operand.
+        //
+        // BEFORE the object path, and `` d`a `` is why: the object path
+        // claims `i` and `a` whenever an operator is armed, so it would have
+        // eaten the mark LETTER. The two do not fight over the first key —
+        // this arms only when `pending_object` is clear, so `di'` still
+        // reaches the object path — they fight over the SECOND, and whichever
+        // gesture is already half-typed must win it.
+        if let Some(outcome) = self.consume_mark_key(key.clone()) {
+            match outcome {
+                ObjectKey::Consumed => return,
+                ObjectKey::Compose(a) => {
+                    let count = self.modal.pending_count().unwrap_or(1);
+                    self.modal.clear_count();
+                    self.apply_counted(&a, count);
+                    return;
+                }
             }
         }
         // Operator-pending OBJECT selection runs before EVERYTHING, because
@@ -3183,6 +3223,19 @@ impl EditorState {
                     self.preview_search();
                 }
             }
+            // `m{a-z}`. Only `a-z`: `A-Z` are vim's cross-file marks and this
+            // map is per-editor, so accepting one would promise a jump back
+            // to another FILE and deliver a jump to that line in this one.
+            Action::SetMark(name) => {
+                if name.is_ascii_lowercase() {
+                    let at = self.cursor();
+                    self.marks.insert(*name, at);
+                } else {
+                    self.messages
+                        .push(format!("E191: mark `{name}` is not a-z"));
+                }
+            }
+            Action::ScrollView(align) => self.scroll_view(*align),
             Action::Pending => {}
         }
         // Widen the dirty region by what this action touched (M1). Content
@@ -3214,7 +3267,10 @@ impl EditorState {
             | Action::ApplyOperatorObject { .. }
             // A jump can land anywhere, so the viewport may scroll wholesale.
             | Action::JumpBack
-            | Action::JumpForward => Damage::Full,
+            | Action::JumpForward
+            // A re-frame repaints every row even though no byte changed —
+            // which is exactly the case a line-scoped damage would miss.
+            | Action::ScrollView(_) => Damage::Full,
             Action::InsertChar(_)
             | Action::Edit(_)
             | Action::Undo
@@ -3239,7 +3295,11 @@ impl EditorState {
             Action::Move(_) | Action::ChangeMode(_) => Damage::span(cline_before, cline_after),
             Action::Save => Damage::Viewport,
             Action::Command { .. } | Action::SubmitCommand => Damage::Full,
-            Action::Quit | Action::Operator(_) | Action::Pending => Damage::None,
+            // Setting a mark changes no pixel — there is no gutter sign for
+            // one yet. When one lands, this arm becomes `Damage::span`.
+            Action::Quit | Action::Operator(_) | Action::SetMark(_) | Action::Pending => {
+                Damage::None
+            }
         };
         self.damage = self.damage.join(d);
         // Remember this change for `.`.
@@ -3391,7 +3451,22 @@ impl EditorState {
                 let backward = last.backward != reverse;
                 find_char(buf, pos, last.ch, backward, last.till)?
             }
-            Motion::MatchPair => match_pair(buf, pos)?,
+            Motion::MatchPair => self.resolve_match(buf, pos)?,
+            // A mark that was never set is a FAILED motion, not a move to the
+            // origin: `` `q `` with no `q` must leave the cursor alone, and
+            // ``d`q`` must not delete to the top of the file.
+            Motion::MarkExact(name) => {
+                let at = *self.marks.get(&name)?;
+                Position::new(
+                    at.line.min(last_text_line(buf)),
+                    at.column
+                        .min(buf.line_len_chars(at.line.min(last_text_line(buf)))),
+                )
+            }
+            Motion::MarkLine(name) => {
+                let at = *self.marks.get(&name)?;
+                first_non_blank(buf, at.line.min(last_text_line(buf)))
+            }
             Motion::ParagraphNext => paragraph(buf, pos, true),
             Motion::ParagraphPrev => paragraph(buf, pos, false),
             Motion::SentenceNext => sentence(buf, pos, true),
@@ -3439,6 +3514,121 @@ impl EditorState {
             | Motion::BeginningOfSexp
             | Motion::EndOfSexp => pos,
         })
+    }
+
+    /// `zt` / `zz` / `zb` — re-frame the window around the cursor's line
+    /// WITHOUT moving the cursor.
+    ///
+    /// The cursor is deliberately untouched: `zz` is what you press when you
+    /// are already where you want to be and only the framing is wrong. Note
+    /// that `set_cursor` would undo this — it scrolls the viewport to contain
+    /// the cursor with a 2-line margin — so this must not route through it,
+    /// and the next motion legitimately re-frames again.
+    fn scroll_view(&mut self, align: escriba_core::ViewAlign) {
+        use escriba_core::ViewAlign;
+        let line = self.cursor().line;
+        let Some(w) = self.layout.active_window_mut() else {
+            return;
+        };
+        let h = w.viewport.visible_lines.max(1);
+        w.viewport.top_line = match align {
+            ViewAlign::Top => line,
+            ViewAlign::Center => line.saturating_sub(h / 2),
+            ViewAlign::Bottom => line.saturating_sub(h.saturating_sub(1)),
+        };
+        self.damage = self.damage.join(Damage::Full);
+        self.bump_gen();
+    }
+
+    /// Claim the operand of a pending `m` / `` ` `` / `'`, or arm one.
+    ///
+    /// Same key-layer shape as [`Self::consume_find_key`] and for the same
+    /// reason: `ma` is `m` plus an OPERAND, and `a` is bound (append). Without
+    /// claiming it first, `ma` would set no mark and enter Insert mode.
+    ///
+    /// Runs BEFORE `consume_object_key`, because `` d`a `` needs it: the
+    /// object path claims `i` and `a` whenever an operator is armed, and the
+    /// mark LETTER can be either of them.
+    ///
+    /// The two do not fight over the first key. This arms only while
+    /// `pending_object` is clear, so `di'` — where `'` is a text-object
+    /// delimiter rather than a mark jump — still reaches the object path. The
+    /// guard states that dependency locally instead of leaving it implied by
+    /// call order.
+    fn consume_mark_key(&mut self, key: Key) -> Option<ObjectKey> {
+        if let Some(kind) = self.pending_mark.take() {
+            let Key::Char(name) = key else {
+                if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
+                    self.op_pending
+                        .dispatch((Action::ChangeMode(Mode::Normal), 1));
+                }
+                return Some(ObjectKey::Consumed);
+            };
+            return Some(ObjectKey::Compose(match kind {
+                MarkKey::Set => Action::SetMark(name),
+                MarkKey::GotoExact => Action::Move(Motion::MarkExact(name)),
+                MarkKey::GotoLine => Action::Move(Motion::MarkLine(name)),
+            }));
+        }
+        if !matches!(self.modal.mode(), Mode::Normal | Mode::Visual) {
+            return None;
+        }
+        // Half-typed text object (`di` waiting for its `'`) belongs to the
+        // object path, not here; a key continuing a sequence belongs to the
+        // sequence (see `consume_find_key` for the `zt` case that proves it).
+        if self.pending_object.is_some() || !self.pending_keys.is_empty() {
+            return None;
+        }
+        let Key::Char(c) = key else { return None };
+        let kind = match c {
+            'm' => MarkKey::Set,
+            '`' => MarkKey::GotoExact,
+            '\'' => MarkKey::GotoLine,
+            _ => return None,
+        };
+        self.pending_mark = Some(kind);
+        Some(ObjectKey::Consumed)
+    }
+
+    /// `%` — brackets, plus this buffer's language word pairs if it has any.
+    ///
+    /// When both are candidates the NEARER one on the line wins, because that
+    /// is the one under the operator's eye: on `if foo() then`, `%` on the
+    /// `if` means the block and `%` on the `(` means the call. Deciding by
+    /// distance rather than by precedence is what keeps both usable from the
+    /// same key without a mode.
+    fn resolve_match(&self, buf: &escriba_buffer::Buffer, pos: Position) -> Option<Position> {
+        let Some(pairs) = self.word_pairs_for_active() else {
+            return match_pair(buf, pos);
+        };
+        let bracket_col = line_chars(buf, pos.line)
+            .into_iter()
+            .enumerate()
+            .skip(pos.column as usize)
+            .find(|(_, c)| MATCH_PAIRS.iter().any(|&(o, cl)| *c == o || *c == cl))
+            .and_then(|(i, _)| u32::try_from(i).ok());
+        let word_col = word_hits(buf, pos.line, pairs)
+            .into_iter()
+            .find(|h| h.end > pos.column)
+            .map(|h| h.col);
+        match (bracket_col, word_col) {
+            (Some(b), Some(w)) if w < b => match_word_pair(buf, pos, pairs),
+            (Some(_), _) => match_pair(buf, pos),
+            (None, Some(_)) => match_word_pair(buf, pos, pairs),
+            (None, None) => None,
+        }
+    }
+
+    /// The word pairs for the active buffer's filetype, if the language has
+    /// any. `None` for brace languages — Rust's `%` is bracket-only, and that
+    /// is correct rather than missing.
+    fn word_pairs_for_active(&self) -> Option<WordPairs> {
+        let path = self.buffers.get(self.active)?.path.as_deref()?;
+        let name = &self.filetypes.resolve(path)?.name;
+        WORD_PAIRS
+            .iter()
+            .find(|(ft, _)| ft == name)
+            .map(|(_, pairs)| *pairs)
     }
 
     fn apply_motion(&mut self, motion: Motion) {
@@ -4083,6 +4273,17 @@ struct FindSpec {
     till: bool,
 }
 
+/// What the next keystroke means after `m`, `` ` `` or `'`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MarkKey {
+    /// `m{a-z}` — set.
+    Set,
+    /// `` `{a-z} `` — jump to the exact position.
+    GotoExact,
+    /// `'{a-z}` — jump to the line's first non-blank.
+    GotoLine,
+}
+
 /// What kind of place a cursor move is asking for.
 ///
 /// The Normal-mode rule "the cursor sits ON a character" is about where the
@@ -4374,6 +4575,92 @@ fn find_char(
 /// The four bracket pairs `%` knows.
 const MATCH_PAIRS: [(char, char); 4] = [('(', ')'), ('[', ']'), ('{', '}'), ('<', '>')];
 
+/// A language's WORD pairs for `%` — vim's `matchit`, typed.
+///
+/// `(open, middles, close)`. A middle (`else`, `elif`, `when`) is a word `%`
+/// steps THROUGH on its way round the group; without them `%` on a shell `if`
+/// jumps straight past `elif` to `fi`, which is right for a scanner and wrong
+/// for a reader.
+///
+/// A TABLE keyed by filetype name, not a per-language scanner: every entry is
+/// the same depth-counting walk over a different word list, so a new language
+/// is a row. Deliberately small — these are the languages whose blocks are
+/// words rather than braces, which is exactly the set where bracket-only `%`
+/// is useless.
+type WordPairs = &'static [(&'static str, &'static [&'static str], &'static str)];
+
+const WORD_PAIRS: &[(&str, WordPairs)] = &[
+    (
+        "lua",
+        &[
+            ("if", &["elseif", "else"], "end"),
+            ("for", &[], "end"),
+            ("while", &[], "end"),
+            ("function", &[], "end"),
+            ("do", &[], "end"),
+            ("repeat", &[], "until"),
+        ],
+    ),
+    (
+        "ruby",
+        &[
+            ("if", &["elsif", "else"], "end"),
+            ("unless", &["else"], "end"),
+            ("case", &["when", "else"], "end"),
+            ("begin", &["rescue", "ensure", "else"], "end"),
+            ("def", &[], "end"),
+            ("class", &[], "end"),
+            ("module", &[], "end"),
+            ("do", &[], "end"),
+            ("while", &[], "end"),
+        ],
+    ),
+    (
+        "sh",
+        &[
+            ("if", &["elif", "else"], "fi"),
+            ("case", &[], "esac"),
+            ("do", &[], "done"),
+        ],
+    ),
+    (
+        "bash",
+        &[
+            ("if", &["elif", "else"], "fi"),
+            ("case", &[], "esac"),
+            ("do", &[], "done"),
+        ],
+    ),
+    (
+        "elixir",
+        &[
+            ("do", &["else", "rescue", "after", "catch"], "end"),
+            ("fn", &[], "end"),
+        ],
+    ),
+    (
+        "vim",
+        &[
+            ("if", &["elseif", "else"], "endif"),
+            ("function", &[], "endfunction"),
+            ("while", &[], "endwhile"),
+            ("for", &[], "endfor"),
+            ("try", &["catch", "finally"], "endtry"),
+        ],
+    ),
+];
+
+/// A word occurrence: its position, and which group + role it plays.
+#[derive(Clone, Copy)]
+struct WordHit {
+    line: u32,
+    col: u32,
+    end: u32,
+    group: usize,
+    /// `0` = opener, `1` = middle, `2` = closer.
+    role: u8,
+}
+
 /// `%` — to the match of the bracket under the cursor, or of the first
 /// bracket to its right on the same line (vim scans forward to find one).
 ///
@@ -4428,6 +4715,125 @@ fn match_pair(buf: &escriba_buffer::Buffer, pos: Position) -> Option<Position> {
                 i = text.len();
             }
             i -= 1;
+        }
+    }
+}
+
+/// Every word-pair keyword on `line`, in column order.
+///
+/// Word-bounded on both sides, so `endif` is not read as `end`, `define` is
+/// not read as `def`, and a `do` inside `window` is not a block opener. That
+/// boundary check is the whole difference between matchit and a substring
+/// search, and skipping it is worse than having no word pairs at all — a `%`
+/// that jumps to the middle of an identifier is a silent wrong answer.
+fn word_hits(buf: &escriba_buffer::Buffer, line: u32, pairs: WordPairs) -> Vec<WordHit> {
+    let chars = line_chars(buf, line);
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i < chars.len() {
+        if word_class(chars[i]) != WordClass::Word {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < chars.len() && word_class(chars[i]) == WordClass::Word {
+            i += 1;
+        }
+        let word: String = chars[start..i].iter().collect();
+        for (group, (open, middles, close)) in pairs.iter().enumerate() {
+            let role = if word == *open {
+                0
+            } else if word == *close {
+                2
+            } else if middles.contains(&word.as_str()) {
+                1
+            } else {
+                continue;
+            };
+            out.push(WordHit {
+                line,
+                col: u32::try_from(start).unwrap_or(0),
+                end: u32::try_from(i).unwrap_or(0),
+                group,
+                role,
+            });
+            break;
+        }
+    }
+    out
+}
+
+/// `%` over WORD pairs — matchit's half of the motion.
+///
+/// Finds the keyword at (or right of) the cursor and walks to the next member
+/// of its group at the same depth: opener → first middle → … → closer →
+/// opener. Cycling rather than jumping straight to the closer is what makes
+/// `%` usable for reading an `if`/`elif`/`else`/`fi` chain.
+fn match_word_pair(
+    buf: &escriba_buffer::Buffer,
+    pos: Position,
+    pairs: WordPairs,
+) -> Option<Position> {
+    let here = word_hits(buf, pos.line, pairs)
+        .into_iter()
+        .find(|h| h.end > pos.column)?;
+    let last = last_text_line(buf);
+    let forward = here.role != 2;
+    let mut depth = 0i32;
+    let mut line = here.line;
+    loop {
+        let hits = word_hits(buf, line, pairs);
+        // Only the hits strictly beyond the starting keyword on its own line.
+        let scan: Vec<WordHit> = if line == here.line {
+            let mut v: Vec<WordHit> = hits
+                .into_iter()
+                .filter(|h| {
+                    if forward {
+                        h.col > here.col
+                    } else {
+                        h.col < here.col
+                    }
+                })
+                .collect();
+            if !forward {
+                v.reverse();
+            }
+            v
+        } else {
+            let mut v = hits;
+            if !forward {
+                v.reverse();
+            }
+            v
+        };
+        for h in scan {
+            if h.group != here.group {
+                continue;
+            }
+            match (h.role, forward) {
+                (0, true) | (2, false) => depth += 1,
+                (2, true) | (0, false) => {
+                    if depth == 0 {
+                        return Some(Position::new(h.line, h.col));
+                    }
+                    depth -= 1;
+                }
+                // A middle at the SAME depth is the next stop; nested ones are
+                // somebody else's `else`.
+                (1, _) if depth == 0 => return Some(Position::new(h.line, h.col)),
+                _ => {}
+            }
+        }
+        if forward {
+            if line >= last {
+                return None;
+            }
+            line += 1;
+        } else {
+            if line == 0 {
+                return None;
+            }
+            line -= 1;
         }
     }
 }

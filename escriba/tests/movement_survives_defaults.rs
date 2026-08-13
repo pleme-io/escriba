@@ -54,6 +54,65 @@ const MOTION_KEYS: &[(char, Motion)] = &[
     (';', Motion::RepeatFind { reverse: false }),
 ];
 
+/// The `z`-prefixed viewport verbs, which are `Action::ScrollView` rather
+/// than motions — a different arm of the same table, so a different way to
+/// lose them.
+#[test]
+fn the_scroll_verbs_survive_too() {
+    use escriba_core::ViewAlign;
+    let km = shipped_keymap();
+    for (second, align) in [
+        ('t', ViewAlign::Top),
+        ('z', ViewAlign::Center),
+        ('b', ViewAlign::Bottom),
+    ] {
+        let seq = vec![Key::Char('z'), Key::Char(second)];
+        let found = km.lookup_sequence(Mode::Normal, &seq).map(|b| &b.action);
+        assert_eq!(
+            found,
+            Some(&Action::ScrollView(align)),
+            "`z{second}` was displaced in the shipped build",
+        );
+    }
+}
+
+/// `m`, `` ` `` and `'` must stay UNBOUND, for the same reason `f` must:
+/// the runtime claims them before the keymap, so a binding on one is a table
+/// entry no keypress can reach.
+#[test]
+fn the_mark_keys_are_deliberately_unbound() {
+    let km = shipped_keymap();
+    for c in ['m', '`', '\''] {
+        let found = km
+            .entries_sorted()
+            .into_iter()
+            .find(|(m, k, _)| **m == Mode::Normal && **k == Key::Char(c))
+            .map(|(_, _, b)| b.action.clone());
+        assert!(
+            found.is_none(),
+            "`{c}` is bound to {found:?}, but the runtime claims it first — \
+             that binding can never fire",
+        );
+    }
+}
+
+/// `<C-u>` in NORMAL is half-page-up, and the erase verb of the same name in
+/// Insert must survive alongside it. Bindings are per-mode, and this pins
+/// that both readings coexist rather than one having quietly replaced the
+/// other.
+#[test]
+fn ctrl_u_is_half_page_up_in_normal_and_still_erases_in_insert() {
+    let km = shipped_keymap();
+    let at = |mode: Mode| {
+        km.entries_sorted()
+            .into_iter()
+            .find(|(m, k, _)| **m == mode && **k == Key::Ctrl('u'))
+            .map(|(_, _, b)| b.action.clone())
+    };
+    assert_eq!(at(Mode::Normal), Some(Action::Move(Motion::HalfPageUp)));
+    assert_eq!(at(Mode::Insert), Some(Action::DeleteToLineStart));
+}
+
 #[test]
 fn no_bundled_caixa_shadows_a_movement_key() {
     let km = shipped_keymap();
@@ -106,6 +165,11 @@ fn the_operator_keys_survive_too() {
 fn the_g_prefixed_motions_survive_too() {
     let km = shipped_keymap();
     for (second, motion) in [
+        // `gg` was NEVER bound until 2026-08-13 — the only `gg` in the repo
+        // was a unit test that bound it itself before pressing it. That is
+        // the shape this whole file exists to catch, arriving from the other
+        // direction: not a caixa taking a key, but a key nobody ever gave.
+        ('g', Motion::DocStart),
         ('e', Motion::WordEndPrev),
         ('E', Motion::BigWordEndPrev),
         ('_', Motion::LineLastNonBlank),

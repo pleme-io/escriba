@@ -40,6 +40,29 @@ pub enum InsertAt {
     OpenAbove,
 }
 
+/// Where `zt` / `zz` / `zb` put the cursor's line on screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum ViewAlign {
+    /// `zt` — the cursor's line becomes the top visible line.
+    Top,
+    /// `zz` — the cursor's line is centred.
+    Center,
+    /// `zb` — the cursor's line becomes the bottom visible line.
+    Bottom,
+}
+
+impl ViewAlign {
+    /// The stable label — `escriba --keymap`, the rc's `:action` names.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Top => "scroll-top",
+            Self::Center => "scroll-center",
+            Self::Bottom => "scroll-bottom",
+        }
+    }
+}
+
 impl InsertAt {
     /// Does this entry ADD a line to the buffer?
     ///
@@ -193,6 +216,23 @@ pub enum Action {
     JumpBack,
     /// `<C-i>` — walk forward again after [`Action::JumpBack`].
     JumpForward,
+
+    /// `m{a-z}` — name the cursor's position so `` `{a-z} `` can return to it.
+    ///
+    /// The letter is carried IN the action for the same reason
+    /// [`Motion::FindChar`] carries its character: the second keystroke is an
+    /// OPERAND, and an action that had to be paired with separate pending
+    /// state is an action a face could dispatch half of.
+    SetMark(char),
+
+    /// `zt` / `zz` / `zb` — move the VIEWPORT so the cursor's line sits at a
+    /// named place on screen, without moving the cursor.
+    ///
+    /// Not a [`Motion`], and the distinction is the whole point: a motion
+    /// changes where you are, and this changes only what you can see. Folding
+    /// it into `Motion` would make it composable with an operator, and `dzz`
+    /// is not a thing.
+    ScrollView(ViewAlign),
     /// `<BS>` — delete the character BEFORE the caret, wherever the caret is.
     ///
     /// ONE action, three targets, routed by the runtime: the search prompt,
@@ -365,6 +405,10 @@ impl Action {
             | Self::PromptCaret { .. }
             | Self::PromptHistory { .. }
             | Self::SearchPreviewStep { .. }
+            // A mark names a position and a scroll moves the window; neither
+            // touches a byte.
+            | Self::SetMark(_)
+            | Self::ScrollView(_)
             | Self::Pending => TextEffect::Preserves,
         }
     }
@@ -421,6 +465,11 @@ impl Action {
             // Arming an operator is not yet a move — `d` then `n` must still
             // see its matches.
             | Self::Operator(_)
+            // Neither moves the cursor off a match: `zz` re-frames the same
+            // line and `ma` names it. Clearing here would make "centre the
+            // view so I can see the other hits" the gesture that removes them.
+            | Self::SetMark(_)
+            | Self::ScrollView(_)
             | Self::Save
             | Self::Quit => HighlightEffect::Keep,
 
@@ -524,6 +573,8 @@ impl Action {
             | Self::RepeatLastChange
             | Self::JumpBack
             | Self::JumpForward
+            | Self::SetMark(_)
+            | Self::ScrollView(_)
             | Self::Pending => false,
         }
     }
