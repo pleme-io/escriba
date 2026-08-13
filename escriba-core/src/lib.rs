@@ -10,6 +10,7 @@
 //!   - [`Mode`] — the vim-ish modal state.
 //!   - [`Motion`] / [`Operator`] — compose into commands.
 //!   - [`Edit`] — primitive mutation.
+//!   - [`Register`] — captured text plus the [`RegisterKind`] a put replays it as.
 //!   - [`Action`] — top-level dispatched-to-buffer command.
 //!   - [`BufferId`] / [`WindowId`] — opaque identifiers.
 //!
@@ -30,6 +31,7 @@ pub mod mode;
 pub mod motion;
 pub mod position;
 pub mod range;
+pub mod register;
 pub mod selection;
 
 pub use action::{Action, CountedAction, HighlightEffect, InsertAt, TextEffect, ViewAlign};
@@ -51,4 +53,5 @@ pub use mode::{CursorShape, Mode, ModeTransition};
 pub use motion::{Motion, Operator, TextObject};
 pub use position::Position;
 pub use range::Range;
+pub use register::{Register, RegisterKind};
 pub use selection::{Cursor, Cursors, Selection};

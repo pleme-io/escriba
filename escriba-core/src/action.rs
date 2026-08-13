@@ -200,6 +200,25 @@ pub enum Action {
         object: TextObject,
     },
 
+    /// `p` / `P` — put the register back into the buffer.
+    ///
+    /// Named `Put` after vim's own verb, not `Paste`, and the distinction is
+    /// load-bearing rather than pedantic: a put replays escriba's REGISTER
+    /// (whatever `d`/`y` last captured, with its [`crate::RegisterKind`]),
+    /// while a paste will replay the SYSTEM CLIPBOARD via `hasami` — a
+    /// different source, arriving as bracketed-paste bytes rather than a
+    /// keypress, with no linewise/charwise distinction to honour. Reusing one
+    /// name for both is how they would end up sharing an executor that is
+    /// wrong for one of them.
+    ///
+    /// `before` is vim's `P`: a charwise put lands at the cursor column
+    /// instead of after it, a linewise put opens above the line instead of
+    /// below. Every other rule is shared, which is why this is one variant
+    /// with a flag rather than two.
+    Put {
+        before: bool,
+    },
+
     /// `.` — repeat the last text change.
     ///
     /// Vim's most-used key, and the half that makes `cgn` a workflow rather
@@ -376,6 +395,11 @@ impl Action {
             | Self::Command { .. }
             | Self::SearchSubmitOperated { .. }
             | Self::RepeatLastChange
+            // A put with an EMPTY register mutates nothing, but the classifier
+            // cannot see the register — and over-reporting costs one re-scan
+            // while under-reporting paints stale columns over freshly pasted
+            // text. The asymmetry decides it, exactly as for `Command`.
+            | Self::Put { .. }
             | Self::SubmitCommand => TextEffect::Mutates,
 
             // `o`/`O` add a line; `i`/`I`/`a`/`A` move the caret and nothing
