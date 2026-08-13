@@ -88,7 +88,7 @@ clap             = { version = "4", features = ["derive", "env"] }
 ropey            = "1"
 regex            = "1"
 schemars         = { version = "0.8", features = ["chrono"] }
-okiba           = "0.1"
+okiba           = "0.2"
 tracing          = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # `process` added for escriba-lsp-client's transport: an LSP server is a child
