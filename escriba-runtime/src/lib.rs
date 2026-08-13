@@ -43,7 +43,8 @@ use escriba_buffer::TextRev;
 use escriba_command::CommandRegistry;
 use escriba_core::{
     Action, Anchored, Bound, BufferId, Cursors, Damage, Edit, EditGen, HighlightEffect, InsertAt,
-    JumpList, Mode, Motion, Operator, Position, Range, TextEffect, WindowId,
+    JumpList, Mode, Motion, Operator, Position, Range, Register, RegisterKind, TextEffect,
+    WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
 use escriba_keymap::{Key, Keymap};
@@ -136,7 +137,13 @@ pub struct EditorState {
     /// deletes (`Operator::leaves_register`). `None` until the first
     /// register-leaving operator runs. Phase-1 holds the single unnamed
     /// register; named registers (`"ay`) layer on later.
-    register: Option<String>,
+    ///
+    /// Typed as a [`Register`], not a `String`: the put has to know whether
+    /// the text was captured CHARWISE (`dw`) or LINEWISE (`dd`), and the
+    /// capture is the only place that knows. A `String` register makes `p`
+    /// after `dd` guess, and the only guess available is the wrong one —
+    /// splicing a whole line into the middle of another.
+    register: Option<Register>,
     /// The operator-pending FSM (`d`/`c`/`y` then a motion → `dw`/`c$`/`y0`),
     /// standing on the fleet `zenmai` Mealy-machine primitive. Every dispatched
     /// action passes through it; only an operator-then-motion pair is rewritten
@@ -940,7 +947,7 @@ impl EditorState {
                 }
                 self.refollow();
             }
-            Negai::Yank { text, .. } => self.register = Some(text),
+            Negai::Yank { text, kind, .. } => self.register = Some(Register::new(text, kind)),
             Negai::ClearSearchHighlight => self.search.clear_highlight(),
             Negai::SetOption { name, value } => {
                 self.options.insert(name, value);
@@ -2457,33 +2464,30 @@ impl EditorState {
             _ => count,
         };
         for (resolved, times) in self.op_pending.dispatch((action.clone(), count)) {
-            // `3dw` is ONE delete of three words as far as the register is
-            // concerned, not three deletes of one. Each repetition emits its
-            // own `Negai::Yank`, and each used to overwrite the register — so
-            // `3dwP` put back only the third word and silently lost two.
+            // Two ways an action can carry a count, and the split is real:
             //
-            // Repetitions of a REGISTER-LEAVING operator therefore append,
-            // and the flag is cleared after the group so an unrelated later
-            // yank still replaces rather than growing forever.
-            // A COUNTED operator-over-motion is ONE operation over a motion
-            // resolved `times` over, not `times` operations over one motion.
+            //   REPEAT (`5j`) — run it `times` over. The default.
+            //   ABSORB (`3dw`, `2dd`, `3p`) — ONE operation over an extent
+            //     resolved `times` over.
             //
-            // That distinction is not pedantry. Repeating the operation works
-            // by accident for delete — the text vanishes, so the cursor ends
-            // up somewhere new each round — and is simply wrong for yank,
-            // which does not move the cursor: `2yw` re-yanked the FIRST word
-            // twice and put "one one " in the register. Resolving the motion
-            // twice and yanking once gives "one two ", and the register needs
-            // no accumulation because there was only ever one yank.
-            if let Action::ApplyOperator { op, motion } = resolved {
-                self.apply_operator_n(op, motion, times);
-                if self.quit_requested {
-                    return;
-                }
-                continue;
-            }
-            for _ in 0..times {
-                self.apply_resolved(&resolved);
+            // The distinction is not pedantry. Repeating an operator works by
+            // accident for delete — the text vanishes, so the cursor lands
+            // somewhere new each round — and is simply wrong for yank, which
+            // does not move: `2yw` re-yanked the FIRST word twice and put
+            // "one one " in the register. It is wrong for `2dd` in the same
+            // shape (the register kept only the second line, so `2ddp` put
+            // back half), and it would make `3p` three undo steps.
+            //
+            // Both kinds now go THROUGH `apply_resolved`, and that is the
+            // load-bearing part. The absorbing three used to short-circuit
+            // straight to their executors from here, skipping the damage
+            // classification and the dot-register recording at that function's
+            // tail — so `.` after `3p` or `dw` replayed nothing, and the
+            // repaint span was whatever the previous action had asked for.
+            let absorbs = absorbs_count(&resolved);
+            let (reps, n) = if absorbs { (1, times) } else { (times, 1) };
+            for _ in 0..reps {
+                self.apply_resolved(&resolved, n);
                 if self.quit_requested {
                     return;
                 }
@@ -2605,17 +2609,26 @@ impl EditorState {
             return;
         };
 
-        for _ in 0..change.count.max(1) {
-            self.apply_resolved(&change.action);
+        // Replayed the same way it ran: an absorbing action takes its count as
+        // an argument, a repeating one takes it as a loop. Getting this
+        // backwards makes `3dw` then `.` delete one word — which is what it
+        // did while the recorded count was hardcoded to 1.
+        let n = change.count.max(1);
+        if absorbs_count(&change.action) {
+            self.apply_resolved(&change.action, n);
+        } else {
+            for _ in 0..n {
+                self.apply_resolved(&change.action, 1);
+            }
         }
         for c in change.inserted.chars() {
-            self.apply_resolved(&Action::InsertChar(c));
+            self.apply_resolved(&Action::InsertChar(c), 1);
         }
         if self.modal.mode() == Mode::Insert {
             // A replayed change must not leave the editor in Insert — the
             // original ended with an Esc the recording deliberately does not
             // store, since it is punctuation rather than part of the change.
-            self.apply_resolved(&Action::ChangeMode(Mode::Normal));
+            self.apply_resolved(&Action::ChangeMode(Mode::Normal), 1);
         }
         // The replay wrote through `apply_resolved`, which re-records
         // `last_change` from the inner action. Put the ORIGINAL back so a
@@ -2638,25 +2651,51 @@ impl EditorState {
     /// leaves an empty line behind, which is the one case a naive
     /// "start-of-line to start-of-next-line" range gets wrong.
     fn object_line(&self) -> Option<Range> {
+        self.object_line_n(1)
+    }
+
+    /// `{n}dd` — `n` whole lines from the cursor down.
+    ///
+    /// A counted linewise operator is ONE operation over an `n`-line extent,
+    /// not `n` operations over one line — the same rule `apply_operator_n`
+    /// enforces for motions, and it broke here in exactly the way that note
+    /// predicts. `2dd` ran the single-line object twice: the text came out
+    /// right (deleting a line brings the next one under the cursor, so the
+    /// repeat lands correctly by accident) and the REGISTER held only the
+    /// second line, so `2ddp` silently put back half of what it took.
+    fn object_line_n(&self, n: u32) -> Option<Range> {
         let buf = self.buffers.get(self.active)?;
         let line = self.cursor().line;
         let last = buf.line_count().saturating_sub(1);
-        if line < last {
-            Some(Range::new(
-                Position::new(line, 0),
-                Position::new(line + 1, 0),
-            ))
+        // The last line the extent reaches, clamped so `999dd` near the end of
+        // a file takes what is there rather than resolving to nothing.
+        //
+        // Clamped to `last_text_line`, NOT to `last`: on a file ending in `\n`
+        // those differ by the phantom row the rope reports, and letting the
+        // extent reach it sent the whole resolution down the "no following
+        // newline" branch below — so `dd` on the last real line ate the file's
+        // trailing newline instead of the line. It also makes a `dd` issued
+        // FROM the phantom row resolve to an empty range (a no-op) rather than
+        // to a destructive one.
+        let end = line
+            .saturating_add(n.max(1).saturating_sub(1))
+            .min(last_text_line(buf));
+        if end < last {
+            Some(Range::new(Position::new(line, 0), Position::new(end + 1, 0)))
         } else if line > 0 {
-            // Final line: swallow the PRECEDING newline instead.
+            // Final line of a file with NO trailing newline: there is no
+            // following line start to take a terminator from, so swallow the
+            // PRECEDING one — otherwise `dd` blanks the line and leaves it.
             Some(Range::new(
                 Position::new(line - 1, buf.line_len_chars(line - 1)),
-                Position::new(line, buf.line_len_chars(line)),
+                Position::new(end, buf.line_len_chars(end)),
             ))
         } else {
-            // The only line in the buffer: clear it, keep the line itself.
+            // The extent is the whole buffer and there is no terminator to
+            // take at either end: clear the text, keep the line itself.
             Some(Range::new(
                 Position::new(0, 0),
-                Position::new(0, buf.line_len_chars(0)),
+                Position::new(end, buf.line_len_chars(end)),
             ))
         }
     }
@@ -3033,7 +3072,14 @@ impl EditorState {
         }
     }
 
-    fn apply_resolved(&mut self, action: &Action) {
+    /// Execute one resolved action, with the count it ABSORBS.
+    ///
+    /// `count` is 1 for everything that repeats — the caller loops those — and
+    /// is the gesture's full count for the arms listed in [`absorbs_count`].
+    /// Every path lands here so the damage classification and dot-register
+    /// recording at the tail run exactly once per gesture; the counted
+    /// operators used to bypass this function and skipped both.
+    fn apply_resolved(&mut self, action: &Action, count: u32) {
         // Snapshot the scope inputs before the mutation so the resulting
         // Damage covers the changed region (the S3 seal — conservative widen).
         let lines_before = self.active_line_count();
@@ -3105,10 +3151,26 @@ impl EditorState {
                     self.report_pattern_not_found();
                 }
             }
+            // The linewise object is the one that can express an `n`-fold
+            // extent, so it reads the count directly; every other object still
+            // repeats (see `absorbs_count`).
+            Action::ApplyOperatorObject {
+                op,
+                object: object @ escriba_core::TextObject::Line,
+            } => {
+                if let Some(range) = self.object_line_n(count) {
+                    self.apply_operator_over(*op, range, object.register_kind());
+                }
+            }
             Action::ApplyOperatorObject { op, object } => match self.resolve_object(*object) {
-                Some(range) => self.apply_operator_over(*op, range),
+                // The kind comes from the OBJECT (`TextObject::register_kind`,
+                // total over the enum), which is the only thing that knows:
+                // `dd` on line 1 and a charwise `[(1,0), (2,0))` are the same
+                // two positions.
+                Some(range) => self.apply_operator_over(*op, range, object.register_kind()),
                 None => self.report_pattern_not_found(),
             },
+            Action::Put { before } => self.put(*before, count),
             Action::RepeatLastChange => self.repeat_last_change(),
             Action::JumpBack => {
                 let here = self.spot();
@@ -3151,7 +3213,7 @@ impl EditorState {
                 }
             }
             Action::Command { name, args } => self.run_command(name, args),
-            Action::ApplyOperator { op, motion } => self.apply_operator(*op, *motion),
+            Action::ApplyOperator { op, motion } => self.apply_operator_n(*op, *motion, count),
             // The operator-pending FSM consumes Operator keys (begins pending);
             // they never reach the executor. Defensive no-op for exhaustiveness.
             Action::Operator(_) => {}
@@ -3282,6 +3344,10 @@ impl EditorState {
             // the pure mode change would repaint a one-line span after `o` and
             // leave every line below the new one stale.
             | Action::EnterInsert(_)
+            // Same reading as `EnterInsert`: a charwise put touches one line
+            // and a linewise one adds several, and this arm's body is already
+            // the one that asks which happened by comparing the line count.
+            | Action::Put { .. }
             | Action::ApplyOperator { .. } => {
                 if lines_after == lines_before {
                     Damage::span(cline_before, cline_after)
@@ -3340,8 +3406,12 @@ impl EditorState {
             )
         {
             self.last_change = Some(LastChange {
+                // The count the gesture actually carried, not a hardcoded 1.
+                // `.` replays it through the same absorb-or-repeat split the
+                // original ran under (see `repeat_last_change`), so `3dw` then
+                // `.` deletes three words rather than one.
                 action: action.clone(),
-                count: 1,
+                count,
                 inserted: String::new(),
             });
             self.recording_insert = self.modal.mode() == Mode::Insert;
@@ -3755,16 +3825,27 @@ impl EditorState {
                 start: from,
                 end: to,
             },
+            // A motion-shaped operation is charwise by construction: it acts
+            // over `[cursor, point)`, which is a run of characters even when
+            // that run happens to span a line break (`d}`).
+            RegisterKind::Charwise,
         );
     }
 
-    /// Apply `op` over an explicit range.
+    /// Apply `op` over an explicit range, capturing it as `kind`.
     ///
     /// The object path needs this: `gn`'s extent need not begin at the cursor,
     /// so it cannot go through the `[cursor, target)` shape the motion path
     /// uses. One implementation of the delete/yank/register logic, reached two
     /// ways.
-    fn apply_operator_over(&mut self, op: Operator, range: Range) {
+    ///
+    /// `kind` is a PARAMETER rather than something inferred from the range,
+    /// and it has to be: `[(1,0), (2,0))` is the range `dd` produces on line 1
+    /// AND the range `dj`-ish charwise motions produce, and nothing about the
+    /// two positions distinguishes them. Only the caller knows which gesture
+    /// it was. It travels to the register, and the register is what a later
+    /// `p` reads to decide between splicing and opening a line.
+    fn apply_operator_over(&mut self, op: Operator, range: Range, kind: RegisterKind) {
         let range = range.normalized();
         if range.is_empty() {
             return;
@@ -3776,7 +3857,11 @@ impl EditorState {
             .and_then(|buf| buf.slice(range).ok());
         if op.leaves_register() {
             if let Some(t) = &text {
-                self.register = Some(t.clone());
+                let captured = match kind {
+                    RegisterKind::Charwise => t.clone(),
+                    RegisterKind::Linewise => as_linewise_capture(t),
+                };
+                self.register = Some(Register::new(captured, kind));
             }
         }
         match op {
@@ -3786,15 +3871,39 @@ impl EditorState {
                 if let Some(buf) = self.buffers.get_mut(self.active) {
                     let _ = buf.apply(&Edit::delete(range));
                 }
-                self.set_cursor(range.start);
+                self.rest_after_operator(kind, range.start);
                 if op == Operator::Change {
                     self.modal.enter(Mode::Insert);
                 }
             }
-            // Yank copies to the register without mutating the buffer; vim
-            // leaves the cursor at the range start.
+            // Yank copies to the register without mutating the buffer, so it
+            // gets its OWN resting rule rather than the delete rule above: the
+            // line is still there, and vim moves the cursor only when the yank
+            // reached BACKWARDS past it.
+            //
+            // Keyed on the kind for the same reason everything else here is.
+            // A linewise yank compares LINES — `yy` and `3yy` both start on
+            // the cursor's own line, so neither moves, which is why comparing
+            // POSITIONS was wrong: `yy`'s range starts at column 0, so it read
+            // as "backwards" and knocked the cursor to the left margin every
+            // time you copied a line. Invisible for `yw`, whose range starts
+            // exactly at the cursor, so the move was a no-op there.
             Operator::Yank => {
-                self.set_cursor(range.start);
+                let here = self.cursor();
+                match kind {
+                    RegisterKind::Linewise if range.start.line < here.line => {
+                        // Keep the column: a backwards linewise yank rests on
+                        // the first line taken, not at its margin.
+                        self.set_cursor(Position::new(range.start.line, here.column));
+                    }
+                    RegisterKind::Charwise
+                        if (range.start.line, range.start.column)
+                            < (here.line, here.column) =>
+                    {
+                        self.set_cursor(range.start);
+                    }
+                    _ => {}
+                }
             }
             // Indent/Format/structural operators are not yet wired — named,
             // not faked (no buffer mutation, register already captured for the
@@ -3806,11 +3915,149 @@ impl EditorState {
         }
     }
 
+    /// Where the cursor rests once an operator has finished.
+    ///
+    /// Keyed on the operated KIND rather than on the operator, because that is
+    /// what vim keys it on: every linewise operation lands the cursor the same
+    /// way regardless of which operator produced it.
+    ///
+    /// The charwise arm is the old unconditional behaviour — the range start,
+    /// which is where the text used to begin.
+    fn rest_after_operator(&mut self, kind: RegisterKind, start: Position) {
+        match kind {
+            RegisterKind::Charwise => self.set_cursor(start),
+            RegisterKind::Linewise => {
+                // vim's linewise rule: the cursor lands on the FIRST NON-BLANK
+                // of the line that now occupies the operated line's index, and
+                // never past the last line that holds text.
+                //
+                // Both halves were wrong, and each in a way no unit test could
+                // see, because both are about WHERE THE CURSOR IS rather than
+                // what the text says — and every `dd` test asserted the text.
+                //
+                //   - Column 0 instead of the first non-blank is untidy on flat
+                //     prose and actively wrong on indented code: `dd` inside a
+                //     nested block dropped the cursor into the indentation, so
+                //     the next `i` typed at the margin.
+                //   - Landing past the last line of text was worse. A file
+                //     ending in `\n` makes the rope report a phantom final
+                //     line (see `last_text_line`); `dd` on the last REAL line
+                //     parked the cursor on that phantom row, where `x` and `i`
+                //     had nothing to act on and the next `dd` deleted the
+                //     file's trailing NEWLINE rather than a line.
+                let at = match self.buffers.get(self.active) {
+                    Some(buf) => first_non_blank(buf, start.line.min(last_text_line(buf))),
+                    None => return,
+                };
+                self.set_cursor(at);
+            }
+        }
+    }
+
+    /// `p` / `P` — put `count` copies of the register back into the buffer.
+    ///
+    /// **The register's [`RegisterKind`] chooses the operation, not the key.**
+    /// `p` after `dw` splices characters in at a column; `p` after `dd` opens
+    /// a whole line below. That is why the capture had to become typed before
+    /// this could exist at all: a `String` register leaves `p` guessing, and
+    /// the only guess available — splice — drops a whole line, terminator and
+    /// all, into the middle of whatever line the cursor is on.
+    ///
+    /// One [`Edit`] regardless of `count`, so `3p` is one `u` away from gone.
+    fn put(&mut self, before: bool, count: u32) {
+        let Some(reg) = self.register.clone() else {
+            // vim says nothing for a put with an empty register, and neither
+            // does this — but it must not fall through to an insert of `""`
+            // either, which would record a `last_change` that `.` then
+            // replays as a no-op edit.
+            return;
+        };
+        let text = reg.replayed(count);
+        if text.is_empty() {
+            return;
+        }
+        let Some(buf) = self.buffers.get(self.active) else {
+            return;
+        };
+        let here = self.cursor();
+        let (at, rest) = match reg.kind {
+            RegisterKind::Linewise => {
+                // `p` opens BELOW the cursor's line, `P` above. The insertion
+                // point is the start of a line either way, and the text ends
+                // in a newline (`Register::replayed` guarantees it), so the
+                // splice pushes the existing line down rather than joining it.
+                //
+                // `line + 1` is a valid insertion point even on the last line:
+                // a file ending in `\n` has the phantom row there, and one
+                // that does not gets the newline from `replayed`.
+                let line = if before {
+                    here.line
+                } else {
+                    here.line.saturating_add(1)
+                };
+                let at = Position::new(line.min(buf.line_count()), 0);
+                // vim rests on the first non-blank of the FIRST line put.
+                (at, PutRest::LineStart(at.line))
+            }
+            RegisterKind::Charwise => {
+                // `p` lands AFTER the character under the cursor, `P` on it.
+                // Appending past the end of the line is legal here — that is
+                // what makes `p` on the last character of a line work — so
+                // this clamps to the line length, not to the last character.
+                let col = if before {
+                    here.column
+                } else {
+                    here.column
+                        .saturating_add(1)
+                        .min(buf.line_len_chars(here.line))
+                };
+                (Position::new(here.line, col), PutRest::LastCharPut)
+            }
+        };
+        let Some(buf) = self.buffers.get_mut(self.active) else {
+            return;
+        };
+        if buf.apply(&Edit::insert(at, text.clone())).is_err() {
+            return;
+        }
+        match rest {
+            PutRest::LineStart(line) => {
+                let to = match self.buffers.get(self.active) {
+                    Some(b) => first_non_blank(b, line.min(last_text_line(b))),
+                    None => return,
+                };
+                self.set_cursor(to);
+            }
+            // vim leaves the cursor ON the last character put, not after it —
+            // which is what makes `p` then `.`-less repeated puts stack rather
+            // than march right. Routed through `set_cursor` (an `OnCharacter`
+            // rest) so Normal mode's on-a-character invariant still applies.
+            PutRest::LastCharPut => {
+                let added_lines = u32::try_from(text.matches('\n').count()).unwrap_or(0);
+                let end = if let Some(nl) = text.rfind('\n') {
+                    let tail = u32::try_from(text[nl + 1..].chars().count()).unwrap_or(0);
+                    Position::new(at.line + added_lines, tail)
+                } else {
+                    let n = u32::try_from(text.chars().count()).unwrap_or(0);
+                    Position::new(at.line, at.column.saturating_add(n))
+                };
+                self.set_cursor(Position::new(end.line, end.column.saturating_sub(1)));
+            }
+        }
+    }
+
     /// The text last yanked or deleted into the unnamed register, if any.
-    /// The future `p`/`P` paste reads this.
+    /// `p`/`P` read this — through [`Register`], so they can tell a captured
+    /// LINE from a captured run of characters.
     #[must_use]
-    pub fn register(&self) -> Option<&str> {
-        self.register.as_deref()
+    pub fn register(&self) -> Option<&Register> {
+        self.register.as_ref()
+    }
+
+    /// The register's raw text, for callers that only want the characters.
+    #[must_use]
+    pub fn register_text(&self) -> Option<&str> {
+        self.register.as_ref().map(|r| r.text.as_str())
     }
 
     fn insert_char(&mut self, c: char) {
@@ -4301,6 +4548,70 @@ enum CursorRest {
     OnCharacter,
     /// Where the next character goes — never pulled back.
     AtInsertPoint,
+}
+
+/// Normalize a linewise capture: newline-TERMINATED, never newline-LED.
+///
+/// The removal range and the register capture are two different views of one
+/// gesture, and the last line of a file with no trailing newline is where they
+/// come apart. There is no following terminator to take, so `dd` has to
+/// swallow the PRECEDING one — the right thing to REMOVE, and the wrong thing
+/// to put back: the raw slice reads `"\nbravo"`, so `yyp` opened a blank line
+/// and then a `bravo` with no terminator of its own.
+///
+/// Stated once, here, where the kind is known. `Register::replayed` handles
+/// the other half (a capture that ends without a newline).
+fn as_linewise_capture(slice: &str) -> String {
+    match slice.strip_prefix('\n') {
+        Some(rest) => {
+            let mut s = String::with_capacity(slice.len());
+            s.push_str(rest);
+            s.push('\n');
+            s
+        }
+        None => slice.to_owned(),
+    }
+}
+
+/// Does this action ABSORB its count into one operation, or REPEAT?
+///
+/// A free function rather than a method on `Action` deliberately: the answer
+/// is a property of THIS EXECUTOR's arms, not of the action's meaning. An arm
+/// absorbs its count exactly when it takes one, and a name listed here that no
+/// arm reads is worse than no list — it reads as handled and behaves as
+/// repeated. Keep the two in step; the tests below pin every member.
+fn absorbs_count(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::ApplyOperator { .. }
+            | Action::Put { .. }
+            // Only the LINEWISE object can express an `n`-fold extent today.
+            // `2diw` still repeats, which is the same over-count-a-yank defect
+            // waiting on a general "resolve this object n times" — named here
+            // rather than half-fixed.
+            | Action::ApplyOperatorObject {
+                object: escriba_core::TextObject::Line,
+                ..
+            }
+    )
+}
+
+/// Where a put leaves the cursor.
+///
+/// Decided BEFORE the insert (from the register's kind) and consumed after,
+/// because the two arms need different information and only one of them
+/// survives the edit: the linewise arm needs the line it opened, which the
+/// pre-edit position names, while the charwise arm needs the extent of the
+/// text it wrote. Computing either from the post-edit buffer alone means
+/// re-deriving which gesture happened, which is exactly what
+/// [`escriba_core::RegisterKind`] exists to stop.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+enum PutRest {
+    /// Linewise: the first non-blank of the first line put.
+    LineStart(u32),
+    /// Charwise: ON the last character put — vim's rule, and the one that
+    /// makes a following `p` stack the copies rather than walk rightward.
+    LastCharPut,
 }
 
 /// vim's three character classes — the whole of what "a word" means to `w`,
@@ -5942,7 +6253,7 @@ mod tests {
             st.tick(&press(KeyCode::Char(c)));
         }
         assert_eq!(
-            st.register.as_deref(),
+            st.register_text(),
             Some("one two three "),
             "all three words, in the order they were deleted"
         );
@@ -5961,7 +6272,7 @@ mod tests {
         for c in "dw".chars() {
             st2.tick(&press(KeyCode::Char(c)));
         }
-        assert_eq!(st2.register.as_deref(), Some("gamma "));
+        assert_eq!(st2.register_text(), Some("gamma "));
     }
 
     #[test]
@@ -5973,12 +6284,12 @@ mod tests {
         for c in "2dw".chars() {
             st.tick(&press(KeyCode::Char(c)));
         }
-        let first = st.register.clone();
+        let first = st.register_text().map(str::to_owned);
         for c in "2dw".chars() {
             st.tick(&press(KeyCode::Char(c)));
         }
         assert_eq!(first.as_deref(), Some("a b "));
-        assert_eq!(st.register.as_deref(), Some("c d "), "not \"a b c d \"");
+        assert_eq!(st.register_text(), Some("c d "), "not \"a b c d \"");
     }
 
     #[test]
@@ -5993,7 +6304,7 @@ mod tests {
         for c in "2yw".chars() {
             st.tick(&press(KeyCode::Char(c)));
         }
-        assert_eq!(st.register.as_deref(), Some("one two "));
+        assert_eq!(st.register_text(), Some("one two "));
         let after = st
             .buffers
             .get(st.active)
@@ -6127,7 +6438,7 @@ mod tests {
         });
         assert_eq!(line0_len(&s), 0, "d$ deletes to end of line");
         assert_eq!(
-            s.register(),
+            s.register_text(),
             Some("hello world"),
             "delete fills the register"
         );
@@ -6149,7 +6460,7 @@ mod tests {
             s.buffers.get(s.active).unwrap().line(0).as_deref(),
             Some("bc")
         );
-        assert_eq!(s.register(), Some("a"));
+        assert_eq!(s.register_text(), Some("a"));
     }
 
     #[test]
@@ -6167,7 +6478,7 @@ mod tests {
             "change enters Insert to type the replacement"
         );
         assert_eq!(
-            s.register(),
+            s.register_text(),
             Some("hello world"),
             "change fills the register"
         );
@@ -6181,7 +6492,7 @@ mod tests {
             motion: Motion::LineEnd,
         });
         assert_eq!(line0_len(&s), 11, "yank does not mutate the buffer");
-        assert_eq!(s.register(), Some("hello world"), "yank fills the register");
+        assert_eq!(s.register_text(), Some("hello world"), "yank fills the register");
         assert_eq!(s.modal.mode(), Mode::Normal, "yank stays in Normal");
     }
 
@@ -6233,7 +6544,7 @@ mod tests {
             s.buffers.get(s.active).unwrap().line(0).as_deref(),
             Some("abc")
         );
-        assert_eq!(s.register(), None);
+        assert_eq!(s.register_text(), None);
     }
 
     #[test]
@@ -6250,7 +6561,7 @@ mod tests {
             0,
             "d then $ composes d$ and deletes the line"
         );
-        assert_eq!(s.register(), Some("hello world"));
+        assert_eq!(s.register_text(), Some("hello world"));
     }
 
     #[test]

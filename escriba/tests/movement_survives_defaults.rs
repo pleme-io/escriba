@@ -159,6 +159,29 @@ fn the_operator_keys_survive_too() {
     }
 }
 
+/// The put keys, which are the other half of every operator above.
+///
+/// Held to the same bar for the same reason: an operator that captures text
+/// the editor cannot put back is a delete key with extra steps, and `p` is
+/// short, unmodified, and exactly the kind of key a picker or a git caixa
+/// reaches for.
+#[test]
+fn the_put_keys_survive_too() {
+    let km = shipped_keymap();
+    for (c, before) in [('p', false), ('P', true)] {
+        let found = km
+            .entries_sorted()
+            .into_iter()
+            .find(|(m, k, _)| **m == Mode::Normal && **k == Key::Char(c))
+            .map(|(_, _, b)| b.action.clone());
+        assert_eq!(
+            found,
+            Some(Action::Put { before }),
+            "`{c}` was displaced in the shipped build",
+        );
+    }
+}
+
 /// The `g`-prefixed motions, which live in the SEQUENCE table rather than the
 /// single-key one — a different lookup, so a different way to lose them.
 #[test]

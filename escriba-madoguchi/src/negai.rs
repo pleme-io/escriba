@@ -18,9 +18,14 @@ use escriba_core::{BufferId, Edit, Mode, Position};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ErrandId(pub u32);
 
-/// Where yanked text goes. `None` is vim's unnamed register.
+/// WHICH register yanked text goes to. `None` is vim's unnamed register.
+///
+/// Named for the selector it is, not for the register itself: the register's
+/// CONTENTS are `escriba_core::Register` (text + [`escriba_core::RegisterKind`]),
+/// and one type called `Register` on each side of the slip is how a consumer
+/// ends up importing the wrong one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Register(pub Option<char>);
+pub struct RegisterName(pub Option<char>);
 
 /// Resume instructions for [`Negai::AwaitKey`].
 ///
@@ -233,7 +238,15 @@ pub enum Negai {
     // ── registers ────────────────────────────────────────────────────
     Yank {
         text: String,
-        register: Register,
+        register: RegisterName,
+        /// Whether the capture was a run of characters or whole lines.
+        ///
+        /// Carried on the slip rather than defaulted at the executor: a
+        /// lisp-authored yank of a line is a LINEWISE yank, and if the slip
+        /// cannot say so then `p` after it splices a terminated line into the
+        /// middle of another — the exact defect typing the register was meant
+        /// to make unrepresentable.
+        kind: escriba_core::RegisterKind,
     },
 
     /// Stop highlighting search matches while KEEPING the pattern, so `n`

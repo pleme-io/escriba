@@ -167,14 +167,14 @@ fn erasing_a_typo_does_not_clobber_the_register() {
     let mut st = state();
     press(&mut st, KeyCode::Char('y'));
     press(&mut st, KeyCode::Char('w'));
-    let yanked = st.register().map(str::to_owned);
+    let yanked = st.register().cloned();
     assert!(yanked.is_some(), "precondition: `yw` filled the register");
 
     insert(&mut st);
     type_str(&mut st, "Z");
     press(&mut st, KeyCode::Backspace);
 
-    assert_eq!(st.register().map(str::to_owned), yanked);
+    assert_eq!(st.register().cloned(), yanked);
 }
 
 #[test]
@@ -325,7 +325,7 @@ fn the_bigger_erases_leave_the_register_alone_too() {
     let mut st = state();
     press(&mut st, KeyCode::Char('y'));
     press(&mut st, KeyCode::Char('w'));
-    let yanked = st.register().map(str::to_owned);
+    let yanked = st.register().cloned();
     assert!(yanked.is_some(), "precondition: `yw` filled the register");
 
     insert(&mut st);
@@ -342,7 +342,7 @@ fn the_bigger_erases_leave_the_register_alone_too() {
         "precondition: both erases ran; got {:?}",
         text_of(&st)
     );
-    assert_eq!(st.register().map(str::to_owned), yanked);
+    assert_eq!(st.register().cloned(), yanked);
 }
 
 #[test]
