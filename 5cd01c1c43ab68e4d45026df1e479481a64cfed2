@@ -1,0 +1,7 @@
+CORRECTION 2026-08-13: this commit's message describes okiba 0.3 / AbsPath adoption. It contains NONE of that work.
+
+Its five files are the escriba-core half of the typed-register change (Register + RegisterKind, TextObject::register_kind, the Action::Put variant) plus zz_ddprobe.rs, a throwaway diagnostic file — all swept in by a concurrent process running a commit-all while that work was in progress.
+
+The change those files belong to is 60d4763 'feat: p/P put, a typed register, and vim's linewise cursor rule', which carries the reasoning.
+
+Not rewritten: 5cd01c1 is published and has 6 descendants including a release commit, on a branch with concurrent automation pushing to it. Correcting the record beats destroying six commits of shared history.
