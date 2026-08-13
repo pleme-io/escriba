@@ -1200,6 +1200,7 @@ impl EditorState {
             op_pending: zenmai::Stateful::new(OpState::Resting),
             pending_object: None,
             pending_find: None,
+            pending_replace: false,
             last_find: None,
             pending_mark: None,
             marks: HashMap::new(),
@@ -2073,17 +2074,22 @@ impl EditorState {
         if !self.pending_keys.is_empty() {
             return None;
         }
-        // `r` is not a motion, so it must not swallow an armed operator's
-        // operand: `dr` is a typo, and vim treats it as one by cancelling.
-        // Leaving the operator armed here would make the NEXT motion delete.
-        if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
+        if key != Key::Char('r') {
             return None;
         }
-        if key == Key::Char('r') {
-            self.pending_replace = true;
+        // `r` is not a motion, so `dr` is a typo — and vim treats it as one by
+        // CANCELLING the operator. Falling through to the keymap instead is
+        // not the same thing and is the worse reading: `r` is unbound (it has
+        // to be, see above), so it resolves to `Action::Pending`, and the FSM
+        // deliberately lets a stray `Pending` leave the operator armed for the
+        // multi-key-sequence case. The next motion would then delete.
+        if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
+            self.op_pending
+                .dispatch((Action::ChangeMode(Mode::Normal), 1));
             return Some(ObjectKey::Consumed);
         }
-        None
+        self.pending_replace = true;
+        Some(ObjectKey::Consumed)
     }
 
     fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
@@ -2711,7 +2717,7 @@ impl EditorState {
     /// leaves an empty line behind, which is the one case a naive
     /// "start-of-line to start-of-next-line" range gets wrong.
     fn object_line(&self) -> Option<Range> {
-        self.object_line_n(1)
+        self.line_extent(1).map(|e| e.capture)
     }
 
     /// `{n}dd` — `n` whole lines from the cursor down.
@@ -2723,7 +2729,12 @@ impl EditorState {
     /// right (deleting a line brings the next one under the cursor, so the
     /// repeat lands correctly by accident) and the REGISTER held only the
     /// second line, so `2ddp` silently put back half of what it took.
-    fn object_line_n(&self, n: u32) -> Option<Range> {
+    ///
+    /// Returns an [`Extent`], not a range, because a linewise CHANGE cuts
+    /// something different from what a linewise DELETE cuts: `dd` takes the
+    /// line and its terminator, `cc`/`S` clear the line's text and keep the
+    /// line. Both put the same thing in the register.
+    fn line_extent(&self, n: u32) -> Option<Extent> {
         let buf = self.buffers.get(self.active)?;
         let line = self.cursor().line;
         let last = buf.line_count().saturating_sub(1);
@@ -2740,24 +2751,37 @@ impl EditorState {
         let end = line
             .saturating_add(n.max(1).saturating_sub(1))
             .min(last_text_line(buf));
-        if end < last {
-            Some(Range::new(Position::new(line, 0), Position::new(end + 1, 0)))
+        if line > last_text_line(buf) {
+            // The phantom row. There is no line here to operate on.
+            return None;
+        }
+        // What a CHANGE cuts: the text of the named lines, terminators intact.
+        // Independent of which capture branch runs below, because the lines
+        // named are the same in all three.
+        let removal = Range::new(
+            Position::new(line, 0),
+            Position::new(end, buf.line_len_chars(end)),
+        );
+        let capture = if end < last {
+            Range::new(Position::new(line, 0), Position::new(end + 1, 0))
         } else if line > 0 {
             // Final line of a file with NO trailing newline: there is no
             // following line start to take a terminator from, so swallow the
             // PRECEDING one — otherwise `dd` blanks the line and leaves it.
-            Some(Range::new(
+            Range::new(
                 Position::new(line - 1, buf.line_len_chars(line - 1)),
                 Position::new(end, buf.line_len_chars(end)),
-            ))
+            )
         } else {
             // The extent is the whole buffer and there is no terminator to
             // take at either end: clear the text, keep the line itself.
-            Some(Range::new(
-                Position::new(0, 0),
-                Position::new(end, buf.line_len_chars(end)),
-            ))
-        }
+            removal
+        };
+        Some(Extent {
+            capture,
+            removal,
+            kind: RegisterKind::Linewise,
+        })
     }
 
     /// `iw` / `aw` — the word under the cursor.
@@ -3216,10 +3240,10 @@ impl EditorState {
             // repeats (see `absorbs_count`).
             Action::ApplyOperatorObject {
                 op,
-                object: object @ escriba_core::TextObject::Line,
+                object: escriba_core::TextObject::Line,
             } => {
-                if let Some(range) = self.object_line_n(count) {
-                    self.apply_operator_over(*op, range, object.register_kind());
+                if let Some(extent) = self.line_extent(count) {
+                    self.apply_operator_over(*op, extent);
                 }
             }
             Action::ApplyOperatorObject { op, object } => match self.resolve_object(*object) {
@@ -3227,7 +3251,9 @@ impl EditorState {
                 // total over the enum), which is the only thing that knows:
                 // `dd` on line 1 and a charwise `[(1,0), (2,0))` are the same
                 // two positions.
-                Some(range) => self.apply_operator_over(*op, range, object.register_kind()),
+                Some(range) => {
+                    self.apply_operator_over(*op, Extent::from_object(range, object.register_kind()));
+                }
                 None => self.report_pattern_not_found(),
             },
             Action::Put { before } => self.put(*before, count),
@@ -3409,7 +3435,10 @@ impl EditorState {
             // Same reading as `EnterInsert`: a charwise put touches one line
             // and a linewise one adds several, and this arm's body is already
             // the one that asks which happened by comparing the line count.
+            // `J` removes lines and `r` removes none — the same question.
             | Action::Put { .. }
+            | Action::ReplaceChar(_)
+            | Action::JoinLines { .. }
             | Action::ApplyOperator { .. } => {
                 if lines_after == lines_before {
                     Damage::span(cline_before, cline_after)
@@ -3892,16 +3921,15 @@ impl EditorState {
     /// is how the two would drift.
     fn apply_operator_to(&mut self, op: Operator, to: Position) {
         let from = self.cursor();
+        // A motion-shaped operation is charwise by construction: it acts over
+        // `[cursor, point)`, which is a run of characters even when that run
+        // happens to span a line break (`d}`).
         self.apply_operator_over(
             op,
-            Range {
+            Extent::charwise(Range {
                 start: from,
                 end: to,
-            },
-            // A motion-shaped operation is charwise by construction: it acts
-            // over `[cursor, point)`, which is a run of characters even when
-            // that run happens to span a line break (`d}`).
-            RegisterKind::Charwise,
+            }),
         );
     }
 
@@ -3918,16 +3946,20 @@ impl EditorState {
     /// two positions distinguishes them. Only the caller knows which gesture
     /// it was. It travels to the register, and the register is what a later
     /// `p` reads to decide between splicing and opening a line.
-    fn apply_operator_over(&mut self, op: Operator, range: Range, kind: RegisterKind) {
-        let range = range.normalized();
-        if range.is_empty() {
+    fn apply_operator_over(&mut self, op: Operator, extent: Extent) {
+        let Extent {
+            capture,
+            removal,
+            kind,
+        } = extent.normalized();
+        if capture.is_empty() {
             return;
         }
         // Capture the operated text (for the register) before mutating.
         let text = self
             .buffers
             .get(self.active)
-            .and_then(|buf| buf.slice(range).ok());
+            .and_then(|buf| buf.slice(capture).ok());
         if op.leaves_register() {
             if let Some(t) = &text {
                 let captured = match kind {
@@ -3940,11 +3972,29 @@ impl EditorState {
         match op {
             // Delete + Change remove the range; Change then enters Insert so
             // the operator pairs with immediate typing (`ciw`, `c$`).
+            //
+            // They remove DIFFERENT ranges for a linewise extent, which is the
+            // whole reason `Extent` carries two: `dd` takes the line and its
+            // terminator, `cc` clears the line's text and KEEPS the line,
+            // because you are changing its contents rather than removing it.
+            // Both leave the same thing in the register.
             Operator::Delete | Operator::Change => {
-                if let Some(buf) = self.buffers.get_mut(self.active) {
-                    let _ = buf.apply(&Edit::delete(range));
+                let cut = if op == Operator::Change {
+                    removal
+                } else {
+                    capture
+                };
+                if cut.is_empty() {
+                    // `cc` on an already-empty line: nothing to clear, but the
+                    // gesture still means "type here".
+                    self.rest_after_operator(kind, cut.start);
+                    self.modal.enter(Mode::Insert);
+                    return;
                 }
-                self.rest_after_operator(kind, range.start);
+                if let Some(buf) = self.buffers.get_mut(self.active) {
+                    let _ = buf.apply(&Edit::delete(cut));
+                }
+                self.rest_after_operator(kind, cut.start);
                 if op == Operator::Change {
                     self.modal.enter(Mode::Insert);
                 }
@@ -3964,16 +4014,16 @@ impl EditorState {
             Operator::Yank => {
                 let here = self.cursor();
                 match kind {
-                    RegisterKind::Linewise if range.start.line < here.line => {
+                    RegisterKind::Linewise if capture.start.line < here.line => {
                         // Keep the column: a backwards linewise yank rests on
                         // the first line taken, not at its margin.
-                        self.set_cursor(Position::new(range.start.line, here.column));
+                        self.set_cursor(Position::new(capture.start.line, here.column));
                     }
                     RegisterKind::Charwise
-                        if (range.start.line, range.start.column)
+                        if (capture.start.line, capture.start.column)
                             < (here.line, here.column) =>
                     {
-                        self.set_cursor(range.start);
+                        self.set_cursor(capture.start);
                     }
                     _ => {}
                 }
@@ -4056,12 +4106,18 @@ impl EditorState {
             return;
         }
         let end_line = here.line.saturating_add(joins).min(last);
-        let mut joined = buf.line(here.line).unwrap_or_default().to_string();
+        // `Buffer::line` INCLUDES the trailing newline and `line_len_chars`
+        // excludes it — a mismatch that made the first cut of this splice the
+        // terminators back in and then leave the originals behind, so `J`
+        // produced the file unchanged plus a blank line. `line_chars` is the
+        // newline-free reading every motion already uses.
+        let line_text = |l: u32| line_chars(buf, l).into_iter().collect::<String>();
+        let mut joined = line_text(here.line);
         // Where the cursor lands: vim puts it ON the join — the position the
         // newline used to occupy, which is the space it inserted.
         let mut caret = u32::try_from(joined.chars().count()).unwrap_or(0);
         for l in (here.line + 1)..=end_line {
-            let next = buf.line(l).unwrap_or_default().to_string();
+            let next = line_text(l);
             caret = u32::try_from(joined.chars().count()).unwrap_or(0);
             if space {
                 let trimmed = next.trim_start();
@@ -4723,6 +4779,68 @@ enum CursorRest {
     OnCharacter,
     /// Where the next character goes — never pulled back.
     AtInsertPoint,
+}
+
+/// What an operator acts over — a CAPTURE range, a REMOVAL range, and the
+/// kind they were resolved as.
+///
+/// Two ranges because for a linewise extent they genuinely differ, and every
+/// attempt to derive one from the other re-decides which branch produced it:
+///
+///   - `dd` removes the line AND its terminator; `cc` clears the line's text
+///     and KEEPS the line, because you are changing its contents rather than
+///     removing it. Same lines, same register content, different cut.
+///   - On the last line of a file with no trailing newline the removal has to
+///     swallow the PRECEDING newline (there is none following), so it starts
+///     on a different LINE than the extent names.
+///
+/// Charwise extents have `capture == removal`, which is why the old
+/// single-range signature was right for everything except the linewise change
+/// and wrong there — `cc` deleted the line.
+#[derive(Clone, Copy, Debug)]
+struct Extent {
+    /// What goes in the register, and what a delete removes.
+    capture: Range,
+    /// What a CHANGE removes. Equal to `capture` unless the kind is linewise.
+    removal: Range,
+    kind: RegisterKind,
+}
+
+impl Extent {
+    /// A run of characters: one range, both roles.
+    const fn charwise(r: Range) -> Self {
+        Self {
+            capture: r,
+            removal: r,
+            kind: RegisterKind::Charwise,
+        }
+    }
+
+    /// An extent resolved by a text object, keyed on what the object says it
+    /// is. The linewise case needs the explicit constructor below, so this is
+    /// the charwise-or-nothing door.
+    fn from_object(r: Range, kind: RegisterKind) -> Self {
+        match kind {
+            RegisterKind::Charwise => Self::charwise(r),
+            // A caller that has only a range cannot supply the text-only
+            // removal, so the two coincide — which is the pre-`cc` behaviour
+            // and is correct for every linewise object except a change. The
+            // `Line` object goes through `line_extent` instead.
+            RegisterKind::Linewise => Self {
+                capture: r,
+                removal: r,
+                kind,
+            },
+        }
+    }
+
+    fn normalized(self) -> Self {
+        Self {
+            capture: self.capture.normalized(),
+            removal: self.removal.normalized(),
+            kind: self.kind,
+        }
+    }
 }
 
 /// Normalize a linewise capture: newline-TERMINATED, never newline-LED.

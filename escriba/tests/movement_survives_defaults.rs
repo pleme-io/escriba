@@ -182,6 +182,107 @@ fn the_put_keys_survive_too() {
     }
 }
 
+/// The single-key edit verbs.
+///
+/// Five of them are keymap entries over `Action::ApplyOperator` — they ARE the
+/// compositions vim spells shorter — so losing one to a caixa loses a key that
+/// LOOKS like it should be core. `x` and `s` in particular are short,
+/// unmodified, and exactly what a picker or git caixa reaches for.
+#[test]
+fn the_edit_verbs_survive_too() {
+    use escriba_core::{Motion, Operator, TextObject};
+    let km = shipped_keymap();
+    let expected: &[(char, Action)] = &[
+        (
+            'x',
+            Action::ApplyOperator {
+                op: Operator::Delete,
+                motion: Motion::Right,
+            },
+        ),
+        (
+            'X',
+            Action::ApplyOperator {
+                op: Operator::Delete,
+                motion: Motion::Left,
+            },
+        ),
+        (
+            'D',
+            Action::ApplyOperator {
+                op: Operator::Delete,
+                motion: Motion::LineEnd,
+            },
+        ),
+        (
+            'C',
+            Action::ApplyOperator {
+                op: Operator::Change,
+                motion: Motion::LineEnd,
+            },
+        ),
+        // neovim's `Y` (= `y$`), not classic vim's (= `yy`). See the keymap.
+        (
+            'Y',
+            Action::ApplyOperator {
+                op: Operator::Yank,
+                motion: Motion::LineEnd,
+            },
+        ),
+        (
+            's',
+            Action::ApplyOperator {
+                op: Operator::Change,
+                motion: Motion::Right,
+            },
+        ),
+        (
+            'S',
+            Action::ApplyOperatorObject {
+                op: Operator::Change,
+                object: TextObject::Line,
+            },
+        ),
+        ('J', Action::JoinLines { space: true }),
+    ];
+    let mut lost = Vec::new();
+    for (c, want) in expected {
+        let found = km
+            .entries_sorted()
+            .into_iter()
+            .find(|(m, k, _)| **m == Mode::Normal && **k == Key::Char(*c))
+            .map(|(_, _, b)| b.action.clone());
+        if found.as_ref() != Some(want) {
+            lost.push(format!("`{c}` → {found:?} (wanted {want:?})"));
+        }
+    }
+    assert!(
+        lost.is_empty(),
+        "a bundled caixa took an edit verb out of the shipped build:\n  {}",
+        lost.join("\n  "),
+    );
+}
+
+/// `r` must stay UNBOUND, and that is a REQUIREMENT rather than an oversight.
+///
+/// Its operand is a key claimed above the keymap (`consume_replace_key`), so a
+/// binding on `r` is a table entry no keypress can reach — it reads as
+/// configured and behaves as absent. Exactly the trap `f`/`t`/`T` documented,
+/// asserted here so a caixa cannot quietly re-create it.
+#[test]
+fn the_replace_key_stays_unbound() {
+    let km = shipped_keymap();
+    let found = km
+        .entries_sorted()
+        .into_iter()
+        .find(|(m, k, _)| **m == Mode::Normal && **k == Key::Char('r'))
+        .map(|(_, _, b)| b.action.clone());
+    assert_eq!(
+        found, None,
+        "`r` is bound in the shipped build; its operand capture makes that unreachable",
+    );
+}
+
 /// The `g`-prefixed motions, which live in the SEQUENCE table rather than the
 /// single-key one — a different lookup, so a different way to lose them.
 #[test]
