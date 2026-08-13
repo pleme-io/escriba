@@ -153,14 +153,74 @@ It is also a real cost: escriba's render path will read a `PaneSnapshot` per
 frame rather than borrowing a grid. Whether that is affordable at 60fps for a
 full-screen pane is **unmeasured** and is M0's first benchmark.
 
-**(b) mado has NOT rebased.** `mado/src/terminal.rs:6113` still carries its own
-`impl vte::Perform for Terminal`. tear-core's "M5" is pending. So *today* the
-fleet has two authoritative grids, and escriba joining tear-core means escriba
-reaches the shared substrate **before mado does**. That is fine — it is in fact
-the argument for doing it — but it must not be described as "escriba uses
-mado's terminal". It does not. It uses the terminal mado is going to use.
+**(b) mado runs BOTH grids, and the rebase is further along than it looks.**
+
+The first draft of this section said "mado has NOT rebased" on the evidence of
+`mado/src/terminal.rs:6113` still carrying its own `impl vte::Perform`. That is
+true and it was too flat. Read further:
+
+- `mado/src/gui_tear_attach.rs` (~1000 lines) attaches mado's GPU face to
+  `tear_core::InProcess`, and its own comment describes the split as *"mado's
+  GUI (input, VT answers, mouse clamps) and tear's PaneGrid+PTY"*.
+- `mado/src/auto_attach.rs` boots `Arc<tear_core::InProcess>` directly.
+- Per-keystroke DECCKM is read through the typed
+  `MultiplexerControl::pane_cursor_keys_mode` accessor — *"no-alloc on the
+  `InProcess` backend"* — so someone has already been down the
+  per-frame-cost road far enough to add a typed accessor rather than snapshot.
+
+**So `tear-core`'s grid already has a GPU face.** escriba would NOT be its
+first GPU consumer, which was the largest risk this document claimed. The read
+path has a working precedent in `gui_tear_attach.rs` to copy rather than
+invent.
+
+What is still true: mado's own `terminal.rs` parser is still live and still
+fed (`parser.advance(self, …)`), so there ARE two grids in mado today — the
+attach path and the standalone path. tear's `espelho_conformance.rs` refers to
+a *"shuken flip"* after which *"mado has no parser"*; no `shuken` symbol
+appears anywhere in `mado/src`, so that flip is **named but not landed**, and
+that doc line should not be read as describing today.
 
 ---
+
+## 3.5 Which terminal tech — the decision, with the alternatives
+
+**Answer: `tear-core`.** Not on doctrine — on the measurement in §3.1/§3.4.
+
+| Option | Verdict | Why |
+|---|---|---|
+| **`tear-core`** | **take it** | 3253 lines; truecolor SGR, alt screen, DECSTBM, DECSC/DECRC, scrollback, the DEC mode set, and `unicode_width` double-width handled properly (width 0/1/2 with continuation cells and an explicit note about the advance-by-width rule). It is a published library, `#![forbid(unsafe_code)]`, driven by a daemon AND by a GPU face already. It is also the named gravitational center both apps are meant to converge on |
+| `alacritty_terminal` | only if M0.1 fails | the strongest *external* option and the de-facto Rust embedding choice. Two costs: it is a foreign idiom needing a typed wrapper before any application code touches it, and adopting it gives the fleet a **third** authoritative grid — the exact outcome this document exists to prevent |
+| `wezterm-term` | no | capable, but wezterm's crates are versioned and shaped around its own app rather than for independent consumption |
+| `vt100` | no | too thin. No alt-screen fidelity, so `vim` or `less` in a pane is not a target it aims at |
+| `libvterm` (what neovim embeds) | no | a C dependency, against the stack law, and buying nothing we do not already have in Rust |
+| mado's `terminal.rs` | **not available** | 13,453 lines inside a **bin**, behind a `[lib]` that says "do not widen this surface ad hoc". See §2 |
+
+**What `tear-core` deliberately lacks, and whether it matters here.** Its
+module doc scopes out kitty graphics, sixel rendering, OSC 8 hyperlinks,
+sync-output (mode 2026) and IME bracketed paste — those *"stay in mado's
+terminal.rs for now"*. The grid frames APC and accumulates sixel DCS so neither
+can corrupt it; it just does not draw them. For an editor's terminal pane —
+a shell, a test runner, a REPL, `git` — that list is close to entirely
+irrelevant. Inline images in an editor split are a want, not a need, and if one
+becomes a need it is a contribution to `tear-core`, not a reason to adopt a
+second grid.
+
+**The one gap that does matter: `HostRole`.** The default is `Relay`, which
+answers **no** VT queries — DSR, CPR, DA1, DA2 all fall through. tear can do
+this (`HostRole::Host` answers all four) but does not by default, because in a
+multiplexer the downstream terminal is the host. escriba's doma pane has no
+downstream terminal, so **escriba is the host** and must set the role. Missing
+this looks like a program hanging on a query that never gets answered. Named
+here so M2 sets it deliberately.
+
+**The single thing that would change this answer** is M0.1: if a per-frame
+`pane_snapshot()` cannot hold frame rate on a full-screen pane and the sealed
+`pub(crate)` surface will not yield a borrowing or diffing read path. Even then
+the move is to **fix `tear-core`** — a borrow is a missing primitive, not a
+wall, and `gui_tear_attach.rs` shows the precedent of adding a typed accessor
+(`pane_cursor_keys_mode`, "no-alloc on the `InProcess` backend") rather than
+snapshotting. Adopting `alacritty_terminal` to dodge a missing accessor would
+be the path-of-least-resistance sin with a third grid attached.
 
 ## 4. Naming
 
@@ -375,7 +435,9 @@ document exists to avoid. Revisit after M5.
 
 | Item | Tier | Note |
 |---|---|---|
-| `tear-core` PTY + `PaneGrid` + `InProcess` | **shipped** | but its production consumer is `tear-daemon` (headless). escriba would be the **first GPU consumer** — unproven at frame rates |
+| `tear-core` PTY + `PaneGrid` + `InProcess` | **shipped** | 3253 lines. Truecolor SGR, alt screen, DECSTBM, DECSC/DECRC, scrollback, the mode set, and proper `unicode_width` double-width handling. **Already has a GPU face** via `mado/src/gui_tear_attach.rs` — escriba is not the first |
+| Kitty graphics / sixel render / OSC 8 hyperlinks / sync-output 2026 / IME paste | **absent from `tear-core` by design** | its module doc says these *"stay in mado's terminal.rs for now"*. The grid frames APC and accumulates sixel DCS so they cannot corrupt it, but does not render them. Nearly all irrelevant to an editor pane; name it if one becomes relevant |
+| VT query answers (DSR/CPR/DA1/DA2) | **gated on `HostRole`** | default is `Relay`, which answers **nothing**. A doma pane running something that queries needs `HostRole::Host` or an answer from escriba. Not a wall — a typed field — but it must be set deliberately |
 | `MultiplexerControl` verb set | **shipped** | ~25 methods, covers everything escriba needs |
 | `garasu::TextLayerStack` multi-layer | **shipped** | doc explicitly names "terminal grid" as the case |
 | `escriba_ui::shikiri` container tree | **shipped** | wired; leaf is buffer-typed |
@@ -386,7 +448,7 @@ document exists to avoid. Revisit after M5.
 | `escriba-doma` + `DomaEnvironment` | **design** | zero code |
 | `(defdoma …)` | **design** | mechanical given the derive |
 | Theme seam reaching the grid | **extend-existing** | both ends resolve through `ishou_tokens` already |
-| mado rebased onto `tear-core` | **not started** | tear-core's own "M5"; `terminal.rs:6113` still owns a `vte::Perform` |
+| mado rebased onto `tear-core` | **partial** | `gui_tear_attach.rs` + `auto_attach.rs` are real; `terminal.rs`'s own parser is still live and fed. The "shuken flip" that removes it is named in tear's docs and has no symbol in `mado/src` |
 | escriba-as-mado's-editor | **aspirational** | nothing measured |
 
 `pending-doma: M0-measurement` · `pending-denrei: streaming-freight`
@@ -403,8 +465,14 @@ Stated so no one builds on it:
 - I did not read `Runner`'s full trait shape, so "a runner may post N parcels"
   is inference from `Courier`'s channel, not a proof.
 - I did not check whether `tear-core`'s `InProcess` can be driven without a
-  daemon socket in-process end to end; `inproc.rs`'s doc says yes and the type
-  is `Arc`-shaped for it, but I did not construct one.
+  daemon socket in-process end to end; `inproc.rs`'s doc says yes, the type is
+  `Arc`-shaped for it, and `mado/src/auto_attach.rs` constructs one — but I
+  did not construct one myself.
+- I did not read `gui_tear_attach.rs` end to end, so "the read path has a
+  working precedent to copy" is based on its module docs and its
+  `MultiplexerControl` call sites, not on a full read.
+- I did not benchmark `alacritty_terminal` against `tear-core`, so §3.5's
+  verdict rests on completeness and fleet-convergence, not on speed.
 - I did not audit how many call sites read `Window::buffer_id`, so "the
   largest mechanical change" is a judgement, not a count.
 - The escriba backlog doc (`docs/backlog-plan.md`) is stale in at least two
