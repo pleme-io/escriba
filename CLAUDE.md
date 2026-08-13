@@ -807,23 +807,42 @@ emoji in a comment. `zahyou` keeps `Position` and `CharPosition` as distinct
 types so that mistake is a compile error; a red-run confirms the pass-through
 version reddens exactly one test and leaves eight green.
 
-### The blocker is escriba's, not LSP's
+### The blocker was escriba's, not LSP's — and it is GONE
 
-**A live server cannot be pumped into the editor yet, because there is no async
-delivery path into the runtime at all.** `escriba-runtime` has **no `tokio`
-dependency**, and `Negai::Errand(_)` — the intent that would carry an
-asynchronous result back — is announced-but-unimplemented, waiting on the
-courier (Phase 5). Its arm in `apply` says so in as many words.
+**CORRECTED 2026-08-13.** This section said, for as long as it existed, that
+*"a live server cannot be pumped into the editor yet, because there is no async
+delivery path into the runtime at all"*, that `Negai::Errand(_)` was
+*"announced-but-unimplemented, waiting on the courier (Phase 5)"*, and that the
+remaining work *was* the courier.
 
-So the remaining work is *the courier*, and building a bespoke async channel
-just for LSP would be exactly the duplicated-primitive move the compounding
-directive forbids: the courier is the thing that should carry this, DAP, the
-formatter and the test runner. When it lands, the LSP pump is small — own a
+**The courier has landed.** `escriba-runtime/src/courier.rs` is `denrei` (伝令)
+shipped: one `std::sync::mpsc` channel, a hired `Crew`, an errand counter, and
+per-class cancel flags. `Negai::Errand(freight)` dispatches through it
+(`escriba-runtime/src/lib.rs`), and `Negai::ErrandReply` applies replies gated
+on `shirube::Anchor` freshness rather than on a second epoch authority.
+
+The *no-`tokio`* half of the old claim is still true and is a DECISION, not a
+gap — the courier is threads and channels, and `escriba-runtime` still has no
+tokio dependency. Read that as "escriba does async without an async runtime",
+not as "escriba cannot do async".
+
+So the LSP pump is now the small thing it was always going to be: own a
 `Connection`, classify incoming notifications, `to_findings`, emit
-`Negai::PublishFindings { list: "diagnostics", .. }`. Every piece of that except
-the channel is already written and tested.
+`Negai::PublishFindings { list: "diagnostics", .. }`. Every piece of that is
+already written and tested — including, now, the channel.
 
-`pending-lsp: live-pump — blocked on the Phase 5 courier`
+**What is genuinely left is a SHAPE question, not a missing primitive.**
+`Freight` is a closed three-variant enum and `Crew` a fixed three-runner
+struct, both built for ONE-SHOT request→reply errands, with cancellation kept
+*"newest per class"*. A language server is a long-lived, unsolicited producer
+and there may be several. Whether that wants a fourth `Freight` variant, a
+streaming freight class, or per-errand cancellation is the same fork
+[`docs/doma.md` §6](./docs/doma.md) hits from the terminal side — and the
+terminal is the better forcing function, because LSP can be faked with polling
+and a PTY cannot.
+
+`pending-lsp: live-pump — courier SHIPPED; remaining work is the streaming /
+per-errand-cancel shape (see docs/doma.md §6)`
 
 ## Architecture
 
@@ -902,6 +921,33 @@ domain.
 row to `catalog_bundle::BUNDLED` + `cargo test --test plugin_matrix`. The
 substrate emits the caixa.lisp, the entry, and the flake mechanically.
 
+## Embedding a terminal — `doma` (土間)
+
+**[`docs/doma.md`](./docs/doma.md)** is the destination-first plan for making a
+terminal a first-class citizen of escriba's pane tree. Status: **DESIGN, zero
+code.** Three things from it worth knowing before anyone reaches for this:
+
+- **You cannot embed mado, and should not want to.** mado is a BIN; its `[lib]`
+  exposes only `motion` + `float` and says "do not widen this surface ad hoc".
+  The world-fact underneath is that a terminal is a PTY + a VT grid + a pane
+  registry — and the fleet ships all three as libraries in **`tear-core`**
+  (`PaneGrid`, `Cell`, `PaneSnapshot`, `InProcess: MultiplexerControl`).
+  tear-core's own doc names mado's rebase onto it as the destination; escriba
+  joining is the same move, so the end state is ONE authoritative grid with
+  three faces. Today there are two — `mado/src/terminal.rs` still owns its own
+  `impl vte::Perform`.
+- **The typed hole is one field.** `shikiri::Window { buffer_id: BufferId }` —
+  a leaf IS a buffer, so a terminal pane is unrepresentable rather than merely
+  unimplemented. `Nakami` (中身, "the contents") closes it, and every other gap
+  is downstream.
+- **`garasu::TextLayerStack` already supports N independent text layers and its
+  doc names "terminal grid" as the motivating case**, so sharing one GPU device
+  between the editor surface and a terminal grid is the DESIGNED shape rather
+  than a hope. Unmeasured, though — as is the per-frame cost of
+  `pane_snapshot()`, which is M0.1 and gates the read path's shape.
+
+`pending-doma: M0-measurement`
+
 ## Implementation plan for the backlog
 
 **[`docs/backlog-plan.md`](./docs/backlog-plan.md)** is the ordered plan for
@@ -911,9 +957,19 @@ the next piece safer, not by what is cheapest.
 
 Three things from it that change how you should read the rest of this file:
 
-- **The backlog is 5 missing primitives, not 22 subsystems.** `madoguchi` 窓口
+- **The backlog was 5 missing primitives, not 22 subsystems** — `madoguchi` 窓口
   (dispatch seam), `shirube` 標 (located findings), `kasane` 重ね (floating
   surfaces), `shikiri` 仕切り (container tree), `denrei` 伝令 (the courier).
+  **CORRECTED 2026-08-13: only `kasane` is still missing.** `madoguchi`,
+  `shirube`, `shikiri` and `denrei` are all shipped crates/modules today
+  (`escriba-madoguchi`, `escriba-shirube`, `escriba-ui/src/shikiri.rs` —
+  516 lines, wired into `Layout` and `:sp`/`:vsp` — and
+  `escriba-runtime/src/courier.rs`). The picker landed too
+  (`escriba-ui/src/picker.rs` over `egaku::FuzzyPicker`), which the next
+  bullet still lists as future work. **Re-read `docs/backlog-plan.md` against
+  source before planning from it**; it has not been re-audited since these
+  landed, and this file's own LSP section was stale in the same direction (see
+  the correction above).
 - **CORRECTED 2026-08-08 — "two of them land upstream in `egaku`" was FALSE.**
   `egaku::Modal` is a struct of `visible: bool` + `title: String`; `SplitPane`
   is exactly two panes and a ratio. Neither is a base for `kasane` or
