@@ -748,7 +748,9 @@ fn plugins_dir() -> PathBuf {
     // `path` is the infallible arm: it falls back to an absolute temp dir when
     // there is no home to resolve against, rather than inventing a relative
     // one. `for_app` already contributes the `escriba` segment.
-    okiba::Okiba::for_app("escriba").path(okiba::Tier::Data, "plugins")
+    okiba::Okiba::for_app("escriba")
+        .path(okiba::Tier::Data, "plugins")
+        .into_path_buf()
 }
 
 /// Map an `escriba-lisp` `PluginSpec` (the lazy.nvim-shaped `defplugin`)
