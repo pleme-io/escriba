@@ -555,14 +555,84 @@ asserting cursor AND register AND text, because a wrong register KIND is
 invisible to any one of the three alone).
 
 **Still not done:** named registers (`"ay`), the numbered ring
-(`"0`…`"9`), the system clipboard (that is a *paste*, a different verb
-over a different source — `hasami`, not this register, which is why
-`Action::Put` is not called `Paste`), `x`/`X`/`D`/`C`/`Y`/`s`/`S`/`J`/`r`
-(none of them bound), and `cc` still deletes the line rather than
-clearing it in place the way vim does. `2diw` also still repeats rather
-than absorbing — the same over-count-a-yank defect, waiting on a general
-"resolve this object n times"; `absorbs_count` names the gap rather than
-half-fixing it.
+(`"0`…`"9`), and the system clipboard — that last one is a *paste*, a
+different verb over a different source (`hasami`, not this register),
+which is why `Action::Put` is not called `Paste`. `2diw` also still
+repeats rather than absorbing — the same over-count-a-yank defect,
+waiting on a general "resolve this object n times"; `absorbs_count` names
+the gap rather than half-fixing it.
+
+## The single-key edit verbs (2026-08-13, landed)
+
+`x X D C Y s S J gJ r` — the keys that turn the operators into an editor
+you can actually type in. Pinned in
+`escriba-runtime/tests/edit_verbs.rs` (39 tests).
+
+**Five of the nine are pure keymap entries and ZERO new executor code**,
+because they ARE operator-over-motion compositions that vim spells
+shorter: `x`=`dl`, `X`=`dh`, `D`=`d$`, `C`=`c$`, `s`=`cl`, `S`=`cc`.
+Binding them to the composed `Action::ApplyOperator` rather than giving
+each its own variant is what makes counts, register capture, the linewise
+cursor rule and dot-repeat all arrive for free and stay in step with the
+long spelling forever — `edit_verbs.rs` asserts `x == dl` and `D == d$`
+directly, because a divergence between a shortcut and its expansion goes
+unnoticed until someone reaches for one of them in an edge case.
+
+**The one prerequisite was clamping `Motion::Right` to its line.**
+Unclamped, `dl` on an EMPTY line crossed the terminator, so `x` there
+would have joined the next line on — a delete key that silently joins.
+The cursor path was unaffected (`place_cursor` was already pulling `l`
+back onto the last character), which is exactly why nothing had noticed.
+
+**`Y` is `y$`, not `yy`.** The one key where vim and neovim actively
+disagree — classic vim makes `Y` a synonym for `yy`, neovim ≥0.6 makes it
+`y$`. escriba's default mirrors blnvim, which is neovim. Stated out loud
+in the keymap and pinned in a test, because a silent choice here is a
+trap for whichever half of the world guesses the other way.
+
+**`cc`/`S` are fixed, and that needed a type.** A linewise CHANGE clears
+the line's text and KEEPS the line — you are changing its contents, not
+removing it — while a linewise DELETE takes the terminator too. Both
+leave the same thing in the register. One `Range` cannot say that, so
+`Extent` carries a **capture** range and a **removal** range plus the
+kind. It also cleans up the older split: on the last line of a file with
+no trailing newline the removal has to swallow the PRECEDING newline, so
+it starts on a different LINE than the extent names, and every attempt to
+derive one range from the other re-decides which branch produced it.
+Charwise extents have `capture == removal`, which is why the old
+single-range signature was right everywhere except here.
+
+**`r` and `J` are the two with real executors, and both matter more for
+what they REFUSE.** `5rx` on a three-character tail does *nothing* —
+vim's rule, because a partial replace silently destroys characters you
+did not name. `J` on the last line reports E36 rather than no-op:
+a key that quietly does nothing is indistinguishable from an unbound one,
+which is how `<C-h>` hid for a month. `J` also drops the next line's
+indent and inserts one space, with vim's two exceptions (the line already
+ends in whitespace; the next line starts with `)`); `gJ` splices verbatim
+and exists precisely because `J` is lossy. A counted `J` is one
+`Edit::replace` over the whole span, so `3J` is one `u`.
+
+**`r` must stay UNBOUND, and that is a requirement rather than an
+oversight.** Its operand is a KEY — `rw` must not read as `r` then *move
+a word*, `ri` must not enter Insert — so `consume_replace_key` claims it
+above the keymap, the same place `f`'s character and `` ` ``'s mark
+letter are claimed. A binding on `r` would be a table entry no keypress
+can reach: reads as configured, behaves as absent. `dr` is the one case
+needing care — `r` is unbound, so it resolves to `Action::Pending`, and
+the FSM deliberately lets a stray `Pending` leave an operator armed (for
+multi-key sequences). Falling through would have left `d` armed and made
+the next motion delete, so the capture cancels the operator explicitly.
+
+**What wiring it surfaced — a FOURTH `<C-h>`-class shadowing.**
+`escriba-leap` bound `s`/`S` (leap.nvim's own upstream choice, known to
+be controversial there), so both core substitute verbs were dead in the
+shipped build while every unit test stayed green. Same call as
+`<S-h>`/`<S-l>`, `-` and `<C-h>` before it: leap is not wired, so it
+traded two working edit verbs for two dead keys. Moved to
+`<leader>s`/`<leader>S`. `movement_survives_defaults.rs` now gates the
+edit verbs too, and separately asserts that `r` is **still unbound** —
+so a caixa cannot quietly re-create the unreachable-binding trap either.
 
 ## Insert mode could be typed into but not corrected (2026-08-09, fixed)
 

@@ -561,6 +561,12 @@ pub fn resolve_action(name: &str) -> (Action, bool) {
         // `hasami`. Two sources, two verbs — see `Action::Put`.
         "put-after" => (Action::Put { before: false }, false),
         "put-before" => (Action::Put { before: true }, false),
+        "join-lines" => (Action::JoinLines { space: true }, false),
+        "join-lines-verbatim" => (Action::JoinLines { space: false }, false),
+        // `r` itself is NOT authorable: its operand is a key the editor waits
+        // for, so `:action "replace-char"` would need to carry the character
+        // and would then be a different verb per character. Bind the KEY `r`
+        // and the operand capture does the rest.
 
         // ── Editor-wide actions ────────────────────────────────────
         "undo" => (Action::Undo, false),

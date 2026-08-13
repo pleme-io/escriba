@@ -412,6 +412,94 @@ impl Keymap {
             Action::Operator(Operator::Yank),
             "yank (operator)",
         );
+        // vim's single-key shortcuts for an operator-over-motion. Five keys,
+        // ZERO new executor code: they ARE those compositions, and vim simply
+        // spells them shorter. Binding them to the composed action rather than
+        // giving each its own variant is what makes `3x`, `d`-style register
+        // capture, dot-repeat and the linewise cursor rule all arrive for free
+        // and stay in step with the long spelling forever.
+        //
+        // The one prerequisite was clamping `Motion::Right` to its line —
+        // unclamped, `x` (`dl`) on an empty line crossed the terminator and
+        // joined the next line on.
+        nm(
+            &mut m,
+            Key::Char('x'),
+            Action::ApplyOperator {
+                op: Operator::Delete,
+                motion: Motion::Right,
+            },
+            "delete char under cursor",
+        );
+        nm(
+            &mut m,
+            Key::Char('X'),
+            Action::ApplyOperator {
+                op: Operator::Delete,
+                motion: Motion::Left,
+            },
+            "delete char before cursor",
+        );
+        nm(
+            &mut m,
+            Key::Char('D'),
+            Action::ApplyOperator {
+                op: Operator::Delete,
+                motion: Motion::LineEnd,
+            },
+            "delete to line end",
+        );
+        nm(
+            &mut m,
+            Key::Char('C'),
+            Action::ApplyOperator {
+                op: Operator::Change,
+                motion: Motion::LineEnd,
+            },
+            "change to line end",
+        );
+        // `Y` is the ONE key where vim and neovim actively disagree: classic
+        // vim makes it a synonym for `yy` (linewise), neovim ≥0.6 makes it
+        // `y$`. escriba's shipped default mirrors blnvim, which is neovim, so
+        // this is `y$` — stated out loud because a silent choice here is a
+        // trap for whichever half of the world guesses the other way.
+        nm(
+            &mut m,
+            Key::Char('Y'),
+            Action::ApplyOperator {
+                op: Operator::Yank,
+                motion: Motion::LineEnd,
+            },
+            "yank to line end",
+        );
+        nm(
+            &mut m,
+            Key::Char('s'),
+            Action::ApplyOperator {
+                op: Operator::Change,
+                motion: Motion::Right,
+            },
+            "substitute char",
+        );
+        nm(
+            &mut m,
+            Key::Char('S'),
+            Action::ApplyOperatorObject {
+                op: Operator::Change,
+                object: escriba_core::TextObject::Line,
+            },
+            "substitute line",
+        );
+        // `J` joins with a space and the next line's indent dropped; `gJ`
+        // splices verbatim. `r` is deliberately NOT here — its operand is a
+        // KEY, claimed before the keymap, so a binding on `r` would be a table
+        // entry no keypress can reach. See `consume_replace_key`.
+        nm(
+            &mut m,
+            Key::Char('J'),
+            Action::JoinLines { space: true },
+            "join lines",
+        );
         // The other half of every `d`/`c`/`y` above. An editor that captures
         // text and cannot put it back is a delete key with extra steps, which
         // is what escriba was until these two bindings landed.
@@ -716,6 +804,16 @@ impl Keymap {
             vec![Key::Char('g'), Key::Char('N')],
             Action::TextObject(TextObject::PrevMatch),
             "previous match (object)",
+        );
+
+        // `gJ` — join without the fixup. `J` is LOSSY (it drops the next
+        // line's indent and rewrites the newline as a space), so the escape
+        // hatch has to be a separate verb rather than a flag on the same key.
+        m.bind_sequence(
+            Mode::Normal,
+            vec![Key::Char('g'), Key::Char('J')],
+            Action::JoinLines { space: false },
+            "join lines verbatim",
         );
 
         // ── `ff` — REMOVED 2026-08-13, and this is the deciding it was
