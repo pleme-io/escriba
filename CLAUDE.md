@@ -946,6 +946,18 @@ code.** Three things from it worth knowing before anyone reaches for this:
   than a hope. Unmeasured, though — as is the per-frame cost of
   `pane_snapshot()`, which is M0.1 and gates the read path's shape.
 
+**Which terminal, and where it is going.** `doma` stands on `tear-core`
+(3,253 lines; truecolor SGR, alt screen, DECSTBM, scrollback, proper
+`unicode_width` double-width handling) — not on mado, which is a bin. Two
+things move underneath it and are worth knowing before building on either:
+`tear/docs/SHUKEN.md` decides `PaneGrid` becomes the sole VT authority with
+all three original blockers cleared, and
+[`theory/NATURALIZE-TERMINAL.md`](https://github.com/pleme-io/theory/blob/main/NATURALIZE-TERMINAL.md)
+proposes that its dispatch table be GENERATED from a typed catalog rather than
+hand-written (`masume`, design-tier, M0 green over 10 of ~1000 sequences).
+Neither changes doma's seam: escriba drives panes through
+`MultiplexerControl` either way.
+
 `pending-doma: M0-measurement`
 
 ## Implementation plan for the backlog
