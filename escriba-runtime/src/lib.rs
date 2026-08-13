@@ -164,6 +164,11 @@ pub struct EditorState {
     /// binding, and it must be claimed before the sequence stepper or `f` then
     /// `f` would resolve as the bound `ff` sequence.
     pending_find: Option<FindSpec>,
+    /// `r` was pressed and the editor is waiting for the replacement
+    /// character. Same key-layer shape as [`Self::pending_find`], and needed
+    /// for the same reason: `rw` must not read as `r` then *move a word*, and
+    /// `rr` must reach the operand branch rather than resolve as a sequence.
+    pending_replace: bool,
     /// The last resolved character search — what `;` and `,` repeat.
     last_find: Option<FindSpec>,
     /// `m`, `` ` `` or `'` was pressed and the editor is waiting for the mark
@@ -2040,6 +2045,47 @@ impl EditorState {
         Some(ObjectKey::Consumed)
     }
 
+    /// Claim the operand of a pending `r`, or arm one.
+    ///
+    /// Same key-layer shape as [`Self::consume_find_key`], down to the
+    /// mid-sequence guard: `r` is unbound in the keymap on purpose, because a
+    /// binding on it would be a table entry no keypress can reach — which
+    /// reads as configured and behaves as absent, the exact trap `f`/`t`
+    /// documented.
+    ///
+    /// It runs AFTER the find capture and before the sequence stepper, and
+    /// the relative order with find does not matter — the two arm on disjoint
+    /// keys and neither can be pending while the other is.
+    fn consume_replace_key(&mut self, key: Key) -> Option<ObjectKey> {
+        if self.pending_replace {
+            self.pending_replace = false;
+            let Key::Char(ch) = key else {
+                // Esc (or any non-printable) abandons a half-typed `r` rather
+                // than replacing with something unprintable.
+                return Some(ObjectKey::Consumed);
+            };
+            return Some(ObjectKey::Compose(Action::ReplaceChar(ch)));
+        }
+        if self.modal.mode() != Mode::Normal && self.modal.mode() != Mode::Visual {
+            return None;
+        }
+        // A key CONTINUING a sequence belongs to the sequence — the `zt` rule.
+        if !self.pending_keys.is_empty() {
+            return None;
+        }
+        // `r` is not a motion, so it must not swallow an armed operator's
+        // operand: `dr` is a typo, and vim treats it as one by cancelling.
+        // Leaving the operator armed here would make the NEXT motion delete.
+        if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
+            return None;
+        }
+        if key == Key::Char('r') {
+            self.pending_replace = true;
+            return Some(ObjectKey::Consumed);
+        }
+        None
+    }
+
     fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
         let Some(splash) = self.splash.as_ref() else {
             return SplashKey::NotShowing;
@@ -2258,6 +2304,20 @@ impl EditorState {
         // (`dfx`) and a count repeats it (`3fx`) on the one path every other
         // motion uses.
         if let Some(outcome) = self.consume_find_key(key.clone()) {
+            match outcome {
+                ObjectKey::Consumed => return,
+                ObjectKey::Compose(a) => {
+                    let count = self.modal.pending_count().unwrap_or(1);
+                    self.modal.clear_count();
+                    self.apply_counted(&a, count);
+                    return;
+                }
+            }
+        }
+        // `r` and its operand, same shape and same reason as the find above:
+        // the replacement character is not a binding. Through `apply_counted`
+        // so `3ra` replaces three characters.
+        if let Some(outcome) = self.consume_replace_key(key.clone()) {
             match outcome {
                 ObjectKey::Consumed => return,
                 ObjectKey::Compose(a) => {
@@ -3472,7 +3532,18 @@ impl EditorState {
                 buf.char_to_position(step.target.start)
             }
             Motion::Left => Position::new(pos.line, pos.column.saturating_sub(1)),
-            Motion::Right => Position::new(pos.line, pos.column.saturating_add(1)),
+            // Clamped to the line, which is what makes `x` (`dl`) safe to
+            // express as a composition. Unclamped, an operator range built
+            // over `Right` crosses the line TERMINATOR on an empty line — so
+            // `x` there would join the next line onto this one instead of
+            // doing nothing. The cursor path is unaffected: `place_cursor`
+            // was already pulling `l` back onto the last character.
+            Motion::Right => Position::new(
+                pos.line,
+                pos.column
+                    .saturating_add(1)
+                    .min(buf.line_len_chars(pos.line)),
+            ),
             Motion::Up => Position::new(pos.line.saturating_sub(1), pos.column),
             Motion::Down => Position::new(pos.line.saturating_add(1), pos.column),
             Motion::LineStart => Position::new(pos.line, 0),
