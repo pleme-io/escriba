@@ -538,6 +538,28 @@ asserting text AND register kind). Red run: neutering `is_linewise` to
 `false` — the exact prior state — reddens 12 of 13 and leaves the
 charwise control green.
 
+**Then the same silent default was found already wrong in
+`is_inclusive`.** Making it exhaustive too forced the question it had
+been quietly answering `false` to: `ge`/`gE` are vim's
+**backward-inclusive** motions, and the enum's own note on
+`Motion::WordEndPrev` had said exactly that since the day it was
+written — *"the reason `is_inclusive` cannot simply mean widen right"* —
+while `is_inclusive` left them out. So `dge` dropped the character under
+the cursor: `"foo bar baz"` at the `b` of `baz` gave `"foo babaz"` where
+vim gives `"foo baaz"`. **A warning in a doc comment is not a gate.**
+
+Adding the variants was not the fix on its own. vim's rule is *"the last
+character towards the END OF THE BUFFER is included"*, not *"the target
+is included"* — the same sentence for a forward motion, and for a
+backward one the buffer-end of the range is the **cursor**. So the
+widening flips sides, and which way the motion ran is knowable only
+after resolution: it is a fact about the press, not about the motion.
+`operated_extent` owns the split; `operated_end` kept the forward case
+and now says in as many words that it cannot express the other.
+`is_structural` is deliberately left as a `matches!` — its silent
+default (a new motion is not a paredit motion) is the correct one, and
+no bug has ever come from it.
+
 ## `dd` worked and `p` did not exist (2026-08-13, fixed)
 
 The operators captured text and the editor had **nowhere to put it back**

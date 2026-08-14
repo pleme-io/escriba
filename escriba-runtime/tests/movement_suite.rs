@@ -440,3 +440,24 @@ fn an_operator_composes_with_percent_inclusively() {
     // inclusive motion.
     assert_eq!(text_after("fn main() {\n", (0, 7), "d%"), "fn main {\n");
 }
+
+#[test]
+fn an_operator_composes_with_ge_backward_inclusively() {
+    // `ge` is vim's backward-INCLUSIVE motion, and the enum's own note on
+    // `Motion::WordEndPrev` said so from the day it was written — while
+    // `is_inclusive` (a `matches!`, so silent about anything unlisted) left it
+    // out. `dge` therefore dropped the character under the cursor:
+    // `"foo babaz"` where vim gives `"foo baaz"`.
+    //
+    // The rule vim states is "the last character towards the END OF THE BUFFER
+    // is included", not "the target is included". For a forward motion those
+    // are the same sentence. For a backward one the buffer-end of the range is
+    // the CURSOR, so the widening flips sides — which is why this could not be
+    // fixed by adding a variant to `is_inclusive` alone.
+    assert_eq!(text_after("foo bar baz", (0, 8), "dge"), "foo baaz");
+    assert_eq!(text_after("foo bar baz", (0, 8), "dgE"), "foo baaz");
+
+    // The control that says the widening went the right way: `b` is backward
+    // and EXCLUSIVE, so it must still leave the cursor's character alone.
+    assert_eq!(text_after("foo bar baz", (0, 8), "db"), "foo baz");
+}
