@@ -69,7 +69,10 @@ fn x_is_dl_and_stays_that_way() {
     // The shortcut and the long spelling must not drift — they are the same
     // action, and this is what says so.
     assert_eq!(after("abcd\n", (0, 1), "x"), after("abcd\n", (0, 1), "dl"));
-    assert_eq!(after("abcd\n", (0, 0), "3x"), after("abcd\n", (0, 0), "3dl"));
+    assert_eq!(
+        after("abcd\n", (0, 0), "3x"),
+        after("abcd\n", (0, 0), "3dl")
+    );
 }
 
 #[test]
@@ -132,7 +135,11 @@ fn shift_c_clears_to_the_end_of_the_line_and_enters_insert() {
     let mut st = editor("hello world\n", (0, 6));
     press(&mut st, "C");
     assert_eq!(text_of(&st), "hello \n");
-    assert_eq!(st.modal.mode(), escriba_core::Mode::Insert, "`C` types next");
+    assert_eq!(
+        st.modal.mode(),
+        escriba_core::Mode::Insert,
+        "`C` types next"
+    );
 }
 
 #[test]
@@ -345,7 +352,11 @@ fn r_leaves_the_cursor_on_the_character_it_wrote() {
 fn r_does_not_enter_insert() {
     let mut st = editor("abcd\n", (0, 1));
     press(&mut st, "rZ");
-    assert_eq!(st.modal.mode(), escriba_core::Mode::Normal, "`r` is not `s`");
+    assert_eq!(
+        st.modal.mode(),
+        escriba_core::Mode::Normal,
+        "`r` is not `s`"
+    );
 }
 
 #[test]

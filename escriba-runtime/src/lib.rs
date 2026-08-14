@@ -2274,62 +2274,37 @@ impl EditorState {
                 return;
             }
         }
-        // `m` / `` ` `` / `'` and their operand.
+        // ── OPERAND CAPTURE — the keys that are ARGUMENTS, not bindings ──
         //
-        // BEFORE the object path, and `` d`a `` is why: the object path
-        // claims `i` and `a` whenever an operator is armed, so it would have
-        // eaten the mark LETTER. The two do not fight over the first key —
-        // this arms only when `pending_object` is clear, so `di'` still
-        // reaches the object path — they fight over the SECOND, and whichever
-        // gesture is already half-typed must win it.
-        if let Some(outcome) = self.consume_mark_key(key.clone()) {
+        // `di(`, `fx`, `` `a ``, `rZ`: in each, the second keystroke is an
+        // operand of a half-typed gesture and must be claimed before the
+        // sequence stepper and before the keymap, or it resolves as whatever
+        // it happens to be bound to (`i` enters Insert, `w` moves a word).
+        //
+        // This was four near-identical inlined blocks. It is a TABLE now
+        // because **the order is the correctness property**, and an order that
+        // lives in the arrangement of code is protected by nothing —
+        // `operand_capture_order.rs` asserts this list, which the four blocks
+        // could not be. Each adjacency below is a real dependency, not a
+        // preference; see that test for the failure each one prevents.
+        for cap in OPERAND_CHAIN {
+            let Some(outcome) = (cap.claim)(self, key.clone()) else {
+                continue;
+            };
             match outcome {
                 ObjectKey::Consumed => return,
                 ObjectKey::Compose(a) => {
-                    let count = self.modal.pending_count().unwrap_or(1);
-                    self.modal.clear_count();
-                    self.apply_counted(&a, count);
-                    return;
-                }
-            }
-        }
-        // Operator-pending OBJECT selection runs before EVERYTHING, because
-        // `di(` must not be read as `d` then `i` (insert) then `(`.
-        if let Some(action) = self.consume_object_key(*key) {
-            match action {
-                ObjectKey::Consumed => return,
-                ObjectKey::Compose(a) => {
-                    self.apply(&a);
-                    return;
-                }
-            }
-        }
-        // `f`/`F`/`t`/`T` and their operand, for the same reason: the
-        // character searched for is not a binding. Its result goes through
-        // `apply_counted` — NOT `apply` — so a pending operator composes it
-        // (`dfx`) and a count repeats it (`3fx`) on the one path every other
-        // motion uses.
-        if let Some(outcome) = self.consume_find_key(key.clone()) {
-            match outcome {
-                ObjectKey::Consumed => return,
-                ObjectKey::Compose(a) => {
-                    let count = self.modal.pending_count().unwrap_or(1);
-                    self.modal.clear_count();
-                    self.apply_counted(&a, count);
-                    return;
-                }
-            }
-        }
-        // `r` and its operand, same shape and same reason as the find above:
-        // the replacement character is not a binding. Through `apply_counted`
-        // so `3ra` replaces three characters.
-        if let Some(outcome) = self.consume_replace_key(key.clone()) {
-            match outcome {
-                ObjectKey::Consumed => return,
-                ObjectKey::Compose(a) => {
-                    let count = self.modal.pending_count().unwrap_or(1);
-                    self.modal.clear_count();
-                    self.apply_counted(&a, count);
+                    match cap.count {
+                        // The object path applies its own repeats before
+                        // returning (`2diw`), so re-counting here would square
+                        // the count.
+                        OperandCount::SelfCounted => self.apply(&a),
+                        OperandCount::Drained => {
+                            let n = self.modal.pending_count().unwrap_or(1);
+                            self.modal.clear_count();
+                            self.apply_counted(&a, n);
+                        }
+                    }
                     return;
                 }
             }
@@ -3252,7 +3227,10 @@ impl EditorState {
                 // `dd` on line 1 and a charwise `[(1,0), (2,0))` are the same
                 // two positions.
                 Some(range) => {
-                    self.apply_operator_over(*op, Extent::from_object(range, object.register_kind()));
+                    self.apply_operator_over(
+                        *op,
+                        Extent::from_object(range, object.register_kind()),
+                    );
                 }
                 None => self.report_pattern_not_found(),
             },
@@ -4864,6 +4842,74 @@ fn as_linewise_capture(slice: &str) -> String {
         }
         None => slice.to_owned(),
     }
+}
+
+/// How a captured operand's composed action reaches the executor.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum OperandCount {
+    /// The capture already applied its own repeats; run the composed action
+    /// once. Only the object path does this (`2diw` repeats inside it).
+    SelfCounted,
+    /// Drain the pending count and hand it to `apply_counted`, so `3fx` /
+    /// `3ra` / ``3`a`` repeat on the one path every other motion uses.
+    Drained,
+}
+
+/// One step of the operand-capture chain.
+struct OperandCapture {
+    /// Stable label — what `operand_capture_order.rs` asserts against.
+    name: &'static str,
+    claim: fn(&mut EditorState, Key) -> Option<ObjectKey>,
+    count: OperandCount,
+}
+
+/// **The operand-capture chain, in the order that matters.**
+///
+/// Every adjacency is a dependency with a named failure:
+///
+/// 1. **mark before object** — the object path claims `i`/`a` whenever an
+///    operator is armed, and a mark LETTER can be either, so ``d`a`` lost its
+///    `a` to it. They do not fight over the FIRST key (the mark path arms only
+///    while `pending_object` is clear, so `di'` still reaches the object
+///    path); they fight over the SECOND, and the gesture already half-typed
+///    must win.
+/// 2. **object before find** — `di(` must not read as `d`, then `i` (insert),
+///    then a literal `(`.
+/// 3. **find before replace** — no live conflict; `f`/`t` and `r` arm on
+///    disjoint keys and neither can be pending while the other is. Ordered
+///    for stability rather than necessity, and said so rather than implying a
+///    constraint that is not there.
+/// 4. **all four before the sequence stepper and the keymap** — this is the
+///    whole point. Each capture also declines while `pending_keys` is
+///    non-empty, so a LATER key of a gesture (`zt`'s `t`) belongs to the
+///    sequence rather than arming a till-find.
+static OPERAND_CHAIN: &[OperandCapture] = &[
+    OperandCapture {
+        name: "mark",
+        claim: EditorState::consume_mark_key,
+        count: OperandCount::Drained,
+    },
+    OperandCapture {
+        name: "object",
+        claim: EditorState::consume_object_key,
+        count: OperandCount::SelfCounted,
+    },
+    OperandCapture {
+        name: "find",
+        claim: EditorState::consume_find_key,
+        count: OperandCount::Drained,
+    },
+    OperandCapture {
+        name: "replace",
+        claim: EditorState::consume_replace_key,
+        count: OperandCount::Drained,
+    },
+];
+
+/// The chain's order, for the gate in `tests/operand_capture_order.rs`.
+#[must_use]
+pub fn operand_capture_order() -> Vec<&'static str> {
+    OPERAND_CHAIN.iter().map(|c| c.name).collect()
 }
 
 /// Does this action ABSORB its count into one operation, or REPEAT?
@@ -6540,7 +6586,7 @@ mod tests {
     // ── the register under a count ───────────────────────────────────
 
     #[test]
-    fn a_counted_delete_puts_ALL_of_it_in_the_register() {
+    fn a_counted_delete_puts_all_of_it_in_the_register() {
         // `3dw` is one delete of three words as far as the register is
         // concerned. Each repetition emits its own Yank, and each used to
         // overwrite — so `3dwP` put back only the third word and silently
@@ -6790,7 +6836,11 @@ mod tests {
             motion: Motion::LineEnd,
         });
         assert_eq!(line0_len(&s), 11, "yank does not mutate the buffer");
-        assert_eq!(s.register_text(), Some("hello world"), "yank fills the register");
+        assert_eq!(
+            s.register_text(),
+            Some("hello world"),
+            "yank fills the register"
+        );
         assert_eq!(s.modal.mode(), Mode::Normal, "yank stays in Normal");
     }
 
