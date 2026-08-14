@@ -439,9 +439,10 @@ The four things the first pass named as missing are in.
   while `pending_keys` is non-empty: by then the gesture has already been
   chosen.
 
-**Ordering, which is now load-bearing in three places.** The dispatch
-order is mark → object → find → sequence → keymap, and each step is a
-real dependency rather than a convenience:
+**Ordering, which is now load-bearing in three places — and is a TABLE,
+not an arrangement of code (2026-08-14).** The dispatch order is mark →
+object → find → sequence → keymap, and each step is a real dependency
+rather than a convenience:
 
 - **mark before object**, because the object path claims `i`/`a` whenever
   an operator is armed and a mark LETTER can be either — ``d`a`` lost its
@@ -452,6 +453,19 @@ real dependency rather than a convenience:
 - **object before find**, unchanged: `di(` must not read as `d`, insert,
   `(`.
 - **both before the keymap**, and neither after the sequence stepper.
+
+Those three sentences were the ONLY thing holding the order for as long
+as the chain was four near-identical blocks inside `on_key` — a comment
+cannot fail a build, and an ordering expressed as statement sequence has
+nothing to assert against. `OPERAND_CHAIN` is the table;
+`escriba-runtime/tests/operand_capture_order.rs` asserts the list AND
+each adjacency's named failure by driving real keys. Red-run: swapping
+the first two rows fails the order assertion and ``d`a`` independently,
+while `di(` and `di'` stay green — the break is specific to the
+adjacency it names, which is what makes the file diagnostic rather than
+just red. The table's second field, `OperandCount`, states the one
+asymmetry: the object path applies its own repeats (`2diw`) so it is
+`SelfCounted`, and draining the pending count there would square it.
 
 **Where `%`'s word-pair table stands.** Six languages are declared; only
 `lua` and `sh` have a shipped `(defmode …)`, so `%` in Ruby, Bash,
@@ -470,6 +484,59 @@ edits above them (vim adjusts them; these are plain positions, clamped on
 jump), `%` over HTML/XML tags, and `ge`/`b`/`<C-w>` remain single-line by
 design — see the insert-mode note below for why widening them is not
 free.
+
+### vim has THREE motion kinds and escriba modelled two (2026-08-14, fixed)
+
+Exclusive and inclusive were both here — `Motion::is_inclusive` exists,
+`de` works, the whole `operated_end` widening was already paid for. The
+third kind, **linewise**, was simply absent, so every operator over a
+vertical motion was wrong and the whole suite stayed green through it:
+`dj` deleted ONE line, `dgg` stopped a line short of the cursor's, `dH`
+and `dL` and `d+` and `d-` all the same, and `d_` did **nothing at all**.
+
+**Two errors per gesture, and only one of them is visible.** The extent
+being a line short reads as a plausible editor. The register coming back
+`Charwise` is invisible until a later `p`, at which point `yj` then `p`
+splices two whole lines into the middle of a third. The wrong answer
+looks like an answer, which is why nobody reported it and why the
+1,421-test suite did not move by a single case when the fix landed —
+**this class had no coverage in either direction.**
+
+`Motion::is_linewise` is the classifier, and it is an exhaustive `match`
+rather than a `matches!` **on purpose**: `is_inclusive` is a `matches!`,
+so it answers `false` for every variant added after it was written, and
+that silent default is precisely how the class was born — `Down`,
+`DocEnd`, `ScreenTop` and the rest arrived as cursor motions and nobody
+was ever asked. A new `Motion` now fails to compile until classified.
+(It fired immediately: adding one variant reddened three matches across
+two crates, including `unsoku`'s.)
+
+Three shape decisions worth keeping:
+
+- **`_` is not `^`.** They land on the same character, so escriba aliased
+  them — and that made `d_` an empty exclusive range at the indent, i.e.
+  a no-op, on every press. `Motion::LinewiseDown` is a separate variant
+  because the difference is the KIND, which only an operator reads.
+  `movement_survives_defaults.rs` lists them adjacent so the "obvious
+  simplification" fails a test rather than silently returning the no-op.
+- **`unsoku` REFUSES `_` rather than answering it.** On one line it could
+  resolve identically to `^`. It returns `None` instead: answering the
+  cursor half of a motion whose operator half is unrepresentable there is
+  exactly how a caller ends up with `d_` quietly meaning `d^`.
+- **`{`/`}`/`(`/`)` stay charwise.** They *feel* linewise and are
+  exclusive in vim; classifying them linewise would make `d}` eat the
+  blank line that terminates the paragraph. Pinned as a control.
+
+The fix is one seam, not N call sites: `operated_extent(motion, from,
+to)` is now the single place that answers "what extent does this operated
+motion name", holding both the inclusive widening and the linewise
+widening, and `line_extent(n)` (from `dd`) became a caller of a
+`line_span(first, last)` that orders its arguments — `dk` reaches
+backwards over the same span `dj` reaches forwards. Pinned by
+`escriba-runtime/tests/linewise_motions.rs` (13 tests, every one
+asserting text AND register kind). Red run: neutering `is_linewise` to
+`false` — the exact prior state — reddens 12 of 13 and leaves the
+charwise control green.
 
 ## `dd` worked and `p` did not exist (2026-08-13, fixed)
 

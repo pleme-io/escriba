@@ -434,6 +434,14 @@ fn resolve_once(text: &str, at: usize, motion: Motion) -> Option<usize> {
         | Motion::ScreenBottom
         | Motion::LineDownFirstNonBlank
         | Motion::LineUpFirstNonBlank
+        // `_` lands on the same character as `^`, and on a single line
+        // unsoku could answer it identically. It refuses instead: `_` is
+        // LINEWISE, and the only thing a caller does with a linewise motion
+        // is operate over whole lines — which unsoku, holding one line and
+        // no document, cannot do. Answering the CURSOR half of a motion
+        // whose OPERATOR half is unrepresentable here is how a caller ends
+        // up with `d_` silently meaning `d^`.
+        | Motion::LinewiseDown
         // `%` needs a buffer to scan; a bracket that closes on the same line
         // is exactly the case nobody presses `%` for.
         | Motion::MatchPair
