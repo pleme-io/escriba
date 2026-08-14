@@ -3860,6 +3860,39 @@ impl EditorState {
         }
     }
 
+    /// `;` inherits the inclusiveness of the find it repeats — resolve it to
+    /// that concrete motion rather than teaching [`Motion::is_inclusive`] about
+    /// state it cannot see. `d;` after `fx` must delete THROUGH the `x`.
+    ///
+    /// Returns the motion unchanged when there is no find to repeat, so the
+    /// caller's `is_inclusive` question gets `false` rather than a wrong answer.
+    fn concrete_motion(&self, motion: Motion) -> Motion {
+        match motion {
+            Motion::RepeatFind { reverse } => match self.last_find {
+                Some(f) => Motion::FindChar {
+                    ch: f.ch,
+                    backward: f.backward != reverse,
+                    till: f.till,
+                },
+                None => motion,
+            },
+            m => m,
+        }
+    }
+
+    /// One character to the right, clamped to the line.
+    ///
+    /// The whole of what "inclusive" means to an operator: a range is
+    /// `[start, end)`, so acting ON a character means the range must end
+    /// AFTER it.
+    fn widen_one(&self, pos: Position) -> Position {
+        let line_len = self
+            .buffers
+            .get(self.active)
+            .map_or(pos.column, |b| b.line_len_chars(pos.line));
+        Position::new(pos.line, pos.column.saturating_add(1).min(line_len))
+    }
+
     /// Widen an INCLUSIVE motion's target to the exclusive end an operator
     /// range needs. See [`Motion::is_inclusive`].
     ///
@@ -3868,29 +3901,15 @@ impl EditorState {
     /// last character, and the range path, where the range must end after it.
     /// One target, two readings — putting the widening in the resolver would
     /// move `e` itself one character too far.
+    ///
+    /// **Forward motions only.** A backward-inclusive motion (`ge`) widens the
+    /// CURSOR instead, which this function cannot express because it is handed
+    /// one position; [`Self::operated_extent`] owns that split.
     fn operated_end(&self, motion: Motion, to: Position) -> Position {
-        // `;` inherits the inclusiveness of the find it repeats — resolve it
-        // to that concrete motion rather than teaching `is_inclusive` about
-        // state it cannot see. `d;` after `fx` must delete THROUGH the `x`.
-        let motion = match motion {
-            Motion::RepeatFind { reverse } => match self.last_find {
-                Some(f) => Motion::FindChar {
-                    ch: f.ch,
-                    backward: f.backward != reverse,
-                    till: f.till,
-                },
-                None => return to,
-            },
-            m => m,
-        };
-        if !motion.is_inclusive() {
+        if !self.concrete_motion(motion).is_inclusive() {
             return to;
         }
-        let line_len = self
-            .buffers
-            .get(self.active)
-            .map_or(to.column, |b| b.line_len_chars(to.line));
-        Position::new(to.line, to.column.saturating_add(1).min(line_len))
+        self.widen_one(to)
     }
 
     fn apply_operator(&mut self, op: Operator, motion: Motion) {
@@ -3938,10 +3957,29 @@ impl EditorState {
         if motion.is_linewise() {
             return self.line_span(from.line, to.line);
         }
-        Some(Extent::charwise(Range {
-            start: from,
-            end: self.operated_end(motion, to),
-        }))
+        // vim's rule for an inclusive motion is "the last character towards the
+        // END OF THE BUFFER is included" — not "the target is included". For a
+        // forward motion those are the same sentence and the distinction never
+        // shows. For a BACKWARD one (`ge`, `gE`) the buffer-end of the range is
+        // the CURSOR, so the widening flips sides: `dge` must take the
+        // character under the cursor, and widening the target instead would
+        // eat one character too far back and leave the cursor's behind.
+        //
+        // Which way the motion ran is knowable only here, after resolution —
+        // it is a fact about this press, not about the motion.
+        let inclusive = self.concrete_motion(motion).is_inclusive();
+        let range = if inclusive && to < from {
+            Range {
+                start: to,
+                end: self.widen_one(from),
+            }
+        } else {
+            Range {
+                start: from,
+                end: self.operated_end(motion, to),
+            }
+        };
+        Some(Extent::charwise(range))
     }
 
     fn apply_operator_to(&mut self, op: Operator, to: Position) {

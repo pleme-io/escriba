@@ -137,27 +137,84 @@ impl Motion {
     /// character behind — off by exactly one, on the key most likely to be
     /// used to delete a word without its trailing space.
     ///
-    /// `WordEndNext` is the only inclusive motion escriba has today. `f`/`t`/
-    /// `%` are the others in vim and are not bound yet; each lands here when
-    /// it does, which is the point of asking the MOTION rather than
-    /// special-casing `e` at the operator.
+    /// `RepeatFind` answers `false` here and that is not a classification:
+    /// whether `;` is inclusive depends on the direction of the find it
+    /// repeats, which is runtime state. The executor resolves it to the
+    /// concrete [`Motion::FindChar`] and asks THAT — so there is still exactly
+    /// one rule, applied to a known motion.
+    ///
+    /// Exhaustive `match` since 2026-08-14, for the reason
+    /// [`Self::is_linewise`] gives at length: as a `matches!` this answered
+    /// `false` for every variant added after it was written, and it had
+    /// already been wrong that way. `ge` / `gE` were **backward-inclusive**
+    /// (the enum's own note on [`Self::WordEndPrev`] said so) and unlisted, so
+    /// `dge` dropped the character under the cursor — `"foo bar baz"` at the
+    /// `b` of `baz` gave `"foo babaz"` where vim gives `"foo baaz"`.
     #[must_use]
-    /// `RepeatFind` is deliberately absent: whether `;` is inclusive depends
-    /// on the direction of the find it repeats, which is runtime state. The
-    /// executor resolves it to the concrete [`Motion::FindChar`] and asks
-    /// THAT — so there is still exactly one rule, applied to a known motion.
     pub const fn is_inclusive(self) -> bool {
-        matches!(
-            self,
+        match self {
+            // Forward-inclusive: the target character is ACTED ON.
             Self::WordEndNext
-                | Self::BigWordEndNext
-                | Self::LineLastNonBlank
-                | Self::MatchPair
-                | Self::FindChar {
-                    backward: false,
-                    ..
-                }
-        )
+            | Self::BigWordEndNext
+            | Self::LineLastNonBlank
+            | Self::MatchPair
+            // `f`/`t` only. `F`/`T` are EXCLUSIVE in vim, which is why the
+            // pattern binds `backward` rather than using `..` for both.
+            | Self::FindChar { backward: false, .. }
+            // Backward-inclusive: `ge` / `gE`. vim's rule is "the last
+            // character towards the END of the buffer is included", and for a
+            // backward motion that end is the CURSOR, not the target — so the
+            // widening flips direction. Handled at the operator, which is the
+            // only place that knows which way the motion ran.
+            | Self::WordEndPrev
+            | Self::BigWordEndPrev => true,
+
+            Self::Left
+            | Self::Right
+            | Self::Up
+            | Self::Down
+            | Self::WordStartNext
+            | Self::WordStartPrev
+            | Self::BigWordStartNext
+            | Self::BigWordStartPrev
+            | Self::LineStart
+            | Self::LineFirstNonBlank
+            // `$` is exclusive, `g_` inclusive — the whole reason they are two
+            // motions and not one plus an offset.
+            | Self::LineEnd
+            | Self::Column(_)
+            | Self::LineDownFirstNonBlank
+            | Self::LineUpFirstNonBlank
+            | Self::LinewiseDown
+            | Self::DocStart
+            | Self::DocEnd
+            | Self::GotoLine(_)
+            | Self::FindChar { backward: true, .. }
+            | Self::RepeatFind { .. }
+            | Self::MarkExact(_)
+            | Self::MarkLine(_)
+            | Self::ParagraphNext
+            | Self::ParagraphPrev
+            | Self::SentenceNext
+            | Self::SentencePrev
+            | Self::ScreenTop
+            | Self::ScreenMiddle
+            | Self::ScreenBottom
+            | Self::PageUp
+            | Self::PageDown
+            | Self::HalfPageUp
+            | Self::HalfPageDown
+            | Self::ForwardSexp
+            | Self::BackwardSexp
+            | Self::UpList
+            | Self::DownList
+            | Self::BeginningOfDefun
+            | Self::EndOfDefun
+            | Self::BeginningOfSexp
+            | Self::EndOfSexp
+            | Self::SearchNext
+            | Self::SearchPrev => false,
+        }
     }
 
     /// Does an operator over this motion act on WHOLE LINES?
