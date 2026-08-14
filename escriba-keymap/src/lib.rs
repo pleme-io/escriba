@@ -312,7 +312,14 @@ impl Keymap {
             (Key::Char('E'), Motion::BigWordEndNext, "WORD end"),
             (Key::Char('B'), Motion::BigWordStartPrev, "WORD back"),
             (Key::Char('^'), Motion::LineFirstNonBlank, "first non-blank"),
-            (Key::Char('_'), Motion::LineFirstNonBlank, "first non-blank"),
+            (
+                Key::Char('_'),
+                // NOT an alias of `^`: same landing character, different
+                // motion KIND, so `d^` deletes back to the indent and `d_`
+                // deletes the line. See `Motion::LinewiseDown`.
+                Motion::LinewiseDown,
+                "first non-blank, linewise",
+            ),
             (Key::Char('|'), Motion::Column(1), "to column"),
             (
                 Key::Char('+'),

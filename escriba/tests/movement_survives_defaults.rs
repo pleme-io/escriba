@@ -38,6 +38,11 @@ const MOTION_KEYS: &[(char, Motion)] = &[
     ('E', Motion::BigWordEndNext),
     ('0', Motion::LineStart),
     ('^', Motion::LineFirstNonBlank),
+    // `_` and `^` land on the same character and differ only in KIND — `_` is
+    // linewise, so `d_` takes the line and `d^` takes back to the indent.
+    // Listed adjacent on purpose: an "obvious simplification" that aliases
+    // them silently turns `d_` back into the no-op it was until 2026-08-14.
+    ('_', Motion::LinewiseDown),
     ('$', Motion::LineEnd),
     ('G', Motion::DocEnd),
     ('%', Motion::MatchPair),

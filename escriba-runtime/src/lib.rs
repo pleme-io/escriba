@@ -2710,8 +2710,26 @@ impl EditorState {
     /// line and its terminator, `cc`/`S` clear the line's text and keep the
     /// line. Both put the same thing in the register.
     fn line_extent(&self, n: u32) -> Option<Extent> {
-        let buf = self.buffers.get(self.active)?;
         let line = self.cursor().line;
+        self.line_span(line, line.saturating_add(n.max(1).saturating_sub(1)))
+    }
+
+    /// The linewise extent covering `first..=last`, in either order.
+    ///
+    /// Split out of [`Self::line_extent`] when linewise MOTIONS landed
+    /// (2026-08-14). `dd` names its lines by counting down from the cursor;
+    /// `dgg` and `dk` name theirs by reaching BACKWARDS to a resolved target.
+    /// Both are the same extent question, and answering it twice is how the
+    /// two would come to disagree about the trailing-newline and phantom-row
+    /// cases below — which are the whole difficulty here and were already
+    /// paid for once.
+    fn line_span(&self, first: u32, last_line: u32) -> Option<Extent> {
+        let buf = self.buffers.get(self.active)?;
+        let (line, requested_end) = if first <= last_line {
+            (first, last_line)
+        } else {
+            (last_line, first)
+        };
         let last = buf.line_count().saturating_sub(1);
         // The last line the extent reaches, clamped so `999dd` near the end of
         // a file takes what is there rather than resolving to nothing.
@@ -2723,9 +2741,7 @@ impl EditorState {
         // trailing newline instead of the line. It also makes a `dd` issued
         // FROM the phantom row resolve to an empty range (a no-op) rather than
         // to a destructive one.
-        let end = line
-            .saturating_add(n.max(1).saturating_sub(1))
-            .min(last_text_line(buf));
+        let end = requested_end.min(last_text_line(buf));
         if line > last_text_line(buf) {
             // The phantom row. There is no line here to operate on.
             return None;
@@ -3558,6 +3574,10 @@ impl EditorState {
             Motion::LineStart => Position::new(pos.line, 0),
             Motion::LineEnd => Position::new(pos.line, buf.line_len_chars(pos.line)),
             Motion::LineFirstNonBlank => first_non_blank(buf, pos.line),
+            // `_` — the same landing character as `^`, and the CURSOR path
+            // cannot tell them apart. The difference is entirely in the kind,
+            // which only an operator reads (`Motion::is_linewise`).
+            Motion::LinewiseDown => first_non_blank(buf, pos.line),
             // `g_` — the last non-blank. Inclusive, so the operator widens it;
             // the resolver names the CHARACTER, which is where `$` differs.
             Motion::LineLastNonBlank => {
@@ -3835,7 +3855,9 @@ impl EditorState {
             self.apply_operator(op, motion);
             return;
         }
-        self.apply_operator_to(op, self.operated_end(motion, to));
+        if let Some(extent) = self.operated_extent(motion, from, to) {
+            self.apply_operator_over(op, extent);
+        }
     }
 
     /// Widen an INCLUSIVE motion's target to the exclusive end an operator
@@ -3888,7 +3910,9 @@ impl EditorState {
             }
             return;
         };
-        self.apply_operator_to(op, self.operated_end(motion, to));
+        if let Some(extent) = self.operated_extent(motion, from, to) {
+            self.apply_operator_over(op, extent);
+        }
     }
 
     /// Apply `op` over `[cursor, to)`.
@@ -3897,6 +3921,29 @@ impl EditorState {
     /// reach the same range machinery with a target it resolved itself — the
     /// alternative was a second copy of the delete/yank/register logic, which
     /// is how the two would drift.
+    /// The extent an operated MOTION names — vim's three motion kinds
+    /// resolved in ONE place.
+    ///
+    /// Both motion call sites route through here rather than building an
+    /// extent themselves, because "which kind is this motion" is a property of
+    /// the motion and must have exactly one answer. It already had two rules
+    /// (`operated_end`'s inclusive widening); `is_linewise` is the third, and
+    /// a fourth lands here rather than at whichever call site notices it.
+    ///
+    /// A linewise motion that resolves to the SAME line still names that line:
+    /// `dj` on the last line is a failed motion (`resolve_motion` returns the
+    /// cursor) and vim refuses it, but `d_` and `dH`-on-the-top-line are one
+    /// whole line, which is what the caller's own emptiness check decides.
+    fn operated_extent(&self, motion: Motion, from: Position, to: Position) -> Option<Extent> {
+        if motion.is_linewise() {
+            return self.line_span(from.line, to.line);
+        }
+        Some(Extent::charwise(Range {
+            start: from,
+            end: self.operated_end(motion, to),
+        }))
+    }
+
     fn apply_operator_to(&mut self, op: Operator, to: Position) {
         let from = self.cursor();
         // A motion-shaped operation is charwise by construction: it acts over

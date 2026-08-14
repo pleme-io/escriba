@@ -43,6 +43,13 @@ pub enum Motion {
     LineDownFirstNonBlank,
     /// `-` — first non-blank of the previous line.
     LineUpFirstNonBlank,
+    /// `_` — count-1 lines downward, on the first non-blank. LINEWISE, which
+    /// is the whole reason it is not an alias of [`Self::LineFirstNonBlank`]:
+    /// `^` and `_` land the cursor on the same character, and `d^` deletes
+    /// back to the indent while `d_` deletes the whole line. Aliasing them —
+    /// which escriba did until 2026-08-14 — makes `d_` a no-op at column 0,
+    /// because the exclusive range `[cursor, first-non-blank)` is empty there.
+    LinewiseDown,
     DocStart,
     DocEnd,
     // ── character search (`f` / `F` / `t` / `T`, and `;` / `,`) ─────
@@ -151,6 +158,99 @@ impl Motion {
                     ..
                 }
         )
+    }
+
+    /// Does an operator over this motion act on WHOLE LINES?
+    ///
+    /// vim has three motion kinds, not two — exclusive, inclusive, and
+    /// **linewise** — and escriba modelled only the first two until
+    /// 2026-08-14. The consequence was a whole silently-wrong class rather
+    /// than one bad key: `dj` deleted one line instead of two, `dgg` stopped a
+    /// line short, and every one of them left a **charwise** register, so
+    /// `yjp` spliced two lines into the middle of a third instead of opening
+    /// lines below. The text was plausible and the register kind was invisible
+    /// until a later put, which is why nothing caught it.
+    ///
+    /// Written as an exhaustive `match` rather than [`matches!`] **on purpose**
+    /// — and that is the load-bearing difference from [`Self::is_inclusive`],
+    /// which is a `matches!` and therefore answers `false` for any variant
+    /// added after it was written. That silent default is exactly how this
+    /// class was born: `Down`, `DocEnd`, `ScreenTop` and the rest arrived as
+    /// cursor motions, and nobody was ever asked whether they were linewise.
+    /// Here a new [`Motion`] fails to compile until it is classified, so the
+    /// question cannot be skipped a second time.
+    #[must_use]
+    pub const fn is_linewise(self) -> bool {
+        match self {
+            // `j` `k` — the pair the class is most often noticed through.
+            Self::Up
+            | Self::Down
+            // `gg` `G` `{n}G`.
+            | Self::DocStart
+            | Self::DocEnd
+            | Self::GotoLine(_)
+            // `H` `M` `L`.
+            | Self::ScreenTop
+            | Self::ScreenMiddle
+            | Self::ScreenBottom
+            // `+` `<CR>` `-` `_`.
+            | Self::LineDownFirstNonBlank
+            | Self::LineUpFirstNonBlank
+            | Self::LinewiseDown
+            // `'a`. Its sibling `` `a `` is exclusive — two spellings, two
+            // motions, which is why they are two variants.
+            | Self::MarkLine(_)
+            // `<C-f>` `<C-b>` `<C-d>` `<C-u>`. vim does not accept these in
+            // operator-pending at all, so there is no vim answer to copy —
+            // but escriba DOES bind them as motions, so `d<C-d>` resolves to
+            // something either way. Whole lines is the only defensible
+            // reading of an operated half-page; charwise ends mid-line at
+            // whatever column the cursor happened to hold.
+            | Self::PageUp
+            | Self::PageDown
+            | Self::HalfPageUp
+            | Self::HalfPageDown => true,
+
+            // Charwise — exclusive or inclusive, decided by `is_inclusive`.
+            Self::Left
+            | Self::Right
+            | Self::WordStartNext
+            | Self::WordEndNext
+            | Self::WordStartPrev
+            | Self::WordEndPrev
+            | Self::BigWordStartNext
+            | Self::BigWordEndNext
+            | Self::BigWordStartPrev
+            | Self::BigWordEndPrev
+            | Self::LineStart
+            // `^` — the exclusive sibling of `_` above.
+            | Self::LineFirstNonBlank
+            | Self::LineLastNonBlank
+            | Self::LineEnd
+            | Self::Column(_)
+            | Self::FindChar { .. }
+            | Self::RepeatFind { .. }
+            | Self::MatchPair
+            | Self::MarkExact(_)
+            // `{` `}` `(` `)` are EXCLUSIVE in vim, not linewise — a
+            // reasonable-sounding guess that would make `d}` eat the blank
+            // line terminating the paragraph.
+            | Self::ParagraphNext
+            | Self::ParagraphPrev
+            | Self::SentenceNext
+            | Self::SentencePrev
+            | Self::ForwardSexp
+            | Self::BackwardSexp
+            | Self::UpList
+            | Self::DownList
+            | Self::BeginningOfDefun
+            | Self::EndOfDefun
+            | Self::BeginningOfSexp
+            | Self::EndOfSexp
+            // `d/foo<CR>` and `dn` are exclusive charwise in vim.
+            | Self::SearchNext
+            | Self::SearchPrev => false,
+        }
     }
 
     #[must_use]
