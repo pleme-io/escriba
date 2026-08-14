@@ -121,7 +121,11 @@ fn dd_on_the_last_line_of_a_file_with_no_trailing_newline_still_removes_it() {
 fn dd_on_the_only_line_clears_it_and_keeps_the_line() {
     let mut st = editor("solo\n", (0, 2));
     press(&mut st, "dd");
-    assert!(text_of(&st).is_empty() || text_of(&st) == "\n", "{:?}", text_of(&st));
+    assert!(
+        text_of(&st).is_empty() || text_of(&st) == "\n",
+        "{:?}",
+        text_of(&st)
+    );
     assert_eq!(st.cursor(), Position::new(0, 0));
 }
 
@@ -308,7 +312,10 @@ fn a_counted_charwise_put_repeats_the_text() {
 fn a_put_with_an_empty_register_does_nothing() {
     // And in particular does not record a no-op change for `.` to replay.
     let mut st = editor("alpha\n", (0, 2));
-    assert!(st.register().is_none(), "precondition: nothing captured yet");
+    assert!(
+        st.register().is_none(),
+        "precondition: nothing captured yet"
+    );
     press(&mut st, "p");
     assert_eq!(text_of(&st), "alpha\n");
     assert_eq!(st.cursor(), Position::new(0, 2));
