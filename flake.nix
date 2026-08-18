@@ -271,7 +271,27 @@
             };
           };
         };
-        escriba = project.workspaceMembers.escriba.build;
+        escribaUnwrapped = project.workspaceMembers.escriba.build;
+
+        # ── The Linux GUI wrap ──────────────────────────────────────────
+        # escriba ships TWO binaries: `escriba` (ANSI TextRenderer) and
+        # `escriba-gpu` (escriba-render's gpu::GpuRenderer). On Linux the GPU
+        # one dlopens libvulkan / libwayland / libxkbcommon / libX11 at
+        # startup, and NOTHING in this flake put them on the runtime path — so
+        # escriba's GPU mode was undeliverable on Linux by PACKAGING, not by
+        # circumstance. Measured 2026-08-18: this flake had zero hits for
+        # wrapProgram / LD_LIBRARY_PATH / vulkan-loader / libxkbcommon, while
+        # mado (the only fleet GUI app that ran on Linux) had nine.
+        #
+        # substrate's eframe kit owns the canonical library list, so this wraps
+        # rather than re-listing it — there is exactly one linuxRuntimeLibs in
+        # the fleet and this is not a second copy of it. Identity on darwin.
+        eframe = import "${substrate}/lib/build/rust/eframe.nix" { inherit pkgs; };
+        escriba = eframe.mkLinuxGuiWrapper {
+          package = escribaUnwrapped;
+          name = "escriba-linux-gui";
+          mainProgram = "escriba";
+        };
       in {
         packages = { inherit escriba; default = escriba; };
         apps.default = { type = "app"; program = "${escriba}/bin/escriba"; };
