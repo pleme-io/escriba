@@ -29,7 +29,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.84"
+version = "0.1.85"
 edition = "2024"
 rust-version = "1.89.0"
 license = "MIT"
@@ -38,26 +38,26 @@ authors = ["pleme-io"]
 
 [workspace.dependencies]
 # Workspace-internal — path deps.
-escriba-core    = { path = "escriba-core", version = "0.1.84" }
-escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.84" }
-escriba-shirube = { path = "escriba-shirube", version = "0.1.84" }
-escriba-buffer  = { path = "escriba-buffer", version = "0.1.84" }
-escriba-config  = { path = "escriba-config", version = "0.1.84" }
-escriba-mode    = { path = "escriba-mode", version = "0.1.84" }
-escriba-memori  = { path = "escriba-memori", version = "0.1.84" }
-escriba-search  = { path = "escriba-search", version = "0.1.84" }
-escriba-keymap  = { path = "escriba-keymap", version = "0.1.84" }
-escriba-command = { path = "escriba-command", version = "0.1.84" }
-escriba-api     = { path = "escriba-api", version = "0.1.84" }
-escriba-spec    = { path = "escriba-spec", version = "0.1.84" }
-escriba-ui      = { path = "escriba-ui", version = "0.1.84" }
-escriba-render  = { path = "escriba-render", version = "0.1.84" }
-escriba-plugin  = { path = "escriba-plugin", version = "0.1.84" }
-escriba-vm      = { path = "escriba-vm", version = "0.1.84" }
-escriba-input   = { path = "escriba-input", version = "0.1.1" }
-escriba-runtime = { path = "escriba-runtime", version = "0.1.1" }
-escriba-ts      = { path = "escriba-ts", version = "0.1.1" }
-escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.1" }
+escriba-core    = { path = "escriba-core", version = "0.1.85" }
+escriba-madoguchi = { path = "escriba-madoguchi", version = "0.1.85" }
+escriba-shirube = { path = "escriba-shirube", version = "0.1.85" }
+escriba-buffer  = { path = "escriba-buffer", version = "0.1.85" }
+escriba-config  = { path = "escriba-config", version = "0.1.85" }
+escriba-mode    = { path = "escriba-mode", version = "0.1.85" }
+escriba-memori  = { path = "escriba-memori", version = "0.1.85" }
+escriba-search  = { path = "escriba-search", version = "0.1.85" }
+escriba-keymap  = { path = "escriba-keymap", version = "0.1.85" }
+escriba-command = { path = "escriba-command", version = "0.1.85" }
+escriba-api     = { path = "escriba-api", version = "0.1.85" }
+escriba-spec    = { path = "escriba-spec", version = "0.1.85" }
+escriba-ui      = { path = "escriba-ui", version = "0.1.85" }
+escriba-render  = { path = "escriba-render", version = "0.1.85" }
+escriba-plugin  = { path = "escriba-plugin", version = "0.1.85" }
+escriba-vm      = { path = "escriba-vm", version = "0.1.85" }
+escriba-input   = { path = "escriba-input", version = "0.1.85" }
+escriba-runtime = { path = "escriba-runtime", version = "0.1.85" }
+escriba-ts      = { path = "escriba-ts", version = "0.1.85" }
+escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.85" }
 # hikari (光) — the fleet syntax-highlighting spine (crates.io, zero-dep).
 # escriba-render consumes hikari-core (spine + incremental LineCache);
 # escriba-ts re-exports hikari-token::Semantic (the deduped fleet vocabulary).
@@ -73,9 +73,9 @@ hikari-ts       = "0.1"
 # afternoon, and the UTF-16 rule is the kind that looks right until someone's
 # file has an emoji in it. See zahyou's CLAUDE.md for the measured red-run.
 zahyou          = { version = "0.1", features = ["serde"] }
-escriba-mcp     = { path = "escriba-mcp", version = "0.1.1" }
-escriba-tui     = { path = "escriba-tui", version = "0.1.1" }
-escriba-lisp    = { path = "escriba-lisp", version = "0.1.84" }
+escriba-mcp     = { path = "escriba-mcp", version = "0.1.85" }
+escriba-tui     = { path = "escriba-tui", version = "0.1.85" }
+escriba-lisp    = { path = "escriba-lisp", version = "0.1.85" }
 
 # Third-party.
 serde            = { version = "1", features = ["derive"] }
@@ -136,7 +136,7 @@ shikumi            = "0.1"
 # The fleet Mealy-machine-with-effects primitive — escriba-runtime's
 # operator-pending FSM stands on it (3rd consumer after bolso + gaveta).
 zenmai             = "0.0"
-unsoku             = { path = "unsoku", version = "0.1.84" }
+unsoku             = { path = "unsoku", version = "0.1.85" }
 
 # Testing.
 pretty_assertions = "1"
