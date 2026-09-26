@@ -128,7 +128,7 @@ tatara-lisp-eval   = "0.3.3"
 garasu             = "0.1"
 madori             = "0.1"
 ishou-tokens       = { version = "0.1", features = ["wgpu"] }
-awase              = "0.1"
+awase              = "0.1.8"  # 0.1.8: awase::Reserved (escriba-keymap uses it)
 hayai              = "0.1"
 irodori            = "0.1"
 mojiban            = "0.1"
