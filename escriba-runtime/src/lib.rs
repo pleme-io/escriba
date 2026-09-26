@@ -6207,6 +6207,31 @@ mod tests {
         );
     }
 
+    #[test]
+    fn esc_abandons_a_half_typed_operator_and_its_count() {
+        // `d<Esc>w` is a word MOTION in vim, not a delete, and `3<Esc>j`
+        // moves one line. Esc is unbound in Normal, so it resolves to
+        // `Pending` — which the operator machine deliberately lets leave an
+        // operator armed (for sequence keys). The next motion then deleted.
+        let mut st = new_state_with("one two\nthree\nfour\nfive\n");
+        st.on_key(&Key::Char('d'));
+        st.on_key(&Key::Esc);
+        assert_eq!(*st.key_pipeline().op_state(), OpState::Resting);
+        st.on_key(&Key::Char('w'));
+        let got = st
+            .buffers
+            .get(st.active)
+            .map(escriba_buffer::Buffer::to_string)
+            .unwrap_or_default();
+        assert_eq!(got, "one two\nthree\nfour\nfive\n", "nothing was deleted");
+        assert_eq!(st.cursor(), Position::new(0, 4), "`w` ran as a motion");
+
+        st.on_key(&Key::Char('3'));
+        st.on_key(&Key::Esc);
+        st.on_key(&Key::Char('j'));
+        assert_eq!(st.cursor().line, 1, "the count died with the Esc");
+    }
+
     // ── the register under a count ───────────────────────────────────
 
     #[test]

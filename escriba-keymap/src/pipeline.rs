@@ -364,12 +364,28 @@ impl KeyPipeline {
             SeqStep::Passthrough => {}
         }
         let counted = self.keymap.dispatch(modal, key);
-        // Count prefixes accumulate into modal state.
         if matches!(counted.action, Action::Pending) {
-            if let Key::Char(c) = key
-                && let Some(d) = c.to_digit(10)
-            {
-                modal.append_count(d);
+            match key {
+                // Count prefixes accumulate into modal state.
+                Key::Char(c) => {
+                    if let Some(d) = c.to_digit(10) {
+                        modal.append_count(d);
+                    }
+                }
+                // An UNBOUND Esc (Normal has nothing to leave) abandons the
+                // half-typed command, as vim's does: operator and count. The
+                // operator machine cannot do this itself — `Pending` must not
+                // disarm it, or a sequence key after `d` (`dgg`) would cancel
+                // the operator. So the KEY decides, here. A bound Esc (every
+                // other mode, or an rc binding) never reaches this arm; the
+                // machine already treats its action as a cancel.
+                Key::Esc => {
+                    if self.operator_armed() {
+                        self.disarm();
+                    }
+                    modal.clear_count();
+                }
+                _ => {}
             }
             return Vec::new();
         }
@@ -870,6 +886,32 @@ mod tests {
             type_keys(&mut p, &mut m, "10j"),
             vec![(Action::Move(Motion::Down), 10)]
         );
+    }
+
+    #[test]
+    fn esc_cancels_a_half_typed_operator_and_its_count() {
+        let (mut p, mut m) = (KeyPipeline::default_vim(), normal());
+        type_keys(&mut p, &mut m, "3d");
+        assert!(p.is_pending());
+        assert!(p.feed(&mut m, &Key::Esc).is_empty(), "Esc is dropped");
+        assert!(!p.is_pending());
+        // A following motion is a bare motion, not a delete.
+        assert_eq!(
+            p.feed(&mut m, &Key::Char('w')),
+            vec![(Action::Move(Motion::WordStartNext), 1)]
+        );
+        type_keys(&mut p, &mut m, "5");
+        p.feed(&mut m, &Key::Esc);
+        assert_eq!(m.pending_count(), None, "a bare count dies with Esc too");
+    }
+
+    #[test]
+    fn a_sequence_key_after_an_operator_keeps_it_armed() {
+        // The reason Esc is decided at the KEY layer: `g` resolves to
+        // `Pending` mid-`dgg` and must not disarm the `d`.
+        let (mut p, mut m) = (KeyPipeline::default_vim(), normal());
+        type_keys(&mut p, &mut m, "dg");
+        assert!(matches!(p.op_state(), OpState::Awaiting { .. }));
     }
 
     #[test]
