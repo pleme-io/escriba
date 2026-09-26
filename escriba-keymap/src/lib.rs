@@ -9,6 +9,9 @@ use escriba_core::{
     Action, CountedAction, InsertAt, Mode, Motion, Operator, TextObject, ViewAlign,
 };
 use escriba_mode::ModalState;
+
+pub mod pipeline;
+pub use pipeline::{FindSpec, KeyPipeline, operand_capture_order};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -305,7 +308,7 @@ impl Keymap {
         //
         // `f`/`F`/`t`/`T` are NOT here: their operand is the next keystroke,
         // so the runtime claims them before the keymap is consulted (see
-        // `EditorState::consume_find_key`). `;`/`,` ARE here — they carry no
+        // `KeyPipeline::claim_find`). `;`/`,` ARE here — they carry no
         // operand, only a direction.
         for (key, motion, label) in [
             (Key::Char('W'), Motion::BigWordStartNext, "WORD forward"),
@@ -500,7 +503,7 @@ impl Keymap {
         // `J` joins with a space and the next line's indent dropped; `gJ`
         // splices verbatim. `r` is deliberately NOT here — its operand is a
         // KEY, claimed before the keymap, so a binding on `r` would be a table
-        // entry no keypress can reach. See `consume_replace_key`.
+        // entry no keypress can reach. See `KeyPipeline::claim_replace`.
         nm(
             &mut m,
             Key::Char('J'),
@@ -556,7 +559,7 @@ impl Keymap {
         // Binding bare `a` and `i` is safe DESPITE the text objects (`daw`,
         // `di(`) that also begin with them, and the reason is worth stating
         // because it is the one thing that makes this table correct: the
-        // runtime's `consume_object_key` runs BEFORE the sequence stepper and
+        // key pipeline's `claim_object` runs BEFORE the sequence stepper and
         // before this table, and claims `i`/`a` only while an operator is
         // armed (`escriba-runtime`, `OpState::Awaiting`). With nothing pending
         // they fall through to here. `escriba-keymap`'s own "single bindings

@@ -1,5 +1,24 @@
 # escriba
 
+## The vim key layer is a library — `escriba_keymap::KeyPipeline` (2026-09-26)
+
+Keys → actions is ONE implementation, in `escriba-keymap/src/pipeline.rs`,
+shared by every app that speaks vim keys (arnes first, frost later). It owns
+the keymap, `pending_keys`, the four operand captures (`OPERAND_CHAIN`:
+mark → object → find → replace), `last_find` (`;`/`,` memory) and the
+`zenmai` operator-pending machine. It never touches text; mode changes come
+back as actions; the count prefix stays in `ModalState`.
+
+- `feed(modal, key)` — fully composed `(Action, count)` steps. Most hosts.
+- `resolve_key` + `compose` — the same thing in two halves. `EditorState`
+  uses these because it vetoes an uncompilable `d/pattern<CR>` BEFORE the
+  operator machine, and because non-key actions (splash, picker, lisp) must
+  meet the same machine — every `apply_counted` goes through `compose`.
+- `EditorState` reaches it through `keymap()` / `keymap_mut()` /
+  `pending_keys()` / `key_pipeline()`; the old `keymap` and `pending_keys`
+  FIELDS are gone. Picker, splash and the key-repeat gate stay in the
+  runtime — they are app concerns, not vim.
+
 ## Start screen — `(defsplash …)` (2026-08-07, shipped)
 
 `escriba` with no file argument opens on a start screen: the wordmark,
@@ -225,7 +244,7 @@ not to count nesting for quotes.
 `i` is `ChangeMode(Insert)` in Normal and `a` and every bracket are
 UNBOUND, so all of them reach the operator FSM as `Action::Pending` with
 the character already discarded — `di(` is undecidable from actions. One
-`Option<bool>` read before sequence resolution (`consume_object_key`)
+`Option<bool>` read before sequence resolution (`KeyPipeline::claim_object`)
 does what vim's operator-pending keymap does. It must run before
 everything, or `di(` reads as `d` → `i` (insert) → literal `(`.
 
@@ -345,9 +364,9 @@ motion becomes an edit.
 
 Four things are worth knowing before touching this:
 
-- **`f`'s operand is a KEY, not a binding**, so `consume_find_key` claims
+- **`f`'s operand is a KEY, not a binding**, so `KeyPipeline::claim_find` claims
   it before the sequence stepper and before the keymap — exactly where
-  `consume_object_key` claims `di(`. Otherwise `fw` reads as `f` then
+  `KeyPipeline::claim_object` claims `di(`. Otherwise `fw` reads as `f` then
   *move a word* and `fi` enters Insert. The consequence is that
   `f`/`F`/`t`/`T` must stay UNBOUND: a binding on one of them is a table
   entry no keypress can reach, which reads as configured and behaves as
@@ -457,7 +476,7 @@ rather than a convenience:
 Those three sentences were the ONLY thing holding the order for as long
 as the chain was four near-identical blocks inside `on_key` — a comment
 cannot fail a build, and an ordering expressed as statement sequence has
-nothing to assert against. `OPERAND_CHAIN` is the table;
+nothing to assert against. `OPERAND_CHAIN` (now in `escriba-keymap/src/pipeline.rs`) is the table;
 `escriba-runtime/tests/operand_capture_order.rs` asserts the list AND
 each adjacency's named failure by driving real keys. Red-run: swapping
 the first two rows fails the order assertion and ``d`a`` independently,
@@ -704,7 +723,7 @@ and exists precisely because `J` is lossy. A counted `J` is one
 
 **`r` must stay UNBOUND, and that is a requirement rather than an
 oversight.** Its operand is a KEY — `rw` must not read as `r` then *move
-a word*, `ri` must not enter Insert — so `consume_replace_key` claims it
+a word*, `ri` must not enter Insert — so `KeyPipeline::claim_replace` claims it
 above the keymap, the same place `f`'s character and `` ` ``'s mark
 letter are claimed. A binding on `r` would be a table entry no keypress
 can reach: reads as configured, behaves as absent. `dr` is the one case

@@ -120,7 +120,7 @@ fn ctrl_w_navigates_between_panes() {
         "#,
     )
     .expect("bindings parse");
-    escriba_lisp::apply_plan_to_keymap(&plan, &mut st.keymap);
+    escriba_lisp::apply_plan_to_keymap(&plan, st.keymap_mut());
     ex(&mut st, "window.vsplit");
     let after_split = st.layout.active();
     // <C-w>l — the new window went LEFT (vim's splitright=off), so the

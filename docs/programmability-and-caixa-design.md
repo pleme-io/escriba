@@ -170,7 +170,7 @@ because its `shikumi` `lisp` feature is off.
 - **2026-06-14 — Wave 1 multi-key/leader DONE:** keymap gains a sequence
   table + leader (`,`); `apply.rs` binds sequences (`<leader>ff`, `gg`)
   via `parse_key_sequence` instead of deferring; runtime drives a
-  pending-stroke state machine (`pending_keys` + `step_sequence`). Bundled
+  pending-stroke state machine (`KeyPipeline`'s `pending_keys` + `step_sequence`, `escriba-keymap/src/pipeline.rs`). Bundled
   defaults' 18 leader binds now live (24/24 keybinds applied). Tests:
   keymap +3, apply +2, runtime +4, integration +1 (leader→command).
 - **2026-06-14 — Wave 1 keystone DONE:** `apply_plan_to_commands` wires

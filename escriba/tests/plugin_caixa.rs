@@ -42,11 +42,14 @@ fn plugin_caixa_loads_and_applies_entry() {
     let plan = escriba_lisp::apply_source(&plugin.entry_src).expect("parse plugin entry");
     escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
     escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
-    escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
 
     // The paredit plugin's keybind + command + option all landed.
     assert!(
-        state.keymap.lookup(Mode::Normal, &Key::Alt('f')).is_some(),
+        state
+            .keymap()
+            .lookup(Mode::Normal, &Key::Alt('f'))
+            .is_some(),
         "paredit <A-f> (forward-sexp) should be bound",
     );
     assert!(

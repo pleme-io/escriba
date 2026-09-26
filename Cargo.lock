@@ -877,6 +877,7 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror 2.0.19",
+ "zenmai",
 ]
 
 [[package]]
@@ -1022,7 +1023,6 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "tempfile",
- "zenmai",
 ]
 
 [[package]]

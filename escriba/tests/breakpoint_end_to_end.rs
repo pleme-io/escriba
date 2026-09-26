@@ -39,9 +39,9 @@ fn shipped_editor() -> EditorState {
     if let Some(v) = state.options.get("mapleader")
         && let Some(k) = escriba_lisp::parse_leader_key(v)
     {
-        state.keymap.set_leader(k);
+        state.keymap_mut().set_leader(k);
     }
-    let _ = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    let _ = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
     state.dismiss_splash();
     state
 }
@@ -85,7 +85,7 @@ fn the_shipped_leader_db_paints_a_breakpoint_on_the_cursors_line() {
     // `d` extends it, `b` resolves `<leader>db`.
     st.on_key(&Key::Char(','));
     assert_eq!(
-        st.pending_keys,
+        st.pending_keys(),
         vec![Key::Char(',')],
         "the leader must be HELD, not dispatched — if `,` resolved on its own \
          the rest of this test would be measuring a different key",
@@ -93,9 +93,9 @@ fn the_shipped_leader_db_paints_a_breakpoint_on_the_cursors_line() {
     st.on_key(&Key::Char('d'));
     st.on_key(&Key::Char('b'));
     assert!(
-        st.pending_keys.is_empty(),
+        st.pending_keys().is_empty(),
         "the sequence must have resolved: {:?}",
-        st.pending_keys,
+        st.pending_keys(),
     );
 
     let after = gutter_rows(&st);

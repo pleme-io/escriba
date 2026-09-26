@@ -40,7 +40,7 @@ fn editor() -> EditorState {
 /// that skipped the keyboard would have skipped the bug.
 fn press_command(st: &mut EditorState, name: &str) {
     let key = Key::Char('\u{1}'); // an unbound control char: collides with nothing
-    st.keymap.bind(
+    st.keymap_mut().bind(
         Mode::Normal,
         key.clone(),
         Action::Command {

@@ -434,7 +434,7 @@ pub fn run() -> Result<()> {
     // goes out carrying `language: None`, which the runner declines in
     // silence. See `EditorState::diagnose_open_buffers`.
     state.diagnose_open_buffers();
-    let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    let report = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
     tracing::info!(
         "plan applied: {}; keymap={}; {}; {}; filetypes={ft_count}",
         plan.summary(),
@@ -461,11 +461,11 @@ pub fn run() -> Result<()> {
     // `Displaced` stays at debug: overriding a default is ordinary and often
     // deliberate. `Reserved` is not.
     let fatal: Vec<String> = state
-        .keymap
+        .keymap()
         .fatal_collisions()
         .map(escriba_keymap::Collision::report)
         .collect();
-    for c in state.keymap.collisions() {
+    for c in state.keymap().collisions() {
         if !c.is_fatal() {
             tracing::debug!("keymap: {}", c.report());
         }
@@ -682,7 +682,7 @@ fn init_tracing() {
 fn apply_leader_option(state: &mut EditorState) {
     if let Some(value) = state.options.get("mapleader") {
         match escriba_lisp::parse_leader_key(value) {
-            Some(key) => state.keymap.set_leader(key),
+            Some(key) => state.keymap_mut().set_leader(key),
             None => tracing::warn!(
                 "rc: mapleader value {value:?} is not a parseable key — keeping default leader"
             ),
@@ -703,7 +703,7 @@ fn activate_plugin(
     let cmd = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
     let opt = escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
     apply_leader_option(state);
-    let km = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    let km = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
     Ok(format!(
         "commands +{} keybinds +{} (sequences {}) options +{}",
         cmd.registered, km.keybinds_applied, km.keybinds_sequences, opt.set,
@@ -1161,7 +1161,7 @@ fn print_wiring_status(plan: &escriba_lisp::ApplyPlan) {
     let cmd_report = escriba_lisp::apply_plan_to_commands(plan, &mut state.commands);
     let opt_report = escriba_lisp::apply_plan_to_options(plan, &mut state.options);
     apply_leader_option(&mut state);
-    let km_report = escriba_lisp::apply_plan_to_keymap(plan, &mut state.keymap);
+    let km_report = escriba_lisp::apply_plan_to_keymap(plan, state.keymap_mut());
 
     println!();
     println!("⚙ wiring status (def-form → live EditorState)");
@@ -1321,16 +1321,20 @@ mod leader_tests {
         let mut s = state();
         s.options.insert("mapleader".into(), "<space>".into());
         apply_leader_option(&mut s);
-        assert_eq!(s.keymap.leader(), &Key::Char(' '));
+        assert_eq!(s.keymap().leader(), &Key::Char(' '));
     }
 
     #[test]
     fn apply_leader_option_keeps_default_on_unparseable() {
         let mut s = state();
-        let before = s.keymap.leader().clone();
+        let before = s.keymap().leader().clone();
         s.options.insert("mapleader".into(), "totally-bogus".into());
         apply_leader_option(&mut s);
-        assert_eq!(s.keymap.leader(), &before, "bogus mapleader keeps default");
+        assert_eq!(
+            s.keymap().leader(),
+            &before,
+            "bogus mapleader keeps default"
+        );
     }
 
     #[test]
@@ -1345,7 +1349,7 @@ mod leader_tests {
         escriba_lisp::apply_plan_to_options(&plan, &mut s.options);
         apply_leader_option(&mut s);
         assert_eq!(
-            s.keymap.leader(),
+            s.keymap().leader(),
             &Key::Char(','),
             "bundled mapleader=',' must resolve to the comma leader (blnvim parity)",
         );

@@ -223,7 +223,7 @@ pub enum Action {
     ///
     /// Carries the replacement rather than reading it from pending state, so
     /// the action is self-contained and `.` can replay it. The KEY that
-    /// supplies it is captured at the key layer (`consume_replace_key`),
+    /// supplies it is captured at the key layer (`KeyPipeline::claim_replace`),
     /// the same place `f`'s operand and `` ` ``'s mark letter are: `rw` must
     /// not read as `r` then *move a word*.
     ///

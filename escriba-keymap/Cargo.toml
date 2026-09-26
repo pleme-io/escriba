@@ -18,6 +18,9 @@ awase = { workspace = true }
 escriba-search = { workspace = true }
 escriba-core = { workspace = true }
 escriba-mode = { workspace = true }
+# The operator-pending machine's runner — `pipeline::KeyPipeline` owns the
+# `zenmai::Stateful<OperatorPending>` that used to live in escriba-runtime.
+zenmai       = { workspace = true }
 serde        = { workspace = true }
 schemars     = { workspace = true }
 thiserror    = { workspace = true }

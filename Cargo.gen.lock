@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "b3728599b0fdf8105dbb6f2b86842b05b4ee3e6bca1165682ffb08ffbfc624fd",
+  "cargo_lock_sha256": "c6c3e2c69ba01f3db101a6812532f611c932ab897e96bce9c7cbaf743b17f61f",
   "manifest_sha256": {
     "Cargo.toml": "3350b901650d5742aacfafa904f9bcdc6cdf35c76a3eb6e98167032c06a3f401",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -9,7 +9,7 @@
     "escriba-config/Cargo.toml": "bdc9806373b84e894d974130b1d4c766d003274f77404decb6f27bcb90529408",
     "escriba-core/Cargo.toml": "dd1b4ac9a371a6559ac0da2564c754ab2c88f66333dac8f88462942670d8087d",
     "escriba-input/Cargo.toml": "094ebecd5e7dd044c6895c2bef01151aa01fb841cce7c97e1a5acffe516cef3e",
-    "escriba-keymap/Cargo.toml": "a5877214f5022ca454a4a1b5d3724b47cb9b0636654dd40d6a5098fe63655b5f",
+    "escriba-keymap/Cargo.toml": "7dadde9ae275315c83daef9e5b12486fe8f2f62200eba2906c50f95072ee0cf4",
     "escriba-lisp/Cargo.toml": "4fda5e439d93cdf7949b5a8e8cf976dc7f13bb0ce57deba1d0a6c2080c66c0c5",
     "escriba-lsp-client/Cargo.toml": "c23b100242c02d39636ec6010bd25bae6e2d8c520a39d4f43da447b6d673eedd",
     "escriba-madoguchi/Cargo.toml": "578eb9dd6643ae3fa40da101c77b743aea3f0e13d493935b7c033bab9f3212b8",
@@ -18,7 +18,7 @@
     "escriba-mode/Cargo.toml": "f7d2075326cbb61d7792887fc06cdb9ab9425c04b70158003f7e92d9a0a16d0d",
     "escriba-plugin/Cargo.toml": "cec2d70d3abe6eef0685bc38551cdbfa0b9056e91ede7fe2dd139177467dbc38",
     "escriba-render/Cargo.toml": "c3488e5d2da4d36e7c591e21f94eb421cef08512ca27e197bc40288a80172673",
-    "escriba-runtime/Cargo.toml": "54959b4c1c907984f7add6e7246c87ec9016960fe98c52e38e4f0b2ad74555e1",
+    "escriba-runtime/Cargo.toml": "8e3d9ad52c7f70143864e7a282b39223d991fbf3528b67aad0495694e00b65c9",
     "escriba-search/Cargo.toml": "840b30efc8b5a826cd50c6b09ef7e6b60a94ca6b7e8e13a2f6d931f054b0ac65",
     "escriba-shirube/Cargo.toml": "e60f6f1678653b7a5750505e7297841758f7416ffbf5a7a9c6c4eda225fb1104",
     "escriba-spec/Cargo.toml": "0be1ccb6ebbed311f0dc7176e8aa043c7ed6dbcf3fc6b6ceb7e598b168e5141e",
@@ -2192,6 +2192,16 @@
             "optional": false,
             "target": null,
             "tree": "target"
+          },
+          {
+            "name": "zenmai",
+            "package_key": "zenmai-0.0.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
           }
         ],
         "build_dependencies": [],
@@ -3111,16 +3121,6 @@
             "features": [
               "derive"
             ],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "zenmai",
-            "package_key": "zenmai-0.0.2",
-            "kind": "normal",
-            "features": [],
             "uses_default_features": true,
             "optional": false,
             "target": null,

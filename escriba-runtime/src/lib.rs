@@ -26,13 +26,11 @@ pub mod status;
 /// gain.
 pub use escriba_mode::{OpState, OperatorPending};
 
-/// What one key meant to the operator-pending object layer.
-enum ObjectKey {
-    /// Swallowed — the key began an object and nothing runs yet.
-    Consumed,
-    /// The object is complete; run this.
-    Compose(Action),
-}
+/// The vim key layer lives in [`escriba_keymap::pipeline`] — one
+/// implementation every app drives. Re-exported so the gate in
+/// `tests/operand_capture_order.rs` keeps its spelling.
+pub use escriba_keymap::{FindSpec, KeyPipeline, operand_capture_order};
+
 pub use status::{PromptKind, StatusModel};
 
 use std::collections::HashMap;
@@ -47,7 +45,7 @@ use escriba_core::{
     WindowId,
 };
 use escriba_input::{InputOutcome, translate_app_event};
-use escriba_keymap::{Key, Keymap};
+use escriba_keymap::{Key, KeyPipeline as Keys, Keymap};
 use escriba_madoguchi::{Negai, Outcome};
 use escriba_mode::ModalState;
 use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
@@ -67,7 +65,6 @@ pub struct EditorState {
     /// prompt and history. Owns no buffer or cursor; it answers questions
     /// about text and this runtime applies the answers.
     pub search: SearchState,
-    pub keymap: Keymap,
     pub commands: CommandRegistry,
     pub layout: Layout,
     pub active: BufferId,
@@ -114,12 +111,6 @@ pub struct EditorState {
     /// persists across calls, giving REPL-like session semantics (an
     /// earlier `(define …)` is visible to a later `run_lisp`).
     lisp_vm: Option<EscribaVm>,
-    /// Keys accumulated for an in-progress multi-key sequence — e.g.
-    /// holding `[,, f]` while waiting for the final key of
-    /// `<leader>ff`. Empty when not mid-sequence. Lives on
-    /// `EditorState` (not `ModalState`) so `escriba-mode` needn't
-    /// depend on `escriba-keymap`'s `Key`.
-    pub pending_keys: Vec<Key>,
     /// Per-key debouncer for OS key-repeat storms. Holding `j`/`l` makes
     /// the windowing system deliver one `KeyDown` per repeat tick
     /// (~30-50ms); without a gate those flood the motion path and thrash
@@ -144,36 +135,15 @@ pub struct EditorState {
     /// after `dd` guess, and the only guess available is the wrong one —
     /// splicing a whole line into the middle of another.
     register: Option<Register>,
-    /// The operator-pending FSM (`d`/`c`/`y` then a motion → `dw`/`c$`/`y0`),
-    /// standing on the fleet `zenmai` Mealy-machine primitive. Every dispatched
-    /// action passes through it; only an operator-then-motion pair is rewritten
-    /// into an [`Action::ApplyOperator`].
-    op_pending: zenmai::Stateful<OperatorPending>,
-    /// Operator-pending OBJECT selection, held at the KEY layer.
+    /// The vim KEY LAYER — keymap, multi-key sequences, the operand captures
+    /// (`di(`, `fx`, `` `a ``, `rZ`), `;`/`,` memory and the operator-pending
+    /// machine. One implementation, in [`escriba_keymap::pipeline`], shared
+    /// with every other app that speaks vim keys; this editor is a host of it.
     ///
-    /// `Some(around)` means `d` + `i`/`a` have been pressed and the NEXT key
-    /// names the object. It lives here rather than in the operator FSM
-    /// because the FSM sees `Action`s and this decision needs the KEY: `a`
-    /// and every bracket are unbound in Normal, so they all arrive as
-    /// `Action::Pending` with the character already discarded. vim has a
-    /// whole operator-pending keymap for the same reason.
-    pending_object: Option<bool>,
-    /// `f`/`F`/`t`/`T` was pressed and the editor is waiting for the character
-    /// to search for. Like [`Self::pending_object`] this is a KEY-layer
-    /// concern: the character never reaches the keymap, so it cannot be a
-    /// binding, and it must be claimed before the sequence stepper or `f` then
-    /// `f` would resolve as the bound `ff` sequence.
-    pending_find: Option<FindSpec>,
-    /// `r` was pressed and the editor is waiting for the replacement
-    /// character. Same key-layer shape as [`Self::pending_find`], and needed
-    /// for the same reason: `rw` must not read as `r` then *move a word*, and
-    /// `rr` must reach the operand branch rather than resolve as a sequence.
-    pending_replace: bool,
-    /// The last resolved character search — what `;` and `,` repeat.
-    last_find: Option<FindSpec>,
-    /// `m`, `` ` `` or `'` was pressed and the editor is waiting for the mark
-    /// letter. Same key-layer shape as [`Self::pending_find`].
-    pending_mark: Option<MarkKey>,
+    /// Every dispatched action — keyed or not — still passes its operator
+    /// machine ([`Keys::compose`] in [`Self::apply_counted`]), so an armed `d`
+    /// composes with a splash / picker / lisp action the way it always did.
+    keys: Keys,
     /// `m{a-z}` → position. Buffer-agnostic today, which is honest and
     /// limited: vim's `a-z` marks are per-buffer and `A-Z` are global, and a
     /// single map is `a-z`-shaped. Jumping to a mark set in another buffer
@@ -1051,16 +1021,6 @@ impl EditorState {
     }
 }
 
-/// Outcome of feeding one key to the multi-key pending-stroke loop.
-enum SeqStep {
-    /// Key consumed into an in-progress sequence; wait for the next.
-    Pending,
-    /// A full bound sequence resolved — run this action.
-    Resolved(Action),
-    /// Key is not part of any sequence; hand it to single-key dispatch.
-    Passthrough,
-}
-
 /// Keys whose HELD repeat is a viewport storm, and which the repeat gate
 /// therefore exists to debounce.
 ///
@@ -1190,24 +1150,17 @@ impl EditorState {
             last_change: None,
             recording_insert: false,
             jumps: JumpList::new(),
-            keymap: Keymap::default_vim(),
+            keys: Keys::default_vim(),
             commands: CommandRegistry::default_set(),
             layout: Layout::single(window),
             active,
             cursors: Cursors::single(Position::ZERO),
             quit_requested: false,
             register: None,
-            op_pending: zenmai::Stateful::new(OpState::Resting),
-            pending_object: None,
-            pending_find: None,
-            pending_replace: false,
-            last_find: None,
-            pending_mark: None,
             marks: HashMap::new(),
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
-            pending_keys: Vec::new(),
             repeat_gate: KeyRepeatGate::new(),
             plugin_host: PluginHost::default(),
             edit_gen: EditGen::default(),
@@ -1806,7 +1759,8 @@ impl EditorState {
             ),
             escriba_madoguchi::PickerSource::Help => (
                 Source::Help,
-                self.keymap
+                self.keys
+                    .keymap()
                     .entries_sorted()
                     .into_iter()
                     .map(|(mode, key, b)| {
@@ -1897,201 +1851,6 @@ impl EditorState {
         self.bump_gen();
     }
 
-    /// Read one key as operator-pending object selection.
-    ///
-    /// Returns `None` when the key is nothing to do with objects, so the
-    /// ordinary path runs untouched.
-    fn consume_object_key(&mut self, key: Key) -> Option<ObjectKey> {
-        use escriba_core::TextObject as O;
-        let Key::Char(c) = key else {
-            // Esc (or anything non-printable) abandons a half-typed object
-            // rather than leaving the editor silently armed.
-            if self.pending_object.take().is_some() {
-                self.op_pending
-                    .dispatch((Action::ChangeMode(Mode::Normal), 1));
-                return Some(ObjectKey::Consumed);
-            }
-            return None;
-        };
-
-        // Second key: it names the object.
-        if let Some(around) = self.pending_object.take() {
-            let object = match c {
-                'w' => Some(O::Word { around }),
-                // vim's `b` and `B` aliases for the bracket pairs, plus the
-                // brackets themselves in both directions.
-                '(' | ')' | 'b' => Some(O::Delimited {
-                    open: '(',
-                    close: ')',
-                    around,
-                }),
-                '{' | '}' | 'B' => Some(O::Delimited {
-                    open: '{',
-                    close: '}',
-                    around,
-                }),
-                '[' | ']' => Some(O::Delimited {
-                    open: '[',
-                    close: ']',
-                    around,
-                }),
-                '<' | '>' => Some(O::Delimited {
-                    open: '<',
-                    close: '>',
-                    around,
-                }),
-                // Quotes: `open == close`, which is what tells the resolver
-                // not to count nesting.
-                '"' => Some(O::Delimited {
-                    open: '"',
-                    close: '"',
-                    around,
-                }),
-                '\'' => Some(O::Delimited {
-                    open: '\'',
-                    close: '\'',
-                    around,
-                }),
-                '`' => Some(O::Delimited {
-                    open: '`',
-                    close: '`',
-                    around,
-                }),
-                _ => None,
-            };
-            let OpState::Awaiting { op, count } = *self.op_pending.state() else {
-                return Some(ObjectKey::Consumed);
-            };
-            // Disarm either way: an unknown object key cancels the operator,
-            // it does not leave it armed for the next unrelated keystroke.
-            self.op_pending
-                .dispatch((Action::ChangeMode(Mode::Normal), 1));
-            let Some(object) = object else {
-                return Some(ObjectKey::Consumed);
-            };
-            let composed = Action::ApplyOperatorObject { op, object };
-            // `2diw` applies the object twice. The caller runs it once, so
-            // the extra repeats happen here.
-            for _ in 1..count {
-                self.apply(&composed);
-            }
-            return Some(ObjectKey::Compose(composed));
-        }
-
-        // First key: `i` or `a` while an operator waits.
-        if matches!(c, 'i' | 'a') && matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
-            self.pending_object = Some(c == 'a');
-            return Some(ObjectKey::Consumed);
-        }
-        None
-    }
-
-    /// Claim the operand of a pending `f`/`F`/`t`/`T`, or arm one.
-    ///
-    /// Runs BEFORE the sequence stepper and before the keymap, for the same
-    /// reason [`Self::consume_object_key`] does: the character is an OPERAND,
-    /// not a binding. `dfx` is undecidable from actions — `x` would resolve as
-    /// whatever `x` is bound to — and `f` then `f` has to reach here rather
-    /// than resolve as a two-key sequence.
-    ///
-    /// Composition with an operator is free: the armed motion is emitted as an
-    /// ordinary `Action::Move`, so the operator-pending FSM composes `dfx`
-    /// exactly the way it composes `dw`.
-    fn consume_find_key(&mut self, key: Key) -> Option<ObjectKey> {
-        if let Some(spec) = self.pending_find.take() {
-            let Key::Char(ch) = key else {
-                // Esc (or any non-printable) abandons a half-typed find rather
-                // than leaving the editor armed for the next keystroke.
-                if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
-                    self.op_pending
-                        .dispatch((Action::ChangeMode(Mode::Normal), 1));
-                }
-                return Some(ObjectKey::Consumed);
-            };
-            let spec = FindSpec { ch, ..spec };
-            self.last_find = Some(spec);
-            return Some(ObjectKey::Compose(Action::Move(Motion::FindChar {
-                ch,
-                backward: spec.backward,
-                till: spec.till,
-            })));
-        }
-        if self.modal.mode() != Mode::Normal && self.modal.mode() != Mode::Visual {
-            return None;
-        }
-        // A key that is CONTINUING a sequence belongs to the sequence.
-        //
-        // Without this, `zt` was unreachable: `z` starts a pending sequence,
-        // then `t` was claimed here as a till-find and the sequence never
-        // completed. The rule "an operand key outranks a binding" is right
-        // for the FIRST key of a gesture and wrong for a later one — by then
-        // the gesture has already been chosen. Note the operand branch above
-        // runs before this guard, so `zt` and `ft` are both reachable.
-        if !self.pending_keys.is_empty() {
-            return None;
-        }
-        let Key::Char(c) = key else { return None };
-        let (backward, till) = match c {
-            'f' => (false, false),
-            'F' => (true, false),
-            't' => (false, true),
-            'T' => (true, true),
-            _ => return None,
-        };
-        self.pending_find = Some(FindSpec {
-            ch: '\0',
-            backward,
-            till,
-        });
-        Some(ObjectKey::Consumed)
-    }
-
-    /// Claim the operand of a pending `r`, or arm one.
-    ///
-    /// Same key-layer shape as [`Self::consume_find_key`], down to the
-    /// mid-sequence guard: `r` is unbound in the keymap on purpose, because a
-    /// binding on it would be a table entry no keypress can reach — which
-    /// reads as configured and behaves as absent, the exact trap `f`/`t`
-    /// documented.
-    ///
-    /// It runs AFTER the find capture and before the sequence stepper, and
-    /// the relative order with find does not matter — the two arm on disjoint
-    /// keys and neither can be pending while the other is.
-    fn consume_replace_key(&mut self, key: Key) -> Option<ObjectKey> {
-        if self.pending_replace {
-            self.pending_replace = false;
-            let Key::Char(ch) = key else {
-                // Esc (or any non-printable) abandons a half-typed `r` rather
-                // than replacing with something unprintable.
-                return Some(ObjectKey::Consumed);
-            };
-            return Some(ObjectKey::Compose(Action::ReplaceChar(ch)));
-        }
-        if self.modal.mode() != Mode::Normal && self.modal.mode() != Mode::Visual {
-            return None;
-        }
-        // A key CONTINUING a sequence belongs to the sequence — the `zt` rule.
-        if !self.pending_keys.is_empty() {
-            return None;
-        }
-        if key != Key::Char('r') {
-            return None;
-        }
-        // `r` is not a motion, so `dr` is a typo — and vim treats it as one by
-        // CANCELLING the operator. Falling through to the keymap instead is
-        // not the same thing and is the worse reading: `r` is unbound (it has
-        // to be, see above), so it resolves to `Action::Pending`, and the FSM
-        // deliberately lets a stray `Pending` leave the operator armed for the
-        // multi-key-sequence case. The next motion would then delete.
-        if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
-            self.op_pending
-                .dispatch((Action::ChangeMode(Mode::Normal), 1));
-            return Some(ObjectKey::Consumed);
-        }
-        self.pending_replace = true;
-        Some(ObjectKey::Consumed)
-    }
-
     fn consume_splash_key(&mut self, key: &Key) -> SplashKey {
         let Some(splash) = self.splash.as_ref() else {
             return SplashKey::NotShowing;
@@ -2165,10 +1924,10 @@ impl EditorState {
         escriba_lisp::apply_plan_to_options(&plan, &mut self.options);
         if let Some(value) = self.options.get("mapleader") {
             if let Some(key) = escriba_lisp::parse_leader_key(value) {
-                self.keymap.set_leader(key);
+                self.keys.keymap_mut().set_leader(key);
             }
         }
-        let km = escriba_lisp::apply_plan_to_keymap(&plan, &mut self.keymap);
+        let km = escriba_lisp::apply_plan_to_keymap(&plan, self.keys.keymap_mut());
         (cmd.registered + km.keybinds_applied) as usize
     }
 
@@ -2274,116 +2033,44 @@ impl EditorState {
                 return;
             }
         }
-        // ── OPERAND CAPTURE — the keys that are ARGUMENTS, not bindings ──
+        // ── THE VIM KEY LAYER — operand captures, sequences, counts, keymap ──
         //
-        // `di(`, `fx`, `` `a ``, `rZ`: in each, the second keystroke is an
-        // operand of a half-typed gesture and must be claimed before the
-        // sequence stepper and before the keymap, or it resolves as whatever
-        // it happens to be bound to (`i` enters Insert, `w` moves a word).
-        //
-        // This was four near-identical inlined blocks. It is a TABLE now
-        // because **the order is the correctness property**, and an order that
-        // lives in the arrangement of code is protected by nothing —
-        // `operand_capture_order.rs` asserts this list, which the four blocks
-        // could not be. Each adjacency below is a real dependency, not a
-        // preference; see that test for the failure each one prevents.
-        for cap in OPERAND_CHAIN {
-            let Some(outcome) = (cap.claim)(self, key.clone()) else {
-                continue;
-            };
-            match outcome {
-                ObjectKey::Consumed => return,
-                ObjectKey::Compose(a) => {
-                    match cap.count {
-                        // The object path applies its own repeats before
-                        // returning (`2diw`), so re-counting here would square
-                        // the count.
-                        OperandCount::SelfCounted => self.apply(&a),
-                        OperandCount::Drained => {
-                            let n = self.modal.pending_count().unwrap_or(1);
-                            self.modal.clear_count();
-                            self.apply_counted(&a, n);
-                        }
-                    }
-                    return;
-                }
-            }
-        }
-        // Multi-key sequence resolution runs first: a key that begins or
-        // continues a bound sequence (`<leader>ff`, `gg`) is held or
-        // resolved here before the single-key path sees it.
-        match self.step_sequence(key) {
-            SeqStep::Pending => return,
-            SeqStep::Resolved(action) => {
-                let count = self.modal.pending_count().unwrap_or(1);
-                self.modal.clear_count();
-                for _ in 0..count {
-                    self.apply(&action);
-                    if self.quit_requested {
-                        return;
-                    }
-                }
+        // One implementation, in `escriba_keymap::pipeline`, shared with every
+        // app that speaks vim keys. It yields the units to run; each one goes
+        // through `apply_counted`, which is where this editor's own veto (an
+        // uncompilable search pattern under `d/`) sits in front of the
+        // operator machine. Run one at a time, in order, so an effect of one
+        // unit is visible before the next meets the machine — and a `:q` stops
+        // the rest.
+        for (action, count) in self.keys.resolve_key(&mut self.modal, key) {
+            self.apply_counted(&action, count);
+            if self.quit_requested {
                 return;
             }
-            SeqStep::Passthrough => {}
         }
-        let counted = self.keymap.dispatch(&self.modal, key);
-        // Count prefixes accumulate into modal state.
-        if matches!(counted.action, Action::Pending) {
-            if let Key::Char(c) = key {
-                if c.is_ascii_digit() {
-                    let d = u32::from(*c as u8 - b'0');
-                    self.modal.append_count(d);
-                }
-            }
-            return;
-        }
-        // The count flows through the operator-pending FSM (apply_counted), which
-        // owns repetition: a bare motion runs count× , an operator captures its
-        // count, and an operated motion multiplies the two. No naive outer loop.
-        self.apply_counted(&counted.action, counted.count);
-        // After applying, reset pending count.
-        self.modal.clear_count();
     }
 
-    /// Advance the multi-key pending-stroke state machine for `key`.
-    ///
-    /// Sequences only apply in normal / visual modes — insert and
-    /// command modes treat keys as literal text. Rules:
-    /// - Mid-sequence: extend the pending prefix. Exact match →
-    ///   [`SeqStep::Resolved`]; still a live prefix → [`SeqStep::Pending`];
-    ///   otherwise abort the sequence and re-process this key fresh.
-    /// - Not mid-sequence: if `key` begins a bound sequence AND is not
-    ///   itself a complete single binding (single bindings win, so no
-    ///   chord timeout is needed) → start pending. Otherwise
-    ///   [`SeqStep::Passthrough`] to the single-key dispatcher.
-    fn step_sequence(&mut self, key: &Key) -> SeqStep {
-        let mode = self.modal.mode();
-        if !matches!(mode, Mode::Normal | Mode::Visual | Mode::VisualLine) {
-            return SeqStep::Passthrough;
-        }
-        if !self.pending_keys.is_empty() {
-            let mut seq = self.pending_keys.clone();
-            seq.push(key.clone());
-            if let Some(b) = self.keymap.lookup_sequence(mode, &seq) {
-                let action = b.action.clone();
-                self.pending_keys.clear();
-                return SeqStep::Resolved(action);
-            }
-            if self.keymap.is_sequence_prefix(mode, &seq) {
-                self.pending_keys = seq;
-                return SeqStep::Pending;
-            }
-            // The key broke the in-progress sequence — abort it and let
-            // the key be re-processed as a fresh stroke below.
-            self.pending_keys.clear();
-        }
-        let start = [key.clone()];
-        if self.keymap.is_sequence_prefix(mode, &start) && self.keymap.lookup(mode, key).is_none() {
-            self.pending_keys = start.to_vec();
-            return SeqStep::Pending;
-        }
-        SeqStep::Passthrough
+    /// The vim key layer (keymap, pending gesture state, operator machine).
+    #[must_use]
+    pub const fn key_pipeline(&self) -> &Keys {
+        &self.keys
+    }
+
+    /// The live keymap.
+    #[must_use]
+    pub const fn keymap(&self) -> &Keymap {
+        self.keys.keymap()
+    }
+
+    /// The live keymap, for rc / plugin binding application.
+    pub const fn keymap_mut(&mut self) -> &mut Keymap {
+        self.keys.keymap_mut()
+    }
+
+    /// Keys held for an in-progress multi-key sequence (`[g]` after `g`).
+    #[must_use]
+    pub fn pending_keys(&self) -> &[Key] {
+        self.keys.pending_keys()
     }
 
     /// The primary cursor position. The single read accessor — every
@@ -2491,20 +2178,9 @@ impl EditorState {
             }
         }
 
-        // `|` is the one motion whose count is an ARGUMENT rather than a
-        // repetition: `40|` means column 40, not "column 1, forty times"
-        // (which is column 1). Folded in before the FSM sees it, so the
-        // machine keeps one rule — counts repeat — and the exception lives
-        // where the exception is.
-        let action = &match action {
-            Action::Move(Motion::Column(_)) => Action::Move(Motion::Column(count)),
-            a => a.clone(),
-        };
-        let count = match action {
-            Action::Move(Motion::Column(_)) => 1,
-            _ => count,
-        };
-        for (resolved, times) in self.op_pending.dispatch((action.clone(), count)) {
+        // The operator machine — and the `40|` column-count fold in front of
+        // it — live in the shared key pipeline (`KeyPipeline::compose`).
+        for (resolved, times) in self.keys.compose(action, count) {
             // Two ways an action can carry a count, and the split is real:
             //
             //   REPEAT (`5j`) — run it `times` over. The default.
@@ -3617,7 +3293,7 @@ impl EditorState {
             // state — the same shape as the search motions above, and the
             // reason neither can be resolved by the enum alone.
             Motion::RepeatFind { reverse } => {
-                let last = self.last_find?;
+                let last = self.keys.last_find()?;
                 let backward = last.backward != reverse;
                 find_char(buf, pos, last.ch, backward, last.till)?
             }
@@ -3708,56 +3384,6 @@ impl EditorState {
         };
         self.damage = self.damage.join(Damage::Full);
         self.bump_gen();
-    }
-
-    /// Claim the operand of a pending `m` / `` ` `` / `'`, or arm one.
-    ///
-    /// Same key-layer shape as [`Self::consume_find_key`] and for the same
-    /// reason: `ma` is `m` plus an OPERAND, and `a` is bound (append). Without
-    /// claiming it first, `ma` would set no mark and enter Insert mode.
-    ///
-    /// Runs BEFORE `consume_object_key`, because `` d`a `` needs it: the
-    /// object path claims `i` and `a` whenever an operator is armed, and the
-    /// mark LETTER can be either of them.
-    ///
-    /// The two do not fight over the first key. This arms only while
-    /// `pending_object` is clear, so `di'` — where `'` is a text-object
-    /// delimiter rather than a mark jump — still reaches the object path. The
-    /// guard states that dependency locally instead of leaving it implied by
-    /// call order.
-    fn consume_mark_key(&mut self, key: Key) -> Option<ObjectKey> {
-        if let Some(kind) = self.pending_mark.take() {
-            let Key::Char(name) = key else {
-                if matches!(self.op_pending.state(), OpState::Awaiting { .. }) {
-                    self.op_pending
-                        .dispatch((Action::ChangeMode(Mode::Normal), 1));
-                }
-                return Some(ObjectKey::Consumed);
-            };
-            return Some(ObjectKey::Compose(match kind {
-                MarkKey::Set => Action::SetMark(name),
-                MarkKey::GotoExact => Action::Move(Motion::MarkExact(name)),
-                MarkKey::GotoLine => Action::Move(Motion::MarkLine(name)),
-            }));
-        }
-        if !matches!(self.modal.mode(), Mode::Normal | Mode::Visual) {
-            return None;
-        }
-        // Half-typed text object (`di` waiting for its `'`) belongs to the
-        // object path, not here; a key continuing a sequence belongs to the
-        // sequence (see `consume_find_key` for the `zt` case that proves it).
-        if self.pending_object.is_some() || !self.pending_keys.is_empty() {
-            return None;
-        }
-        let Key::Char(c) = key else { return None };
-        let kind = match c {
-            'm' => MarkKey::Set,
-            '`' => MarkKey::GotoExact,
-            '\'' => MarkKey::GotoLine,
-            _ => return None,
-        };
-        self.pending_mark = Some(kind);
-        Some(ObjectKey::Consumed)
     }
 
     /// `%` — brackets, plus this buffer's language word pairs if it has any.
@@ -3868,7 +3494,7 @@ impl EditorState {
     /// caller's `is_inclusive` question gets `false` rather than a wrong answer.
     fn concrete_motion(&self, motion: Motion) -> Motion {
         match motion {
-            Motion::RepeatFind { reverse } => match self.last_find {
+            Motion::RepeatFind { reverse } => match self.keys.last_find() {
                 Some(f) => Motion::FindChar {
                     ch: f.ch,
                     backward: f.backward != reverse,
@@ -4802,29 +4428,6 @@ fn first_non_blank(buf: &escriba_buffer::Buffer, line: u32) -> Position {
     Position::new(line, u32::try_from(col).unwrap_or(0))
 }
 
-/// A character search: which character, which direction, and whether it stops
-/// ON it (`f`/`F`) or just BEFORE it (`t`/`T`).
-///
-/// The same value serves the pending operand and the `;`/`,` memory, so the
-/// thing repeated is the thing that ran.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct FindSpec {
-    ch: char,
-    backward: bool,
-    till: bool,
-}
-
-/// What the next keystroke means after `m`, `` ` `` or `'`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MarkKey {
-    /// `m{a-z}` — set.
-    Set,
-    /// `` `{a-z} `` — jump to the exact position.
-    GotoExact,
-    /// `'{a-z}` — jump to the line's first non-blank.
-    GotoLine,
-}
-
 /// What kind of place a cursor move is asking for.
 ///
 /// The Normal-mode rule "the cursor sits ON a character" is about where the
@@ -4927,74 +4530,6 @@ fn as_linewise_capture(slice: &str) -> String {
         }
         None => slice.to_owned(),
     }
-}
-
-/// How a captured operand's composed action reaches the executor.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum OperandCount {
-    /// The capture already applied its own repeats; run the composed action
-    /// once. Only the object path does this (`2diw` repeats inside it).
-    SelfCounted,
-    /// Drain the pending count and hand it to `apply_counted`, so `3fx` /
-    /// `3ra` / ``3`a`` repeat on the one path every other motion uses.
-    Drained,
-}
-
-/// One step of the operand-capture chain.
-struct OperandCapture {
-    /// Stable label — what `operand_capture_order.rs` asserts against.
-    name: &'static str,
-    claim: fn(&mut EditorState, Key) -> Option<ObjectKey>,
-    count: OperandCount,
-}
-
-/// **The operand-capture chain, in the order that matters.**
-///
-/// Every adjacency is a dependency with a named failure:
-///
-/// 1. **mark before object** — the object path claims `i`/`a` whenever an
-///    operator is armed, and a mark LETTER can be either, so ``d`a`` lost its
-///    `a` to it. They do not fight over the FIRST key (the mark path arms only
-///    while `pending_object` is clear, so `di'` still reaches the object
-///    path); they fight over the SECOND, and the gesture already half-typed
-///    must win.
-/// 2. **object before find** — `di(` must not read as `d`, then `i` (insert),
-///    then a literal `(`.
-/// 3. **find before replace** — no live conflict; `f`/`t` and `r` arm on
-///    disjoint keys and neither can be pending while the other is. Ordered
-///    for stability rather than necessity, and said so rather than implying a
-///    constraint that is not there.
-/// 4. **all four before the sequence stepper and the keymap** — this is the
-///    whole point. Each capture also declines while `pending_keys` is
-///    non-empty, so a LATER key of a gesture (`zt`'s `t`) belongs to the
-///    sequence rather than arming a till-find.
-static OPERAND_CHAIN: &[OperandCapture] = &[
-    OperandCapture {
-        name: "mark",
-        claim: EditorState::consume_mark_key,
-        count: OperandCount::Drained,
-    },
-    OperandCapture {
-        name: "object",
-        claim: EditorState::consume_object_key,
-        count: OperandCount::SelfCounted,
-    },
-    OperandCapture {
-        name: "find",
-        claim: EditorState::consume_find_key,
-        count: OperandCount::Drained,
-    },
-    OperandCapture {
-        name: "replace",
-        claim: EditorState::consume_replace_key,
-        count: OperandCount::Drained,
-    },
-];
-
-/// The chain's order, for the gate in `tests/operand_capture_order.rs`.
-#[must_use]
-pub fn operand_capture_order() -> Vec<&'static str> {
-    OPERAND_CHAIN.iter().map(|c| c.name).collect()
 }
 
 /// Does this action ABSORB its count into one operation, or REPEAT?
@@ -6562,7 +6097,7 @@ mod tests {
     /// The regression this whole family risked. `escriba-keymap`'s rule is that
     /// a single binding beats a sequence prefix, so a naive `a` binding would
     /// have made `daw` mean "delete, then append". It does not, because
-    /// `consume_object_key` runs before both and claims `i`/`a` only while an
+    /// `KeyPipeline::claim_object` runs before both and claims `i`/`a` only while an
     /// operator is armed — this test is the evidence for that sentence.
     #[test]
     fn the_insert_entry_keys_do_not_shadow_text_objects() {
@@ -6578,7 +6113,7 @@ mod tests {
     /// Text objects FROM THE KEYBOARD.
     ///
     /// Every bracket is unbound, and `i`/`a` are claimed by
-    /// `consume_object_key` only while an operator waits, so all of this is
+    /// `KeyPipeline::claim_object` only while an operator waits, so all of this is
     /// decided on the KEY rather than in the binding table. (Until 2026-08-12
     /// this comment read "`i` is `ChangeMode(Insert)` in Normal and `a` … are
     /// unbound" — true when written, and made false by the insert-entry family
@@ -6665,7 +6200,11 @@ mod tests {
             .map(|b| b.to_string())
             .unwrap_or_default();
         assert_eq!(got, "one two\n", "nothing was deleted");
-        assert_eq!(*st.op_pending.state(), OpState::Resting, "and it disarmed");
+        assert_eq!(
+            *st.key_pipeline().op_state(),
+            OpState::Resting,
+            "and it disarmed"
+        );
     }
 
     // ── the register under a count ───────────────────────────────────
@@ -7129,7 +6668,7 @@ mod tests {
     #[test]
     fn leader_sequence_holds_then_resolves() {
         let mut s = new_state_with("a\nbb\nccc");
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Normal,
             vec![Key::Char(','), Key::Char('g')],
             Action::Move(Motion::DocEnd),
@@ -7137,18 +6676,18 @@ mod tests {
         );
         // `,` begins the sequence — held pending, nothing applied yet.
         s.on_key(&Key::Char(','));
-        assert_eq!(s.pending_keys, vec![Key::Char(',')]);
+        assert_eq!(s.pending_keys(), vec![Key::Char(',')]);
         assert_eq!(s.cursor(), Position::ZERO);
         // `g` completes `<leader>g` → DocEnd; pending clears.
         s.on_key(&Key::Char('g'));
-        assert!(s.pending_keys.is_empty());
+        assert!(s.pending_keys().is_empty());
         assert_eq!(s.cursor().line, 2);
     }
 
     #[test]
     fn two_key_gg_jumps_doc_start() {
         let mut s = new_state_with("a\nbb\nccc");
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Normal,
             vec![Key::Char('g'), Key::Char('g')],
             Action::Move(Motion::DocStart),
@@ -7159,7 +6698,7 @@ mod tests {
         s.tick_at(&press(KeyCode::Char('j')), clk.next());
         assert_eq!(s.cursor().line, 2);
         s.on_key(&Key::Char('g')); // pending
-        assert_eq!(s.pending_keys, vec![Key::Char('g')]);
+        assert_eq!(s.pending_keys(), vec![Key::Char('g')]);
         s.on_key(&Key::Char('g')); // resolve
         assert_eq!(s.cursor(), Position::ZERO);
     }
@@ -7167,16 +6706,16 @@ mod tests {
     #[test]
     fn broken_sequence_aborts_and_clears_pending() {
         let mut s = new_state_with("hello");
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Normal,
             vec![Key::Char('g'), Key::Char('g')],
             Action::Move(Motion::DocEnd),
             "doc end",
         );
         s.on_key(&Key::Char('g')); // pending [g]
-        assert_eq!(s.pending_keys, vec![Key::Char('g')]);
+        assert_eq!(s.pending_keys(), vec![Key::Char('g')]);
         s.on_key(&Key::Char('x')); // breaks gg → abort; x is unbound → no-op
-        assert!(s.pending_keys.is_empty());
+        assert!(s.pending_keys().is_empty());
         assert_eq!(s.cursor(), Position::ZERO);
     }
 
@@ -7190,14 +6729,17 @@ mod tests {
         s.tick_at(&press(KeyCode::Char('l')), clk.next());
         s.tick_at(&press(KeyCode::Char('l')), clk.next());
         assert_eq!(s.cursor().column, 2);
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Normal,
             vec![Key::Char('h'), Key::Char('z')],
             Action::Move(Motion::DocEnd),
             "shadowed",
         );
         s.on_key(&Key::Char('h'));
-        assert!(s.pending_keys.is_empty(), "single binding should not pend");
+        assert!(
+            s.pending_keys().is_empty(),
+            "single binding should not pend"
+        );
         assert_eq!(s.cursor().column, 1, "h moved left immediately");
     }
 
@@ -7371,16 +6913,16 @@ mod tests {
     fn visual_mode_sequence_resolves() {
         let mut s = new_state_with("abc");
         s.modal.enter(Mode::Visual);
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Visual,
             vec![Key::Char('g'), Key::Char('e')],
             Action::Move(Motion::DocEnd),
             "ge",
         );
         s.on_key(&Key::Char('g'));
-        assert_eq!(s.pending_keys, vec![Key::Char('g')]);
+        assert_eq!(s.pending_keys(), vec![Key::Char('g')]);
         s.on_key(&Key::Char('e'));
-        assert!(s.pending_keys.is_empty());
+        assert!(s.pending_keys().is_empty());
         assert_eq!(
             s.cursor().column,
             3,
@@ -7393,16 +6935,16 @@ mod tests {
         // gg is a sequence; `l` (move-right) is a bound single key. After
         // `g` pends, `l` breaks gg, aborts, and is re-dispatched fresh.
         let mut s = new_state_with("abcde");
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Normal,
             vec![Key::Char('g'), Key::Char('g')],
             Action::Move(Motion::DocEnd),
             "gg",
         );
         s.on_key(&Key::Char('g'));
-        assert_eq!(s.pending_keys, vec![Key::Char('g')]);
+        assert_eq!(s.pending_keys(), vec![Key::Char('g')]);
         s.on_key(&Key::Char('l'));
-        assert!(s.pending_keys.is_empty());
+        assert!(s.pending_keys().is_empty());
         assert_eq!(
             s.cursor().column,
             1,
@@ -7502,7 +7044,7 @@ mod tests {
     fn count_prefix_then_sequence_repeats() {
         // `2` then `gj` (→ move-down) repeats the resolved action twice.
         let mut s = new_state_with("a\nb\nc\nd\ne");
-        s.keymap.bind_sequence(
+        s.keymap_mut().bind_sequence(
             Mode::Normal,
             vec![Key::Char('g'), Key::Char('j')],
             Action::Move(Motion::Down),

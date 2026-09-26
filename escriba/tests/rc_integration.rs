@@ -23,7 +23,7 @@ fn load_and_apply(src: &str) -> (EditorState, escriba_lisp::ApplyReport) {
     // This mirrors the binary's startup ordering exactly.
     let plan = escriba_lisp::apply_source(src).expect("parse rc");
     let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
-    let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    let report = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
     (state, report)
 }
 
@@ -55,7 +55,7 @@ fn applied_keybind_overrides_default_vim() {
     let (state, _report) =
         load_and_apply(r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#);
     let binding = state
-        .keymap
+        .keymap()
         .lookup(Mode::Normal, &Key::Char('h'))
         .expect("h should still be bound in normal mode");
     assert_eq!(
@@ -74,7 +74,7 @@ fn unknown_action_defers_to_command_registry() {
         load_and_apply(r#"(defkeybind :mode "normal" :key "<C-p>" :action "picker.files")"#);
     assert_eq!(report.keybinds_deferred_to_commands, 1);
     let binding = state
-        .keymap
+        .keymap()
         .lookup(Mode::Normal, &Key::Ctrl('p'))
         .expect("C-p should be bound");
     match &binding.action {
@@ -90,7 +90,7 @@ fn apply_leaves_unrelated_defaults_intact() {
     let (state, _report) =
         load_and_apply(r#"(defkeybind :mode "normal" :key "h" :action "move-right")"#);
     let j_binding = state
-        .keymap
+        .keymap()
         .lookup(Mode::Normal, &Key::Char('j'))
         .expect("default_vim should bind j");
     assert_eq!(j_binding.action, Action::Move(Motion::Down));
@@ -149,7 +149,7 @@ fn defcmd_registers_and_keybind_dispatches_without_panic() {
     assert_eq!(report.keybinds_deferred_to_commands, 1);
     // W resolves to Action::Command { name: "write-all" }.
     let binding = state
-        .keymap
+        .keymap()
         .lookup(Mode::Normal, &Key::Char('W'))
         .expect("W should be bound in normal mode");
     match &binding.action {
@@ -202,7 +202,7 @@ fn defcmd_write_all_saves_modified_file_buffer_end_to_end() {
     )
     .expect("parse rc");
     let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
-    let _ = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    let _ = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
     assert!(state.commands.contains("w-all"));
 
     state.on_key(&Key::Char('W'));
@@ -243,7 +243,7 @@ fn leader_sequence_dispatches_command_end_to_end() {
     )
     .expect("parse rc");
     let _ = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
-    let report = escriba_lisp::apply_plan_to_keymap(&plan, &mut state.keymap);
+    let report = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
     assert_eq!(
         report.keybinds_sequences, 1,
         "<leader>w binds as a sequence"
@@ -251,9 +251,9 @@ fn leader_sequence_dispatches_command_end_to_end() {
 
     // Drive the leader sequence: ',' (held) then 'w' (resolves).
     state.on_key(&Key::Char(','));
-    assert_eq!(state.pending_keys, vec![Key::Char(',')]);
+    assert_eq!(state.pending_keys(), vec![Key::Char(',')]);
     state.on_key(&Key::Char('w'));
-    assert!(state.pending_keys.is_empty());
+    assert!(state.pending_keys().is_empty());
 
     let on_disk = std::fs::read_to_string(&path).expect("read back temp file");
     let _ = std::fs::remove_file(&path);
