@@ -123,8 +123,9 @@ async-trait      = "0.1"
 # macros RENAMED — `DeriveTataraDomain` / `DeriveKeywordSexp`, so they
 # coexist with the same-named traits — so naming the derive crate here
 # would be a phantom dependency. Derive via `tatara_lisp::Derive*`.
-tatara-lisp        = "0.3.3"
-tatara-lisp-eval   = "0.3.3"
+tatara-lisp        = "0.4"
+tatara-lisp-eval   = "0.4"
+blue-lang-host     = "0.0.84"
 garasu             = "0.1"
 madori             = "0.1"
 ishou-tokens       = { version = "0.1", features = ["wgpu"] }

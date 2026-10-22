@@ -1,6 +1,6 @@
 [package]
 name = "escriba-vm"
-description = "Tatara-lisp runtime host for escriba — embeds tatara-lisp-eval's Interpreter<EscribaHost>, exposing editor operations as native Lisp fns that read a snapshot and emit typed, sandboxed effects."
+description = "Scripting host for escriba — editor operations as one capability surface, run as blue (blue-lang-host) or tatara-lisp, reading a snapshot and emitting typed, sandboxed effects."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,6 +14,7 @@ escriba-madoguchi = { workspace = true }
 escriba-plugin   = { workspace = true }
 tatara-lisp      = { workspace = true }
 tatara-lisp-eval = { workspace = true }
+blue-lang-host   = { workspace = true }
 serde            = { workspace = true }
 thiserror        = { workspace = true }
 

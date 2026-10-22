@@ -226,6 +226,8 @@ struct EvalArgs {
     /// real target.
     #[arg(long)]
     file: Option<PathBuf>,
+    #[arg(long, default_value_t = escriba_vm::ScriptLanguage::default())]
+    lang: escriba_vm::ScriptLanguage,
 }
 
 /// Public entry point — both `escriba` and `escriba-gpu` binaries
@@ -1009,9 +1011,10 @@ fn run_eval(args: &EvalArgs) -> Result<()> {
         buffers.scratch("")
     };
     let mut state = EditorState::new_with_buffer(buffers, active);
+    state.script_language = args.lang;
     state
-        .run_lisp(&args.source)
-        .map_err(|e| anyhow::anyhow!("tatara-lisp eval failed: {e}"))?;
+        .run_script(&args.source)
+        .map_err(|e| anyhow::anyhow!("{} eval failed: {e}", args.lang))?;
 
     for m in &state.messages {
         println!("message: {m}");

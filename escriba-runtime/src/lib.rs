@@ -52,7 +52,7 @@ use escriba_search::{Direction as SearchDirection, MatchCount, SearchState};
 use escriba_ui::chrome::{ChromePalette, FleetTheme};
 use escriba_ui::splash::Splash;
 use escriba_ui::{Layout, Viewport, Window};
-use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, VmError};
+use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, ScriptLanguage, VmError};
 use madori::AppEvent;
 use std::time::Instant;
 
@@ -111,6 +111,7 @@ pub struct EditorState {
     /// persists across calls, giving REPL-like session semantics (an
     /// earlier `(define …)` is visible to a later `run_lisp`).
     lisp_vm: Option<EscribaVm>,
+    pub script_language: ScriptLanguage,
     /// Per-key debouncer for OS key-repeat storms. Holding `j`/`l` makes
     /// the windowing system deliver one `KeyDown` per repeat tick
     /// (~30-50ms); without a gate those flood the motion path and thrash
@@ -1161,6 +1162,7 @@ impl EditorState {
             messages: Vec::new(),
             options: HashMap::new(),
             lisp_vm: None,
+            script_language: ScriptLanguage::default(),
             repeat_gate: KeyRepeatGate::new(),
             plugin_host: PluginHost::default(),
             edit_gen: EditGen::default(),
@@ -4379,6 +4381,21 @@ impl EditorState {
         Ok(())
     }
 
+    pub fn run_blue(&mut self, src: &str) -> Result<(), VmError> {
+        let mut host = EscribaHost::with_snapshot(self.snapshot());
+        escriba_vm::eval_blue(src, &mut host)?;
+        let effects = host.take_effects();
+        self.apply_host_effects(effects);
+        Ok(())
+    }
+
+    pub fn run_script(&mut self, src: &str) -> Result<(), VmError> {
+        match self.script_language {
+            ScriptLanguage::Lisp => self.run_lisp(src),
+            ScriptLanguage::Blue => self.run_blue(src),
+        }
+    }
+
     /// Apply tatara-lisp effects to live editor state.
     ///
     /// A thin adapter now. It used to be `apply_host_effects`, a THIRD
@@ -6924,6 +6941,102 @@ mod tests {
             Some("live-two"),
             "a later call sees the refreshed snapshot",
         );
+    }
+
+    #[test]
+    fn blue_set_option_writes_live_options() {
+        let mut s = new_state_with("");
+        s.run_blue("set_option(\"number\", \"true\")\n").unwrap();
+        assert_eq!(s.options.get("number").map(String::as_str), Some("true"));
+    }
+
+    #[test]
+    fn blue_insert_modifies_buffer_and_advances_cursor() {
+        let mut s = new_state_with("");
+        s.run_blue("insert(\"abc\")\n").unwrap();
+        assert_eq!(s.buffers.get(s.active).unwrap().to_string(), "abc");
+        assert_eq!(s.cursor(), Position::new(0, 3));
+    }
+
+    #[test]
+    fn blue_message_appends_to_messages() {
+        let mut s = new_state_with("");
+        s.run_blue("message(\"hello from blue\")\n").unwrap();
+        assert_eq!(s.messages, vec!["hello from blue".to_string()]);
+    }
+
+    #[test]
+    fn blue_reads_snapshot_and_branches_to_effect() {
+        let mut s = new_state_with("one\ntwo\nthree");
+        s.run_blue(
+            "if cursor_line() == 0\n  set_option(\"pos\", \"top\")\nelse\n  set_option(\"pos\", \"mid\")\nend\n",
+        )
+        .unwrap();
+        assert_eq!(s.options.get("pos").map(String::as_str), Some("top"));
+    }
+
+    #[test]
+    fn blue_run_command_effect_drives_registry() {
+        let mut s = new_state_with("");
+        s.run_blue("insert(\"abc\")\n").unwrap();
+        s.run_blue("run_command(\"undo\", [])\n").unwrap();
+        assert_eq!(s.buffers.get(s.active).unwrap().to_string(), "");
+    }
+
+    #[test]
+    fn blue_run_command_quit_sets_quit_requested() {
+        let mut s = new_state_with("");
+        s.run_blue("run_command(\"quit\", [])\n").unwrap();
+        assert!(s.quit_requested);
+        assert_eq!(s.modal.minibuffer(), "");
+    }
+
+    #[test]
+    fn blue_snapshot_is_isolated_within_one_call_and_refreshes_across() {
+        let mut s = new_state_with("");
+        s.run_blue(
+            "insert(\"ab\")\ncol = if cursor_column() == 0\n  \"stale-zero\"\nelse\n  \"live\"\nend\nset_option(\"col\", col)\n",
+        )
+        .unwrap();
+        assert_eq!(s.options.get("col").map(String::as_str), Some("stale-zero"));
+        s.run_blue(
+            "col = if cursor_column() == 2\n  \"live-two\"\nelse\n  \"other\"\nend\nset_option(\"col2\", col)\n",
+        )
+        .unwrap();
+        assert_eq!(s.options.get("col2").map(String::as_str), Some("live-two"));
+    }
+
+    #[test]
+    fn blue_definitions_do_not_persist_across_run_blue_calls() {
+        let mut s = new_state_with("");
+        s.run_blue("def greeting()\n  \"hi\"\nend\n").unwrap();
+        let err = s.run_blue("message(greeting())\n").unwrap_err();
+        assert!(
+            matches!(err, VmError::Blue(escriba_vm::BlueError::Load(_))),
+            "{err}"
+        );
+        assert!(s.messages.is_empty());
+    }
+
+    #[test]
+    fn a_failed_blue_script_applies_no_effects() {
+        let mut s = new_state_with("");
+        let err = s
+            .run_blue("message(\"partial\")\nrun_command(\"open\", \"x\")\n")
+            .unwrap_err();
+        assert!(matches!(err, VmError::Blue(_)), "{err}");
+        assert!(s.messages.is_empty());
+    }
+
+    #[test]
+    fn run_script_follows_the_configured_language() {
+        let mut s = new_state_with("");
+        assert_eq!(s.script_language, ScriptLanguage::Lisp);
+        s.run_script(r#"(define greeting "lisp")"#).unwrap();
+        s.run_script("(message greeting)").unwrap();
+        s.script_language = ScriptLanguage::Blue;
+        s.run_script("message(\"blue\")\n").unwrap();
+        assert_eq!(s.messages, vec!["lisp".to_string(), "blue".to_string()]);
     }
 
     #[test]

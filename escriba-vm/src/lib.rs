@@ -22,6 +22,11 @@
 //! This is the imperative tier of escriba's two-tier programmability
 //! model — the declarative tier is `escriba-lisp`'s def-forms.
 
+use std::fmt;
+use std::str::FromStr;
+
+pub use blue_lang_host::Error as BlueError;
+use blue_lang_host::{Entry, Program, host};
 use escriba_madoguchi::Negai;
 use serde::{Deserialize, Serialize};
 use tatara_lisp_eval::{Arity, Interpreter, Value, install_full_stdlib_with};
@@ -33,6 +38,49 @@ pub enum VmError {
     Read(#[from] tatara_lisp::LispError),
     #[error("tatara-lisp eval error: {0}")]
     Eval(#[from] tatara_lisp_eval::EvalError),
+    #[error("blue: {0}")]
+    Blue(#[from] blue_lang_host::Error),
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScriptLanguage {
+    #[default]
+    Lisp,
+    Blue,
+}
+
+impl ScriptLanguage {
+    pub const ALL: [Self; 2] = [Self::Lisp, Self::Blue];
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Lisp => "lisp",
+            Self::Blue => "blue",
+        }
+    }
+}
+
+impl fmt::Display for ScriptLanguage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("unknown script language `{0}` (expected lisp or blue)")]
+pub struct UnknownScriptLanguage(pub String);
+
+impl FromStr for ScriptLanguage {
+    type Err = UnknownScriptLanguage;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|l| l.as_str() == s)
+            .ok_or_else(|| UnknownScriptLanguage(s.to_owned()))
+    }
 }
 
 // NOTE: `HostEffect` lived here — Message / RunCommand / SetOption /
@@ -86,6 +134,60 @@ impl EscribaHost {
     }
 }
 
+#[host]
+impl EscribaHost {
+    /// Show a message in the editor's message log; answers the message.
+    fn message(&mut self, text: String) -> String {
+        self.effects.push(Negai::Message(text.clone()));
+        text
+    }
+
+    /// Insert text at the cursor.
+    fn insert(&mut self, text: String) {
+        self.effects.push(Negai::InsertText(text));
+    }
+
+    /// Set the editor option `name` to `value`.
+    fn set_option(&mut self, name: String, value: String) {
+        self.effects.push(Negai::SetOption { name, value });
+    }
+
+    /// Run the editor command `name` with `args`.
+    fn run_command(&mut self, name: String, args: Vec<String>) {
+        self.effects.push(Negai::RunCommand { name, args });
+    }
+
+    /// The cursor's line, counted from 0.
+    fn cursor_line(&self) -> i64 {
+        self.snapshot.cursor_line
+    }
+
+    /// The cursor's column, counted from 0.
+    fn cursor_column(&self) -> i64 {
+        self.snapshot.cursor_column
+    }
+
+    /// The text of the cursor's line.
+    fn current_line(&self) -> String {
+        self.snapshot.current_line.clone()
+    }
+
+    /// The editor mode's name.
+    fn editor_mode(&self) -> String {
+        self.snapshot.mode.clone()
+    }
+
+    /// The active buffer's path, or `[scratch]`.
+    fn buffer_name(&self) -> String {
+        self.snapshot.buffer_name.clone()
+    }
+}
+
+pub fn eval_blue(src: &str, host: &mut EscribaHost) -> Result<(), VmError> {
+    Program::load(Entry::anonymous(src), host)?;
+    Ok(())
+}
+
 /// escriba's embedded tatara-lisp runtime. Build once, eval many times;
 /// the registered native fns (the editor capability surface) persist
 /// across calls.
@@ -120,6 +222,11 @@ impl EscribaVm {
     pub fn eval(&mut self, src: &str, host: &mut EscribaHost) -> Result<Value, VmError> {
         let forms = tatara_lisp::read_spanned(src)?;
         Ok(self.interp.eval_program(&forms, host)?)
+    }
+
+    #[must_use]
+    pub fn binds(&self, name: &str) -> bool {
+        self.interp.lookup_global(name).is_some()
     }
 }
 

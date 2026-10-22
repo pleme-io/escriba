@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "767b68900b70846d07f09c4adcac8518f35b3711d927748ba4ec2b120455d21e",
+  "cargo_lock_sha256": "7deda21caa00b7fe8d26577f346a14804f8561147e93d902c0d5c4a2738fceb6",
   "manifest_sha256": {
-    "Cargo.toml": "f09c2fed934f703e4a5cc3412690402ed8ee4bd5a0da52c7cb150c53a9cbf731",
+    "Cargo.toml": "d4d778c8999e7cac2c38403d2b0a994787690e813ecdb3a609b2f8ab5c42cb89",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -25,7 +25,7 @@
     "escriba-ts/Cargo.toml": "daf409fca1da2fa40dfd5dc2dd7f9735f14b320beaf731e1fd6c8027469b491a",
     "escriba-tui/Cargo.toml": "0efd476b9dbf926f75b04eb6cd4b031af69b3c50bc6a1af6fc1d5a386508fb7e",
     "escriba-ui/Cargo.toml": "2371881f85f937233af0f685fd3fb313849ab87f3635f40cf205de62793f9382",
-    "escriba-vm/Cargo.toml": "dac2c1c2c6baa3bb239c7763347f1dc76b30fadc9efa94251312454ab411393f",
+    "escriba-vm/Cargo.toml": "78a5f20d562661ea422b5336446d71bfef4af5c16b7ac8f0bef3ff455e8101cd",
     "escriba/Cargo.toml": "9b9dee1105ed47d885ad64cb55f705789133a058438da120d6fec2b9b03c60d6",
     "unsoku/Cargo.toml": "44f842a01a0b8468b795bedfe4fb634610c39476bb168d8265aee7f5e55c3bf3"
   },
@@ -167,6 +167,25 @@
           "std"
         ]
       },
+      "ar_archive_writer-0.5.3": {
+        "runtime_dependencies": [
+          {
+            "name": "object",
+            "package_key": "object-0.39.1",
+            "kind": "normal",
+            "features": [
+              "read",
+              "std"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "arc-swap-1.9.2": {
         "runtime_dependencies": [
           {
@@ -180,6 +199,11 @@
             "tree": "host"
           }
         ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "archery-1.2.3": {
+        "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
       },
@@ -301,6 +325,13 @@
         "build_dependencies": [],
         "features": []
       },
+      "base64ct-1.8.3": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "alloc"
+        ]
+      },
       "bincode-1.3.3": {
         "runtime_dependencies": [
           {
@@ -363,6 +394,560 @@
           "serde_core",
           "std"
         ]
+      },
+      "block-buffer-0.10.4": {
+        "runtime_dependencies": [
+          {
+            "name": "generic_array",
+            "package_key": "generic-array-0.14.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-bidama-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_waku",
+            "package_key": "blue-lang-waku-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-check-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_syntax",
+            "package_key": "blue-lang-syntax-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-fmt-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_syntax",
+            "package_key": "blue-lang-syntax-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.19",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-host-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_host_macros",
+            "package_key": "blue-lang-host-macros-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          },
+          {
+            "name": "blue_lang_pkg",
+            "package_key": "blue-lang-pkg-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_runtime",
+            "package_key": "blue-lang-runtime-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp_eval",
+            "package_key": "tatara-lisp-eval-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.19",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "packages"
+        ]
+      },
+      "blue-lang-host-macros-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "proc_macro2",
+            "package_key": "proc-macro2-1.0.107",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "quote",
+            "package_key": "quote-1.0.47",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "syn",
+            "package_key": "syn-2.0.119",
+            "kind": "normal",
+            "features": [
+              "full"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-pkg-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_bidama",
+            "package_key": "blue-lang-bidama-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_check",
+            "package_key": "blue-lang-check-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_fmt",
+            "package_key": "blue-lang-fmt-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_runtime",
+            "package_key": "blue-lang-runtime-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_syntax",
+            "package_key": "blue-lang-syntax-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_waku",
+            "package_key": "blue-lang-waku-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.229",
+            "kind": "normal",
+            "features": [
+              "derive"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.151",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp_eval",
+            "package_key": "tatara-lisp-eval-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.19",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "embedded"
+        ]
+      },
+      "blue-lang-proc-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_waku",
+            "package_key": "blue-lang-waku-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.151",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp_eval",
+            "package_key": "tatara-lisp-eval-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-runtime-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blake3",
+            "package_key": "blake3-1.8.6",
+            "kind": "normal",
+            "features": [
+              "pure",
+              "std"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_check",
+            "package_key": "blue-lang-check-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_fmt",
+            "package_key": "blue-lang-fmt-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_proc",
+            "package_key": "blue-lang-proc-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_syntax",
+            "package_key": "blue-lang-syntax-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "blue_lang_waku",
+            "package_key": "blue-lang-waku-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "ed25519_dalek",
+            "package_key": "ed25519-dalek-2.2.0",
+            "kind": "normal",
+            "features": [
+              "fast",
+              "std",
+              "zeroize"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "rnix",
+            "package_key": "rnix-0.14.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "rowan",
+            "package_key": "rowan-0.16.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.151",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "sha2",
+            "package_key": "sha2-0.10.9",
+            "kind": "normal",
+            "features": [
+              "std"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp_eval",
+            "package_key": "tatara-lisp-eval-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "thiserror",
+            "package_key": "thiserror-2.0.19",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-syntax-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "blue-lang-waku-0.0.84": {
+        "runtime_dependencies": [
+          {
+            "name": "blue_lang_syntax",
+            "package_key": "blue-lang-syntax-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "tatara_lisp",
+            "package_key": "tatara-lisp-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
       },
       "bytemuck-1.25.2": {
         "runtime_dependencies": [
@@ -813,6 +1398,11 @@
           "std"
         ]
       },
+      "const-oid-0.9.6": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
       "constant_time_eq-0.4.2": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -989,6 +1579,11 @@
           "sys-locale"
         ]
       },
+      "countme-3.0.1": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
       "crossterm-0.28.1": {
         "runtime_dependencies": [
           {
@@ -1066,6 +1661,36 @@
           "default",
           "events",
           "windows"
+        ]
+      },
+      "crypto-common-0.1.7": {
+        "runtime_dependencies": [
+          {
+            "name": "generic_array",
+            "package_key": "generic-array-0.14.7",
+            "kind": "normal",
+            "features": [
+              "more_lengths"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "typenum",
+            "package_key": "typenum-1.20.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "std"
         ]
       },
       "cursor-icon-1.2.0": {
@@ -1204,10 +1829,73 @@
         "build_dependencies": [],
         "features": []
       },
+      "der-0.7.10": {
+        "runtime_dependencies": [
+          {
+            "name": "const_oid",
+            "package_key": "const-oid-0.9.6",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "zeroize",
+            "package_key": "zeroize-1.9.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "oid",
+          "std",
+          "zeroize"
+        ]
+      },
       "diff-0.1.13": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
+      },
+      "digest-0.10.7": {
+        "runtime_dependencies": [
+          {
+            "name": "block_buffer",
+            "package_key": "block-buffer-0.10.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "crypto_common",
+            "package_key": "crypto-common-0.1.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "block-buffer",
+          "core-api",
+          "default",
+          "std"
+        ]
       },
       "dirs-6.0.0": {
         "runtime_dependencies": [
@@ -1281,6 +1969,88 @@
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
+      },
+      "ed25519-2.2.3": {
+        "runtime_dependencies": [
+          {
+            "name": "signature",
+            "package_key": "signature-2.2.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "std"
+        ]
+      },
+      "ed25519-dalek-2.2.0": {
+        "runtime_dependencies": [
+          {
+            "name": "curve25519_dalek",
+            "package_key": "curve25519-dalek-4.1.3",
+            "kind": "normal",
+            "features": [
+              "digest"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "ed25519",
+            "package_key": "ed25519-2.2.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "sha2",
+            "package_key": "sha2-0.10.9",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "subtle",
+            "package_key": "subtle-2.6.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "zeroize",
+            "package_key": "zeroize-1.9.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "fast",
+          "std",
+          "zeroize"
+        ]
       },
       "egaku-0.1.9": {
         "runtime_dependencies": [
@@ -1965,7 +2735,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.3.27",
+            "package_key": "tatara-lisp-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2317,7 +3087,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.3.27",
+            "package_key": "tatara-lisp-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2760,7 +3530,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.3.27",
+            "package_key": "tatara-lisp-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3571,6 +4341,16 @@
       "escriba-vm-0.1.86": {
         "runtime_dependencies": [
           {
+            "name": "blue_lang_host",
+            "package_key": "blue-lang-host-0.0.84",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "escriba_core",
             "package_key": "escriba-core-0.1.86",
             "kind": "normal",
@@ -3614,7 +4394,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.3.27",
+            "package_key": "tatara-lisp-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3624,7 +4404,7 @@
           },
           {
             "name": "tatara_lisp_eval",
-            "package_key": "tatara-lisp-eval-0.3.27",
+            "package_key": "tatara-lisp-eval-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4145,6 +4925,63 @@
         "build_dependencies": [],
         "features": []
       },
+      "generic-array-0.14.7": {
+        "runtime_dependencies": [
+          {
+            "name": "typenum",
+            "package_key": "typenum-1.20.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "version_check",
+            "package_key": "version_check-0.9.5",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": [
+          "more_lengths"
+        ]
+      },
+      "getrandom-0.2.17": {
+        "runtime_dependencies": [
+          {
+            "name": "cfg_if",
+            "package_key": "cfg-if-1.0.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": "cfg(unix)",
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "std"
+        ]
+      },
       "getrandom-0.3.4": {
         "runtime_dependencies": [
           {
@@ -4549,6 +5386,13 @@
           "num-traits"
         ]
       },
+      "hashbrown-0.14.5": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "inline-more"
+        ]
+      },
       "hashbrown-0.15.5": {
         "runtime_dependencies": [
           {
@@ -4814,6 +5658,91 @@
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
+      },
+      "imbl-7.0.2": {
+        "runtime_dependencies": [
+          {
+            "name": "archery",
+            "package_key": "archery-1.2.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "equivalent",
+            "package_key": "equivalent-1.0.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "imbl_sized_chunks",
+            "package_key": "imbl-sized-chunks-0.2.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "rand_core",
+            "package_key": "rand_core-0.9.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "rand_xoshiro",
+            "package_key": "rand_xoshiro-0.7.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "wide",
+            "package_key": "wide-0.7.33",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "version_check",
+            "package_key": "version_check-0.9.5",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
+      "imbl-sized-chunks-0.2.0": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "std"
+        ]
       },
       "indexmap-2.14.0": {
         "runtime_dependencies": [
@@ -5392,6 +6321,11 @@
           "os-poll"
         ]
       },
+      "monosashi-0.4.7": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
       "naga-25.0.1": {
         "runtime_dependencies": [
           {
@@ -5700,6 +6634,32 @@
           "std"
         ]
       },
+      "object-0.39.1": {
+        "runtime_dependencies": [
+          {
+            "name": "memchr",
+            "package_key": "memchr-2.8.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "archive",
+          "coff",
+          "elf",
+          "macho",
+          "pe",
+          "read",
+          "read_core",
+          "std",
+          "xcoff"
+        ]
+      },
       "okiba-0.3.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -5899,6 +6859,37 @@
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
+      },
+      "pkcs8-0.10.2": {
+        "runtime_dependencies": [
+          {
+            "name": "der",
+            "package_key": "der-0.7.10",
+            "kind": "normal",
+            "features": [
+              "oid"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "spki",
+            "package_key": "spki-0.7.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "std"
+        ]
       },
       "pkg-config-0.3.33": {
         "runtime_dependencies": [],
@@ -6172,6 +7163,32 @@
           "timeout"
         ]
       },
+      "psm-0.1.32": {
+        "runtime_dependencies": [],
+        "build_dependencies": [
+          {
+            "name": "ar_archive_writer",
+            "package_key": "ar_archive_writer-0.5.3",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          },
+          {
+            "name": "cc",
+            "package_key": "cc-1.4.0",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "features": []
+      },
       "quick-error-1.2.3": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -6246,6 +7263,26 @@
           "std"
         ]
       },
+      "rand_core-0.6.4": {
+        "runtime_dependencies": [
+          {
+            "name": "getrandom",
+            "package_key": "getrandom-0.2.17",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "getrandom",
+          "std"
+        ]
+      },
       "rand_core-0.9.5": {
         "runtime_dependencies": [
           {
@@ -6266,6 +7303,22 @@
         ]
       },
       "rand_xorshift-0.4.0": {
+        "runtime_dependencies": [
+          {
+            "name": "rand_core",
+            "package_key": "rand_core-0.9.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "rand_xoshiro-0.7.0": {
         "runtime_dependencies": [
           {
             "name": "rand_core",
@@ -6630,6 +7683,22 @@
         "build_dependencies": [],
         "features": []
       },
+      "rnix-0.14.0": {
+        "runtime_dependencies": [
+          {
+            "name": "rowan",
+            "package_key": "rowan-0.16.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "ropey-1.6.1": {
         "runtime_dependencies": [
           {
@@ -6661,10 +7730,61 @@
           "unicode_lines"
         ]
       },
+      "rowan-0.16.1": {
+        "runtime_dependencies": [
+          {
+            "name": "countme",
+            "package_key": "countme-3.0.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "hashbrown",
+            "package_key": "hashbrown-0.14.5",
+            "kind": "normal",
+            "features": [
+              "inline-more"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "rustc_hash",
+            "package_key": "rustc-hash-1.1.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "text_size",
+            "package_key": "text-size-1.1.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "rustc-hash-1.1.0": {
         "runtime_dependencies": [],
         "build_dependencies": [],
-        "features": []
+        "features": [
+          "default",
+          "std"
+        ]
       },
       "rustc-hash-2.1.3": {
         "runtime_dependencies": [],
@@ -6673,6 +7793,22 @@
           "default",
           "std"
         ]
+      },
+      "rustc_version-0.4.1": {
+        "runtime_dependencies": [
+          {
+            "name": "semver",
+            "package_key": "semver-1.0.28",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
       },
       "rustversion-1.0.23": {
         "runtime_dependencies": [],
@@ -6841,6 +7977,25 @@
         "build_dependencies": [],
         "features": []
       },
+      "safe_arch-0.7.4": {
+        "runtime_dependencies": [
+          {
+            "name": "bytemuck",
+            "package_key": "bytemuck-1.25.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "bytemuck",
+          "default"
+        ]
+      },
       "same-file-1.0.6": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -6966,6 +8121,14 @@
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
+      },
+      "semver-1.0.28": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "std"
+        ]
       },
       "serde-1.0.229": {
         "runtime_dependencies": [
@@ -7221,6 +8384,44 @@
         ],
         "build_dependencies": [],
         "features": []
+      },
+      "sha2-0.10.9": {
+        "runtime_dependencies": [
+          {
+            "name": "cfg_if",
+            "package_key": "cfg-if-1.0.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "cpufeatures",
+            "package_key": "cpufeatures-0.2.17",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": "cfg(any(target_arch = \"aarch64\", target_arch = \"x86_64\", target_arch = \"x86\"))",
+            "tree": "target"
+          },
+          {
+            "name": "digest",
+            "package_key": "digest-0.10.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "std"
+        ]
       },
       "sharded-slab-0.1.7": {
         "runtime_dependencies": [
@@ -7493,6 +8694,14 @@
         "build_dependencies": [],
         "features": []
       },
+      "signature-2.2.0": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "std"
+        ]
+      },
       "skrifa-0.44.0": {
         "runtime_dependencies": [
           {
@@ -7571,6 +8780,74 @@
           }
         ],
         "build_dependencies": [],
+        "features": []
+      },
+      "spki-0.7.3": {
+        "runtime_dependencies": [
+          {
+            "name": "der",
+            "package_key": "der-0.7.10",
+            "kind": "normal",
+            "features": [
+              "oid"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "std"
+        ]
+      },
+      "stacker-0.1.25": {
+        "runtime_dependencies": [
+          {
+            "name": "cfg_if",
+            "package_key": "cfg-if-1.0.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "libc",
+            "package_key": "libc-0.2.189",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "psm",
+            "package_key": "psm-0.1.32",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [
+          {
+            "name": "cc",
+            "package_key": "cc-1.4.0",
+            "kind": "build",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
         "features": []
       },
       "static_assertions-1.1.0": {
@@ -7667,6 +8944,11 @@
             "tree": "target"
           }
         ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "subtle-2.6.1": {
+        "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
       },
@@ -7813,11 +9095,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-closed-set-0.3.37": {
+      "tatara-closed-set-0.4.7": {
         "runtime_dependencies": [
           {
             "name": "tatara_closed_set_derive",
-            "package_key": "tatara-closed-set-derive-0.3.37",
+            "package_key": "tatara-closed-set-derive-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7829,7 +9111,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-closed-set-derive-0.3.37": {
+      "tatara-closed-set-derive-0.4.7": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -7867,7 +9149,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-lisp-0.3.27": {
+      "tatara-lisp-0.4.7": {
         "runtime_dependencies": [
           {
             "name": "blake3",
@@ -7903,7 +9185,7 @@
           },
           {
             "name": "tatara_closed_set",
-            "package_key": "tatara-closed-set-0.3.37",
+            "package_key": "tatara-closed-set-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7913,7 +9195,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.3.27",
+            "package_key": "tatara-lisp-derive-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7937,7 +9219,7 @@
           "default"
         ]
       },
-      "tatara-lisp-derive-0.3.27": {
+      "tatara-lisp-derive-0.4.7": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -7975,11 +9257,51 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-lisp-eval-0.3.27": {
+      "tatara-lisp-eval-0.4.7": {
         "runtime_dependencies": [
           {
+            "name": "imbl",
+            "package_key": "imbl-7.0.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "monosashi",
+            "package_key": "monosashi-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "stacker",
+            "package_key": "stacker-0.1.25",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": "cfg(not(target_family = \"wasm\"))",
+            "tree": "target"
+          },
+          {
+            "name": "tatara_closed_set",
+            "package_key": "tatara-closed-set-0.4.7",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.3.27",
+            "package_key": "tatara-lisp-0.4.7",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -8055,6 +9377,11 @@
         ]
       },
       "termcolor-1.4.1": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
+      "text-size-1.1.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -9154,6 +10481,11 @@
           "variable-fonts"
         ]
       },
+      "typenum-1.20.1": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
       "unarray-0.1.4": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -9618,6 +10950,37 @@
           "thiserror"
         ]
       },
+      "wide-0.7.33": {
+        "runtime_dependencies": [
+          {
+            "name": "bytemuck",
+            "package_key": "bytemuck-1.25.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "safe_arch",
+            "package_key": "safe_arch-0.7.4",
+            "kind": "normal",
+            "features": [
+              "bytemuck"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "std"
+        ]
+      },
       "winnow-0.7.15": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -9745,6 +11108,13 @@
         "build_dependencies": [],
         "features": []
       },
+      "zeroize-1.9.1": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": [
+          "alloc"
+        ]
+      },
       "zmij-1.0.23": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -9818,6 +11188,7 @@
             ],
             "features": [
               "default",
+              "pure",
               "std"
             ]
           },
@@ -9979,6 +11350,114 @@
             "features": [
               "default",
               "link"
+            ]
+          },
+          "cpufeatures-0.2.17": {
+            "runtime_dependencies": [
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "aarch64-linux-android",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
+          "curve25519-dalek-4.1.3": {
+            "runtime_dependencies": [
+              {
+                "name": "cfg_if",
+                "package_key": "cfg-if-1.0.4",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "digest",
+                "package_key": "digest-0.10.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "subtle",
+                "package_key": "subtle-2.6.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "zeroize",
+                "package_key": "zeroize-1.9.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [
+              {
+                "name": "rustc_version",
+                "package_key": "rustc_version-0.4.1",
+                "kind": "build",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              }
+            ],
+            "features": [
+              "alloc",
+              "digest",
+              "precomputed-tables",
+              "zeroize"
             ]
           },
           "dispatch-0.2.0": {
@@ -11834,6 +13313,7 @@
             ],
             "features": [
               "default",
+              "pure",
               "std"
             ]
           },
@@ -11955,6 +13435,114 @@
             ],
             "build_dependencies": [],
             "features": []
+          },
+          "cpufeatures-0.2.17": {
+            "runtime_dependencies": [
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "aarch64-linux-android",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
+          "curve25519-dalek-4.1.3": {
+            "runtime_dependencies": [
+              {
+                "name": "cfg_if",
+                "package_key": "cfg-if-1.0.4",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "digest",
+                "package_key": "digest-0.10.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "subtle",
+                "package_key": "subtle-2.6.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "zeroize",
+                "package_key": "zeroize-1.9.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [
+              {
+                "name": "rustc_version",
+                "package_key": "rustc_version-0.4.1",
+                "kind": "build",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              }
+            ],
+            "features": [
+              "alloc",
+              "digest",
+              "precomputed-tables",
+              "zeroize"
+            ]
           },
           "dlib-0.5.3": {
             "runtime_dependencies": [
@@ -14626,6 +16214,7 @@
             ],
             "features": [
               "default",
+              "pure",
               "std"
             ]
           },
@@ -14747,6 +16336,114 @@
             ],
             "build_dependencies": [],
             "features": []
+          },
+          "cpufeatures-0.2.17": {
+            "runtime_dependencies": [
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "aarch64-linux-android",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.189",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
+          "curve25519-dalek-4.1.3": {
+            "runtime_dependencies": [
+              {
+                "name": "cfg_if",
+                "package_key": "cfg-if-1.0.4",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "digest",
+                "package_key": "digest-0.10.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "subtle",
+                "package_key": "subtle-2.6.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "zeroize",
+                "package_key": "zeroize-1.9.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [
+              {
+                "name": "rustc_version",
+                "package_key": "rustc_version-0.4.1",
+                "kind": "build",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              }
+            ],
+            "features": [
+              "alloc",
+              "digest",
+              "precomputed-tables",
+              "zeroize"
+            ]
           },
           "dlib-0.5.3": {
             "runtime_dependencies": [
@@ -17321,6 +19018,7 @@
             ],
             "features": [
               "default",
+              "pure",
               "std"
             ]
           },
@@ -17484,8 +19182,133 @@
               "link"
             ]
           },
+          "cpufeatures-0.2.17": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": []
+          },
           "cpufeatures-0.3.0": {
             "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": []
+          },
+          "curve25519-dalek-4.1.3": {
+            "runtime_dependencies": [
+              {
+                "name": "cfg_if",
+                "package_key": "cfg-if-1.0.4",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "cpufeatures",
+                "package_key": "cpufeatures-0.2.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_arch = \"x86_64\")",
+                "tree": "target"
+              },
+              {
+                "name": "curve25519_dalek_derive",
+                "package_key": "curve25519-dalek-derive-0.1.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(all(not(curve25519_dalek_backend = \"fiat\"), not(curve25519_dalek_backend = \"serial\"), target_arch = \"x86_64\"))",
+                "tree": "host"
+              },
+              {
+                "name": "digest",
+                "package_key": "digest-0.10.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "subtle",
+                "package_key": "subtle-2.6.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "zeroize",
+                "package_key": "zeroize-1.9.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [
+              {
+                "name": "rustc_version",
+                "package_key": "rustc_version-0.4.1",
+                "kind": "build",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              }
+            ],
+            "features": [
+              "alloc",
+              "digest",
+              "precomputed-tables",
+              "zeroize"
+            ]
+          },
+          "curve25519-dalek-derive-0.1.1": {
+            "runtime_dependencies": [
+              {
+                "name": "proc_macro2",
+                "package_key": "proc-macro2-1.0.107",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "quote",
+                "package_key": "quote-1.0.47",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "syn",
+                "package_key": "syn-2.0.119",
+                "kind": "normal",
+                "features": [
+                  "full"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
             "build_dependencies": [],
             "features": []
           },
@@ -19352,6 +21175,7 @@
             ],
             "features": [
               "default",
+              "pure",
               "std"
             ]
           },
@@ -19474,8 +21298,133 @@
             "build_dependencies": [],
             "features": []
           },
+          "cpufeatures-0.2.17": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": []
+          },
           "cpufeatures-0.3.0": {
             "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": []
+          },
+          "curve25519-dalek-4.1.3": {
+            "runtime_dependencies": [
+              {
+                "name": "cfg_if",
+                "package_key": "cfg-if-1.0.4",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "cpufeatures",
+                "package_key": "cpufeatures-0.2.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_arch = \"x86_64\")",
+                "tree": "target"
+              },
+              {
+                "name": "curve25519_dalek_derive",
+                "package_key": "curve25519-dalek-derive-0.1.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(all(not(curve25519_dalek_backend = \"fiat\"), not(curve25519_dalek_backend = \"serial\"), target_arch = \"x86_64\"))",
+                "tree": "host"
+              },
+              {
+                "name": "digest",
+                "package_key": "digest-0.10.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "subtle",
+                "package_key": "subtle-2.6.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "zeroize",
+                "package_key": "zeroize-1.9.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [
+              {
+                "name": "rustc_version",
+                "package_key": "rustc_version-0.4.1",
+                "kind": "build",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              }
+            ],
+            "features": [
+              "alloc",
+              "digest",
+              "precomputed-tables",
+              "zeroize"
+            ]
+          },
+          "curve25519-dalek-derive-0.1.1": {
+            "runtime_dependencies": [
+              {
+                "name": "proc_macro2",
+                "package_key": "proc-macro2-1.0.107",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "quote",
+                "package_key": "quote-1.0.47",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "syn",
+                "package_key": "syn-2.0.119",
+                "kind": "normal",
+                "features": [
+                  "full"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
             "build_dependencies": [],
             "features": []
           },
@@ -22159,6 +24108,7 @@
             ],
             "features": [
               "default",
+              "pure",
               "std"
             ]
           },
@@ -22281,8 +24231,133 @@
             "build_dependencies": [],
             "features": []
           },
+          "cpufeatures-0.2.17": {
+            "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": []
+          },
           "cpufeatures-0.3.0": {
             "runtime_dependencies": [],
+            "build_dependencies": [],
+            "features": []
+          },
+          "curve25519-dalek-4.1.3": {
+            "runtime_dependencies": [
+              {
+                "name": "cfg_if",
+                "package_key": "cfg-if-1.0.4",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "cpufeatures",
+                "package_key": "cpufeatures-0.2.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_arch = \"x86_64\")",
+                "tree": "target"
+              },
+              {
+                "name": "curve25519_dalek_derive",
+                "package_key": "curve25519-dalek-derive-0.1.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(all(not(curve25519_dalek_backend = \"fiat\"), not(curve25519_dalek_backend = \"serial\"), target_arch = \"x86_64\"))",
+                "tree": "host"
+              },
+              {
+                "name": "digest",
+                "package_key": "digest-0.10.7",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "subtle",
+                "package_key": "subtle-2.6.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "zeroize",
+                "package_key": "zeroize-1.9.1",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": true,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [
+              {
+                "name": "rustc_version",
+                "package_key": "rustc_version-0.4.1",
+                "kind": "build",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              }
+            ],
+            "features": [
+              "alloc",
+              "digest",
+              "precomputed-tables",
+              "zeroize"
+            ]
+          },
+          "curve25519-dalek-derive-0.1.1": {
+            "runtime_dependencies": [
+              {
+                "name": "proc_macro2",
+                "package_key": "proc-macro2-1.0.107",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "quote",
+                "package_key": "quote-1.0.47",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "syn",
+                "package_key": "syn-2.0.119",
+                "kind": "normal",
+                "features": [
+                  "full"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
             "build_dependencies": [],
             "features": []
           },
@@ -24818,8 +26893,14 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "ar_archive_writer-0.5.3": {
+      "edition": "2024"
+    },
     "arc-swap-1.9.2": {
       "edition": "2018"
+    },
+    "archery-1.2.3": {
+      "edition": "2024"
     },
     "arrayref-0.3.9": {
       "edition": "2015"
@@ -24844,6 +26925,9 @@
     "awase-0.1.8": {
       "edition": "2024"
     },
+    "base64ct-1.8.3": {
+      "edition": "2024"
+    },
     "bincode-1.3.3": {
       "edition": "2015"
     },
@@ -24866,7 +26950,42 @@
     "block-0.1.6": {
       "edition": "2015"
     },
+    "block-buffer-0.10.4": {
+      "edition": "2018"
+    },
     "block2-0.5.1": {
+      "edition": "2021"
+    },
+    "blue-lang-bidama-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-check-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-fmt-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-host-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-host-macros-0.0.84": {
+      "edition": "2021",
+      "proc_macro": true
+    },
+    "blue-lang-pkg-0.0.84": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "blue-lang-proc-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-runtime-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-syntax-0.0.84": {
+      "edition": "2021"
+    },
+    "blue-lang-waku-0.0.84": {
       "edition": "2021"
     },
     "bytemuck-1.25.2": {
@@ -24931,6 +27050,9 @@
     "compact_str-0.8.2": {
       "edition": "2021"
     },
+    "const-oid-0.9.6": {
+      "edition": "2021"
+    },
     "constant_time_eq-0.4.2": {
       "edition": "2024"
     },
@@ -24949,14 +27071,31 @@
     "cosmic-text-0.14.2": {
       "edition": "2021"
     },
+    "countme-3.0.1": {
+      "edition": "2018"
+    },
+    "cpufeatures-0.2.17": {
+      "edition": "2018"
+    },
     "cpufeatures-0.3.0": {
       "edition": "2024"
     },
     "crossterm-0.28.1": {
       "edition": "2021"
     },
+    "crypto-common-0.1.7": {
+      "edition": "2018"
+    },
     "cursor-icon-1.2.0": {
       "edition": "2021"
+    },
+    "curve25519-dalek-4.1.3": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "curve25519-dalek-derive-0.1.1": {
+      "edition": "2021",
+      "proc_macro": true
     },
     "darling-0.24.0": {
       "edition": "2021"
@@ -24968,8 +27107,14 @@
       "edition": "2021",
       "proc_macro": true
     },
+    "der-0.7.10": {
+      "edition": "2021"
+    },
     "diff-0.1.13": {
       "edition": "2015"
+    },
+    "digest-0.10.7": {
+      "edition": "2018"
     },
     "dirs-6.0.0": {
       "edition": "2015"
@@ -24999,6 +27144,12 @@
     },
     "dyn-clone-1.0.20": {
       "edition": "2018"
+    },
+    "ed25519-2.2.3": {
+      "edition": "2021"
+    },
+    "ed25519-dalek-2.2.0": {
+      "edition": "2021"
     },
     "egaku-0.1.9": {
       "edition": "2024"
@@ -25264,8 +27415,15 @@
     "gen-types-0.1.34": {
       "edition": "2024"
     },
+    "generic-array-0.14.7": {
+      "edition": "2015",
+      "build_script": "build.rs"
+    },
     "gethostname-1.1.0": {
       "edition": "2021"
+    },
+    "getrandom-0.2.17": {
+      "edition": "2018"
     },
     "getrandom-0.3.4": {
       "edition": "2021",
@@ -25296,6 +27454,9 @@
     "half-2.7.1": {
       "edition": "2021"
     },
+    "hashbrown-0.14.5": {
+      "edition": "2021"
+    },
     "hashbrown-0.15.5": {
       "edition": "2021"
     },
@@ -25322,6 +27483,12 @@
     },
     "ident_case-1.0.1": {
       "edition": "2015"
+    },
+    "imbl-7.0.2": {
+      "edition": "2018"
+    },
+    "imbl-sized-chunks-0.2.0": {
+      "edition": "2021"
     },
     "indexmap-2.14.0": {
       "edition": "2024"
@@ -25423,6 +27590,9 @@
     "mio-1.2.2": {
       "edition": "2021"
     },
+    "monosashi-0.4.7": {
+      "edition": "2021"
+    },
     "naga-25.0.1": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -25476,6 +27646,10 @@
     "objc2-quartz-core-0.2.2": {
       "edition": "2021"
     },
+    "object-0.39.1": {
+      "edition": "2018",
+      "build_script": "build.rs"
+    },
     "okiba-0.3.1": {
       "edition": "2024"
     },
@@ -25516,6 +27690,9 @@
     "pin-project-lite-0.2.17": {
       "edition": "2018"
     },
+    "pkcs8-0.10.2": {
+      "edition": "2021"
+    },
     "pkg-config-0.3.33": {
       "edition": "2018"
     },
@@ -25545,6 +27722,10 @@
     "proptest-1.11.0": {
       "edition": "2021"
     },
+    "psm-0.1.32": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
     "quick-error-1.2.3": {
       "edition": "2015"
     },
@@ -25561,10 +27742,16 @@
     "rand_chacha-0.9.0": {
       "edition": "2021"
     },
+    "rand_core-0.6.4": {
+      "edition": "2018"
+    },
     "rand_core-0.9.5": {
       "edition": "2021"
     },
     "rand_xorshift-0.4.0": {
+      "edition": "2021"
+    },
+    "rand_xoshiro-0.7.0": {
       "edition": "2021"
     },
     "rangemap-1.7.1": {
@@ -25591,8 +27778,14 @@
     "renderdoc-sys-1.1.0": {
       "edition": "2015"
     },
+    "rnix-0.14.0": {
+      "edition": "2021"
+    },
     "ropey-1.6.1": {
       "edition": "2015"
+    },
+    "rowan-0.16.1": {
+      "edition": "2021"
     },
     "roxmltree-0.20.0": {
       "edition": "2021"
@@ -25602,6 +27795,9 @@
     },
     "rustc-hash-2.1.3": {
       "edition": "2021"
+    },
+    "rustc_version-0.4.1": {
+      "edition": "2018"
     },
     "rustix-0.38.44": {
       "edition": "2021",
@@ -25625,6 +27821,9 @@
     "ryu-1.0.23": {
       "edition": "2021"
     },
+    "safe_arch-0.7.4": {
+      "edition": "2018"
+    },
     "same-file-1.0.6": {
       "edition": "2018"
     },
@@ -25647,6 +27846,9 @@
     },
     "self_cell-1.3.0": {
       "edition": "2018"
+    },
+    "semver-1.0.28": {
+      "edition": "2021"
     },
     "serde-1.0.229": {
       "edition": "2021",
@@ -25677,6 +27879,9 @@
     "serde_yaml-0.9.34+deprecated": {
       "edition": "2021"
     },
+    "sha2-0.10.9": {
+      "edition": "2018"
+    },
     "sharded-slab-0.1.7": {
       "edition": "2018"
     },
@@ -25695,6 +27900,9 @@
     },
     "signal-hook-registry-1.4.8": {
       "edition": "2015"
+    },
+    "signature-2.2.0": {
+      "edition": "2021"
     },
     "skrifa-0.44.0": {
       "edition": "2021"
@@ -25723,6 +27931,13 @@
         "path": "lib.rs"
       }
     },
+    "spki-0.7.3": {
+      "edition": "2021"
+    },
+    "stacker-0.1.25": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
     "static_assertions-1.1.0": {
       "edition": "2015"
     },
@@ -25742,6 +27957,9 @@
       "edition": "2018",
       "proc_macro": true
     },
+    "subtle-2.6.1": {
+      "edition": "2018"
+    },
     "svg_fmt-0.4.5": {
       "edition": "2018"
     },
@@ -25757,27 +27975,30 @@
     "sys-locale-0.3.2": {
       "edition": "2018"
     },
-    "tatara-closed-set-0.3.37": {
+    "tatara-closed-set-0.4.7": {
       "edition": "2021"
     },
-    "tatara-closed-set-derive-0.3.37": {
+    "tatara-closed-set-derive-0.4.7": {
       "edition": "2021",
       "proc_macro": true
     },
-    "tatara-lisp-0.3.27": {
+    "tatara-lisp-0.4.7": {
       "edition": "2021"
     },
-    "tatara-lisp-derive-0.3.27": {
+    "tatara-lisp-derive-0.4.7": {
       "edition": "2021",
       "proc_macro": true
     },
-    "tatara-lisp-eval-0.3.27": {
+    "tatara-lisp-eval-0.4.7": {
       "edition": "2021"
     },
     "tempfile-3.27.0": {
       "edition": "2021"
     },
     "termcolor-1.4.1": {
+      "edition": "2018"
+    },
+    "text-size-1.1.1": {
       "edition": "2018"
     },
     "thiserror-1.0.69": {
@@ -25945,6 +28166,9 @@
       "edition": "2018"
     },
     "ttf-parser-0.25.1": {
+      "edition": "2018"
+    },
+    "typenum-1.20.1": {
       "edition": "2018"
     },
     "unarray-0.1.4": {
@@ -26125,6 +28349,9 @@
         }
       ]
     },
+    "wide-0.7.33": {
+      "edition": "2018"
+    },
     "winit-0.30.13": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -26173,6 +28400,9 @@
     "zerocopy-derive-0.8.56": {
       "edition": "2021",
       "proc_macro": true
+    },
+    "zeroize-1.9.1": {
+      "edition": "2024"
     },
     "zmij-1.0.23": {
       "edition": "2021",

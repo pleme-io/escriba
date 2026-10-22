@@ -19,6 +19,30 @@ back as actions; the count prefix stays in `ModalState`.
   FIELDS are gone. Picker, splash and the key-repeat gate stay in the
   runtime — they are app concerns, not vim.
 
+## Imperative scripting runs as blue — `escriba-vm` (2026-10-22)
+
+The editor's capabilities are ONE `#[host] impl EscribaHost` block
+(`message`, `insert`, `set_option`, `run_command`, `cursor_line`,
+`cursor_column`, `current_line`, `editor_mode`, `buffer_name`).
+`EditorState::run_blue` loads a script through `blue_lang_host::Program`;
+`run_lisp` keeps the tatara-lisp tier; `run_script` picks by the typed
+`EditorState::script_language` (`escriba eval --lang lisp|blue`).
+
+- **Default stays `lisp`.** blue-lang-host 0.0.84 cannot extend a loaded
+  `Program` with new source, and blue's `session::Session` is fixed to its
+  own host type, so a `def` made in one `run_blue` call is not visible in
+  the next. `run_lisp` relies on exactly that persistence. The test
+  `blue_definitions_do_not_persist_across_run_blue_calls` pins the gap and
+  goes red the day it closes; flip the default then.
+- **`run_command` takes a list** (`run_command("open", ["a.md"])`): a
+  `#[host]` function has fixed arity; the Lisp twin is variadic.
+- **Two gates:** `the_blue_surface_is_exactly_the_editor_capabilities`
+  (SURFACE, red-run by skipping one method) and
+  `every_blue_capability_has_its_lisp_twin` (the tiers cannot drift).
+- The `defescribaplugin` catalog and every `(def…)` form stay tatara-lisp:
+  they are declarative data, not an embedding. The whole workspace is on
+  the tatara-lisp 0.4 line (one copy, shared with blue).
+
 ## Start screen — `(defsplash …)` (2026-08-07, shipped)
 
 `escriba` with no file argument opens on a start screen: the wordmark,
@@ -924,7 +948,7 @@ cargo test --workspace --lib        # workspace unit tests (all green)
 | `escriba-input` | Platform-event → escriba-key translation | `InputOutcome`, `translate_app_event` |
 | `escriba-runtime` | Editor state machine: `tick(event)` orchestration + lazy plugin host | `EditorState`, `PluginHost`, `LazyTrigger` |
 | `escriba-plugin` | Plugin caixa model + **forge** (emit caixa.lisp / entry / flake from a catalog source) | `PluginCaixa`, `ActivationTrigger`, `forge_plugin`, `CaixaArtifacts` |
-| `escriba-vm` | Embedded Lisp VM — skeleton for Lisp-authored logic | — |
+| `escriba-vm` | Imperative scripting tier: one capability surface, run as blue (`#[host]`, blue-lang-host) or tatara-lisp | `EscribaHost`, `ScriptLanguage`, `eval_blue`, `EscribaVm` |
 | `escriba-ts` | Tree-sitter integration (incremental parse + highlight) | — |
 | `escriba-lsp-client` | LSP client — hand-rolled framing, **not** tower-lsp (see below) | — |
 | `escriba-mcp` | MCP server — expose editor state to AI agents | — |
@@ -1023,7 +1047,7 @@ External integrations live in sibling crates:
 - `escriba-lsp-client` — LSP servers (rust-analyzer, gopls, typescript-language-server, …)
 - `escriba-mcp` — AI agents via Model Context Protocol
 - `escriba-plugin` — plugin caixa model + forge (see "Plugin Caixa Substrate")
-- `escriba-vm` — embedded Lisp VM
+- `escriba-vm` — imperative scripting tier (blue via blue-lang-host, or tatara-lisp)
 - `escriba-lisp` — Tatara-Lisp authoring bridge (32 def-forms + `defescribaplugin` catalog form)
 
 ## ★ Plugin Caixa Substrate — generation-driven blnvim parity
