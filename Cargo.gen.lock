@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "8fb35e456684d1964f3f483259da2c8dfb794a8749b2eb14d09547f4916f790c",
+  "cargo_lock_sha256": "270b6c30a9e008a3713b409cda5db079c4a3d76e8159c3c5992bfea9bb3c4869",
   "manifest_sha256": {
     "Cargo.toml": "80f489c4e8645823c5f58cb361c4d3f50efe2373a9550c8bc539e061c5e15889",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
@@ -287,7 +287,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "awase-0.1.8": {
+      "awase-0.1.10": {
         "runtime_dependencies": [
           {
             "name": "serde",
@@ -441,7 +441,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -467,7 +467,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -672,7 +672,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -730,7 +730,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -875,7 +875,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -911,7 +911,7 @@
         "runtime_dependencies": [
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -937,7 +937,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2399,7 +2399,7 @@
           },
           {
             "name": "shikumi",
-            "package_key": "shikumi-0.1.496",
+            "package_key": "shikumi-0.1.1083",
             "kind": "normal",
             "features": [
               "cli"
@@ -2725,7 +2725,7 @@
           },
           {
             "name": "shikumi",
-            "package_key": "shikumi-0.1.496",
+            "package_key": "shikumi-0.1.1083",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2735,7 +2735,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2821,7 +2821,7 @@
         "runtime_dependencies": [
           {
             "name": "awase",
-            "package_key": "awase-0.1.8",
+            "package_key": "awase-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2891,7 +2891,7 @@
         "runtime_dependencies": [
           {
             "name": "awase",
-            "package_key": "awase-0.1.8",
+            "package_key": "awase-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2981,7 +2981,7 @@
         "runtime_dependencies": [
           {
             "name": "awase",
-            "package_key": "awase-0.1.8",
+            "package_key": "awase-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3087,7 +3087,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3530,7 +3530,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3726,7 +3726,7 @@
         "runtime_dependencies": [
           {
             "name": "awase",
-            "package_key": "awase-0.1.8",
+            "package_key": "awase-0.1.10",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4394,7 +4394,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4736,7 +4736,7 @@
           "default"
         ]
       },
-      "gen-macros-0.1.34": {
+      "gen-macros-0.1.52": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -4775,11 +4775,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "gen-platform-0.1.34": {
+      "gen-platform-0.1.52": {
         "runtime_dependencies": [
           {
             "name": "gen_macros",
-            "package_key": "gen-macros-0.1.34",
+            "package_key": "gen-macros-0.1.52",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4789,7 +4789,7 @@
           },
           {
             "name": "gen_types",
-            "package_key": "gen-types-0.1.34",
+            "package_key": "gen-types-0.1.52",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4843,7 +4843,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "gen-types-0.1.34": {
+      "gen-types-0.1.52": {
         "runtime_dependencies": [
           {
             "name": "blake3",
@@ -4983,104 +4983,6 @@
         ]
       },
       "getrandom-0.3.4": {
-        "runtime_dependencies": [
-          {
-            "name": "cfg_if",
-            "package_key": "cfg-if-1.0.4",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), not(any(all(target_os = \"linux\", target_env = \"\"), getrandom_backend = \"custom\", getrandom_backend = \"linux_raw\", getrandom_backend = \"rdrand\", getrandom_backend = \"rndr\"))))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"hurd\", target_os = \"illumos\", target_os = \"cygwin\", all(target_os = \"horizon\", target_arch = \"arm\")))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"haiku\", target_os = \"redox\", target_os = \"nto\", target_os = \"aix\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"ios\", target_os = \"visionos\", target_os = \"watchos\", target_os = \"tvos\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(any(target_os = \"macos\", target_os = \"openbsd\", target_os = \"vita\", target_os = \"emscripten\"))",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"netbsd\")",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"solaris\")",
-            "tree": "target"
-          },
-          {
-            "name": "libc",
-            "package_key": "libc-0.2.189",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": false,
-            "optional": false,
-            "target": "cfg(target_os = \"vxworks\")",
-            "tree": "target"
-          }
-        ],
-        "build_dependencies": [],
-        "features": [
-          "std"
-        ]
-      },
-      "getrandom-0.4.3": {
         "runtime_dependencies": [
           {
             "name": "cfg_if",
@@ -6192,7 +6094,7 @@
           },
           {
             "name": "shikumi",
-            "package_key": "shikumi-0.1.496",
+            "package_key": "shikumi-0.1.1083",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -7532,6 +7434,58 @@
           "std"
         ]
       },
+      "ref-cast-1.0.27": {
+        "runtime_dependencies": [
+          {
+            "name": "ref_cast_impl",
+            "package_key": "ref-cast-impl-1.0.27",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "host"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "ref-cast-impl-1.0.27": {
+        "runtime_dependencies": [
+          {
+            "name": "proc_macro2",
+            "package_key": "proc-macro2-1.0.107",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "quote",
+            "package_key": "quote-1.0.47",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "syn",
+            "package_key": "syn-3.0.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "regex-1.13.1": {
         "runtime_dependencies": [
           {
@@ -8064,6 +8018,71 @@
           "schemars_derive"
         ]
       },
+      "schemars-1.2.3": {
+        "runtime_dependencies": [
+          {
+            "name": "dyn_clone",
+            "package_key": "dyn-clone-1.0.20",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "ref_cast",
+            "package_key": "ref-cast-1.0.27",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "schemars_derive",
+            "package_key": "schemars_derive-1.2.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "host"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.229",
+            "kind": "normal",
+            "features": [
+              "alloc"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_json",
+            "package_key": "serde_json-1.0.151",
+            "kind": "normal",
+            "features": [
+              "alloc"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "default",
+          "derive",
+          "schemars_derive",
+          "std"
+        ]
+      },
       "schemars_derive-0.8.22": {
         "runtime_dependencies": [
           {
@@ -8103,6 +8122,52 @@
             "features": [
               "extra-traits"
             ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "schemars_derive-1.2.3": {
+        "runtime_dependencies": [
+          {
+            "name": "proc_macro2",
+            "package_key": "proc-macro2-1.0.107",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "quote",
+            "package_key": "quote-1.0.47",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde_derive_internals",
+            "package_key": "serde_derive_internals-0.30.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "syn",
+            "package_key": "syn-3.0.3",
+            "kind": "normal",
+            "features": [],
             "uses_default_features": true,
             "optional": false,
             "target": null,
@@ -8262,6 +8327,47 @@
         "build_dependencies": [],
         "features": []
       },
+      "serde_derive_internals-0.30.0": {
+        "runtime_dependencies": [
+          {
+            "name": "proc_macro2",
+            "package_key": "proc-macro2-1.0.107",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "quote",
+            "package_key": "quote-1.0.47",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "syn",
+            "package_key": "syn-3.0.3",
+            "kind": "normal",
+            "features": [
+              "clone-impls",
+              "derive",
+              "parsing",
+              "printing"
+            ],
+            "uses_default_features": false,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "serde_json-1.0.151": {
         "runtime_dependencies": [
           {
@@ -8307,6 +8413,7 @@
         ],
         "build_dependencies": [],
         "features": [
+          "alloc",
           "default",
           "std"
         ]
@@ -8439,7 +8546,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "shikumi-0.1.496": {
+      "shikumi-0.1.1083": {
         "runtime_dependencies": [
           {
             "name": "arc_swap",
@@ -8489,7 +8596,7 @@
           },
           {
             "name": "gen_platform",
-            "package_key": "gen-platform-0.1.34",
+            "package_key": "gen-platform-0.1.52",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -8499,7 +8606,7 @@
           },
           {
             "name": "gen_types",
-            "package_key": "gen-types-0.1.34",
+            "package_key": "gen-types-0.1.52",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -8527,6 +8634,16 @@
             "uses_default_features": false,
             "optional": false,
             "target": "cfg(target_os = \"macos\")",
+            "tree": "target"
+          },
+          {
+            "name": "schemars",
+            "package_key": "schemars-1.2.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
             "tree": "target"
           },
           {
@@ -9095,11 +9212,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-closed-set-0.4.7": {
+      "tatara-closed-set-0.4.9": {
         "runtime_dependencies": [
           {
             "name": "tatara_closed_set_derive",
-            "package_key": "tatara-closed-set-derive-0.4.7",
+            "package_key": "tatara-closed-set-derive-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -9111,7 +9228,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-closed-set-derive-0.4.7": {
+      "tatara-closed-set-derive-0.4.9": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -9149,7 +9266,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "tatara-lisp-0.4.7": {
+      "tatara-lisp-0.4.9": {
         "runtime_dependencies": [
           {
             "name": "blake3",
@@ -9185,7 +9302,7 @@
           },
           {
             "name": "tatara_closed_set",
-            "package_key": "tatara-closed-set-0.4.7",
+            "package_key": "tatara-closed-set-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -9195,7 +9312,7 @@
           },
           {
             "name": "tatara_lisp_derive",
-            "package_key": "tatara-lisp-derive-0.4.7",
+            "package_key": "tatara-lisp-derive-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -9219,7 +9336,7 @@
           "default"
         ]
       },
-      "tatara-lisp-derive-0.4.7": {
+      "tatara-lisp-derive-0.4.9": {
         "runtime_dependencies": [
           {
             "name": "proc_macro2",
@@ -9291,7 +9408,7 @@
           },
           {
             "name": "tatara_closed_set",
-            "package_key": "tatara-closed-set-0.4.7",
+            "package_key": "tatara-closed-set-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -9301,7 +9418,7 @@
           },
           {
             "name": "tatara_lisp",
-            "package_key": "tatara-lisp-0.4.7",
+            "package_key": "tatara-lisp-0.4.9",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -9337,7 +9454,7 @@
           },
           {
             "name": "getrandom",
-            "package_key": "getrandom-0.4.3",
+            "package_key": "getrandom-0.3.4",
             "kind": "normal",
             "features": [],
             "uses_default_features": false,
@@ -26922,7 +27039,7 @@
     "autocfg-1.5.1": {
       "edition": "2015"
     },
-    "awase-0.1.8": {
+    "awase-0.1.10": {
       "edition": "2024"
     },
     "base64ct-1.8.3": {
@@ -27405,14 +27522,14 @@
       "edition": "2024",
       "build_script": "build.rs"
     },
-    "gen-macros-0.1.34": {
+    "gen-macros-0.1.52": {
       "edition": "2024",
       "proc_macro": true
     },
-    "gen-platform-0.1.34": {
+    "gen-platform-0.1.52": {
       "edition": "2024"
     },
-    "gen-types-0.1.34": {
+    "gen-types-0.1.52": {
       "edition": "2024"
     },
     "generic-array-0.14.7": {
@@ -27427,10 +27544,6 @@
     },
     "getrandom-0.3.4": {
       "edition": "2021",
-      "build_script": "build.rs"
-    },
-    "getrandom-0.4.3": {
-      "edition": "2024",
       "build_script": "build.rs"
     },
     "glow-0.16.0": {
@@ -27766,6 +27879,14 @@
     "read-fonts-0.41.0": {
       "edition": "2021"
     },
+    "ref-cast-1.0.27": {
+      "edition": "2021",
+      "build_script": "build.rs"
+    },
+    "ref-cast-impl-1.0.27": {
+      "edition": "2021",
+      "proc_macro": true
+    },
     "regex-1.13.1": {
       "edition": "2021"
     },
@@ -27831,7 +27952,14 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "schemars-1.2.3": {
+      "edition": "2021"
+    },
     "schemars_derive-0.8.22": {
+      "edition": "2021",
+      "proc_macro": true
+    },
+    "schemars_derive-1.2.3": {
       "edition": "2021",
       "proc_macro": true
     },
@@ -27869,6 +27997,13 @@
         "path": "lib.rs"
       }
     },
+    "serde_derive_internals-0.30.0": {
+      "edition": "2021",
+      "lib_target": {
+        "name": "serde_derive_internals",
+        "path": "lib.rs"
+      }
+    },
     "serde_json-1.0.151": {
       "edition": "2021",
       "build_script": "build.rs"
@@ -27885,7 +28020,7 @@
     "sharded-slab-0.1.7": {
       "edition": "2018"
     },
-    "shikumi-0.1.496": {
+    "shikumi-0.1.1083": {
       "edition": "2024"
     },
     "shlex-2.0.1": {
@@ -27975,17 +28110,17 @@
     "sys-locale-0.3.2": {
       "edition": "2018"
     },
-    "tatara-closed-set-0.4.7": {
+    "tatara-closed-set-0.4.9": {
       "edition": "2021"
     },
-    "tatara-closed-set-derive-0.4.7": {
+    "tatara-closed-set-derive-0.4.9": {
       "edition": "2021",
       "proc_macro": true
     },
-    "tatara-lisp-0.4.7": {
+    "tatara-lisp-0.4.9": {
       "edition": "2021"
     },
-    "tatara-lisp-derive-0.4.7": {
+    "tatara-lisp-derive-0.4.9": {
       "edition": "2021",
       "proc_macro": true
     },
