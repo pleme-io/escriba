@@ -1537,9 +1537,9 @@ dependencies = [
 
 [[package]]
 name = "garasu"
-version = "0.1.7"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56e5f711c62734d52b0692049a0885caed4c4ed1905904e9bc838380955168a6"
+checksum = "f5c5fb0393313836c822963dc9f62826481f991aa9137ea34e606b2bfef6a419"
 dependencies = [
  "bincode",
  "blake3",
@@ -1547,6 +1547,8 @@ dependencies = [
  "dirs",
  "fontdb",
  "glyphon",
+ "lru",
+ "mekuri",
  "pollster",
  "raw-window-handle",
  "serde",
@@ -2202,13 +2204,15 @@ dependencies = [
 
 [[package]]
 name = "madori"
-version = "0.1.7"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c04e27ed2b810949fc72c0fa9de7d7d287fbd9546c156f517086c780214760e"
+checksum = "4d833bb0dd589fb60757ed84991a170cd14eef8125d50fa32ec2ebb286c4e965"
 dependencies = [
  "egaku",
  "garasu",
  "ishou-tokens",
+ "objc2",
+ "pleme-allvariants-derive",
  "pollster",
  "serde",
  "shikumi",
@@ -2235,6 +2239,12 @@ checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
 dependencies = [
  "regex-automata",
 ]
+
+[[package]]
+name = "mekuri"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "013a28be243c353977f4989c6ffe9a521226e9211f764053452d31a2a2bbc505"
 
 [[package]]
 name = "memchr"
@@ -2806,6 +2816,17 @@ name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
+
+[[package]]
+name = "pleme-allvariants-derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cb114bcd833314a8da4ca405f57aa7f4f1bffed58dcf4d41a020c2bc89a662a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "polling"

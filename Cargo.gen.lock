@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "d35add0323819a3e75f491d4ba2314279c3309d5c66d03f5d49d9b8fcf5b2bc9",
+  "cargo_lock_sha256": "393cdf406fc22858fed4fedec8681d596f49af23194ba5d2c6929ad9b3734b35",
   "manifest_sha256": {
-    "Cargo.toml": "6985b28bdf34b7de58c821e4b4d849f2f4afba247e7d50dc8ea6dc12d2a96ea7",
+    "Cargo.toml": "b27f14b17fe07bfcc7e87726edb0ae1873ef513e7430e5e68c27d8aea57f9fca",
     "escriba-api/Cargo.toml": "b17e8f8ab58c0bcb273d89b058a88ad68f27e34387cc64e11c49059d45e3ab3a",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -2369,7 +2369,7 @@
           },
           {
             "name": "garasu",
-            "package_key": "garasu-0.1.7",
+            "package_key": "garasu-0.1.17",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2379,7 +2379,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.7",
+            "package_key": "madori-0.1.26",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2851,7 +2851,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.7",
+            "package_key": "madori-0.1.26",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3626,7 +3626,7 @@
           },
           {
             "name": "garasu",
-            "package_key": "garasu-0.1.7",
+            "package_key": "garasu-0.1.17",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3678,7 +3678,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.7",
+            "package_key": "madori-0.1.26",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3876,7 +3876,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.7",
+            "package_key": "madori-0.1.26",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4194,7 +4194,7 @@
           },
           {
             "name": "madori",
-            "package_key": "madori-0.1.7",
+            "package_key": "madori-0.1.26",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4594,7 +4594,7 @@
           "std"
         ]
       },
-      "garasu-0.1.7": {
+      "garasu-0.1.17": {
         "runtime_dependencies": [
           {
             "name": "bincode",
@@ -4651,6 +4651,26 @@
           {
             "name": "glyphon",
             "package_key": "glyphon-0.9.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "lru",
+            "package_key": "lru-0.12.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "mekuri",
+            "package_key": "mekuri-0.1.2",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -6036,116 +6056,6 @@
           "hashbrown"
         ]
       },
-      "madori-0.1.7": {
-        "runtime_dependencies": [
-          {
-            "name": "egaku",
-            "package_key": "egaku-0.1.9",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "garasu",
-            "package_key": "garasu-0.1.7",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "ishou_tokens",
-            "package_key": "ishou-tokens-0.1.6",
-            "kind": "normal",
-            "features": [
-              "wgpu"
-            ],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "pollster",
-            "package_key": "pollster-0.4.0",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "serde",
-            "package_key": "serde-1.0.229",
-            "kind": "normal",
-            "features": [
-              "derive"
-            ],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "shikumi",
-            "package_key": "shikumi-0.1.1083",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "thiserror",
-            "package_key": "thiserror-2.0.19",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "tracing",
-            "package_key": "tracing-0.1.44",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "wgpu",
-            "package_key": "wgpu-25.0.2",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          },
-          {
-            "name": "winit",
-            "package_key": "winit-0.30.13",
-            "kind": "normal",
-            "features": [],
-            "uses_default_features": true,
-            "optional": false,
-            "target": null,
-            "tree": "target"
-          }
-        ],
-        "build_dependencies": [],
-        "features": []
-      },
       "matchers-0.2.0": {
         "runtime_dependencies": [
           {
@@ -6163,6 +6073,11 @@
             "tree": "target"
           }
         ],
+        "build_dependencies": [],
+        "features": []
+      },
+      "mekuri-0.1.2": {
+        "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
       },
@@ -6795,6 +6710,45 @@
       },
       "pkg-config-0.3.33": {
         "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
+      "pleme-allvariants-derive-0.1.0": {
+        "runtime_dependencies": [
+          {
+            "name": "proc_macro2",
+            "package_key": "proc-macro2-1.0.107",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "quote",
+            "package_key": "quote-1.0.47",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "syn",
+            "package_key": "syn-2.0.119",
+            "kind": "normal",
+            "features": [
+              "extra-traits",
+              "full"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
         "build_dependencies": [],
         "features": []
       },
@@ -11761,6 +11715,136 @@
               "fallback"
             ]
           },
+          "madori-0.1.26": {
+            "runtime_dependencies": [
+              {
+                "name": "egaku",
+                "package_key": "egaku-0.1.9",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "garasu",
+                "package_key": "garasu-0.1.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "ishou_tokens",
+                "package_key": "ishou-tokens-0.1.6",
+                "kind": "normal",
+                "features": [
+                  "wgpu"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "objc2",
+                "package_key": "objc2-0.5.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_os = \"macos\")",
+                "tree": "target"
+              },
+              {
+                "name": "pleme_allvariants_derive",
+                "package_key": "pleme-allvariants-derive-0.1.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              },
+              {
+                "name": "pollster",
+                "package_key": "pollster-0.4.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "serde",
+                "package_key": "serde-1.0.229",
+                "kind": "normal",
+                "features": [
+                  "derive"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "shikumi",
+                "package_key": "shikumi-0.1.1083",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "thiserror",
+                "package_key": "thiserror-2.0.19",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "tracing",
+                "package_key": "tracing-0.1.44",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "wgpu",
+                "package_key": "wgpu-25.0.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "winit",
+                "package_key": "winit-0.30.13",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
           "malloc_buf-0.0.6": {
             "runtime_dependencies": [
               {
@@ -13889,6 +13973,126 @@
               "prctl",
               "system"
             ]
+          },
+          "madori-0.1.26": {
+            "runtime_dependencies": [
+              {
+                "name": "egaku",
+                "package_key": "egaku-0.1.9",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "garasu",
+                "package_key": "garasu-0.1.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "ishou_tokens",
+                "package_key": "ishou-tokens-0.1.6",
+                "kind": "normal",
+                "features": [
+                  "wgpu"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "pleme_allvariants_derive",
+                "package_key": "pleme-allvariants-derive-0.1.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              },
+              {
+                "name": "pollster",
+                "package_key": "pollster-0.4.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "serde",
+                "package_key": "serde-1.0.229",
+                "kind": "normal",
+                "features": [
+                  "derive"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "shikumi",
+                "package_key": "shikumi-0.1.1083",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "thiserror",
+                "package_key": "thiserror-2.0.19",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "tracing",
+                "package_key": "tracing-0.1.44",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "wgpu",
+                "package_key": "wgpu-25.0.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "winit",
+                "package_key": "winit-0.30.13",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
           },
           "notify-8.2.0": {
             "runtime_dependencies": [
@@ -16791,6 +16995,126 @@
               "system"
             ]
           },
+          "madori-0.1.26": {
+            "runtime_dependencies": [
+              {
+                "name": "egaku",
+                "package_key": "egaku-0.1.9",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "garasu",
+                "package_key": "garasu-0.1.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "ishou_tokens",
+                "package_key": "ishou-tokens-0.1.6",
+                "kind": "normal",
+                "features": [
+                  "wgpu"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "pleme_allvariants_derive",
+                "package_key": "pleme-allvariants-derive-0.1.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              },
+              {
+                "name": "pollster",
+                "package_key": "pollster-0.4.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "serde",
+                "package_key": "serde-1.0.229",
+                "kind": "normal",
+                "features": [
+                  "derive"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "shikumi",
+                "package_key": "shikumi-0.1.1083",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "thiserror",
+                "package_key": "thiserror-2.0.19",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "tracing",
+                "package_key": "tracing-0.1.44",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "wgpu",
+                "package_key": "wgpu-25.0.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "winit",
+                "package_key": "winit-0.30.13",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
           "notify-8.2.0": {
             "runtime_dependencies": [
               {
@@ -19613,6 +19937,136 @@
               "fallback"
             ]
           },
+          "madori-0.1.26": {
+            "runtime_dependencies": [
+              {
+                "name": "egaku",
+                "package_key": "egaku-0.1.9",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "garasu",
+                "package_key": "garasu-0.1.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "ishou_tokens",
+                "package_key": "ishou-tokens-0.1.6",
+                "kind": "normal",
+                "features": [
+                  "wgpu"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "objc2",
+                "package_key": "objc2-0.5.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": "cfg(target_os = \"macos\")",
+                "tree": "target"
+              },
+              {
+                "name": "pleme_allvariants_derive",
+                "package_key": "pleme-allvariants-derive-0.1.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              },
+              {
+                "name": "pollster",
+                "package_key": "pollster-0.4.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "serde",
+                "package_key": "serde-1.0.229",
+                "kind": "normal",
+                "features": [
+                  "derive"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "shikumi",
+                "package_key": "shikumi-0.1.1083",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "thiserror",
+                "package_key": "thiserror-2.0.19",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "tracing",
+                "package_key": "tracing-0.1.44",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "wgpu",
+                "package_key": "wgpu-25.0.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "winit",
+                "package_key": "winit-0.30.13",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
           "malloc_buf-0.0.6": {
             "runtime_dependencies": [
               {
@@ -21773,6 +22227,126 @@
               "prctl",
               "system"
             ]
+          },
+          "madori-0.1.26": {
+            "runtime_dependencies": [
+              {
+                "name": "egaku",
+                "package_key": "egaku-0.1.9",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "garasu",
+                "package_key": "garasu-0.1.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "ishou_tokens",
+                "package_key": "ishou-tokens-0.1.6",
+                "kind": "normal",
+                "features": [
+                  "wgpu"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "pleme_allvariants_derive",
+                "package_key": "pleme-allvariants-derive-0.1.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              },
+              {
+                "name": "pollster",
+                "package_key": "pollster-0.4.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "serde",
+                "package_key": "serde-1.0.229",
+                "kind": "normal",
+                "features": [
+                  "derive"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "shikumi",
+                "package_key": "shikumi-0.1.1083",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "thiserror",
+                "package_key": "thiserror-2.0.19",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "tracing",
+                "package_key": "tracing-0.1.44",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "wgpu",
+                "package_key": "wgpu-25.0.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "winit",
+                "package_key": "winit-0.30.13",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
           },
           "notify-8.2.0": {
             "runtime_dependencies": [
@@ -24707,6 +25281,126 @@
               "system"
             ]
           },
+          "madori-0.1.26": {
+            "runtime_dependencies": [
+              {
+                "name": "egaku",
+                "package_key": "egaku-0.1.9",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "garasu",
+                "package_key": "garasu-0.1.17",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "ishou_tokens",
+                "package_key": "ishou-tokens-0.1.6",
+                "kind": "normal",
+                "features": [
+                  "wgpu"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "pleme_allvariants_derive",
+                "package_key": "pleme-allvariants-derive-0.1.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "host"
+              },
+              {
+                "name": "pollster",
+                "package_key": "pollster-0.4.0",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "serde",
+                "package_key": "serde-1.0.229",
+                "kind": "normal",
+                "features": [
+                  "derive"
+                ],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "shikumi",
+                "package_key": "shikumi-0.1.1083",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "thiserror",
+                "package_key": "thiserror-2.0.19",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "tracing",
+                "package_key": "tracing-0.1.44",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "wgpu",
+                "package_key": "wgpu-25.0.2",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              },
+              {
+                "name": "winit",
+                "package_key": "winit-0.30.13",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": true,
+                "optional": false,
+                "target": null,
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
           "notify-8.2.0": {
             "runtime_dependencies": [
               {
@@ -27518,7 +28212,7 @@
     "fsevent-sys-4.1.0": {
       "edition": "2018"
     },
-    "garasu-0.1.7": {
+    "garasu-0.1.17": {
       "edition": "2024",
       "build_script": "build.rs"
     },
@@ -27682,7 +28376,7 @@
     "lru-0.12.5": {
       "edition": "2015"
     },
-    "madori-0.1.7": {
+    "madori-0.1.26": {
       "edition": "2024"
     },
     "malloc_buf-0.0.6": {
@@ -27690,6 +28384,9 @@
     },
     "matchers-0.2.0": {
       "edition": "2018"
+    },
+    "mekuri-0.1.2": {
+      "edition": "2024"
     },
     "memchr-2.8.3": {
       "edition": "2021"
@@ -27808,6 +28505,10 @@
     },
     "pkg-config-0.3.33": {
       "edition": "2018"
+    },
+    "pleme-allvariants-derive-0.1.0": {
+      "edition": "2024",
+      "proc_macro": true
     },
     "polling-3.11.0": {
       "edition": "2021"

@@ -20,7 +20,7 @@
 //! one is true.
 
 use escriba_core::{Action, Mode};
-use escriba_render::gpu::{CellGrid, cell_grid, mode_color, splash_runs};
+use escriba_render::gpu::{cell_grid, mode_color, splash_runs};
 use escriba_ui::chrome::{ChromePalette, FleetTheme};
 use escriba_ui::splash::{Splash, SplashEntry, SplashRole};
 
@@ -34,8 +34,8 @@ const LINE: f32 = 20.0;
 fn a_typical_window_maps_to_a_sane_grid() {
     // 1200x800 is escriba's default window. 14px mono ≈ 8.4px advance.
     let g = cell_grid(1200, 800, FONT, LINE);
-    assert_eq!(g.cols, 142, "1200 / 8.4 = 142");
-    assert_eq!(g.rows, 39, "800 / 20 = 40, minus the status row");
+    assert_eq!(g.cols(), 142, "1200 / 8.4 = 142");
+    assert_eq!(g.rows(), 39, "800 / 20 = 40, minus the status row");
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn exactly_one_row_is_reserved_for_the_status_line() {
         let g = cell_grid(1000, h, FONT, LINE);
         let unreserved = (h as f32 / LINE).floor() as u16;
         assert_eq!(
-            g.rows,
+            g.rows(),
             unreserved - 1,
             "height {h}: expected one reserved row",
         );
@@ -62,8 +62,8 @@ fn a_degenerate_surface_never_produces_a_zero_or_negative_grid() {
     // checks and a giant bogus grid otherwise.
     for (w, h) in [(0u32, 0u32), (1, 1), (0, 800), (1200, 0), (5, 19)] {
         let g = cell_grid(w, h, FONT, LINE);
-        assert!(g.cols >= 1, "cols must stay positive at {w}x{h}: {g:?}");
-        assert!(g.rows >= 1, "rows must stay positive at {w}x{h}: {g:?}");
+        assert!(g.cols() >= 1, "cols must stay positive at {w}x{h}: {g:?}");
+        assert!(g.rows() >= 1, "rows must stay positive at {w}x{h}: {g:?}");
     }
 }
 
@@ -73,7 +73,7 @@ fn a_degenerate_font_metric_does_not_divide_by_zero() {
     // and unvalidated.
     for (fs, lh) in [(0.0f32, 20.0f32), (14.0, 0.0), (0.0, 0.0), (-5.0, -5.0)] {
         let g = cell_grid(800, 600, fs, lh);
-        assert!(g.cols >= 1 && g.rows >= 1, "{fs}/{lh} → {g:?}");
+        assert!(g.cols() >= 1 && g.rows() >= 1, "{fs}/{lh} → {g:?}");
     }
 }
 
@@ -81,12 +81,12 @@ fn a_degenerate_font_metric_does_not_divide_by_zero() {
 fn a_bigger_window_is_never_a_smaller_grid() {
     // Monotonicity — a resize that grows the window must not shrink the
     // visible area, which would scroll the buffer under the operator.
-    let mut prev = CellGrid { cols: 0, rows: 0 };
+    let mut prev = (0u16, 0u16);
     for px in [200u32, 400, 800, 1600, 3200] {
         let g = cell_grid(px, px, FONT, LINE);
-        assert!(g.cols >= prev.cols, "cols shrank at {px}");
-        assert!(g.rows >= prev.rows, "rows shrank at {px}");
-        prev = g;
+        assert!(g.cols() >= prev.0, "cols shrank at {px}");
+        assert!(g.rows() >= prev.1, "rows shrank at {px}");
+        prev = (g.cols(), g.rows());
     }
 }
 
@@ -94,8 +94,8 @@ fn a_bigger_window_is_never_a_smaller_grid() {
 fn a_larger_font_yields_fewer_cells() {
     let small = cell_grid(1200, 800, 10.0, 14.0);
     let large = cell_grid(1200, 800, 28.0, 40.0);
-    assert!(large.cols < small.cols, "{large:?} vs {small:?}");
-    assert!(large.rows < small.rows, "{large:?} vs {small:?}");
+    assert!(large.cols() < small.cols(), "{large:?} vs {small:?}");
+    assert!(large.rows() < small.rows(), "{large:?} vs {small:?}");
 }
 
 // ─── splash_runs: roles → colours ────────────────────────────────────────
@@ -255,7 +255,7 @@ mod gutter_geometry {
         for font_size in [10.0_f32, 14.0, 18.0, 24.0] {
             for line_count in [12_u32, 9_999, 10_000, 250_000] {
                 let grid = cell_grid(1920, 1080, font_size, font_size * 1.4);
-                let cell_w = 1920.0 / f32::from(grid.cols);
+                let cell_w = 1920.0 / f32::from(grid.cols());
                 let cols = gutter_width(line_count);
                 let want = cell_w * cols as f32;
                 let got = gutter_px(font_size, line_count);
@@ -288,10 +288,10 @@ mod gutter_geometry {
         // floor is reachable rather than theoretical.
         let grid = cell_grid(120, 400, 14.0, 20.0);
         assert!(
-            u32::from(grid.cols) > 0,
+            u32::from(grid.cols()) > 0,
             "a window always has at least one column",
         );
-        let text_cols = u32::from(grid.cols).saturating_sub(gutter_width(10) as u32);
+        let text_cols = u32::from(grid.cols()).saturating_sub(gutter_width(10) as u32);
         assert!(
             text_cols.max(1) >= 1,
             "text columns must never reach zero — the file would vanish",

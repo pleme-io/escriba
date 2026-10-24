@@ -268,7 +268,7 @@ impl RenderCallback for GpuRenderer {
                 .flatten()
                 .map(|sp| {
                     let grid = cell_grid(ctx.width, ctx.height, self.font_size, self.line_height);
-                    sp.screen_chunks(grid.cols, grid.rows)
+                    sp.screen_chunks(grid.cols(), grid.rows())
                 })
                 .filter(|c| !c.is_empty());
             let rebuild = rebuild && splash_chunks.is_none();
@@ -738,13 +738,13 @@ impl RenderCallback for GpuRenderer {
             // one status-row reservation, one place to fix either.
             let grid = cell_grid(width, height, self.font_size, self.line_height);
             for w in s.layout.windows_mut() {
-                w.viewport.visible_lines = u32::from(grid.rows);
+                w.viewport.visible_lines = u32::from(grid.rows());
                 // The full grid, NOT minus the gutter. The gutter's width
                 // depends on the buffer's line count, which `resize` has no
                 // business knowing; the subtraction happens in `render`,
                 // where the buffer is in scope. Reserving a guessed width
                 // here would be wrong for every file but one.
-                w.viewport.visible_columns = u32::from(grid.cols);
+                w.viewport.visible_columns = u32::from(grid.cols());
             }
         }
     }
@@ -784,7 +784,7 @@ pub fn splash_runs<'a>(
 
 /// The gutter's width in PIXELS for a buffer of `line_count` lines.
 ///
-/// Uses the same `MONO_ADVANCE_RATIO` estimate `cell_grid` does — so the
+/// Uses the same `madori::grid::MONO_ADVANCE_ESTIMATE` cell `cell_grid` does — so the
 /// gutter and the text agree about how wide a column is, and the text starts
 /// exactly where the gutter stops. The column count comes from
 /// `escriba_ui::gutter::gutter_width`, never restated here: the number of
@@ -792,7 +792,7 @@ pub fn splash_runs<'a>(
 /// be the same number, and a second definition is how they stop being.
 #[must_use]
 pub fn gutter_px(font_size: f32, line_count: u32) -> f32 {
-    (font_size * MONO_ADVANCE_RATIO).max(1.0) * escriba_ui::gutter::gutter_width(line_count) as f32
+    cell_metrics(font_size, 1.0).width.get() * escriba_ui::gutter::gutter_width(line_count) as f32
 }
 
 /// The character grid a pixel surface maps to.
@@ -808,28 +808,20 @@ pub fn gutter_px(font_size: f32, line_count: u32) -> f32 {
 /// device. The `0.6` is glyphon's monospace advance ratio for
 /// `Family::Monospace`: an estimate, and the honest reason the start screen
 /// centres approximately rather than exactly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CellGrid {
-    pub cols: u16,
-    pub rows: u16,
-}
+pub type CellGrid = madori::grid::Grid;
 
-/// Advance-to-font-size ratio for glyphon's monospace face.
-const MONO_ADVANCE_RATIO: f32 = 0.6;
+fn cell_metrics(font_size: f32, line_height: f32) -> madori::grid::CellMetrics {
+    madori::grid::CellMetrics::new(font_size * madori::grid::MONO_ADVANCE_ESTIMATE, line_height)
+}
 
 #[must_use]
 pub fn cell_grid(width_px: u32, height_px: u32, font_size: f32, line_height: f32) -> CellGrid {
-    let cell_w = (font_size * MONO_ADVANCE_RATIO).max(1.0);
-    let cell_h = line_height.max(1.0);
-    let cols = (width_px as f32 / cell_w).floor().max(1.0);
-    // One row is reserved for the status line, which is drawn as its own
-    // text area below the main pane. Reserved ONCE, here, so no caller can
-    // forget it or subtract it twice.
-    let rows = (height_px as f32 / cell_h).floor().max(2.0) - 1.0;
-    CellGrid {
-        cols: cols.min(f32::from(u16::MAX)) as u16,
-        rows: rows.min(f32::from(u16::MAX)) as u16,
-    }
+    madori::grid::Grid::fit(
+        madori::grid::SurfaceSize::physical(width_px, height_px),
+        cell_metrics(font_size, line_height),
+        madori::grid::Insets::uniform(0.0),
+    )
+    .without_rows(1)
 }
 
 /// Utility — clear the frame to the ground colour. Used on error paths.

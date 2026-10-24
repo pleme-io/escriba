@@ -59,7 +59,7 @@ pub fn translate_key(event: &KeyEvent) -> Option<Key> {
         KeyCode::Delete => Key::Delete,
         // F-keys used to die here — declared in an rc, never delivered.
         KeyCode::F(n) => Key::F(n),
-        KeyCode::Unknown => return None,
+        _ => return None,
     };
     Some(key)
 }
