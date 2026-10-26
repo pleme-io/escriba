@@ -768,48 +768,18 @@ so a caixa cannot quietly re-create the unreachable-binding trap either.
 
 ## unsoku is extracted, unwired, and quietly diverging (2026-08-13, found)
 
-`unsoku` (運足) is a workspace member of THIS repo, published in
-`[workspace.dependencies]`, and has **zero consumers** — nothing in escriba
-says `use unsoku`. It was lifted out of escriba's semantics so a picker filter
-box or a command palette could have `w`/`b`/`dw`/`ciw` without carrying a rope,
-an LSP client and a plugin host. The lift happened; the reintegration never
-did.
+`unsoku` is a workspace member with **zero consumers**. It resolves against one
+line; escriba-runtime resolves against a rope, so they cannot share a resolver.
+They share the vocabulary (`escriba_core::Motion` / `Operator` / `TextObject`).
+`unsoku::is_inclusive` and `escriba_core::Motion::is_inclusive()` disagree on
+`MatchPair`, `LineEnd` and `DocEnd`, and nothing writes the divergence down.
 
-**This is not simple duplication, and calling it that would be wrong.** unsoku
-resolves against **a single line** (`&str` + a `usize` caret); escriba-runtime
-resolves against a **rope** (`Position { line, column }`). Those cannot share a
-resolver, and unsoku's header says so. They already share the *vocabulary* —
-both use `escriba_core::Motion` / `Operator` / `TextObject`, and unsoku
-declares none of its own precisely to avoid that.
+**Rule:** the editor's operator path uses `escriba_core::Motion::is_inclusive`
+(`operated_end`). If you change one of the two, decide about the other in the
+same commit, or write down why not. unsoku's `Register` has no linewise kind
+on purpose: a single-line target has no lines.
 
-**What they should not have is two answers to one question, and they do.**
-`unsoku::is_inclusive(motion)` and `escriba_core::Motion::is_inclusive()` are
-two functions over the same enum, and they disagree on three arms:
-
-| motion | `escriba_core` | `unsoku` |
-|---|---|---|
-| `MatchPair` (`%`) | inclusive | **not** |
-| `LineEnd` (`$`) | not | **inclusive** |
-| `DocEnd` (`G`) | not | **inclusive** |
-
-Each disagreement is *defensible* on the representation: on one line `DocEnd`
-IS `LineEnd`, and escriba reaches `d$`'s inclusive behaviour by resolving
-`LineEnd` one-past-the-end instead of by flagging it. **None of it is written
-down anywhere**, so the next reader finds two same-named functions over one
-enum and no way to tell a deliberate divergence from a stale copy. That is the
-defect — not the divergence itself.
-
-**Before reaching for either:** `escriba_core::Motion::is_inclusive` is the
-one the editor's operator path uses (`operated_end`). unsoku's is for
-single-line consumers. If you change one, decide about the other in the same
-commit, or write down why not.
-
-**What today's work means for it.** The typed `Register` + `RegisterKind`
-(charwise/linewise) landed in `escriba-runtime`, and unsoku's `Register` is
-still `{ text: String }` with a `paste(after, count)` that has no linewise
-notion. That is **correct as it stands** — a single-line target has no lines,
-so linewise is meaningless there — and it is recorded here so the absence reads
-as a decision rather than as lag.
+Table, reasoning and the register note: [docs/unsoku-divergence.md](docs/unsoku-divergence.md).
 
 `pending-unsoku: no-consumers — extracted 2026-08-09, still unwired`
 
@@ -837,23 +807,7 @@ a typo must not overwrite what you yanked), and it does not resolve
 through `Motion::Left`/`Right` (those saturate at the line edge, so
 column 0 would stop dead instead of joining the line above).
 
-**The bigger erases followed the same afternoon.** `<BS>`/`<Del>` landed
-first and `<C-w>`/`<C-u>`/`<C-h>` were left behind, so Insert mode could
-erase one character at a time and nothing larger — a mistyped word had to
-be dismantled letter by letter. `Action::PromptDeleteWord`/
-`PromptClearToStart` are now `DeleteWordBefore`/`DeleteToLineStart`, same
-one-action-three-targets shape (`:action "delete-word-before"` /
-`"delete-to-line-start"`), and all three backward erases share ONE
-`erase_back_to(target)` body so the no-register-capture and
-viewport-follow properties are stated once rather than three times.
-`<C-w>` reaches back over `Motion::WordStartPrev` — the SAME resolver the
-cursor move and the operator range stand on — so `<C-w>` and `db` agree on
-where a word starts by construction. Two shape details: `word_prev` is
-single-line and returns the cursor unchanged at column 0, so `<C-w>` falls
-through to `delete_before_cursor` there (vim erases the line break);
-`<C-u>` is two-step, stopping at the first non-blank before taking the
-indent, because collapsing it to "always column 0" destroys alignment on
-the press the hands actually reach for.
+**The bigger erases** (`<C-w>`/`<C-u>`/`<C-h>`) are `DeleteWordBefore`/`DeleteToLineStart`, one action, three targets, all through ONE `erase_back_to(target)`; `<C-w>` must stay on `Motion::WordStartPrev`, the same resolver as `db`. Detail: [docs/insert-mode-erase.md](docs/insert-mode-erase.md).
 
 **The trap: a bundled caixa can shadow a core verb, and only the composite
 plan shows it.** `<C-h>` was bound in `Keymap::default_vim()`, the unit
