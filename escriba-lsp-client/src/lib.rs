@@ -12,6 +12,7 @@
 extern crate self as escriba_lsp_client;
 
 pub mod conn;
+pub mod external;
 pub mod findings;
 pub mod format;
 pub mod pending;

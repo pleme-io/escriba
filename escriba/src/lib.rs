@@ -255,8 +255,40 @@ fn courier_crew(plan: &escriba_lisp::ApplyPlan) -> escriba_madoguchi::errand::Cr
         // `tokio::time::timeout` on the request and the kill is dropping the
         // `Connection`, which owns the child. The external route is still
         // unbuilt and still needs that reaping story.
-        format: Box::new(escriba_lsp_client::format::FormatRunner::new(registry)),
+        format: Box::new(
+            escriba_lsp_client::format::FormatRunner::new(registry)
+                .with_externals(external_formatters(plan)),
+        ),
     }
+}
+
+/// Every `defformatter … :external #t` the plan declares, keyed by filetype,
+/// in declaration order so the rc's entry replaces the catalog's. The fleet
+/// registry (substrate `lib/formatters.nix`) reaches escriba as exactly these
+/// forms, rendered by the HM module with store-path commands.
+pub fn external_formatters(
+    plan: &escriba_lisp::ApplyPlan,
+) -> Vec<(String, escriba_lsp_client::external::External)> {
+    plan.formatters
+        .iter()
+        .filter(|f| f.external)
+        .map(|f| {
+            (
+                f.filetype.clone(),
+                escriba_lsp_client::external::External {
+                    command: f.command.clone(),
+                    args: f.args.clone(),
+                    file_mode: f.file_mode,
+                    cargo_edition: (!f.cargo_edition.is_empty()).then(|| f.cargo_edition.clone()),
+                    timeout: if f.timeout_ms == 0 {
+                        escriba_lsp_client::external::DEFAULT_TIMEOUT
+                    } else {
+                        std::time::Duration::from_millis(f.timeout_ms)
+                    },
+                },
+            )
+        })
+        .collect()
 }
 
 /// The live server registry: every `deflsp` the catalog declares, then the

@@ -38,6 +38,7 @@
 //! reaches; a server that advertises `documentFormattingProvider` has already
 //! made the choice on its own side.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -48,6 +49,7 @@ use escriba_core::{Edit, Position, Range};
 use escriba_madoguchi::Negai;
 use escriba_madoguchi::errand::{Errand, Freight, Parcel, Runner};
 
+use crate::external::External;
 use crate::runner::language_of;
 use crate::{ServerConfig, ServerRegistry};
 
@@ -60,14 +62,34 @@ use crate::{ServerConfig, ServerRegistry};
 const FORMAT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Runs one formatting conversation per errand.
+///
+/// A language with an external formatter (a `defformatter … :external #t`,
+/// which is what the fleet registry renders) formats through
+/// [`crate::external`]; every other language asks its server.
 pub struct FormatRunner {
     registry: ServerRegistry,
+    externals: HashMap<String, External>,
 }
 
 impl FormatRunner {
     #[must_use]
     pub fn new(registry: ServerRegistry) -> Self {
-        Self { registry }
+        Self {
+            registry,
+            externals: HashMap::new(),
+        }
+    }
+
+    /// The same runner with external formatters keyed by language. A later
+    /// entry for a language replaces an earlier one, so the rc overrides the
+    /// catalog.
+    #[must_use]
+    pub fn with_externals(
+        mut self,
+        externals: impl IntoIterator<Item = (String, External)>,
+    ) -> Self {
+        self.externals.extend(externals);
+        self
     }
 }
 
@@ -105,6 +127,24 @@ impl Runner for FormatRunner {
             });
             return;
         };
+        if let Some(spec) = self.externals.get(&language).cloned() {
+            let spawned = std::thread::Builder::new()
+                .name("escriba-fmt-external".into())
+                .spawn(move || {
+                    let result = crate::external::format(&spec, &path, &text);
+                    if cancel.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    let _ = reply.send(Parcel {
+                        id,
+                        slip: settle(result, &text, anchor, buffer),
+                    });
+                });
+            if let Err(e) = spawned {
+                tracing::warn!("format: could not start the external thread: {e}");
+            }
+            return;
+        }
         let Some(cfg) = self.registry.for_language(&language).cloned() else {
             let _ = reply.send(Parcel {
                 id,
@@ -131,29 +171,11 @@ impl Runner for FormatRunner {
                     }
                 };
 
-                let slip = match rt.block_on(format_document(&cfg, &path, &text)) {
-                    Ok(formatted) => {
-                        if cancel.load(Ordering::Relaxed) {
-                            return;
-                        }
-                        // Already formatted ⇒ say nothing and edit nothing. An
-                        // `Edit` here would still bump the buffer's revision and
-                        // land an undo step for a change of zero characters, so
-                        // `u` after a no-op format would appear to do nothing.
-                        if formatted == text {
-                            Negai::Message("already formatted".into())
-                        } else {
-                            Negai::ErrandReply {
-                                anchor,
-                                then: Box::new(Negai::Edit {
-                                    buffer,
-                                    edit: Edit::replace(whole_of(&text), formatted),
-                                }),
-                            }
-                        }
-                    }
-                    Err(m) => Negai::Message(m),
-                };
+                let result = rt.block_on(format_document(&cfg, &path, &text));
+                if result.is_ok() && cancel.load(Ordering::Relaxed) {
+                    return;
+                }
+                let slip = settle(result, &text, anchor, buffer);
                 let _ = reply.send(Parcel { id, slip });
             });
 
@@ -163,6 +185,30 @@ impl Runner for FormatRunner {
                 slip: Negai::Message(describe("format: could not start the thread", &e)),
             });
         }
+    }
+}
+
+/// One verdict for both routes.
+///
+/// Already formatted ⇒ say nothing and edit nothing. An `Edit` here would still
+/// bump the buffer's revision and land an undo step for a change of zero
+/// characters, so `u` after a no-op format would appear to do nothing.
+fn settle(
+    result: Result<String, String>,
+    text: &str,
+    anchor: escriba_shirube::Anchor,
+    buffer: escriba_core::BufferId,
+) -> Negai {
+    match result {
+        Ok(formatted) if formatted == text => Negai::Message("already formatted".into()),
+        Ok(formatted) => Negai::ErrandReply {
+            anchor,
+            then: Box::new(Negai::Edit {
+                buffer,
+                edit: Edit::replace(whole_of(text), formatted),
+            }),
+        },
+        Err(m) => Negai::Message(m),
     }
 }
 

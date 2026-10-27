@@ -46,4 +46,17 @@ pub struct FormatterSpec {
     /// formatter. 0 means "use runtime default" (typically 2000).
     #[serde(default)]
     pub timeout_ms: u64,
+    /// Run this command for the format verb instead of asking the language
+    /// server. Off by default, so a catalog entry stays a declaration; the
+    /// fleet formatter registry's rendered entries set it.
+    #[serde(default)]
+    pub external: bool,
+    /// The formatter rewrites the file `$FILE` names (a scratch copy of the
+    /// buffer) instead of reading stdin and writing stdout.
+    #[serde(default)]
+    pub file_mode: bool,
+    /// Non-empty: append `--edition <e>` with the nearest `Cargo.toml`'s
+    /// edition, this value when none names one (`cargo fmt`'s per-crate rule).
+    #[serde(default)]
+    pub cargo_edition: String,
 }
