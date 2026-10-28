@@ -20,7 +20,7 @@ impl OpenApiSpec {
 
     #[must_use]
     pub fn to_yaml(&self) -> String {
-        serde_yaml::to_string(&self.0).unwrap_or_default()
+        serde_norway::to_string(&self.0).unwrap_or_default()
     }
 }
 
