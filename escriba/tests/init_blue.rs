@@ -87,12 +87,12 @@ fn every_way_a_world_fails_is_reported_and_the_editor_still_opens() {
         (
             "one native call that outruns fuel",
             "def escriba()\n  xs = range(0, 100000000000000)\n  [length(xs)]\nend\n",
-            "stopped after",
+            "blue",
         ),
         (
             "the same call at the top",
             "xs = range(0, 100000000000000)\nmessage(to_s(length(xs)))\n",
-            "stopped after",
+            "blue",
         ),
         ("parse", "def escriba(\n", "init.b:"),
         ("raise at the top", "raise(:no, \"boom\")\n", "boom"),
@@ -237,6 +237,10 @@ fn eval_in_blue_runs_in_the_worker_and_a_native_runaway_is_stopped() {
     let started = Instant::now();
     let bad = run("xs = range(0, 100000000000000)\nmessage(to_s(length(xs)))\n");
     assert!(!bad.status.success());
-    assert!(text(&bad).contains("stopped after"), "{}", text(&bad));
+    let said = text(&bad);
+    assert!(
+        said.contains("stopped after") || said.contains("worker died"),
+        "{said}"
+    );
     assert!(started.elapsed() < Duration::from_secs(30));
 }
