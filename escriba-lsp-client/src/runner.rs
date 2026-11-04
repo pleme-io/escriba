@@ -18,7 +18,10 @@
 //! `std::sync::mpsc`-shaped, which is the containment seam — nothing async
 //! crosses it, and the interpreter never learns that a reactor was involved.
 //!
-//! # What this deliberately is NOT, yet
+//! # What this deliberately is NOT
+//!
+//! This is the one-shot carrier, reached with `lsp.session = false`.
+//! [`crate::session`] is the persistent one.
 //!
 //! **One server per errand.** Each diagnostics request spawns a language
 //! server, initializes it, asks about one file and lets it die. That is
@@ -106,9 +109,18 @@ impl Default for LspRunner {
 }
 
 /// Build a `file://` URI for a path.
-fn uri_of(path: &Path) -> String {
+pub(crate) fn uri_of(path: &Path) -> String {
+    let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
     let mut s = String::from("file://");
-    s.push_str(&path.to_string_lossy());
+    for c in absolute.to_string_lossy().chars() {
+        match c {
+            ' ' => s.push_str("%20"),
+            '%' => s.push_str("%25"),
+            '#' => s.push_str("%23"),
+            '?' => s.push_str("%3F"),
+            other => s.push(other),
+        }
+    }
     s
 }
 
@@ -276,7 +288,7 @@ fn describe(what: &str, e: &impl std::fmt::Display) -> String {
 /// on `PATH` and working. `escriba $PWD/t.b` in the same directory formatted
 /// fine. It was never about the binary, and it was never specific to blue —
 /// every language's diagnostics were dead under the same two conditions.
-fn root_for(path: &Path, markers: &[String]) -> std::path::PathBuf {
+pub(crate) fn root_for(path: &Path, markers: &[String]) -> std::path::PathBuf {
     detect_root(path, markers)
         .or_else(|| path.parent().map(Path::to_path_buf))
         // `Some("")` is the trap; treat it as "no answer" so the fallback runs.
@@ -363,10 +375,7 @@ async fn ask_for_tokens(
         return Vec::new();
     };
     let reply = conn
-        .request(
-            "textDocument/semanticTokens/full",
-            serde_json::json!({ "textDocument": { "uri": uri } }),
-        )
+        .request("textDocument/semanticTokens/full", tokens_params(uri))
         .await;
     // Three layers of "no answer" collapse to the same nothing: the write
     // failed, the server sent an error object, or it replied `null` — which is
@@ -375,6 +384,18 @@ async fn ask_for_tokens(
     let Ok(Ok(value)) = reply else {
         return Vec::new();
     };
+    decode_tokens(&value, &legend, text)
+}
+
+pub(crate) fn tokens_params(uri: &str) -> serde_json::Value {
+    serde_json::json!({ "textDocument": { "uri": uri } })
+}
+
+pub(crate) fn decode_tokens(
+    value: &serde_json::Value,
+    legend: &Legend,
+    text: &str,
+) -> Vec<SemanticSpan> {
     let Some(data) = value.get("data").and_then(serde_json::Value::as_array) else {
         return Vec::new();
     };
@@ -389,7 +410,7 @@ async fn ask_for_tokens(
     if ints.len() != data.len() {
         return Vec::new();
     }
-    crate::tokens::decode(&ints, &legend, text)
+    crate::tokens::decode(&ints, legend, text)
 }
 
 /// Spawn, handshake, open, and wait for the first word about this document.

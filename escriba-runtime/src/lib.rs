@@ -9,6 +9,7 @@ extern crate self as escriba_runtime;
 
 pub mod breakpoint;
 mod courier;
+pub mod live;
 mod plugin_host;
 pub mod scan;
 pub use breakpoint::Breakpoints;
@@ -231,10 +232,8 @@ pub struct EditorState {
     splash: Option<Splash>,
     /// What a language server last said one buffer's tokens MEAN.
     ///
-    /// One slot, not a per-buffer map, and that is the honest shape of what
-    /// produces it: the diagnostics errand runs per OPEN, so at any moment
-    /// there is one buffer whose tokens are both present and fresh. A map
-    /// would model a fan-out that has no producer.
+    /// One slot, not a per-buffer map: only the active buffer is painted, and
+    /// [`live`] sends the active buffer last when it re-sends them all.
     ///
     /// Sealed, and read through [`semantic_spans`](Self::semantic_spans) —
     /// never directly — for the same reason a `ResultList` is: a colour
@@ -252,6 +251,7 @@ pub struct EditorState {
     /// walking breakpoints. See [`crate::breakpoint`] for the full argument
     /// and for what the line-number key does not yet survive.
     breakpoints: Breakpoints,
+    live: live::LiveSession,
 }
 
 /// Semantic tokens for one buffer, sealed with the world they describe.
@@ -651,6 +651,20 @@ impl EditorState {
                 // that would be fresh forever, which is the whole hazard.
                 None => NonEmptyAnchor::on(Axis::Session(SessionKind::Lsp, self.lsp_gen)),
             },
+            Freight::Session(
+                escriba_madoguchi::errand::SessionFreight::Sync { document, .. }
+                | escriba_madoguchi::errand::SessionFreight::Ask { document, .. },
+            ) => {
+                let rev = self.buffers.get(document.buffer).map_or_else(
+                    escriba_buffer::TextRev::default,
+                    escriba_buffer::Buffer::text_rev,
+                );
+                NonEmptyAnchor::on(Axis::Text(document.buffer, rev))
+                    .and(Axis::Session(SessionKind::Lsp, self.lsp_gen))
+            }
+            Freight::Session(_) => {
+                NonEmptyAnchor::on(Axis::Session(SessionKind::Lsp, self.lsp_gen))
+            }
         }
     }
 
@@ -667,14 +681,14 @@ impl EditorState {
     /// a tick that carried no keystroke — which is every tick during a scan.
     pub fn deliver(&mut self) {
         let slips = self.courier.drain(Self::DELIVER_BUDGET);
-        if slips.is_empty() {
-            return;
+        if !slips.is_empty() {
+            for slip in slips {
+                self.honour_one(slip);
+            }
+            // Something landed, so the screen is out of date.
+            self.bump_gen();
         }
-        for slip in slips {
-            self.honour_one(slip);
-        }
-        // Something landed, so the screen is out of date.
-        self.bump_gen();
+        self.pump_session(Instant::now());
     }
 
     /// Move the cursor to the next/previous finding in `list`.
@@ -915,6 +929,7 @@ impl EditorState {
                         self.messages.push(e.to_string());
                     }
                 }
+                self.note_saved(buffer);
                 self.refollow();
             }
             Negai::Undo { buffer } => {
@@ -999,10 +1014,40 @@ impl EditorState {
                         Negai::PublishSemanticTokens { buffer, tokens } => {
                             self.semantic = Some(SemanticPaint::new(buffer, tokens, anchor));
                         }
+                        Negai::PublishInlayHints { buffer, hints } => {
+                            self.publish_hints(buffer, hints, anchor);
+                        }
                         other => self.honour_one(other),
                     }
                 }
             }
+            Negai::PublishInlayHints { buffer, hints } => {
+                let world = self.world();
+                self.publish_hints(buffer, hints, world);
+            }
+            Negai::OfferCompletion {
+                buffer,
+                at,
+                items,
+                manual,
+            } => self.offer_completion(buffer, at, items, manual),
+            Negai::ShowHover { text, .. } => self.show_hover(&text),
+            Negai::JumpTo { path, at } => self.jump_to_definition(path, at),
+            Negai::ServerStatus(status) => self.honour_server_status(status),
+            Negai::AskServer(question) => {
+                if matches!(
+                    question,
+                    escriba_madoguchi::errand::Question::Completion { .. }
+                ) {
+                    self.want_manual_completion();
+                } else {
+                    self.ask_server(question);
+                }
+            }
+            Negai::CompletionAbort => self.abort_completion(),
+            Negai::CompletionToggle => self.toggle_completion(),
+            Negai::RestartServers => self.restart_servers(),
+            Negai::ServerInfo => self.report_servers(),
             Negai::WalkList { list, forward } => self.walk_list(&list, forward),
             Negai::Message(m) => self.messages.push(m),
             Negai::Quit => self.quit_requested = true,
@@ -1193,6 +1238,7 @@ impl EditorState {
             splash: None,
             semantic: None,
             breakpoints: Breakpoints::default(),
+            live: live::LiveSession::default(),
         }
     }
 
@@ -1322,15 +1368,18 @@ impl EditorState {
     /// behind itself.
     /// Ask the courier what a language server thinks of this buffer.
     ///
-    /// Fires on open, and only on open. Re-asking on every keystroke is what a
-    /// real diagnostics pump does, and it needs a session that outlives one
-    /// errand plus `didChange` to keep the server's copy current — neither
-    /// exists yet, and dispatching per keystroke against a one-shot runner
-    /// would spawn a language server per character typed.
+    /// With `lsp.session` on, this is the first sync of the live session. With
+    /// it off, it fires on open and only on open: dispatching per keystroke
+    /// against a one-shot runner would spawn a language server per character
+    /// typed.
     ///
     /// A buffer with no path is skipped: a scratch buffer has no document for
     /// a server to have an opinion about.
     fn ask_for_diagnostics(&mut self, buffer: escriba_core::BufferId) {
+        if self.session_on() {
+            self.sync_now(buffer);
+            return;
+        }
         let Some(b) = self.buffers.get(buffer) else {
             return;
         };
@@ -1997,6 +2046,7 @@ impl EditorState {
             InputOutcome::Quit => self.quit_requested = true,
             InputOutcome::Focus(_) | InputOutcome::None => {}
         }
+        self.pump_session(now);
     }
 
     /// Decide whether `key` survives the key-repeat gate at time `now`.
@@ -2027,6 +2077,16 @@ impl EditorState {
 
     /// Dispatch a single key through the keymap + apply the resulting action.
     pub fn on_key(&mut self, key: &Key) {
+        self.dismiss_hover();
+        if self.picker.is_none() && self.splash.is_none() && self.consume_completion_key(key) {
+            return;
+        }
+        let before = self.before_key();
+        self.dispatch_key(key);
+        self.after_key(key, &before);
+    }
+
+    fn dispatch_key(&mut self, key: &Key) {
         // An open picker owns EVERY key while it is up — before the splash,
         // before the sequence stepper, before the keymap.
         match self.consume_picker_key(key) {
@@ -2283,6 +2343,7 @@ impl EditorState {
             ),
             count: self.match_count(),
             message: self.messages.last().map(String::as_str),
+            lsp: self.lsp_summary(),
         }
     }
 
@@ -7459,6 +7520,7 @@ mod tests {
             Crew {
                 scan: Box::new(r),
                 diagnostics: Box::new(escriba_madoguchi::errand::Idle("t")),
+                session: Box::new(escriba_madoguchi::errand::Idle("t")),
                 format: Box::new(escriba_madoguchi::errand::Idle("t")),
             }
         }

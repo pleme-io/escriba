@@ -6,6 +6,8 @@ extern crate self as escriba_ui;
 /// paintable values, shared by the TUI and GPU renderers so they cannot
 /// drift apart (or off the fleet baseline) again.
 pub mod chrome;
+pub mod completion;
+pub mod float;
 
 /// The start screen — one laid-out model every face paints, rather than
 /// three copies of the same centering arithmetic.

@@ -968,23 +968,14 @@ gap — the courier is threads and channels, and `escriba-runtime` still has no
 tokio dependency. Read that as "escriba does async without an async runtime",
 not as "escriba cannot do async".
 
-So the LSP pump is now the small thing it was always going to be: own a
-`Connection`, classify incoming notifications, `to_findings`, emit
-`Negai::PublishFindings { list: "diagnostics", .. }`. Every piece of that is
-already written and tested — including, now, the channel.
-
-**What is genuinely left is a SHAPE question, not a missing primitive.**
-`Freight` is a closed three-variant enum and `Crew` a fixed three-runner
-struct, both built for ONE-SHOT request→reply errands, with cancellation kept
-*"newest per class"*. A language server is a long-lived, unsolicited producer
-and there may be several. Whether that wants a fourth `Freight` variant, a
-streaming freight class, or per-errand cancellation is the same fork
-[`docs/doma.md` §6](./docs/doma.md) hits from the terminal side — and the
-terminal is the better forcing function, because LSP can be faked with polling
-and a PTY cannot.
-
-`pending-lsp: live-pump — courier SHIPPED; remaining work is the streaming /
-per-errand-cancel shape (see docs/doma.md §6)`
+**The live session has landed (2026-11-04).** `escriba_lsp_client::session` holds
+one server per command and root: `didOpen`, debounced full-sync `didChange`,
+`didSave`, `didClose`, restart with backoff, and a typed `ServerState` on the
+status line. The fork named above resolved as one closed `Freight::Session` plus a
+`Crew::session` runner that hosts its own reactor; the one-shot `LspRunner` stays
+behind `lsp.session = false`. Options, keys, the no-hang argument and the limits:
+[`docs/blue.md`](./docs/blue.md). A new request kind is a `Question` variant, a
+parse function in `session.rs`, and a `Negai` the interpreter honours.
 
 ## Architecture
 

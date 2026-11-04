@@ -104,6 +104,48 @@ pub enum Freight {
         language: Option<String>,
         text: String,
     },
+    Session(SessionFreight),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Document {
+    pub buffer: escriba_core::BufferId,
+    pub path: std::path::PathBuf,
+    pub language: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Question {
+    Completion { manual: bool },
+    Hover,
+    Definition,
+}
+
+impl Question {
+    #[must_use]
+    pub const fn is_explicit(self) -> bool {
+        !matches!(self, Self::Completion { manual: false })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SessionFreight {
+    Sync {
+        document: Document,
+        text: String,
+    },
+    Saved {
+        document: Document,
+    },
+    Close {
+        document: Document,
+    },
+    Ask {
+        document: Document,
+        at: escriba_core::Position,
+        question: Question,
+    },
+    Restart,
 }
 
 impl Freight {
@@ -114,6 +156,7 @@ impl Freight {
             Self::Scan { .. } => "scan",
             Self::Diagnostics { .. } => "diagnostics",
             Self::Format { .. } => "format",
+            Self::Session(_) => "session",
         }
     }
 }
@@ -162,6 +205,10 @@ pub trait Runner: Send + Sync {
     /// shipped. Bounding a *child process* is a different mechanism and belongs
     /// to the runner that spawns one.
     fn start(&self, errand: Errand, cancel: Arc<AtomicBool>, reply: Sender<Parcel>);
+
+    fn carries(&self) -> bool {
+        true
+    }
 }
 
 /// The registry: exactly one runner per [`Freight`] class.
@@ -174,6 +221,7 @@ pub struct Crew {
     pub scan: Box<dyn Runner>,
     pub diagnostics: Box<dyn Runner>,
     pub format: Box<dyn Runner>,
+    pub session: Box<dyn Runner>,
 }
 
 impl Crew {
@@ -184,13 +232,14 @@ impl Crew {
             Freight::Scan { .. } => &*self.scan,
             Freight::Diagnostics { .. } => &*self.diagnostics,
             Freight::Format { .. } => &*self.format,
+            Freight::Session(_) => &*self.session,
         }
     }
 }
 
 impl std::fmt::Debug for Crew {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Crew { scan, diagnostics, format }")
+        f.write_str("Crew { scan, diagnostics, format, session }")
     }
 }
 
@@ -211,6 +260,10 @@ impl Runner for Idle {
             id: errand.id,
             slip: Negai::Message(alloc_msg(self.0, errand.freight.label())),
         });
+    }
+
+    fn carries(&self) -> bool {
+        false
     }
 }
 
@@ -235,6 +288,7 @@ impl Crew {
             scan: Box::new(Idle("inert")),
             diagnostics: Box::new(Idle("inert")),
             format: Box::new(Idle("inert")),
+            session: Box::new(Idle("inert")),
         }
     }
 }
@@ -280,6 +334,7 @@ mod tests {
     #[test]
     fn each_freight_class_reaches_its_own_runner() {
         let crew = Crew {
+            session: Box::new(super::Idle("t")),
             scan: Box::new(Tagged("scan")),
             diagnostics: Box::new(Tagged("diag")),
             format: Box::new(Tagged("fmt")),

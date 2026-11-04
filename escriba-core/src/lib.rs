@@ -27,6 +27,7 @@ pub mod filetype;
 pub mod r#gen;
 pub mod id;
 pub mod jumplist;
+pub mod lsp;
 pub mod mode;
 pub mod motion;
 pub mod position;
@@ -49,6 +50,7 @@ pub use jumplist::{JUMPLIST_LIMIT, JumpList, Spot};
 // core in the dependency graph — can use it too. Re-exported here so position
 // code in core and above reads naturally without naming a second crate.
 pub use escriba_memori::{Anchored, Bound, Bytes, Chars, Offset, Ruler, Scale, Utf16Units};
+pub use lsp::{CompletionEntry, InlayHint, ServerState, ServerStatus, TextChange};
 pub use mode::{CursorShape, Mode, ModeTransition};
 pub use motion::{Motion, Operator, TextObject};
 pub use position::Position;

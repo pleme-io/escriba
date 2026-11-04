@@ -21,19 +21,87 @@ and the build goes red naming the leg.
 | Leg | Where | Tier |
 |---|---|---|
 | Highlighting | `escriba-render/src/langs.rs` → registered in `gpu::build_ecosystem` | **LIVE** — a `.b` buffer is painted today |
-| Major mode | `(defmode :name "blue")` in `configs/blnvim-defaults.lisp` | declaration; consumed by `apply_grammars` |
-| Language server | `(deflsp :name "blue")` in `catalog/escriba-lspconfig…` | **declaration only** |
-| Formatter | `(defformatter :filetype "blue")` in `catalog/escriba-conform…` | **declaration only** |
+| Major mode | `(defmode :name "blue")` in `configs/blnvim-defaults.lisp` | **LIVE** — fills the filetype table the session reads |
+| Language server | `(deflsp :name "blue")` in `catalog/escriba-lspconfig…` | **LIVE** — the session below |
+| Formatter | `(defformatter :filetype "blue")` in `catalog/escriba-conform…` | **LIVE** — `lsp.format` through `FormatRunner` |
 | Canonicality gate | `(defgate :name "blue-canonical")` in `catalog/escriba-conform…` | **declaration only** |
 
-### The tier line, stated plainly
+### The live session
 
-Only highlighting is live. `ApplyPlan::lsp_servers`, `::formatters` and
-`::gates` have **no consumer in `escriba-runtime`** — nothing spawns a
-server, runs a formatter or fires a gate, for *any* language. blue is not
-behind here; it is level with rust, and it becomes live for free when those
-subsystem waves land. Until then "escriba has a blue LSP binding" means the
-binding is present and coherent in the boot plan, and nothing more.
+`escriba_lsp_client::session::SessionRunner` holds one server per command and
+root. It lives on its own thread with its own reactor. Nothing in it names a
+language, and it does not parse blue: names, scope and tiers are what the server
+answers. A new `use` spelling or a nested namespace needs no change here.
+
+What a person sees while typing a `.b` file:
+
+| Thing | Where it shows | How |
+|---|---|---|
+| Completion | a popup at the caret | a word of `cmp.keyword_length` chars, a server trigger char (`:` for blue), or `<C-n>` |
+| Why a name is offered | the popup row: `needs a use`, `imported`, `builtin` | the server's `labelDetails` |
+| Diagnostics | the gutter, and the first line beside the code | `publishDiagnostics` per revision |
+| Live values | `=> 3` beside the line | `textDocument/inlayHint` |
+| Doctest results | diagnostics | blue's second push |
+| Hover | a card at the caret, `K`; any key closes it | `textDocument/hover` |
+| Definition | `gd`, on the jumplist | `textDocument/definition` |
+| Server state | `[blue]`, `[blue:restarting 1/5]`, `[blue:DEAD …]`, `[blue:MISSING blue]` on the status line | `Negai::ServerStatus` |
+
+Popup keys: `<C-n>`/`<C-p>` and the arrows move. `<Tab>` or `<C-y>` accepts.
+`<C-e>` closes. `<Enter>` accepts only after you moved in the popup, so a word
+you typed is never replaced by a newline. Any other key types. Accepting applies
+the server's `additionalTextEdits`, which is how `retsu::x` gains its `use`.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `lsp.session` | `true` in the catalog, off with `--no-defaults` | `false` keeps the one-shot errand per open |
+| `lsp.debounce_ms` | `80` | quiet time before a full-sync `didChange` |
+| `lsp.request_timeout_ms` | `10000` | a question this old shows `slow` |
+| `lsp.hang_after_ms` | `20000` | a write blocked this long kills the server |
+| `lsp.restart_limit` | `5` | restarts with backoff (2250 ms to 8 s) before `DEAD`; `:LspRestart` retries |
+| `lsp.max_document_chars` | `8388608` | a larger file gets no session, and a message says so |
+| `cmp.enabled`, `cmp.sources` | `true`, `lsp,…` | off, or without `lsp`, no completion is asked |
+| `cmp.autocomplete` | `true` | `false` leaves only `<C-n>` |
+| `cmp.keyword_length` | `2` | chars of a word before an automatic ask |
+
+All are `option("lsp.session", false)` in `init.b` or `(defoption …)` in the rc.
+
+### Why the editor cannot hang on a server
+
+- A keystroke does an `mpsc` send at most. The text copy runs once per quiet
+  period, not per key, and `lsp.max_document_chars` bounds its size.
+- `Runner::start` only posts to the session thread. Reads, writes, the handshake
+  and every wait run there.
+- A write runs in its own task, so a server that stops reading blocks that task
+  only. Queued changes collapse to the newest per document, and a newer question
+  replaces an older one of its kind.
+- Replies re-enter through `Negai::ErrandReply`, sealed with the text revision
+  and the session generation. A reply about older text is dropped.
+- A dead server fails its waiters through `pending`, bumps `lsp_gen` so its
+  findings go stale, and restarts with backoff. On return every open document is
+  sent again from the editor's unsaved text.
+- A binary not on `PATH` is `MISSING`, once, with no retry loop.
+
+`escriba/tests/live_session.rs` holds these against a real `blue lsp`, with
+`SIGKILL` for a death and `SIGSTOP` for a frozen server, asserting no key takes
+250 ms. `blue` absent fails with that cause, except on a GitHub runner, which has
+no `blue`: there the test says it did not run, in the step summary and on stderr.
+`escriba-runtime/tests/session_dispatch.rs` holds the keyboard's half with no
+server, on every machine.
+
+### What is not done
+
+- `cmp.sources` has one producer, `lsp`. `buffer`, `path` and `snippet` are
+  still declarations.
+- The GPU face paints the popup, the hover card and the side text as text over
+  block glyphs, because it has no quad pipeline. Its placement logic is tested
+  and shared with the terminal face. No test sees those pixels.
+- An inlay hint shows at the end of its line, not at its column. blue's are at
+  the end of the line anyway.
+- A diagnostic about a file with no open buffer is dropped.
+- Findings and tokens are sealed to a revision, so they blank while you type
+  and return on the next answer. `lsp_gen` is one counter, so a restart stales
+  every server's results until the re-send answers.
+- `didChange` is full text for every server, also one that offers incremental.
 
 ### Highlighting: a table, not a grammar
 
@@ -62,22 +130,11 @@ path rather than a tree-sitter grammar for the reason its own
 `docs/NATURALIZE-TREESITTER.md` §2 gives: a second definition of blue's syntax
 drifts invisibly from the first.
 
-Nothing in escriba changes today, because escriba spawns no language server
-for any language. It matters for **when the LSP wave lands**, and it is worth
-writing down now rather than rediscovering it then:
-
-- escriba will then have **two** sources of colour for `.b` — this table, and
-  the server's tokens — where every other language has one. They must agree, or
-  a buffer repaints differently the moment the server attaches. The table is
-  the fallback that works with no `blue` on `$PATH`; the server's is the more
-  precise one (it knows `def foo` declares a function, and it fixes the `name:`
-  label limit noted above, which a table lexer structurally cannot).
-- So the wave's blue-specific question is *precedence*, not *capability*:
-  server tokens over table when a server is attached, table otherwise.
-- This does **not** change the tier line above. The `(deflsp :name "blue")` leg
-  is still a declaration with no consumer, and blue is still level with rust.
-  What changed is upstream: the thing that leg will eventually spawn now has
-  something more to say.
+escriba has **two** sources of colour for `.b`: this table, and the server's
+tokens. The table works with no `blue` on `$PATH`. The server's tokens are more
+precise (they know `def foo` declares a function, and they fix the `name:` label
+limit noted above). Server tokens win while they are fresh for this revision;
+the table paints otherwise. The terminal face reads only the table.
 
 blnvim reached the same conclusion from the other side and needed no wiring at
 all — nvim requests semantic tokens from any server advertising them, so blue

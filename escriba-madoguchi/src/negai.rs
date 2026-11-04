@@ -312,6 +312,31 @@ pub enum Negai {
         tokens: Vec<SemanticSpan>,
     },
 
+    PublishInlayHints {
+        buffer: BufferId,
+        hints: Vec<escriba_core::InlayHint>,
+    },
+    OfferCompletion {
+        buffer: BufferId,
+        at: Position,
+        items: Vec<escriba_core::CompletionEntry>,
+        manual: bool,
+    },
+    ShowHover {
+        buffer: BufferId,
+        text: String,
+    },
+    JumpTo {
+        path: std::path::PathBuf,
+        at: Position,
+    },
+    ServerStatus(escriba_core::ServerStatus),
+    AskServer(crate::errand::Question),
+    CompletionAbort,
+    CompletionToggle,
+    RestartServers,
+    ServerInfo,
+
     // ── operator feedback ────────────────────────────────────────────
     /// Say something on the status line. The channel Phase 0 opened.
     Message(String),

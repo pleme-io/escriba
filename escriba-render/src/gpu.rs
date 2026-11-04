@@ -68,6 +68,7 @@ pub struct GpuRenderer {
     /// changed is exactly how text lands on top of line numbers for one
     /// frame after a file grows.
     cached_gutter: Option<(Buffer, f32)>,
+    cached_annotations: Option<Buffer>,
     /// The incremental highlighter for the active buffer's language (M2). Held
     /// across frames so a re-highlight re-lexes only the lines that changed
     /// (hikari's `LineState` fixpoint, `theory/ESCRIBA.md` §X) instead of the
@@ -90,6 +91,7 @@ impl GpuRenderer {
             last_gen: EditGen(u64::MAX),
             cached_text: None,
             cached_gutter: None,
+            cached_annotations: None,
             highlighter: None,
         }
     }
@@ -153,6 +155,58 @@ struct TextFrame {
     /// buffer, or when the operator has typed since — all three read the same
     /// to the painter, which then uses hikari's lexer alone.
     lsp: Vec<(usize, usize, hikari_core::HlClass)>,
+    annotations: Vec<AnnotationRun>,
+}
+
+struct AnnotationRun {
+    column: usize,
+    line_row: u32,
+    text: String,
+    role: escriba_runtime::live::AnnotationRole,
+}
+
+#[must_use]
+pub fn annotation_pad(rows_down: u32, columns: usize) -> String {
+    let mut pad = String::with_capacity(columns + rows_down as usize);
+    for _ in 0..rows_down {
+        pad.push('\n');
+    }
+    for _ in 0..columns {
+        pad.push(' ');
+    }
+    pad
+}
+
+pub struct FloatPaint {
+    pub ground: String,
+    pub selected: Option<u16>,
+    pub text: String,
+}
+
+#[must_use]
+pub fn float_paint(
+    panel: &escriba_ui::float::FloatPanel,
+    rect: escriba_ui::float::FloatRect,
+) -> FloatPaint {
+    let mut ground = String::with_capacity(usize::from(rect.w) * usize::from(rect.h) * 3);
+    let mut text = String::new();
+    let mut selected = None;
+    for (index, row) in panel.rows.iter().take(usize::from(rect.h)).enumerate() {
+        for _ in 0..rect.w {
+            ground.push('\u{2588}');
+        }
+        ground.push('\n');
+        text.extend(row.text.chars().take(usize::from(rect.w)));
+        text.push('\n');
+        if row.selected {
+            selected = u16::try_from(index).ok();
+        }
+    }
+    FloatPaint {
+        ground,
+        selected,
+        text,
+    }
 }
 
 /// The server-declared class covering byte `at`, if any.
@@ -241,6 +295,51 @@ pub fn paint_pieces(
         .collect()
 }
 
+fn annotation_buffer(
+    runs: &[AnnotationRun],
+    palette: &ChromePalette,
+    metrics: Metrics,
+    fonts: &mut glyphon::FontSystem,
+    size: (f32, f32),
+) -> Option<Buffer> {
+    if runs.is_empty() {
+        return None;
+    }
+    let mut pieces: Vec<(String, GlyphColor)> = Vec::with_capacity(runs.len() * 2);
+    let mut row = 0u32;
+    let mut column = 0usize;
+    for run in runs {
+        let columns = if run.line_row == row {
+            run.column.saturating_sub(column)
+        } else {
+            run.column
+        };
+        pieces.push((
+            annotation_pad(run.line_row.saturating_sub(row), columns),
+            chrome_glyph(palette.text_dim),
+        ));
+        let colour = match &run.role {
+            escriba_runtime::live::AnnotationRole::Value => palette.text_dim,
+            escriba_runtime::live::AnnotationRole::Diagnostic(severity) => {
+                escriba_ui::chrome::severity_color(palette, *severity)
+            }
+        };
+        pieces.push((run.text.clone(), chrome_glyph(colour)));
+        row = run.line_row;
+        column = run.column + run.text.chars().count();
+    }
+    let base = Attrs::new().family(Family::Monospace);
+    let mut buffer = Buffer::new(fonts, metrics);
+    buffer.set_size(fonts, Some(size.0), Some(size.1));
+    let spans: Vec<(&str, Attrs)> = pieces
+        .iter()
+        .map(|(text, colour)| (text.as_str(), base.clone().color(*colour)))
+        .collect();
+    buffer.set_rich_text(fonts, spans, &base, Shaping::Advanced, None);
+    buffer.shape_until_scroll(fonts, false);
+    Some(buffer)
+}
+
 impl RenderCallback for GpuRenderer {
     fn render(&mut self, ctx: &mut RenderContext<'_>) {
         // ── 1. Read state under lock. The visible text is built ONLY when a
@@ -248,7 +347,16 @@ impl RenderCallback for GpuRenderer {
         //    just mode/cursor for the status line and reuses the cached shaped
         //    buffer below — zero re-highlight, zero re-shape. `rebuild_input`
         //    is `Some(TextFrame)` exactly when the generation moved.
-        let (rebuild_input, gutter_rows, splash_chunks, mode, status_core, cur_gen, palette) = {
+        let (
+            rebuild_input,
+            gutter_rows,
+            splash_chunks,
+            mode,
+            status_core,
+            cur_gen,
+            palette,
+            floating,
+        ) = {
             let s = self
                 .state
                 .lock()
@@ -315,6 +423,8 @@ impl RenderCallback for GpuRenderer {
                 // line order — the sortedness is structural, not a promise
                 // some server might break.
                 let mut si = 0usize;
+                let mut annotations: Vec<AnnotationRun> = Vec::new();
+                let annotated = s.world();
                 for row in 0..visible_lines {
                     let ln = top_line + row;
                     if ln >= buf.line_count() {
@@ -386,6 +496,17 @@ impl RenderCallback for GpuRenderer {
                                 ));
                             }
                         }
+                        let mut column = seg_chars + 2;
+                        for note in s.annotations(&annotated, s.active, ln) {
+                            let width = note.text.chars().count() + 2;
+                            annotations.push(AnnotationRun {
+                                column,
+                                line_row: row,
+                                text: note.text,
+                                role: note.role,
+                            });
+                            column += width;
+                        }
                         out.push_str(&sliced);
                         out.push('\n');
                     }
@@ -395,6 +516,7 @@ impl RenderCallback for GpuRenderer {
                     path,
                     matches: match_bytes,
                     lsp: lsp_bytes,
+                    annotations,
                 })
             } else {
                 None
@@ -421,6 +543,21 @@ impl RenderCallback for GpuRenderer {
                     .collect();
                 (buf.line_count(), rows)
             });
+            let floating = s.float_panel().and_then(|panel| {
+                let win = s.layout.active_window()?;
+                let cursor = s.cursor();
+                let grid = cell_grid(ctx.width, ctx.height, self.font_size, self.line_height);
+                let row = u16::try_from(cursor.line.saturating_sub(win.viewport.top_line)).ok()?;
+                let col =
+                    u16::try_from(cursor.column.saturating_sub(win.viewport.left_column)).ok()?;
+                let rect = panel.rect(
+                    row,
+                    col,
+                    u16::try_from(grid.cols()).unwrap_or(u16::MAX),
+                    u16::try_from(grid.rows()).unwrap_or(u16::MAX),
+                )?;
+                Some((float_paint(&panel, rect), rect))
+            });
             (
                 rebuild_input,
                 gutter_rows,
@@ -429,6 +566,7 @@ impl RenderCallback for GpuRenderer {
                 s.status_model().render(),
                 cur_gen,
                 s.chrome(),
+                floating,
             )
         };
 
@@ -464,14 +602,23 @@ impl RenderCallback for GpuRenderer {
             // and returning to the splash would leave the last file's line
             // numbers painted down its left edge.
             self.cached_gutter = None;
+            self.cached_annotations = None;
             self.last_gen = cur_gen;
         } else if let Some(TextFrame {
             text,
             path,
             matches: match_bytes,
             lsp: lsp_bytes,
+            annotations,
         }) = rebuild_input
         {
+            self.cached_annotations = annotation_buffer(
+                &annotations,
+                &palette,
+                self.metrics,
+                &mut ctx.text.font_system,
+                (width, height),
+            );
             let mut buffer = Buffer::new(&mut ctx.text.font_system, self.metrics);
             buffer.set_size(&mut ctx.text.font_system, Some(width), Some(height));
             // hikari: resolve the language, highlight the visible text, paint
@@ -672,6 +819,70 @@ impl RenderCallback for GpuRenderer {
                 custom_glyphs: &[],
             },
         ];
+        if let Some(a) = self.cached_annotations.as_ref() {
+            text_areas.push(TextArea {
+                buffer: a,
+                left: text_left,
+                top: 8.0,
+                scale: 1.0,
+                bounds: TextBounds {
+                    left: text_left as i32,
+                    top: 0,
+                    right: ctx.width as i32,
+                    bottom: (height as i32).max(0),
+                },
+                default_color: chrome_glyph(palette.text_dim),
+                custom_glyphs: &[],
+            });
+        }
+        let cell = cell_metrics(self.font_size, self.line_height);
+        let float_buffers = floating.as_ref().map(|(paint, _)| {
+            let base = Attrs::new().family(Family::Monospace);
+            let mut shaped = |text: &str| {
+                let mut b = Buffer::new(&mut ctx.text.font_system, self.metrics);
+                b.set_size(&mut ctx.text.font_system, Some(width), Some(height));
+                b.set_text(&mut ctx.text.font_system, text, &base, Shaping::Advanced);
+                b.shape_until_scroll(&mut ctx.text.font_system, false);
+                b
+            };
+            let selected_row = paint.selected.map(|row| {
+                let mut band = String::new();
+                for _ in 0..row {
+                    band.push('\n');
+                }
+                band.push_str(paint.ground.lines().next().unwrap_or_default());
+                shaped(&band)
+            });
+            (shaped(&paint.ground), selected_row, shaped(&paint.text))
+        });
+        if let (Some((_, rect)), Some((ground, band, words))) =
+            (floating.as_ref(), float_buffers.as_ref())
+        {
+            let left = text_left + f32::from(rect.x) * cell.width.get();
+            let top = 8.0 + f32::from(rect.y) * self.line_height;
+            let bounds = TextBounds {
+                left: left as i32,
+                top: top as i32,
+                right: (left + f32::from(rect.w) * cell.width.get()) as i32,
+                bottom: (top + f32::from(rect.h) * self.line_height) as i32,
+            };
+            let mut layer = |buffer, color| {
+                text_areas.push(TextArea {
+                    buffer,
+                    left,
+                    top,
+                    scale: 1.0,
+                    bounds,
+                    default_color: color,
+                    custom_glyphs: &[],
+                });
+            };
+            layer(ground, chrome_glyph(palette.surface));
+            if let Some(band) = band {
+                layer(band, chrome_glyph(palette.accent));
+            }
+            layer(words, chrome_glyph(palette.text));
+        }
         if let Some((g, gutter_w)) = self.cached_gutter.as_ref() {
             text_areas.push(TextArea {
                 buffer: g,

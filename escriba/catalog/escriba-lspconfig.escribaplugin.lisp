@@ -9,6 +9,12 @@
   :blnvim-origin "neovim/nvim-lspconfig"
   :ativar-em     ("Startup"))
 
+(defoption :name "lsp.session"            :value "true")
+(defoption :name "lsp.debounce_ms"        :value "80")
+(defoption :name "lsp.request_timeout_ms" :value "10000")
+(defoption :name "lsp.hang_after_ms"      :value "20000")
+(defoption :name "lsp.restart_limit"      :value "5")
+
 ;; ── Navigation + actions (lsp keybinds) ──────────────────────────────
 (defkeybind :mode "normal" :key "gd"         :action "lsp.definition"      :description "goto definition")
 (defkeybind :mode "normal" :key "gr"         :action "lsp.references"      :description "find references")

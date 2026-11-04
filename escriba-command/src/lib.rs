@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use escriba_core::BufferId;
 use escriba_madoguchi::cap::{Buffers, Cursor, Syntax};
+use escriba_madoguchi::errand::Question;
 use escriba_madoguchi::{BufferView, Native, Negai, Outcome, Snapshot, View, caps, erase};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -260,6 +261,41 @@ impl CommandRegistry {
             "lsp.format",
             "Format the buffer through its language server",
             erase::<LspFormat>(),
+        ));
+        r.register(Command::native(
+            "cmp.complete",
+            "Ask the language server for completions here",
+            erase::<CmpComplete>(),
+        ));
+        r.register(Command::native(
+            "cmp.abort",
+            "Close the completion popup",
+            erase::<CmpAbort>(),
+        ));
+        r.register(Command::native(
+            "cmp.toggle",
+            "Turn completion on or off",
+            erase::<CmpToggle>(),
+        ));
+        r.register(Command::native(
+            "lsp.hover",
+            "Show what the language server says about the name here",
+            erase::<LspHover>(),
+        ));
+        r.register(Command::native(
+            "lsp.definition",
+            "Go to where the name here is defined",
+            erase::<LspDefinition>(),
+        ));
+        r.register(Command::native(
+            "lsp.info",
+            "Show the state of each language server",
+            erase::<LspInfo>(),
+        ));
+        r.register(Command::native(
+            "lsp.restart",
+            "Restart every language server",
+            erase::<LspRestart>(),
         ));
         r.register(Command::native(
             "dap.toggle-breakpoint",
@@ -705,6 +741,28 @@ impl Native for LspFormat {
     fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
         Outcome::did(vec![Negai::FormatBuffer])
     }
+}
+
+macro_rules! session_command {
+    ($($name:ident => $slip:expr;)*) => {$(
+        struct $name;
+        impl Native for $name {
+            type Reads = caps!();
+            fn run(_v: &View<'_, Self::Reads>, _: &[String]) -> Outcome {
+                Outcome::did(vec![$slip])
+            }
+        }
+    )*};
+}
+
+session_command! {
+    CmpComplete => Negai::AskServer(Question::Completion { manual: true });
+    CmpAbort => Negai::CompletionAbort;
+    CmpToggle => Negai::CompletionToggle;
+    LspHover => Negai::AskServer(Question::Hover);
+    LspDefinition => Negai::AskServer(Question::Definition);
+    LspInfo => Negai::ServerInfo;
+    LspRestart => Negai::RestartServers;
 }
 
 /// `dap.toggle-breakpoint` — mark the cursor's line, or unmark it.

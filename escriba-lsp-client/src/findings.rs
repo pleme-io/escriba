@@ -106,8 +106,10 @@ fn code_of(code: Option<&serde_json::Value>) -> Option<String> {
 /// returns `None` for anything else rather than fabricating a path. A finding
 /// with no path is still perfectly usable — [`Site`] carries a buffer id too,
 /// and the caller knows which buffer it asked about.
-fn path_of(uri: &str) -> Option<std::path::PathBuf> {
+pub(crate) fn path_of(uri: &str) -> Option<std::path::PathBuf> {
     let rest = uri.strip_prefix("file://")?;
+    let decoded = percent_decoded(rest);
+    let rest = decoded.as_str();
     // `file:///a/b` -> `/a/b`; a non-empty authority (`file://host/a`) is not
     // a local path and is not guessed at.
     if rest.starts_with('/') {
@@ -115,6 +117,26 @@ fn path_of(uri: &str) -> Option<std::path::PathBuf> {
     } else {
         None
     }
+}
+
+fn percent_decoded(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = (bytes[i] == b'%')
+            .then(|| text.get(i + 1..i + 3))
+            .flatten()
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        if let Some(byte) = hex {
+            out.push(byte);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// Convert one publish notification into findings.

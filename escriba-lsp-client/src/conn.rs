@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{Mutex, mpsc, oneshot};
 
 use crate::pending::{Abandoned, Pending, Routed};
@@ -54,7 +54,8 @@ pub struct Connection {
     /// read — the ownership IS the behaviour, which is why it keeps the
     /// underscore and an explicit allow rather than being "used" for show.
     #[allow(dead_code)]
-    child: Option<tokio::process::Child>,
+    child: Mutex<Option<tokio::process::Child>>,
+    pid: Option<u32>,
 }
 
 impl Connection {
@@ -75,7 +76,8 @@ impl Connection {
             waiters,
             tx: Arc::new(Mutex::new(Box::new(writer))),
             inbox,
-            child: None,
+            child: Mutex::new(None),
+            pid: None,
         }
     }
 
@@ -84,15 +86,43 @@ impl Connection {
     /// # Errors
     /// The command could not be spawned, or the child gave us no stdio.
     pub fn spawn(cfg: &ServerConfig, root: &Path) -> Result<Self> {
+        // INHERITED, not piped. An LSP server logs to stderr, and a piped
+        // stderr nobody drains fills its pipe buffer and blocks the server
+        // mid-write — a hang whose cause is invisible from the client side.
+        Self::spawn_with_stderr(cfg, root, std::process::Stdio::inherit())
+    }
+
+    pub fn spawn_logged(cfg: &ServerConfig, root: &Path) -> Result<Self> {
+        let conn = Self::spawn_with_stderr(cfg, root, std::process::Stdio::piped())?;
+        let stderr = conn
+            .child
+            .try_lock()
+            .ok()
+            .and_then(|mut child| child.as_mut().and_then(|c| c.stderr.take()));
+        if let Some(stderr) = stderr {
+            let server = cfg.command.clone();
+            tokio::spawn(async move {
+                let mut lines = tokio::io::BufReader::new(stderr).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    tracing::debug!(%server, %line, "lsp server stderr");
+                }
+            });
+        }
+        Ok(conn)
+    }
+
+    fn spawn_with_stderr(
+        cfg: &ServerConfig,
+        root: &Path,
+        stderr: std::process::Stdio,
+    ) -> Result<Self> {
         let mut child = tokio::process::Command::new(&cfg.command)
             .args(&cfg.args)
             .current_dir(root)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            // INHERITED, not piped. An LSP server logs to stderr, and a piped
-            // stderr nobody drains fills its pipe buffer and blocks the server
-            // mid-write — a hang whose cause is invisible from the client side.
-            .stderr(std::process::Stdio::inherit())
+            .stderr(stderr)
+            .kill_on_drop(true)
             .spawn()?;
         let stdout = child
             .stdout
@@ -102,9 +132,39 @@ impl Connection {
             .stdin
             .take()
             .ok_or_else(|| LspError::Io(std::io::Error::other("child produced no stdin")))?;
+        let pid = child.id();
         let mut c = Self::new(stdout, stdin);
-        c.child = Some(child);
+        c.child = Mutex::new(Some(child));
+        c.pid = pid;
         Ok(c)
+    }
+
+    #[must_use]
+    pub const fn pid(&self) -> Option<u32> {
+        self.pid
+    }
+
+    pub fn take_inbox(&mut self) -> mpsc::Receiver<Incoming> {
+        let (_closed, empty) = mpsc::channel(1);
+        std::mem::replace(&mut self.inbox, empty)
+    }
+
+    pub async fn exit_status(
+        &self,
+        within: std::time::Duration,
+    ) -> Option<std::process::ExitStatus> {
+        let mut child = self.child.lock().await;
+        let child = child.as_mut()?;
+        tokio::time::timeout(within, child.wait())
+            .await
+            .ok()
+            .and_then(std::result::Result::ok)
+    }
+
+    pub async fn kill(&self) {
+        if let Some(child) = self.child.lock().await.as_mut() {
+            let _ = child.kill().await;
+        }
     }
 
     /// Send a request and await its reply.
@@ -112,6 +172,17 @@ impl Connection {
     /// # Errors
     /// The write failed, or the server went away before replying.
     pub async fn request(&self, method: &str, params: serde_json::Value) -> Result<Reply> {
+        let rx = self.begin_request(method, params).await?;
+        // A dropped sender means the pump exited without routing us, which is
+        // the server-gone path.
+        Ok(rx.await.unwrap_or(Err(Abandoned::ServerGone.into())))
+    }
+
+    pub async fn begin_request(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<oneshot::Receiver<Reply>> {
         let (id, rx) = {
             let mut w = self.waiters.lock().await;
             let id = w.next_id();
@@ -127,9 +198,16 @@ impl Connection {
             id, method, params,
         ))?))
         .await?;
-        // A dropped sender means the pump exited without routing us, which is
-        // the server-gone path.
-        Ok(rx.await.unwrap_or(Err(Abandoned::ServerGone.into())))
+        Ok(rx)
+    }
+
+    pub async fn respond(&self, id: RequestId, result: serde_json::Value) -> Result<()> {
+        let id = match id {
+            RequestId::Number(n) => serde_json::json!(n),
+            RequestId::Str(s) => serde_json::json!(s),
+        };
+        let body = serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": result });
+        self.send(&encode(&serde_json::to_vec(&body)?)).await
     }
 
     /// `initialize` -> read capabilities -> `initialized`.
@@ -310,6 +388,38 @@ impl ServerCaps {
             raw: caps,
         }
     }
+
+    fn offers(&self, key: &str) -> bool {
+        !matches!(
+            self.raw.get(key),
+            None | Some(serde_json::Value::Bool(false))
+        )
+    }
+
+    #[must_use]
+    pub fn completes(&self) -> bool {
+        self.offers("completionProvider")
+    }
+
+    #[must_use]
+    pub fn inlay_hints(&self) -> bool {
+        self.offers("inlayHintProvider")
+    }
+
+    #[must_use]
+    pub fn completion_triggers(&self) -> Vec<char> {
+        self.raw
+            .pointer("/completionProvider/triggerCharacters")
+            .and_then(serde_json::Value::as_array)
+            .map(|chars| {
+                chars
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .filter_map(|s| s.chars().next())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 }
 
 #[must_use]
@@ -322,7 +432,18 @@ pub fn initialize_params(root: &Path) -> serde_json::Value {
             "textDocument": {
                 "synchronization": { "didSave": true },
                 "publishDiagnostics": { "relatedInformation": false },
-                "hover": { "contentFormat": ["plaintext"] },
+                "hover": { "contentFormat": ["plaintext", "markdown"] },
+                "definition": { "linkSupport": true },
+                "inlayHint": {},
+                "completion": {
+                    "contextSupport": true,
+                    "completionItem": {
+                        "snippetSupport": false,
+                        "labelDetailsSupport": true,
+                        "documentationFormat": ["plaintext", "markdown"],
+                        "insertReplaceSupport": true,
+                    },
+                },
                 // DECLARED, not optional. blue advertises its
                 // `semanticTokensProvider` unconditionally, so it answers a
                 // client that never asked for the feature — which is exactly

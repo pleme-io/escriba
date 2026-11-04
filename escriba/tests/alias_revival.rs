@@ -79,7 +79,6 @@ const UNHANDLED_ALIASES: &[&str] = &[
     "ai.chat",
     "ai.inline",
     "autopairs.toggle",
-    "cmp.toggle",
     "colorizer.toggle",
     "comment.toggle-context-aware",
     "dap.continue",
@@ -97,9 +96,7 @@ const UNHANDLED_ALIASES: &[&str] = &[
     // the same commit; both are set-equality ratchets, and needing to edit BOTH
     // is the point — two independent inventories of what is dead cannot quietly
     // disagree about it.
-    "lsp.info",
     "lsp.outline",
-    "lsp.restart",
     "lsp.signature",
     "markdown.toggle-render",
     "mason.install",

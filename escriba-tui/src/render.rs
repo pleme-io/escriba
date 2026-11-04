@@ -135,6 +135,27 @@ pub fn sync_viewport(state: &mut EditorState, width: u16, height: u16) {
 }
 
 /// Draw one frame. Call from within `terminal.draw(|f| draw_frame(f, state))`.
+pub fn frame_text(state: &mut EditorState, width: u16, height: u16) -> String {
+    sync_viewport(state, width, height);
+    let Ok(mut terminal) =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))
+    else {
+        return String::new();
+    };
+    if terminal.draw(|f| draw_frame(f, state)).is_err() {
+        return String::new();
+    }
+    let screen = terminal.backend().buffer().clone();
+    let mut out = String::new();
+    for y in 0..height {
+        for x in 0..width {
+            out.push_str(screen[(x, y)].symbol());
+        }
+        out.push('\n');
+    }
+    out
+}
+
 pub fn draw_frame(f: &mut Frame<'_>, state: &EditorState) {
     let area = f.area();
     let chunks = RLayout::default()
@@ -248,6 +269,64 @@ fn draw_splash(
         };
         f.render_widget(Paragraph::new(Line::from(spans)).style(ground), line_area);
     }
+}
+
+fn annotation_style(role: &escriba_runtime::live::AnnotationRole, chrome: &ChromePalette) -> Style {
+    let colour = match role {
+        escriba_runtime::live::AnnotationRole::Value => chrome.text_dim,
+        escriba_runtime::live::AnnotationRole::Diagnostic(severity) => {
+            escriba_ui::chrome::severity_color(chrome, *severity)
+        }
+    };
+    Style::default().fg(rgb(colour))
+}
+
+fn draw_float(
+    f: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    state: &EditorState,
+    top: u32,
+    left: u32,
+    gutter_cols: usize,
+    chrome: &ChromePalette,
+) {
+    let Some(panel) = state.float_panel() else {
+        return;
+    };
+    let cursor = state.cursor();
+    let caret_row = u16::try_from(cursor.line.saturating_sub(top)).unwrap_or(u16::MAX);
+    let caret_col =
+        u16::try_from((cursor.column.saturating_sub(left) as usize).saturating_add(gutter_cols))
+            .unwrap_or(u16::MAX);
+    let Some(rect) = panel.rect(caret_row, caret_col, area.width, area.height) else {
+        return;
+    };
+    let target = ratatui::layout::Rect {
+        x: area.x + rect.x,
+        y: area.y + rect.y,
+        width: rect.w,
+        height: rect.h,
+    };
+    let ground = Style::default()
+        .fg(rgb(chrome.text))
+        .bg(rgb(chrome.surface));
+    let lines: Vec<Line<'static>> = panel
+        .rows
+        .into_iter()
+        .take(rect.h as usize)
+        .map(|row| {
+            Line::from(Span::styled(
+                row.text,
+                if row.selected {
+                    ground.fg(rgb(chrome.background)).bg(rgb(chrome.accent))
+                } else {
+                    ground
+                },
+            ))
+        })
+        .collect();
+    f.render_widget(ratatui::widgets::Clear, target);
+    f.render_widget(Paragraph::new(lines).style(ground), target);
 }
 
 /// Paint the picker as a centred floating panel.
@@ -457,6 +536,7 @@ fn draw_buffer_in(
         &escriba_ui::syntax::ChromeSyntax::new(*chrome),
     );
 
+    let annotated = state.world();
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(visible as usize);
     for row in 0..visible as u32 {
         let ln = top + row;
@@ -497,7 +577,7 @@ fn draw_buffer_in(
         // sideways. Asked of the STATE rather than assembled here, so the
         // three faces cannot read different planes.
         let marks = state.gutter_marks(&state.world(), state.active, ln);
-        lines.push(line_with_gutter(
+        let mut painted = line_with_gutter(
             chrome,
             marks,
             ln,
@@ -509,7 +589,15 @@ fn draw_buffer_in(
             vis_cols,
             shape,
             &hl,
-        ));
+        );
+        for note in state.annotations(&annotated, win.buffer_id, ln) {
+            painted.spans.push(Span::raw("  "));
+            painted.spans.push(Span::styled(
+                note.text,
+                annotation_style(&note.role, chrome),
+            ));
+        }
+        lines.push(painted);
     }
 
     let block = Block::default()
@@ -530,6 +618,10 @@ fn draw_buffer_in(
     // BEFORE `draw_status_line`, whose own park for an open prompt therefore
     // wins — which is the right precedence, since a prompt is where the typing
     // is going.
+    if focused {
+        draw_float(f, area, state, top, left, gutter_cols, chrome);
+    }
+
     if focused && shape == CursorShape::Bar && cursor.line >= top {
         let row = cursor.line - top;
         let col = (cursor.column as usize).saturating_sub(left as usize);
@@ -804,9 +896,21 @@ fn draw_status_line(
         _ => Span::raw(""),
     };
 
+    let lsp_span = match model.lsp.filter(|_| model.pill_sigil().is_none()) {
+        Some(lsp) => {
+            let mut s = String::with_capacity(lsp.len() + 3);
+            s.push_str(" [");
+            s.push_str(lsp);
+            s.push(']');
+            Span::styled(s, status_style(chrome))
+        }
+        None => Span::raw(""),
+    };
+
     // Layout: [pill] [prompt-or-path] [message] … (flex) … [count] [pos]
     let available = usize::from(area.width);
     let left = mode_span.content.chars().count()
+        + lsp_span.content.chars().count()
         + context_span.content.chars().count()
         + msg_span.content.chars().count();
     let right = count_span.content.chars().count() + pos_span.content.chars().count();
@@ -824,6 +928,7 @@ fn draw_status_line(
 
     let line = Line::from(vec![
         mode_span,
+        lsp_span,
         context_span,
         msg_span,
         Span::raw(" ".repeat(pad)),

@@ -90,6 +90,7 @@ pub struct StatusModel<'a> {
     /// `eval` CLI's `println!`, so a failed search was indistinguishable from
     /// a dropped keystroke on both interactive faces.
     pub message: Option<&'a str>,
+    pub lsp: Option<&'a str>,
 }
 
 impl StatusModel<'_> {
@@ -180,6 +181,12 @@ impl StatusModel<'_> {
             out.push_str(msg);
         }
 
+        if let Some(lsp) = self.lsp {
+            out.push_str("  [");
+            out.push_str(lsp);
+            out.push(']');
+        }
+
         out
     }
 }
@@ -219,6 +226,7 @@ mod tests {
             prompt_caret: text.chars().count(),
             count,
             message: msg,
+            lsp: None,
         }
     }
 
@@ -367,6 +375,7 @@ mod tests {
                 total: 99,
             },
             message: None,
+            lsp: None,
         };
         let s = m.render();
         assert!(s.contains("12345:678"), "{s}");

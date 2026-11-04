@@ -92,7 +92,9 @@ impl Courier {
         self.next = self.next.wrapping_add(1);
         let id = ErrandId(self.next);
         let cancel = Arc::new(AtomicBool::new(false));
-        self.live.push((id, Arc::clone(&cancel)));
+        if !matches!(freight, Freight::Session(_)) {
+            self.live.push((id, Arc::clone(&cancel)));
+        }
         self.crew.get(&freight).start(
             Errand {
                 id,
@@ -103,6 +105,11 @@ impl Courier {
             self.tx.clone(),
         );
         id
+    }
+
+    #[must_use]
+    pub fn carries_sessions(&self) -> bool {
+        self.crew.session.carries()
     }
 
     /// Collect whatever has arrived, up to `budget` parcels.
@@ -191,6 +198,7 @@ mod tests {
             scan: Box::new(r),
             diagnostics: Box::new(escriba_madoguchi::errand::Idle("t")),
             format: Box::new(escriba_madoguchi::errand::Idle("t")),
+            session: Box::new(escriba_madoguchi::errand::Idle("t")),
         }
     }
 

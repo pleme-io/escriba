@@ -46,9 +46,6 @@ const INERT: &[&str] = &[
     // AI assist — needs an MCP *client* inside the editor.
     "ai.chat",
     "ai.inline",
-    // Completion — needs a completion engine.
-    "cmp.abort",
-    "cmp.complete",
     // Merge conflicts — needs the git layer.
     // Debugging — needs escriba-dap-client (Wave 3).
     //
@@ -87,7 +84,6 @@ const INERT: &[&str] = &[
     "leap.forward",
     // LSP — needs a RUNNING escriba-lsp-client (Wave 3).
     "lsp.code-action",
-    "lsp.definition",
     "lsp.diagnostic-next",
     "lsp.diagnostic-prev",
     // `lsp.format` left this set on 2026-08-12 — it is a registered native
@@ -96,7 +92,6 @@ const INERT: &[&str] = &[
     // subsystem fails the test until its name is deleted from here; that is the
     // half that makes the list a record of what is dead rather than a list
     // somebody once wrote.
-    "lsp.hover",
     "lsp.implementation",
     "lsp.incoming-calls",
     "lsp.outgoing-calls",

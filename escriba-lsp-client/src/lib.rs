@@ -17,6 +17,7 @@ pub mod findings;
 pub mod format;
 pub mod pending;
 pub mod runner;
+pub mod session;
 pub mod tokens;
 pub mod wire;
 

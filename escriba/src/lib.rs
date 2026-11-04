@@ -253,9 +253,13 @@ struct EvalArgs {
 ///
 /// Both language-server carriers read the SAME registry, and that registry is
 /// built from the catalog — see [`lsp_registry`].
-fn courier_crew(plan: &escriba_lisp::ApplyPlan) -> escriba_madoguchi::errand::Crew {
+pub fn courier_crew(plan: &escriba_lisp::ApplyPlan) -> escriba_madoguchi::errand::Crew {
     let registry = lsp_registry(plan);
     escriba_madoguchi::errand::Crew {
+        session: Box::new(
+            escriba_lsp_client::session::SessionRunner::new(registry.clone())
+                .with_policy(session_policy(plan)),
+        ),
         scan: Box::new(escriba_runtime::scan::ScanRunner),
         diagnostics: Box::new(escriba_lsp_client::runner::LspRunner::new(registry.clone())),
         // Idle until 2026-08-12. The note that stood here said a formatter
@@ -272,6 +276,61 @@ fn courier_crew(plan: &escriba_lisp::ApplyPlan) -> escriba_madoguchi::errand::Cr
                 .with_externals(external_formatters(plan)),
         ),
     }
+}
+
+pub fn wire_plan(
+    state: &mut EditorState,
+    plan: &escriba_lisp::ApplyPlan,
+) -> (
+    escriba_lisp::CommandApplyReport,
+    escriba_lisp::OptionApplyReport,
+    usize,
+    escriba_lisp::ApplyReport,
+) {
+    state.hire(courier_crew(plan));
+    // Register `defcmd` forms into the live command registry FIRST, so
+    // the deferred-keybind dispatch path (`Action::Command { name }`)
+    // that the keymap apply produces has real commands to resolve
+    // against instead of dead-ending at the five built-ins.
+    let cmd_report = escriba_lisp::apply_plan_to_commands(plan, &mut state.commands);
+    let opt_report = escriba_lisp::apply_plan_to_options(plan, &mut state.options);
+    // Resolve the leader from the option store BEFORE binding keys —
+    // `<leader>` is resolved at bind time, so the leader must be set
+    // first or every `<leader>…` sequence binds under the wrong prefix.
+    apply_leader_option(state);
+    // `:commentstring` finally reaches live state — see escriba-core's
+    // filetype table. Before this, `defmode` validated it and nothing read it.
+    let ft_count = escriba_lisp::apply_plan_to_filetypes(plan, &mut state.filetypes);
+    // The file named on the command line gets diagnosed too — and this must
+    // come AFTER the line above, not with `hire` where it looks like it
+    // belongs. `ask_for_diagnostics` resolves the language through the
+    // filetype table that line just filled; run any earlier and every errand
+    // goes out carrying `language: None`, which the runner declines in
+    // silence. See `EditorState::diagnose_open_buffers`.
+    state.diagnose_open_buffers();
+    let report = escriba_lisp::apply_plan_to_keymap(plan, state.keymap_mut());
+    (cmd_report, opt_report, ft_count, report)
+}
+
+fn session_policy(plan: &escriba_lisp::ApplyPlan) -> escriba_lsp_client::session::SessionPolicy {
+    let read = |name: &str| {
+        plan.options
+            .iter()
+            .rev()
+            .find(|o| o.name == name)
+            .and_then(|o| o.value.parse::<u64>().ok())
+    };
+    let mut policy = escriba_lsp_client::session::SessionPolicy::default();
+    if let Some(ms) = read("lsp.request_timeout_ms") {
+        policy.request_timeout = std::time::Duration::from_millis(ms);
+    }
+    if let Some(ms) = read("lsp.hang_after_ms") {
+        policy.hang_after = std::time::Duration::from_millis(ms);
+    }
+    if let Some(n) = read("lsp.restart_limit") {
+        policy.restart_limit = u32::try_from(n).unwrap_or(u32::MAX);
+    }
+    policy
 }
 
 /// Every `defformatter … :external #t` the plan declares, keyed by filetype,
@@ -481,28 +540,7 @@ pub fn run() -> Result<()> {
     // both halves, so the binary assembles them.
     let mut state = EditorState::new_with_buffer(buffers, active_id);
     state.set_blue_exec(std::sync::Arc::new(blue_worker::supervised));
-    state.hire(courier_crew(&plan));
-    // Register `defcmd` forms into the live command registry FIRST, so
-    // the deferred-keybind dispatch path (`Action::Command { name }`)
-    // that the keymap apply produces has real commands to resolve
-    // against instead of dead-ending at the five built-ins.
-    let cmd_report = escriba_lisp::apply_plan_to_commands(&plan, &mut state.commands);
-    let opt_report = escriba_lisp::apply_plan_to_options(&plan, &mut state.options);
-    // Resolve the leader from the option store BEFORE binding keys —
-    // `<leader>` is resolved at bind time, so the leader must be set
-    // first or every `<leader>…` sequence binds under the wrong prefix.
-    apply_leader_option(&mut state);
-    // `:commentstring` finally reaches live state — see escriba-core's
-    // filetype table. Before this, `defmode` validated it and nothing read it.
-    let ft_count = escriba_lisp::apply_plan_to_filetypes(&plan, &mut state.filetypes);
-    // The file named on the command line gets diagnosed too — and this must
-    // come AFTER the line above, not with `hire` where it looks like it
-    // belongs. `ask_for_diagnostics` resolves the language through the
-    // filetype table that line just filled; run any earlier and every errand
-    // goes out carrying `language: None`, which the runner declines in
-    // silence. See `EditorState::diagnose_open_buffers`.
-    state.diagnose_open_buffers();
-    let report = escriba_lisp::apply_plan_to_keymap(&plan, state.keymap_mut());
+    let (cmd_report, opt_report, ft_count, report) = wire_plan(&mut state, &plan);
     tracing::info!(
         "plan applied: {}; keymap={}; {}; {}; filetypes={ft_count}",
         plan.summary(),

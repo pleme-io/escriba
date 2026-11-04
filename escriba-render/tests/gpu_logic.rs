@@ -530,3 +530,61 @@ mod paint {
         }
     }
 }
+
+#[test]
+fn the_float_ground_covers_every_cell_of_the_rect_and_names_the_selected_row() {
+    let panel = escriba_ui::float::FloatPanel {
+        rows: vec![
+            escriba_ui::float::FloatRow {
+                text: " first".to_string(),
+                selected: false,
+            },
+            escriba_ui::float::FloatRow {
+                text: " a label wider than the rect".to_string(),
+                selected: true,
+            },
+        ],
+    };
+    let rect = escriba_ui::float::FloatRect {
+        x: 0,
+        y: 0,
+        w: 8,
+        h: 2,
+    };
+    let paint = escriba_render::gpu::float_paint(&panel, rect);
+    let ground: Vec<&str> = paint.ground.lines().collect();
+    assert_eq!(ground.len(), 2);
+    assert!(ground.iter().all(|row| row.chars().count() == 8));
+    assert_eq!(paint.selected, Some(1));
+    assert_eq!(
+        paint.text.lines().collect::<Vec<_>>(),
+        vec![" first", " a label"],
+        "no word leaves the panel"
+    );
+}
+
+#[test]
+fn a_float_taller_than_its_rect_paints_only_what_fits() {
+    let row = |text: &str| escriba_ui::float::FloatRow {
+        text: text.to_string(),
+        selected: false,
+    };
+    let panel = escriba_ui::float::FloatPanel {
+        rows: vec![row("a"), row("b"), row("c")],
+    };
+    let rect = escriba_ui::float::FloatRect {
+        x: 0,
+        y: 0,
+        w: 3,
+        h: 1,
+    };
+    let paint = escriba_render::gpu::float_paint(&panel, rect);
+    assert_eq!(paint.text.lines().count(), 1);
+    assert_eq!(paint.ground.lines().count(), 1);
+}
+
+#[test]
+fn side_text_is_placed_by_rows_then_columns_of_padding() {
+    assert_eq!(escriba_render::gpu::annotation_pad(2, 3), "\n\n   ");
+    assert_eq!(escriba_render::gpu::annotation_pad(0, 0), "");
+}

@@ -143,6 +143,7 @@ fn grep_finds_matches_and_accepting_one_opens_that_file() {
     // of the dispatch.
     let mut st = editor();
     st.hire(escriba_madoguchi::errand::Crew {
+        session: Box::new(escriba_madoguchi::errand::Idle("test")),
         scan: Box::new(escriba_runtime::scan::ScanRunner),
         diagnostics: Box::new(escriba_madoguchi::errand::Idle("t")),
         format: Box::new(escriba_madoguchi::errand::Idle("t")),

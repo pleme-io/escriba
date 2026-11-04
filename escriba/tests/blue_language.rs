@@ -14,12 +14,8 @@
 //!
 //! ## What this file does NOT claim
 //!
-//! Only the highlighting leg is LIVE. `lsp_servers` / `formatters` / `gates`
-//! have no consumer in `escriba-runtime` — nothing spawns a server, runs a
-//! formatter, or fires a gate for ANY language yet, blue included. These
-//! assertions prove the declarations are present and coherent in the boot
-//! plan, which is what a declaration-tier leg can prove; they do not prove a
-//! `.b` buffer gets formatted on save, and must not be read that way.
+//! These assertions prove the declarations are present and coherent in the boot
+//! plan. The language server leg is proved live by `live_session.rs`.
 
 use escriba_lisp::ApplyPlan;
 

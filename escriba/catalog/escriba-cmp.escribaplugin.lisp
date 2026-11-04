@@ -10,13 +10,15 @@
 
 (defoption :name "cmp.enabled" :value "true")
 (defoption :name "cmp.sources" :value "lsp,buffer,path,snippet")
+(defoption :name "cmp.autocomplete" :value "true")
+(defoption :name "cmp.keyword_length" :value "2")
 ;; `<C-n>`, NOT `<C-Space>`.
 ;;
 ;; nvim-cmp's convention is `<C-Space>`, and escriba shipped that — but on
 ;; darwin the OS takes ctrl+space for application / input-source switching,
-;; so the event never reaches the editor. The binding was not merely unwired
-;; (cmp.complete is still inert); it was UNREACHABLE, and would have stayed
-;; unreachable after being wired, presenting as "completion is broken".
+;; so the event never reaches the editor. The binding was UNREACHABLE, and
+;; would have stayed unreachable after being wired, presenting as "completion
+;; is broken". cmp.complete is wired now: docs/blue.md, the live session.
 ;;
 ;; Caught by `escriba/tests/reserved_chords.rs` on its first run, against
 ;; `awase::Reserved::fleet_darwin()`. `<C-n>` is vim's own native completion

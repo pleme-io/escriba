@@ -80,7 +80,7 @@ fn a_registered_but_unimplemented_action_is_reported() {
     st.commands.register(escriba_command::Command::action(
         "pick",
         "Pick a file",
-        "lsp.hover",
+        "lsp.rename",
     ));
     press_command(&mut st, "pick");
     let msg = st
@@ -88,7 +88,7 @@ fn a_registered_but_unimplemented_action_is_reported() {
         .last()
         .expect("an inert action must say something");
     assert!(
-        msg.contains("lsp.hover"),
+        msg.contains("lsp.rename"),
         "the message must name the unimplemented action: {msg:?}",
     );
     assert!(
@@ -199,7 +199,7 @@ fn a_typo_and_an_unbuilt_capability_read_differently() {
     );
 
     let mut st = editor();
-    press_command(&mut st, "lsp.hover");
+    press_command(&mut st, "lsp.rename");
     let unbuilt = st.messages.last().cloned().expect("a message");
     assert!(
         unbuilt.contains("not implemented"),

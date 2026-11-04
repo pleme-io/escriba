@@ -69,7 +69,12 @@ fn inner_loop(state: &mut EditorState) -> Result<()> {
         // whole match arm below, so a drain in there would only run when
         // the operator happened to be typing.
         state.deliver();
-        if event::poll(Duration::from_millis(200))? {
+        let wait = if state.session_busy() {
+            Duration::from_millis(16)
+        } else {
+            Duration::from_millis(200)
+        };
+        if event::poll(wait)? {
             match event::read()? {
                 Event::Key(ke) if ke.kind == KeyEventKind::Press => {
                     // Translate into escriba's madori-shaped AppEvent so the
