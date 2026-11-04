@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "1ce5b58be63f38f7ab04ef9d573bf938bb38c60d1016ba237ac64612b1c19e34",
+  "cargo_lock_sha256": "070612c3f87958fbd3f695af921722e6a0030d6314b3db5842b36245b3b42548",
   "manifest_sha256": {
-    "Cargo.toml": "7212b2ab4fd2e57ad65555079ecdd7abeb73e160826b24b6bf7a6a7ffaf7e5eb",
+    "Cargo.toml": "609ab8e3833799b83fb97359400758a3c608f8aba9af4920c11ad398b173859a",
     "escriba-api/Cargo.toml": "f1e4219f834cb125f11d834acea8afdec7fc052a67884e733b393d7430b8ce04",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
@@ -2235,7 +2235,7 @@
           "std"
         ]
       },
-      "escriba-0.1.92": {
+      "escriba-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "anyhow",
@@ -2272,7 +2272,7 @@
           },
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2282,7 +2282,7 @@
           },
           {
             "name": "escriba_command",
-            "package_key": "escriba-command-0.1.92",
+            "package_key": "escriba-command-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2292,7 +2292,7 @@
           },
           {
             "name": "escriba_config",
-            "package_key": "escriba-config-0.1.92",
+            "package_key": "escriba-config-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2302,7 +2302,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2312,7 +2312,7 @@
           },
           {
             "name": "escriba_input",
-            "package_key": "escriba-input-0.1.92",
+            "package_key": "escriba-input-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2322,7 +2322,7 @@
           },
           {
             "name": "escriba_keymap",
-            "package_key": "escriba-keymap-0.1.92",
+            "package_key": "escriba-keymap-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2332,7 +2332,7 @@
           },
           {
             "name": "escriba_lisp",
-            "package_key": "escriba-lisp-0.1.92",
+            "package_key": "escriba-lisp-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2342,7 +2342,7 @@
           },
           {
             "name": "escriba_lsp_client",
-            "package_key": "escriba-lsp-client-0.1.92",
+            "package_key": "escriba-lsp-client-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2352,7 +2352,7 @@
           },
           {
             "name": "escriba_madoguchi",
-            "package_key": "escriba-madoguchi-0.1.92",
+            "package_key": "escriba-madoguchi-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2362,7 +2362,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2372,7 +2372,7 @@
           },
           {
             "name": "escriba_plugin",
-            "package_key": "escriba-plugin-0.1.92",
+            "package_key": "escriba-plugin-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2382,7 +2382,7 @@
           },
           {
             "name": "escriba_render",
-            "package_key": "escriba-render-0.1.92",
+            "package_key": "escriba-render-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2392,7 +2392,7 @@
           },
           {
             "name": "escriba_runtime",
-            "package_key": "escriba-runtime-0.1.92",
+            "package_key": "escriba-runtime-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2402,7 +2402,7 @@
           },
           {
             "name": "escriba_spec",
-            "package_key": "escriba-spec-0.1.92",
+            "package_key": "escriba-spec-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2412,7 +2412,7 @@
           },
           {
             "name": "escriba_ts",
-            "package_key": "escriba-ts-0.1.92",
+            "package_key": "escriba-ts-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2422,7 +2422,7 @@
           },
           {
             "name": "escriba_tui",
-            "package_key": "escriba-tui-0.1.92",
+            "package_key": "escriba-tui-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2432,7 +2432,7 @@
           },
           {
             "name": "escriba_ui",
-            "package_key": "escriba-ui-0.1.92",
+            "package_key": "escriba-ui-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2442,7 +2442,7 @@
           },
           {
             "name": "escriba_vm",
-            "package_key": "escriba-vm-0.1.92",
+            "package_key": "escriba-vm-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2528,11 +2528,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-api-0.1.92": {
+      "escriba-api-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_command",
-            "package_key": "escriba-command-0.1.92",
+            "package_key": "escriba-command-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2542,7 +2542,7 @@
           },
           {
             "name": "escriba_config",
-            "package_key": "escriba-config-0.1.92",
+            "package_key": "escriba-config-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2552,7 +2552,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2562,7 +2562,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2618,11 +2618,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-buffer-0.1.92": {
+      "escriba-buffer-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2678,11 +2678,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-command-0.1.92": {
+      "escriba-command-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2692,7 +2692,7 @@
           },
           {
             "name": "escriba_madoguchi",
-            "package_key": "escriba-madoguchi-0.1.92",
+            "package_key": "escriba-madoguchi-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2702,7 +2702,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2758,11 +2758,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-config-0.1.92": {
+      "escriba-config-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2850,11 +2850,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-core-0.1.92": {
+      "escriba-core-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_memori",
-            "package_key": "escriba-memori-0.1.92",
+            "package_key": "escriba-memori-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2864,7 +2864,7 @@
           },
           {
             "name": "escriba_search",
-            "package_key": "escriba-search-0.1.92",
+            "package_key": "escriba-search-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2910,7 +2910,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-input-0.1.92": {
+      "escriba-input-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "awase",
@@ -2924,7 +2924,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2934,7 +2934,7 @@
           },
           {
             "name": "escriba_keymap",
-            "package_key": "escriba-keymap-0.1.92",
+            "package_key": "escriba-keymap-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2980,7 +2980,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-keymap-0.1.92": {
+      "escriba-keymap-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "awase",
@@ -2994,7 +2994,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3004,7 +3004,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3014,7 +3014,7 @@
           },
           {
             "name": "escriba_search",
-            "package_key": "escriba-search-0.1.92",
+            "package_key": "escriba-search-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3070,7 +3070,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-lisp-0.1.92": {
+      "escriba-lisp-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "awase",
@@ -3094,7 +3094,7 @@
           },
           {
             "name": "escriba_command",
-            "package_key": "escriba-command-0.1.92",
+            "package_key": "escriba-command-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3104,7 +3104,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3114,7 +3114,7 @@
           },
           {
             "name": "escriba_keymap",
-            "package_key": "escriba-keymap-0.1.92",
+            "package_key": "escriba-keymap-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3124,7 +3124,7 @@
           },
           {
             "name": "escriba_ui",
-            "package_key": "escriba-ui-0.1.92",
+            "package_key": "escriba-ui-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3202,11 +3202,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-lsp-client-0.1.92": {
+      "escriba-lsp-client-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3216,7 +3216,7 @@
           },
           {
             "name": "escriba_madoguchi",
-            "package_key": "escriba-madoguchi-0.1.92",
+            "package_key": "escriba-madoguchi-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3226,7 +3226,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3311,11 +3311,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-madoguchi-0.1.92": {
+      "escriba-madoguchi-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3325,7 +3325,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3335,7 +3335,7 @@
           },
           {
             "name": "escriba_search",
-            "package_key": "escriba-search-0.1.92",
+            "package_key": "escriba-search-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3345,7 +3345,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3367,7 +3367,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-mcp-0.1.92": {
+      "escriba-mcp-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "anyhow",
@@ -3381,7 +3381,7 @@
           },
           {
             "name": "escriba_command",
-            "package_key": "escriba-command-0.1.92",
+            "package_key": "escriba-command-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3391,7 +3391,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3401,7 +3401,7 @@
           },
           {
             "name": "escriba_spec",
-            "package_key": "escriba-spec-0.1.92",
+            "package_key": "escriba-spec-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3475,7 +3475,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-memori-0.1.92": {
+      "escriba-memori-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "schemars",
@@ -3505,11 +3505,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-mode-0.1.92": {
+      "escriba-mode-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3519,7 +3519,7 @@
           },
           {
             "name": "escriba_memori",
-            "package_key": "escriba-memori-0.1.92",
+            "package_key": "escriba-memori-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3565,11 +3565,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-plugin-0.1.92": {
+      "escriba-plugin-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_config",
-            "package_key": "escriba-config-0.1.92",
+            "package_key": "escriba-config-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3579,7 +3579,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3589,7 +3589,7 @@
           },
           {
             "name": "escriba_lisp",
-            "package_key": "escriba-lisp-0.1.92",
+            "package_key": "escriba-lisp-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3645,11 +3645,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-render-0.1.92": {
+      "escriba-render-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3659,7 +3659,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3669,7 +3669,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3679,7 +3679,7 @@
           },
           {
             "name": "escriba_runtime",
-            "package_key": "escriba-runtime-0.1.92",
+            "package_key": "escriba-runtime-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3689,7 +3689,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3699,7 +3699,7 @@
           },
           {
             "name": "escriba_ts",
-            "package_key": "escriba-ts-0.1.92",
+            "package_key": "escriba-ts-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3709,7 +3709,7 @@
           },
           {
             "name": "escriba_ui",
-            "package_key": "escriba-ui-0.1.92",
+            "package_key": "escriba-ui-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3815,7 +3815,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-runtime-0.1.92": {
+      "escriba-runtime-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "awase",
@@ -3829,7 +3829,7 @@
           },
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3839,7 +3839,7 @@
           },
           {
             "name": "escriba_command",
-            "package_key": "escriba-command-0.1.92",
+            "package_key": "escriba-command-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3849,7 +3849,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3859,7 +3859,7 @@
           },
           {
             "name": "escriba_input",
-            "package_key": "escriba-input-0.1.92",
+            "package_key": "escriba-input-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3869,7 +3869,7 @@
           },
           {
             "name": "escriba_keymap",
-            "package_key": "escriba-keymap-0.1.92",
+            "package_key": "escriba-keymap-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3879,7 +3879,7 @@
           },
           {
             "name": "escriba_lisp",
-            "package_key": "escriba-lisp-0.1.92",
+            "package_key": "escriba-lisp-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3889,7 +3889,7 @@
           },
           {
             "name": "escriba_madoguchi",
-            "package_key": "escriba-madoguchi-0.1.92",
+            "package_key": "escriba-madoguchi-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3899,7 +3899,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3909,7 +3909,7 @@
           },
           {
             "name": "escriba_search",
-            "package_key": "escriba-search-0.1.92",
+            "package_key": "escriba-search-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3919,7 +3919,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3929,7 +3929,7 @@
           },
           {
             "name": "escriba_ts",
-            "package_key": "escriba-ts-0.1.92",
+            "package_key": "escriba-ts-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3939,7 +3939,7 @@
           },
           {
             "name": "escriba_ui",
-            "package_key": "escriba-ui-0.1.92",
+            "package_key": "escriba-ui-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3949,7 +3949,7 @@
           },
           {
             "name": "escriba_vm",
-            "package_key": "escriba-vm-0.1.92",
+            "package_key": "escriba-vm-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -3993,11 +3993,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-search-0.1.92": {
+      "escriba-search-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_memori",
-            "package_key": "escriba-memori-0.1.92",
+            "package_key": "escriba-memori-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4053,11 +4053,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-shirube-0.1.92": {
+      "escriba-shirube-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4067,7 +4067,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4077,7 +4077,7 @@
           },
           {
             "name": "escriba_memori",
-            "package_key": "escriba-memori-0.1.92",
+            "package_key": "escriba-memori-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4089,11 +4089,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-spec-0.1.92": {
+      "escriba-spec-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_api",
-            "package_key": "escriba-api-0.1.92",
+            "package_key": "escriba-api-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4105,7 +4105,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-ts-0.1.92": {
+      "escriba-ts-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "hikari_core",
@@ -4131,7 +4131,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-tui-0.1.92": {
+      "escriba-tui-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "anyhow",
@@ -4155,7 +4155,7 @@
           },
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4165,7 +4165,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4175,7 +4175,7 @@
           },
           {
             "name": "escriba_input",
-            "package_key": "escriba-input-0.1.92",
+            "package_key": "escriba-input-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4185,7 +4185,7 @@
           },
           {
             "name": "escriba_keymap",
-            "package_key": "escriba-keymap-0.1.92",
+            "package_key": "escriba-keymap-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4195,7 +4195,7 @@
           },
           {
             "name": "escriba_madoguchi",
-            "package_key": "escriba-madoguchi-0.1.92",
+            "package_key": "escriba-madoguchi-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4205,7 +4205,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4215,7 +4215,7 @@
           },
           {
             "name": "escriba_runtime",
-            "package_key": "escriba-runtime-0.1.92",
+            "package_key": "escriba-runtime-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4225,7 +4225,7 @@
           },
           {
             "name": "escriba_search",
-            "package_key": "escriba-search-0.1.92",
+            "package_key": "escriba-search-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4235,7 +4235,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4245,7 +4245,7 @@
           },
           {
             "name": "escriba_ts",
-            "package_key": "escriba-ts-0.1.92",
+            "package_key": "escriba-ts-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4255,7 +4255,7 @@
           },
           {
             "name": "escriba_ui",
-            "package_key": "escriba-ui-0.1.92",
+            "package_key": "escriba-ui-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4319,7 +4319,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-ui-0.1.92": {
+      "escriba-ui-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "egaku",
@@ -4333,7 +4333,7 @@
           },
           {
             "name": "escriba_buffer",
-            "package_key": "escriba-buffer-0.1.92",
+            "package_key": "escriba-buffer-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4343,7 +4343,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4353,7 +4353,7 @@
           },
           {
             "name": "escriba_keymap",
-            "package_key": "escriba-keymap-0.1.92",
+            "package_key": "escriba-keymap-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4363,7 +4363,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4373,7 +4373,7 @@
           },
           {
             "name": "escriba_shirube",
-            "package_key": "escriba-shirube-0.1.92",
+            "package_key": "escriba-shirube-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4431,7 +4431,7 @@
         "build_dependencies": [],
         "features": []
       },
-      "escriba-vm-0.1.92": {
+      "escriba-vm-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "blue_lang_host",
@@ -4445,7 +4445,7 @@
           },
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4455,7 +4455,7 @@
           },
           {
             "name": "escriba_madoguchi",
-            "package_key": "escriba-madoguchi-0.1.92",
+            "package_key": "escriba-madoguchi-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -4465,7 +4465,7 @@
           },
           {
             "name": "escriba_plugin",
-            "package_key": "escriba-plugin-0.1.92",
+            "package_key": "escriba-plugin-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -10959,11 +10959,11 @@
         "build_dependencies": [],
         "features": []
       },
-      "unsoku-0.1.92": {
+      "unsoku-0.1.93": {
         "runtime_dependencies": [
           {
             "name": "escriba_core",
-            "package_key": "escriba-core-0.1.92",
+            "package_key": "escriba-core-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -10973,7 +10973,7 @@
           },
           {
             "name": "escriba_mode",
-            "package_key": "escriba-mode-0.1.92",
+            "package_key": "escriba-mode-0.1.93",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -29344,7 +29344,7 @@
     "errno-0.3.14": {
       "edition": "2018"
     },
-    "escriba-0.1.92": {
+    "escriba-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba",
@@ -29361,77 +29361,77 @@
         }
       ]
     },
-    "escriba-api-0.1.92": {
+    "escriba-api-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_api",
         "path": "src/lib.rs"
       }
     },
-    "escriba-buffer-0.1.92": {
+    "escriba-buffer-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_buffer",
         "path": "src/lib.rs"
       }
     },
-    "escriba-command-0.1.92": {
+    "escriba-command-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_command",
         "path": "src/lib.rs"
       }
     },
-    "escriba-config-0.1.92": {
+    "escriba-config-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_config",
         "path": "src/lib.rs"
       }
     },
-    "escriba-core-0.1.92": {
+    "escriba-core-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_core",
         "path": "src/lib.rs"
       }
     },
-    "escriba-input-0.1.92": {
+    "escriba-input-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_input",
         "path": "src/lib.rs"
       }
     },
-    "escriba-keymap-0.1.92": {
+    "escriba-keymap-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_keymap",
         "path": "src/lib.rs"
       }
     },
-    "escriba-lisp-0.1.92": {
+    "escriba-lisp-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_lisp",
         "path": "src/lib.rs"
       }
     },
-    "escriba-lsp-client-0.1.92": {
+    "escriba-lsp-client-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_lsp_client",
         "path": "src/lib.rs"
       }
     },
-    "escriba-madoguchi-0.1.92": {
+    "escriba-madoguchi-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_madoguchi",
         "path": "src/lib.rs"
       }
     },
-    "escriba-mcp-0.1.92": {
+    "escriba-mcp-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_mcp",
@@ -29444,56 +29444,56 @@
         }
       ]
     },
-    "escriba-memori-0.1.92": {
+    "escriba-memori-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_memori",
         "path": "src/lib.rs"
       }
     },
-    "escriba-mode-0.1.92": {
+    "escriba-mode-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_mode",
         "path": "src/lib.rs"
       }
     },
-    "escriba-plugin-0.1.92": {
+    "escriba-plugin-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_plugin",
         "path": "src/lib.rs"
       }
     },
-    "escriba-render-0.1.92": {
+    "escriba-render-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_render",
         "path": "src/lib.rs"
       }
     },
-    "escriba-runtime-0.1.92": {
+    "escriba-runtime-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_runtime",
         "path": "src/lib.rs"
       }
     },
-    "escriba-search-0.1.92": {
+    "escriba-search-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_search",
         "path": "src/lib.rs"
       }
     },
-    "escriba-shirube-0.1.92": {
+    "escriba-shirube-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_shirube",
         "path": "src/lib.rs"
       }
     },
-    "escriba-spec-0.1.92": {
+    "escriba-spec-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_spec",
@@ -29506,28 +29506,28 @@
         }
       ]
     },
-    "escriba-ts-0.1.92": {
+    "escriba-ts-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_ts",
         "path": "src/lib.rs"
       }
     },
-    "escriba-tui-0.1.92": {
+    "escriba-tui-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_tui",
         "path": "src/lib.rs"
       }
     },
-    "escriba-ui-0.1.92": {
+    "escriba-ui-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_ui",
         "path": "src/lib.rs"
       }
     },
-    "escriba-vm-0.1.92": {
+    "escriba-vm-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "escriba_vm",
@@ -30443,7 +30443,7 @@
         }
       ]
     },
-    "unsoku-0.1.92": {
+    "unsoku-0.1.93": {
       "edition": "2024",
       "lib_target": {
         "name": "unsoku",
