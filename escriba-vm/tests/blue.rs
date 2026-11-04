@@ -120,7 +120,7 @@ greet(buffer_name())
 fn a_parse_error_is_a_load_error_and_runs_nothing() {
     let mut host = EscribaHost::new();
     let err = eval_blue("message(\"x\")\nif\n", &mut host).unwrap_err();
-    assert!(matches!(err, VmError::Blue(Error::Load(_))), "{err}");
+    assert!(matches!(err, VmError::Blue(Error::Framed(_))), "{err}");
     assert!(host.effects.is_empty());
 }
 
@@ -128,8 +128,22 @@ fn a_parse_error_is_a_load_error_and_runs_nothing() {
 fn an_unknown_capability_is_refused_before_anything_runs() {
     let mut host = EscribaHost::new();
     let err = eval_blue("message(\"x\")\nsave_buffer()\n", &mut host).unwrap_err();
-    assert!(matches!(err, VmError::Blue(Error::Load(_))), "{err}");
+    assert!(matches!(err, VmError::Blue(Error::Framed(_))), "{err}");
     assert!(host.effects.is_empty());
+}
+
+#[test]
+fn eval_blue_stops_a_runaway_at_its_budget() {
+    let mut host = EscribaHost::new();
+    let err = eval_blue("while(true, 1)\n", &mut host).unwrap_err();
+    assert!(matches!(err, VmError::Blue(Error::Framed(_))), "{err}");
+}
+
+#[test]
+fn a_program_names_no_host_effect() {
+    let effect = blue_lang_host::host_effect_names()[0];
+    let mut host = EscribaHost::new();
+    assert!(eval_blue(&format!("{effect}(\"x\")\n"), &mut host).is_err());
 }
 
 #[test]

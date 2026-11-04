@@ -28,6 +28,7 @@ use escriba_render::{GpuRenderer, Renderer, TextRenderer};
 use escriba_runtime::EditorState;
 use madori::App;
 
+mod blue_worker;
 pub mod catalog_bundle;
 
 /// The "blnvim-parity" BASELINE rc, baked into the binary. Carries the
@@ -100,6 +101,15 @@ struct Args {
     /// parse errors fail fast.
     #[arg(long, env = "ESCRIBARC")]
     rc: Option<PathBuf>,
+    /// The blue world file. Falls back to `$ESCRIBA_INIT`, then
+    /// `$XDG_CONFIG_HOME/escriba/init.b`, then `$HOME/.config/escriba/init.b`.
+    /// It loads after the lisp rc, so its values win.
+    #[arg(long, env = "ESCRIBA_INIT")]
+    init: Option<PathBuf>,
+    /// Do not load the blue world file. `ESCRIBA_NO_INIT=1` is the
+    /// home-manager form.
+    #[arg(long, env = "ESCRIBA_NO_INIT")]
+    no_init: bool,
     /// Parse the rc file, print the apply-plan summary, and exit.
     /// Mirrors `frost --doctor` — useful for CI / config validation.
     #[arg(long)]
@@ -157,6 +167,8 @@ enum EscribaCommand {
     /// imperative programmability tier (`escriba-vm`). Example:
     /// `escriba eval '(set-option "number" "true")'`.
     Eval(EvalArgs),
+    #[command(hide = true)]
+    BlueWorker,
     /// Inspect and load caixa-native plugins. An escriba plugin IS a
     /// caixa (a dir with `caixa.lisp` + an `escriba/plugin.lisp` entry).
     Plugin(PluginArgs),
@@ -361,6 +373,7 @@ pub fn run() -> Result<()> {
                     .map_err(|e| anyhow::anyhow!("config-show failed: {e}"));
             }
             EscribaCommand::Eval(cmd) => return run_eval(&cmd),
+            EscribaCommand::BlueWorker => std::process::exit(blue_worker::run_worker()),
             EscribaCommand::Plugin(cmd) => return run_plugin(&cmd),
         }
     }
@@ -383,6 +396,15 @@ pub fn run() -> Result<()> {
         escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
         if let Some((_, plan)) = load_rc_optional(args.rc.as_deref())? {
             escriba_lisp::apply_plan_to_commands(&plan, &mut reg);
+        }
+        let blue = load_blue_init(&args);
+        escriba_lisp::apply_plan_to_commands(&blue.plan, &mut reg);
+        for c in &blue.load.commands {
+            reg.register(escriba_command::Command::blue(
+                c.name.clone(),
+                c.description.clone(),
+                c.call.clone(),
+            ));
         }
         println!("escriba commands ({}):", reg.specs().len());
         for c in reg.specs() {
@@ -407,7 +429,16 @@ pub fn run() -> Result<()> {
     }
 
     if args.list_rc {
-        return run_list_rc(args.rc.as_deref());
+        run_list_rc(args.rc.as_deref())?;
+        let blue = load_blue_init(&args);
+        if let Some(line) = blue.summary() {
+            println!();
+            println!("{line}");
+            for refusal in &blue.load.refusals {
+                println!("  refused: {refusal}");
+            }
+        }
+        return Ok(());
     }
 
     // A collision here is a PROGRAMMING error — two escriba types claiming
@@ -436,6 +467,8 @@ pub fn run() -> Result<()> {
     if let Some((_, user_plan)) = &user_rc {
         plan.merge(user_plan.clone());
     }
+    let blue = load_blue_init(&args);
+    plan.merge(blue.plan.clone());
 
     // Build the initial state, then apply the plan to its keymap so
     // `defkeybind` forms have the chance to override vim defaults
@@ -447,6 +480,7 @@ pub fn run() -> Result<()> {
     // interpreter is the whole point of the arrangement. The binary can see
     // both halves, so the binary assembles them.
     let mut state = EditorState::new_with_buffer(buffers, active_id);
+    state.set_blue_exec(std::sync::Arc::new(blue_worker::supervised));
     state.hire(courier_crew(&plan));
     // Register `defcmd` forms into the live command registry FIRST, so
     // the deferred-keybind dispatch path (`Action::Command { name }`)
@@ -569,6 +603,11 @@ pub fn run() -> Result<()> {
     // bundled default catalog is already in `plan` — baked, eager.)
     activate_user_plugins(&plan, &mut state);
 
+    let blue_line = blue.summary();
+    if let Some(path) = blue.path {
+        state.install_blue_init(path, blue.load);
+    }
+
     if args.dry_run {
         let buf = state
             .buffers
@@ -583,6 +622,12 @@ pub fn run() -> Result<()> {
         if let Some((path, user_plan)) = &user_rc {
             println!("user rc {}: {}", path.display(), user_plan.summary());
         }
+        if let Some(line) = &blue_line {
+            println!("{line}");
+        }
+        for m in &state.messages {
+            println!("message: {m}");
+        }
         return Ok(());
     }
 
@@ -590,6 +635,91 @@ pub fn run() -> Result<()> {
         RenderMode::Text => run_text(state, args.height),
         RenderMode::Gpu => run_gpu(state, &args),
         RenderMode::Tui => run_tui(state),
+    }
+}
+
+struct BlueBoot {
+    load: escriba_vm::Reply,
+    plan: escriba_lisp::ApplyPlan,
+    path: Option<PathBuf>,
+}
+
+impl BlueBoot {
+    fn summary(&self) -> Option<String> {
+        let path = self.path.as_ref()?;
+        Some(format!(
+            "blue init {}: {}; commands={}; off={}; refused={}",
+            path.display(),
+            self.plan.summary(),
+            self.load.commands.len(),
+            self.load.off.len(),
+            self.load.refusals.len(),
+        ))
+    }
+}
+
+/// Where the blue world file lives. A relative override is ignored, as
+/// `escriba_lisp::default_rc_path` ignores one: code resolved against the cwd
+/// would run from wherever the editor started.
+fn blue_init_path(explicit: Option<&std::path::Path>) -> Option<PathBuf> {
+    if explicit.is_some() {
+        return explicit.map(std::path::Path::to_path_buf);
+    }
+    let absolute = |var: &str| {
+        std::env::var_os(var)
+            .map(PathBuf::from)
+            .filter(|p| p.is_absolute())
+    };
+    absolute("XDG_CONFIG_HOME")
+        .or_else(|| absolute("HOME").map(|home| home.join(".config")))
+        .map(|config| config.join("escriba").join("init.b"))
+}
+
+fn load_blue_init(args: &Args) -> BlueBoot {
+    let empty = |path| BlueBoot {
+        load: escriba_vm::Reply::default(),
+        plan: escriba_lisp::ApplyPlan::default(),
+        path,
+    };
+    if args.no_init {
+        return empty(None);
+    }
+    let Some(path) = blue_init_path(args.init.as_deref()) else {
+        return empty(None);
+    };
+    if args.init.is_none() && !path.exists() {
+        return empty(None);
+    }
+    let snapshot = escriba_vm::EditorSnapshot {
+        mode: String::from("normal"),
+        buffer_name: args
+            .file
+            .as_ref()
+            .map_or_else(|| String::from("[scratch]"), |p| p.display().to_string()),
+        ..Default::default()
+    };
+    let request = escriba_vm::Request::Load {
+        path: path.clone(),
+        keywords: escriba_lisp::FORM_KEYWORDS
+            .iter()
+            .map(|k| (*k).to_owned())
+            .collect(),
+        snapshot,
+    };
+    let mut load = blue_worker::supervised(&request).unwrap_or_else(|e| escriba_vm::Reply {
+        refusals: vec![e.to_string()],
+        ..escriba_vm::Reply::default()
+    });
+    let (plan, refusals) = escriba_lisp::apply_forms(
+        load.forms
+            .iter()
+            .map(|f| (f.name.as_str(), f.lisp.as_str())),
+    );
+    load.refusals.extend(refusals);
+    BlueBoot {
+        load,
+        plan,
+        path: Some(path),
     }
 }
 
@@ -1043,6 +1173,7 @@ fn run_eval(args: &EvalArgs) -> Result<()> {
         buffers.scratch("")
     };
     let mut state = EditorState::new_with_buffer(buffers, active);
+    state.set_blue_exec(std::sync::Arc::new(blue_worker::supervised));
     state.script_language = args.lang;
     state
         .run_script(&args.source)

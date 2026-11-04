@@ -74,6 +74,7 @@ pub enum Handler {
     Native(CommandFn),
     /// Dotted action symbol resolved at run time (Lisp `defcmd`).
     Action(String),
+    Blue(String),
 }
 
 #[derive(Debug, Clone)]
@@ -111,6 +112,22 @@ impl Command {
             handler: Handler::Action(action.into()),
         }
     }
+
+    pub fn blue(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        function: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+            handler: Handler::Blue(function.into()),
+        }
+    }
+}
+
+fn run_blue_source(_: &dyn Snapshot, args: &[String]) -> Outcome {
+    Outcome::did([Negai::RunBlue(args.join(" "))])
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -145,6 +162,11 @@ impl CommandRegistry {
     #[must_use]
     pub fn default_set() -> Self {
         let mut r = Self::new();
+        r.register(Command::native(
+            "blue",
+            "Run a line of blue against the editor",
+            run_blue_source,
+        ));
         r.register(Command::native(
             "save",
             "Write the active buffer to disk",
@@ -446,6 +468,10 @@ impl CommandRegistry {
             .ok_or_else(|| CommandError::NotFound(name.to_string()))?;
         match &cmd.handler {
             Handler::Native(f) => Ok(f(snap, args)),
+            Handler::Blue(function) => Ok(Outcome::did([Negai::CallBlue {
+                function: function.clone(),
+                args: args.to_vec(),
+            }])),
             Handler::Action(sym) => match builtin_action(sym) {
                 Some(f) => Ok(f(snap, args)),
                 // Not a built-in — but the symbol may name a registered

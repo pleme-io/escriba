@@ -557,6 +557,101 @@ impl ApplyPlan {
 /// modes are rejected; unknown actions are accepted (forward-compat
 /// with new commands registered by plugins).
 pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
+    let plan = apply_source_unlinked(src)?;
+    let defined = defined_mcp_ids(&plan);
+    for w in &plan.workflows {
+        check_mcp_links(w, &defined)?;
+    }
+    Ok(plan)
+}
+
+fn defined_mcp_ids(plan: &ApplyPlan) -> std::collections::HashSet<String> {
+    plan.mcp_tools.iter().map(|m| m.qualified_id()).collect()
+}
+
+fn check_mcp_links(
+    workflow: &WorkflowSpec,
+    defined: &std::collections::HashSet<String>,
+) -> LispResult<()> {
+    for target in workflow.mcp_step_targets() {
+        if !defined.contains(target) {
+            return Err(LispError::WorkflowMcpDependencyMissing {
+                workflow: workflow.name.clone(),
+                target: target.to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Every def-form keyword [`apply_source`] reads, one per [`ApplyPlan`]
+/// field. A blue world may declare exactly these.
+pub const FORM_KEYWORDS: [&str; 33] = [
+    "defkeybind",
+    "defcmd",
+    "defoption",
+    "deftheme",
+    "defhook",
+    "defft",
+    "defabbrev",
+    "defsnippet",
+    "defmode",
+    "defplugin",
+    "defhighlight",
+    "defstatusline",
+    "defbufferline",
+    "deflsp",
+    "defformatter",
+    "defpalette",
+    "deficon",
+    "defdap",
+    "defgate",
+    "deftextobject",
+    "defworkflow",
+    "defsession",
+    "defeffect",
+    "defterm",
+    "defmark",
+    "deftask",
+    "defschedule",
+    "defkmacro",
+    "defattest",
+    "defruler",
+    "defmcp",
+    "deffold",
+    "defsplash",
+];
+
+/// A plan from separate forms, each refused alone. A form that does not parse,
+/// fails its validation or yields nothing is named in the second value and its
+/// siblings stand; a workflow whose MCP step names no declared tool is refused
+/// alone after all the forms are read.
+#[must_use]
+pub fn apply_forms<'a>(
+    forms: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> (ApplyPlan, Vec<String>) {
+    let mut plan = ApplyPlan::default();
+    let mut refusals = Vec::new();
+    for (name, lisp) in forms {
+        match apply_source_unlinked(lisp) {
+            Ok(one) if one.counts().iter().any(|(_, n)| *n > 0) => plan.merge(one),
+            Ok(_) => refusals.push(format!("{name}: no form this editor reads")),
+            Err(e) => refusals.push(format!("{name}: {e}")),
+        }
+    }
+    let defined = defined_mcp_ids(&plan);
+    plan.workflows
+        .retain(|w| match check_mcp_links(w, &defined) {
+            Ok(()) => true,
+            Err(e) => {
+                refusals.push(format!("{}: {e}", w.name));
+                false
+            }
+        });
+    (plan, refusals)
+}
+
+fn apply_source_unlinked(src: &str) -> LispResult<ApplyPlan> {
     let keybinds: Vec<KeybindSpec> = compile(src)?;
     for k in &keybinds {
         validate_mode(&k.mode)?;
@@ -768,24 +863,6 @@ pub fn apply_source(src: &str) -> LispResult<ApplyPlan> {
         }
         Ok(())
     })?;
-
-    // Cross-form validation: every `mcp:<server>.<tool>` step in a
-    // workflow must reference a tool declared by a `defmcp` in the
-    // same plan. This catches typos at apply time instead of at
-    // dispatch, and pins the "declarative MCP steps stay in the
-    // typed surface" invariant.
-    let defined_mcp_ids: std::collections::HashSet<String> =
-        mcp_tools.iter().map(|m| m.qualified_id()).collect();
-    for w in &workflows {
-        for target in w.mcp_step_targets() {
-            if !defined_mcp_ids.contains(target) {
-                return Err(LispError::WorkflowMcpDependencyMissing {
-                    workflow: w.name.clone(),
-                    target: target.to_string(),
-                });
-            }
-        }
-    }
 
     let attests: Vec<AttestSpec> = compile_validated(src, |a: &AttestSpec| {
         if !a.kind.is_empty() && !attest::is_known_kind(&a.kind) {

@@ -25,9 +25,12 @@
 use std::fmt;
 use std::str::FromStr;
 
+pub mod init;
+
 pub use blue_lang_host::Error as BlueError;
-use blue_lang_host::{Entry, Program, host};
+use blue_lang_host::host;
 use escriba_madoguchi::Negai;
+pub use init::{BlueCommand, CALL_FUEL, Effect, Form, LOAD_FUEL, Reply, Request};
 use serde::{Deserialize, Serialize};
 use tatara_lisp_eval::{Arity, Interpreter, Value, install_full_stdlib_with};
 use thiserror::Error;
@@ -40,6 +43,8 @@ pub enum VmError {
     Eval(#[from] tatara_lisp_eval::EvalError),
     #[error("blue: {0}")]
     Blue(#[from] blue_lang_host::Error),
+    #[error("{0}")]
+    Worker(String),
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -184,8 +189,7 @@ impl EscribaHost {
 }
 
 pub fn eval_blue(src: &str, host: &mut EscribaHost) -> Result<(), VmError> {
-    Program::load(Entry::anonymous(src), host)?;
-    Ok(())
+    init::eval_top(src, host)
 }
 
 /// escriba's embedded tatara-lisp runtime. Build once, eval many times;

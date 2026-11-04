@@ -186,6 +186,15 @@ pub struct Invocation {
 pub fn parse(line: &str) -> Option<Invocation> {
     let line = line.trim();
     let line = line.strip_prefix(':').unwrap_or(line);
+    if let Some(source) = line
+        .strip_prefix("blue")
+        .filter(|r| r.starts_with(char::is_whitespace))
+    {
+        return Some(Invocation {
+            command: "blue".to_string(),
+            args: vec![source.trim().to_string()],
+        });
+    }
     let mut parts = line.split_whitespace();
     let word = parts.next()?;
     let args: Vec<String> = parts.map(str::to_string).collect();
@@ -199,6 +208,17 @@ pub fn parse(line: &str) -> Option<Invocation> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_blue_line_keeps_its_spaces_and_a_word_that_starts_with_blue_is_its_own_command() {
+        let inv = parse(":blue message(\"a  b\")").unwrap();
+        assert_eq!(inv.command, "blue");
+        assert_eq!(inv.args, vec!["message(\"a  b\")".to_string()]);
+        assert_eq!(parse(":bluefoo x").unwrap().command, "bluefoo");
+        let bare = parse(":blue").unwrap();
+        assert_eq!(bare.command, "blue");
+        assert!(bare.args.is_empty());
+    }
 
     /// Every abbreviation vim would accept reaches its verb. This is the
     /// all-variants proof: it walks the table rather than sampling it, so a

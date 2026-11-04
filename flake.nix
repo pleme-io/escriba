@@ -268,6 +268,16 @@
             '';
           };
 
+          initBlue = lib.mkOption {
+            type = lib.types.lines;
+            default = "";
+            description = ''
+              Blue source written to `~/.config/escriba/init.b`, the place new
+              editor configuration goes. It loads after the lisp rc, so its
+              values win. Empty writes no file. See `docs/blue.md`.
+            '';
+          };
+
           noDefaults = lib.mkOption {
             type = lib.types.bool;
             default = false;
@@ -286,6 +296,9 @@
               lib.attrNames (lib.filterAttrs (_: p: !(p.enable or true)) cfg.plugins);
           in {
             home.file.".config/escriba/rc.lisp".text = renderRc cfg;
+            home.file.".config/escriba/init.b" = lib.mkIf (cfg.initBlue != "") {
+              text = cfg.initBlue;
+            };
 
             programs.escriba.formatters.resolved = lib.optionalAttrs (formattersActive cfg)
               (lib.listToAttrs (lib.concatMap

@@ -1,4 +1,4 @@
-# blue in escriba — two integrations, only one of them landable today
+# blue in escriba — two integrations, both shipped
 
 `theory/BLUE.md` §VII.5 names escriba the strongest of blue's three
 candidate consumers: *"an editor needs a user-facing language, escriba
@@ -8,8 +8,7 @@ lesson, without Emacs Lisp."*
 That argument is about blue as escriba's **extension language**. It is a
 different thing from blue as a language escriba **edits**, and conflating
 the two is how a well-scoped filetype addition gets described as though it
-shipped a programmable editor. This document keeps them apart, records what
-landed, and records the two independent reasons the second one did not.
+shipped a programmable editor. This document keeps them apart.
 
 ---
 
@@ -84,90 +83,130 @@ blnvim reached the same conclusion from the other side and needed no wiring at
 all — nvim requests semantic tokens from any server advertising them, so blue
 buffers there went from monochrome to coloured with no edit in that repo.
 
-### Why no blue crate dependency
+### Why the keyword table is a copy
 
-The keyword table is transcribed from `blue_lang_syntax::parse`
-(`SURFACE_KEYWORDS` + the four block words `is_reserved_word` adds) rather
-than imported. Reading it from the crate would be the drift-proof spelling,
-and was rejected on three measurements:
-
-- `blue-lang-syntax` is **0.0.12** on crates.io. Under cargo semver a
-  `0.0.x` version is its own compatibility range, so `"0.0.12"` resolves to
-  *exactly* 0.0.12 — the dependency would not follow blue at all. Eleven
-  releases went out in the three hours after first publish. The
-  "cannot drift" benefit is illusory at this version.
-- It would unify `tatara-lisp` 0.3.3 → 0.3.21 across all twenty-one escriba
-  crates, to import fifteen strings.
-- The rest of blue is not published, and **escriba is** (`escriba` 0.1.20).
-  A `git =` dependency would freeze escriba's own publishing.
-
-The blue *toolchain* is wired the other way — `blue lsp` and `blue fmt` are
-subcommands of one binary resolved off `$PATH`. That needs no registry and
-follows blue automatically, which is why it is the half that gets to be
-version-agnostic.
+The table is transcribed from `blue_lang_syntax::parse` (`SURFACE_KEYWORDS` plus
+the four block words `is_reserved_word` adds). `escriba-vm` now links blue, so
+`escriba-render` could read it from the crate. That move is open.
 
 ---
 
-## 2. blue as escriba's EXTENSION language — NOT LANDED
+## 2. blue as escriba's EXTENSION language — SHIPPED
 
-### The constraint that governs it
+New editor configuration is written in blue. The lisp rc stays, and it keeps
+working. Measured on `blue-lang-host` 0.0.151.
 
-> *"The moment blue is EVALUATED rather than PARSED, the security boundary
-> moves: a session preset that can branch is a session preset that can run
-> code."* — `theory/BLUE.md`
+### The file
 
-For a config format, shikumi's seam deliberately takes **only the parser**.
-An editor extension language is a genuinely different case — an editor
-extension *is* meant to run code — but that has to be a decision someone
-makes on purpose, with the reach named. It must never arrive as a side
-effect of "we added a language". Nothing in this change evaluates blue.
-`escriba` links no blue crate at all; the only blue code that runs is
-`blue lsp` / `blue fmt`, in their own processes, launched explicitly.
+`~/.config/escriba/init.b`. The search order is `--init`, `$ESCRIBA_INIT`,
+`$XDG_CONFIG_HOME/escriba/init.b`, then `$HOME/.config/escriba/init.b`. A relative
+`XDG_CONFIG_HOME` or `HOME` is ignored. `--no-init` or `ESCRIBA_NO_INIT=1` keeps the
+file out. `escriba/examples/sample-init.b` is a whole example, and a test loads it.
 
-blue's `waku` posture lattice (REACH/WHEN/WHERE, narrow-cannot-widen) is the
-mechanism designed for exactly this gate. It is also young: `check_reach`
-got its first non-test caller in `7ce9cee`. It is the right destination for
-bounding an escriba extension's reach; it is not yet evidence that the
-bound holds.
+```blue
+use("escriba", %i[bind command option theme])
 
-### The blocker is in blue's surface, and it is measured
+def escriba()
+  [
+    theme("nord"),
+    option("number", true),
+    bind("normal", "gh", :whereami),
+    command("whereami", "Say where the cursor is", :whereami)
+  ]
+end
 
-Independent of any security or dependency question, blue **cannot currently
-express an escriba def-form**. Every escriba def-form — and every
-`#[derive(DeriveTataraDomain)]` form in the fleet — is flat kwargs:
-
-```lisp
-(defkeybind :mode "normal" :key "<C-s>")
+def whereami(args)
+  message("#{buffer_name} #{cursor_line + 1}")
+end
 ```
 
-Probed against the built `blue` binary (`blue ast`, 2026-08-02):
+### The order
 
-| blue source | lowers to |
+1. The bundled defaults.
+2. The lisp rc.
+3. `init.b`, so a blue value wins.
+
+### The words
+
+The `escriba` bidama ships inside the binary (`escriba-vm/bidamas/escriba`). It
+is the same shape as `motenashi`: pure constructors over `kousei` entries.
+
+| Word | Lisp twin |
 |---|---|
-| `defkeybind(mode: "normal", key: "<C-s>")` | **parse error** — `expected an expression, found Label("mode")` |
-| `defkeybind({mode: "normal", key: "<C-s>"})` | `(defkeybind (hash-map :mode "normal" :key "<C-s>"))` |
+| `bind(mode, key, action)` | `defkeybind` |
+| `alias(name, description, action)` | `defcmd` |
+| `command(name, description, call)` | none: the body is a blue function |
+| `option(name, value)` | `defoption` |
+| `theme(preset)` | `deftheme` |
+| `highlight(group, fields)` | `defhighlight` |
+| `hook(event, command)` | `defhook` |
+| `form(keyword, name, fields)` | every def-form in `escriba_lisp::FORM_KEYWORDS` |
+| `off(kind, name)`, `tune(kind, name, fields)` | none |
 
-The second parses, but it is a *different tree*: one nested `hash-map`
-argument, not alternating keyword/value. `compile_typed` will not read it.
+A def-form's fields are checked by its Rust spec, through the validators the lisp
+rc goes through (`escriba_lisp::apply_forms`). Blue holds no second field table.
+A blue map becomes the lisp form with `blue_lang_host::domain_form`, so the two
+spellings cannot disagree. This removes the old blocker, that blue could not
+express a def-form.
 
-So even the conservative, evaluation-free version of integration 2 — a
-`.b` rc parsed to `Vec<Sexp>` and handed to the existing applier, exactly
-the shape of the shikumi seam — does not work today. It is blocked on blue
-growing a labelled-argument call form that lowers to flat kwargs.
+Inside a function, these editor words work: `message`, `insert`, `set_option`,
+`run_command`, `cursor_line`, `cursor_column`, `current_line`, `editor_mode` and
+`buffer_name`. Reads answer from a snapshot, and writes apply after the function
+returns.
 
-The tempting local fix is for escriba to unwrap
-`(defX (hash-map …))` → `(defX :k v …)` on the way in. That is refused
-here: it would invent a private escriba-only calling convention for blue,
-put the fleet's def-form ABI in two places, and hide a language gap behind
-an editor workaround. The load-bearing fix is in blue.
+### Commands
 
-### What has to be true before integration 2 is reconsidered
+`:blue <source>` runs one line of blue, with the functions of `init.b` in scope.
+The top level of `init.b` does not run again for its effects. A definition made
+on the line does not persist, so `script_language` stays `lisp` by default.
 
-1. blue's surface lowers a call with labels to flat kwargs (blue-side).
-2. blue's runtime crates are on crates.io, so escriba can depend on them
-   without a `git =` that would freeze escriba's own publishing.
-3. If — and only if — the step past parsing is taken, the reach an escriba
-   extension gets is named explicitly and bounded by `waku`, with the
-   threat model written down before the first evaluation call site.
+### The budget and the fault model
 
-Steps 1 and 2 are blue's. Step 3 is a decision, not a task.
+Blue never runs in the editor process. The binary starts itself as
+`escriba blue-worker` for each load, command and line. It sends a request on stdin
+and reads one reply with the effects to apply.
+
+| Bound | Load | Command or line |
+|---|---|---|
+| Steps (`LOAD_FUEL`, `CALL_FUEL`) | 20,000,000 | 5,000,000 |
+| Wall clock, then the worker is killed | 3 s | 2 s |
+| Call depth | `DEFAULT_MAX_DEPTH` | `DEFAULT_MAX_DEPTH` |
+| Address space, Linux only | 1 GiB | 1 GiB |
+| Host effects (`process`, `filesystem`, …) | none | none |
+
+The first version ran in process, under steps alone. A probe proved that wrong:
+`range(0, 100000000000000)` is one native call, so it spends one step, and it ran
+for more than 180 s while it allocated. The test
+`every_way_a_world_fails_is_reported_and_the_editor_still_opens` holds this case
+through the real binary.
+
+| Fault | The answer |
+|---|---|
+| A parse or check error, or a raise at the top | a message; nothing from the file applies |
+| A raise or a loop in `escriba()` | a message; the top-level effects stand |
+| A bad entry | a message for that entry; its siblings stand |
+| A native call that hangs or allocates | killed at the deadline, a message |
+| An abort in the worker | a message; the editor does not notice |
+
+The editor waits for the worker, so a runaway command holds a keypress for up to
+2 s. It does not hang.
+
+Measured on cid, release without LTO, with `examples/sample-init.b`: start-up goes
+from 180 ms to 220 ms, a worker holds 15 MB and lives for the call, a one-line
+script takes 10 ms, 5,000,000 steps run out in 0.35 s, and 20,000,000 in 1.4 s, so
+the steps end a plain loop before the clock does.
+
+**In-process use stays for tests.** `EditorState` serves blue in process until
+the binary calls `set_blue_exec`, so `escriba-runtime` tests need no binary. Those
+tests have only the step budget.
+
+### What a failure looks like
+
+`init.b:` messages reach the message line and `:messages`. `--dry-run` prints
+them, and `--list-rc` prints the refusals.
+
+### What is not done
+
+- `init.b` loads once. There is no hot reload.
+- A hook entry reaches the plan, and nothing fires hooks yet, for lisp or blue.
+- `run_lisp` stays in process, with no budget.

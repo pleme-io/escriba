@@ -272,6 +272,11 @@ pub enum Negai {
         name: String,
         args: Vec<String>,
     },
+    RunBlue(String),
+    CallBlue {
+        function: String,
+        args: Vec<String>,
+    },
 
     // ── located findings ─────────────────────────────────────────────
     /// Replace a named result list wholesale.

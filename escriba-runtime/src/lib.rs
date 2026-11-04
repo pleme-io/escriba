@@ -56,6 +56,10 @@ use escriba_vm::{EditorSnapshot, EscribaHost, EscribaVm, ScriptLanguage, VmError
 use madori::AppEvent;
 use std::time::Instant;
 
+pub type BlueExec = std::sync::Arc<
+    dyn Fn(&escriba_vm::Request) -> Result<escriba_vm::Reply, VmError> + Send + Sync,
+>;
+
 /// Full editor state — the single Rust value the binary hands to the
 /// renderer each frame.
 pub struct EditorState {
@@ -112,6 +116,8 @@ pub struct EditorState {
     /// earlier `(define …)` is visible to a later `run_lisp`).
     lisp_vm: Option<EscribaVm>,
     pub script_language: ScriptLanguage,
+    blue_init: Option<std::path::PathBuf>,
+    blue_exec: BlueExec,
     /// Per-key debouncer for OS key-repeat storms. Holding `j`/`l` makes
     /// the windowing system deliver one `KeyDown` per repeat tick
     /// (~30-50ms); without a gate those flood the motion path and thrash
@@ -930,6 +936,8 @@ impl EditorState {
             }
             Negai::InsertText(text) => self.insert_text(&text),
             Negai::RunCommand { name, args } => self.run_command(&name, &args),
+            Negai::RunBlue(source) => self.run_blue_line(&source),
+            Negai::CallBlue { function, args } => self.call_blue(&function, &args),
             Negai::PublishFindings { list, findings } => {
                 let world = self.world();
                 self.results
@@ -1163,6 +1171,8 @@ impl EditorState {
             options: HashMap::new(),
             lisp_vm: None,
             script_language: ScriptLanguage::default(),
+            blue_init: None,
+            blue_exec: std::sync::Arc::new(escriba_vm::init::serve),
             repeat_gate: KeyRepeatGate::new(),
             plugin_host: PluginHost::default(),
             edit_gen: EditGen::default(),
@@ -4382,11 +4392,96 @@ impl EditorState {
     }
 
     pub fn run_blue(&mut self, src: &str) -> Result<(), VmError> {
-        let mut host = EscribaHost::with_snapshot(self.snapshot());
-        escriba_vm::eval_blue(src, &mut host)?;
-        let effects = host.take_effects();
-        self.apply_host_effects(effects);
+        let request = escriba_vm::Request::Script {
+            source: src.to_owned(),
+            snapshot: self.snapshot(),
+        };
+        let reply = (self.blue_exec)(&request)?;
+        self.apply_blue_effects(reply.effects);
         Ok(())
+    }
+
+    pub fn set_blue_exec(&mut self, exec: BlueExec) {
+        self.blue_exec = exec;
+    }
+
+    pub fn install_blue_init(&mut self, path: std::path::PathBuf, load: escriba_vm::Reply) {
+        for command in &load.commands {
+            self.commands.register(escriba_command::Command::blue(
+                command.name.clone(),
+                command.description.clone(),
+                command.call.clone(),
+            ));
+        }
+        self.blue_init = Some(path);
+        self.apply_blue_effects(load.effects);
+        if let Some(last) = load.refusals.last() {
+            for refusal in &load.refusals {
+                let mut m = String::from("init.b: ");
+                m.push_str(refusal);
+                self.messages.push(m);
+            }
+            if load.refusals.len() > 1 {
+                let mut m = String::from("init.b: ");
+                m.push_str(&load.refusals.len().to_string());
+                m.push_str(" refused, see :messages; last: ");
+                m.push_str(last);
+                self.messages.push(m);
+            }
+            self.blue_said();
+        }
+    }
+
+    fn apply_blue_effects(&mut self, effects: Vec<escriba_vm::Effect>) {
+        self.apply_host_effects(effects.into_iter().map(Negai::from).collect());
+    }
+
+    fn blue_said(&mut self) {
+        self.damage = self.damage.join(Damage::Viewport);
+        self.bump_gen();
+    }
+
+    fn report_blue(&mut self, result: Result<escriba_vm::Reply, VmError>) {
+        match result {
+            Ok(reply) => self.apply_blue_effects(reply.effects),
+            Err(e) => {
+                self.messages.push(e.to_string());
+                self.blue_said();
+            }
+        }
+    }
+
+    fn run_blue_line(&mut self, source: &str) {
+        if source.trim().is_empty() {
+            self.messages.push(String::from("usage: :blue <source>"));
+            self.blue_said();
+            return;
+        }
+        let request = escriba_vm::Request::Line {
+            path: self.blue_init.clone(),
+            line: source.to_owned(),
+            snapshot: self.snapshot(),
+        };
+        let result = (self.blue_exec)(&request);
+        self.report_blue(result);
+    }
+
+    fn call_blue(&mut self, function: &str, args: &[String]) {
+        let Some(path) = self.blue_init.clone() else {
+            let mut m = String::from("no init.b holds ");
+            m.push_str(function);
+            self.messages.push(m);
+            self.blue_said();
+            return;
+        };
+        let request = escriba_vm::Request::Call {
+            path,
+            function: function.to_owned(),
+            args: args.to_vec(),
+            snapshot: self.snapshot(),
+        };
+        let result = (self.blue_exec)(&request);
+        self.report_blue(result);
     }
 
     pub fn run_script(&mut self, src: &str) -> Result<(), VmError> {
@@ -7012,7 +7107,7 @@ mod tests {
         s.run_blue("def greeting()\n  \"hi\"\nend\n").unwrap();
         let err = s.run_blue("message(greeting())\n").unwrap_err();
         assert!(
-            matches!(err, VmError::Blue(escriba_vm::BlueError::Load(_))),
+            matches!(err, VmError::Blue(escriba_vm::BlueError::Framed(_))),
             "{err}"
         );
         assert!(s.messages.is_empty());

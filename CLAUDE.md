@@ -19,6 +19,15 @@ back as actions; the count prefix stays in `ModalState`.
   FIELDS are gone. Picker, splash and the key-repeat gate stay in the
   runtime — they are app concerns, not vim.
 
+## New configuration is blue — `~/.config/escriba/init.b` (2026-11-03)
+
+`escriba()` returns `kousei` entries from the `escriba` bidama, which ships in the
+binary. Blue runs only in the supervised child `escriba blue-worker`, because a
+step budget does not stop one native call (`docs/blue.md` holds the budget, the
+fault model and the probe). Every lisp def-form has a blue spelling through
+`escriba_lisp::FORM_KEYWORDS` and `apply_forms`. A new def-form adds its keyword
+there. New config examples lead with blue, and the lisp surface stays.
+
 ## Imperative scripting runs as blue — `escriba-vm` (2026-10-22)
 
 The editor's capabilities are ONE `#[host] impl EscribaHost` block
@@ -28,7 +37,7 @@ The editor's capabilities are ONE `#[host] impl EscribaHost` block
 `run_lisp` keeps the tatara-lisp tier; `run_script` picks by the typed
 `EditorState::script_language` (`escriba eval --lang lisp|blue`).
 
-- **Default stays `lisp`.** blue-lang-host 0.0.84 cannot extend a loaded
+- **Default stays `lisp`.** blue-lang-host cannot extend a loaded
   `Program` with new source, and blue's `session::Session` is fixed to its
   own host type, so a `def` made in one `run_blue` call is not visible in
   the next. `run_lisp` relies on exactly that persistence. The test
