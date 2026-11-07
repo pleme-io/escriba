@@ -1,0 +1,51 @@
+area	feature	blnvim	state	test	rung
+core	word motions w b e W B E ge	vim core	built	escriba-runtime/tests/movement_suite.rs::big_word_treats_punctuation_as_part_of_the_word	-
+core	find and till f F t T	vim core	built	escriba-runtime/tests/movement_suite.rs::find_char_lands_on_it_and_till_stops_before	-
+core	linewise operators dj dk dgg dG	vim core	built	escriba-runtime/tests/linewise_motions.rs::dj_takes_two_whole_lines	-
+core	counted delete and put, one undo step	vim core	built	escriba-runtime/tests/linewise_and_put.rs::a_counted_put_is_one_undo_step	-
+core	dot repeat	vim core	built	escriba-runtime/tests/edit_verbs.rs::r_is_repeatable_with_dot	-
+core	Y yanks to end of line	neovim default	built	escriba-runtime/tests/edit_verbs.rs::shift_y_yanks_to_the_end_of_the_line_neovim_style	-
+core	insert-mode C-w C-u	vim core	built	escriba-runtime/tests/insert_mode_editing.rs::ctrl_w_erases_the_word_before_the_caret	-
+core	search / ? n N	vim core	built	escriba-runtime/tests/search_reachability.rs::slash_search_moves_the_cursor_through_real_keys	-
+core	% matchit	vim core	built	escriba/tests/matchit_filetypes.rs::at_least_one_word_pair_language_is_actually_reachable	-
+core	named registers "a-"z and "+	clipboard=unnamedplus	absent	-	R3
+core	macros q @	vim core	absent	-	R3
+core	visual block C-v	vim core	absent	-	R3
+core	:s substitute	vim core	absent	-	R3
+core	:sp :vsp in the ex table	,sv ,sh	partial	-	R3
+core	undo tree and persistent undo	common/undo.lua	partial	-	R3
+buffers	buffer list next prev delete	S-h S-l ,bd	built	escriba-runtime/tests/buffer_verbs.rs::next_and_prev_walk_the_list_and_wrap	-
+buffers	one buffer per file	vim core	built	escriba-buffer/tests/no_duplicate_buffers.rs::opening_the_same_path_twice_returns_the_same_buffer	-
+editing	comment toggle	gc gcc (Comment.nvim)	built	escriba-runtime/tests/comment_toggle.rs::toggling_twice_returns_the_original_exactly	-
+editing	format through the substrate registry	ff (conform)	built	escriba/tests/registry_formatter.rs::the_external_route_formats_the_buffer_text	-
+editing	move line or selection	A-j A-k	absent	-	R3
+editing	save	C-s	absent	-	R3
+editing	escape	jk	absent	-	R3
+editing	strip trailing whitespace on save	autocmd	absent	-	R3
+find	pick buffers and commands	,fb	built	escriba-runtime/tests/picker_end_to_end.rs::accepting_switches_buffer_through_the_interpreter	-
+find	pick files	,ff (telescope fd)	partial	-	R4
+find	live grep	,fg (telescope rg)	absent	-	R4
+find	file explorer	- (oil)	absent	-	R4
+find	project switcher	,fp (compass)	absent	-	R4
+lsp	live session sync	nvim lsp	built	escriba-runtime/tests/session_dispatch.rs::every_way_the_text_can_change_reaches_the_server	-
+lsp	completion hover definition	K gd (lspsaga, cmp)	partial	-	R4
+lsp	rename	,rn ,rN	absent	-	R4
+lsp	code action	,ca	absent	-	R4
+lsp	references and outline	gr ,o	absent	-	R4
+lsp	diagnostics list and jumps	[d ]d ,xx (trouble)	partial	-	R4
+syntax	tree-sitter highlight	nvim-treesitter	built	escriba-ts/tests/highlight_classification.rs::keywords_are_classified_as_keywords	-
+syntax	tree-sitter text objects af if ac ic aa ia	textobjects	absent	-	R4
+syntax	tree-sitter motions ]m [m and swap	textobjects	absent	-	R4
+git	hunk signs and inline blame	gitsigns	absent	-	R5
+git	hunk stage reset preview	,hs ,hr ,hp	absent	-	R5
+git	conflict resolution	-	built	escriba-runtime/tests/conflict_resolution.rs::resolving_is_undoable	-
+ui	statusline	lualine	partial	-	R5
+ui	theme Nord and Vellum with 256-colour fallback	colorscheme.lua	partial	-	R5
+ui	terminal	,tt (snacks)	absent	-	R5
+blue	blue tree-sitter grammar (kiwari)	blue grammar	absent	-	R2
+blue	blue lsp session	blue lsp	partial	-	R2
+blue	eval line, region and buffer in the live editor	blue.nvim \ee \er \eb	absent	-	R1
+blue	run, test, check, fmt the buffer	:BlueRun :BlueTest :BlueCheck :BlueFmt	absent	-	R2
+blue	repl	:BlueRepl	absent	-	R1
+config	keymap as blue data	lua keybindings	absent	-	R1
+config	options as shikumi-tiered blue entries	settings.lua	partial	-	R1
