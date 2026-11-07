@@ -1,5 +1,7 @@
 # escriba
 
+**Destination and parity:** `docs/DESTINATION.md` (blue embedded, programmable, shikumi-tiered blue config, rungs R1–R5); every blnvim parity row lives in `docs/parity.tsv`, gated by `escriba/tests/parity_matrix.rs` — a built row cites a `#[test]`, an open one names its rung.
+
 ## The vim key layer is a library — `escriba_keymap::KeyPipeline` (2026-09-26)
 
 Keys → actions is ONE implementation, in `escriba-keymap/src/pipeline.rs`,
