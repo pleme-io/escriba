@@ -2,7 +2,7 @@
   "schema_version": 2,
   "cargo_lock_sha256": "ab7f09f208e14efbe8c1fcd6e1f401d1fe7fe29ac49ae98d9f8cd1d124efd569",
   "manifest_sha256": {
-    "Cargo.toml": "8ab5881e0b1714d7a8f8d03b81d591933c3337850f925e9dc35a980d15372d32",
+    "Cargo.toml": "625037c84c54736955f0872737ef0971e9c81a0aea2219684361d2b1842916f9",
     "escriba-api/Cargo.toml": "f1e4219f834cb125f11d834acea8afdec7fc052a67884e733b393d7430b8ce04",
     "escriba-buffer/Cargo.toml": "0df28ab5a59bd80a96ae4317bf26aa3d47206c39c08e6cf25ade05cd1d7b0315",
     "escriba-command/Cargo.toml": "a93987158b0dc6147ee865a33e70c6fb382eec3571bd602f63cf49566b91e236",
