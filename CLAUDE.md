@@ -863,11 +863,9 @@ frame's cursor position. **The GPU face still does not draw a prompt
 caret** — `pending-prompt-caret: gpu-face`.
 
 > **★★★ CSE / Knowable Construction.** This repo operates under
-> **Constructive Substrate Engineering** — canonical specification at
-> [`pleme-io/theory/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md`](https://github.com/pleme-io/theory/blob/main/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md).
-> The Compounding Directive (operational rules: solve once, load-bearing
+> **Constructive Substrate Engineering**. The Compounding Directive (operational rules: solve once, load-bearing
 > fixes only, idiom-first, models stay current, direction beats velocity)
-> is in the org-level pleme-io/CLAUDE.md ★★★ section. Read both before
+> is in the org-level pleme-io/CLAUDE.md ★★★ section. Read it before
 > non-trivial changes. Rust + tatara-lisp modal editor; the canonical
 > `Rust owns invariants, Lisp owns authoring` application — 19 typed
 > crates renderable to GPU/TUI/text targets from the same domain types.
@@ -1086,9 +1084,7 @@ code.** Three things from it worth knowing before anyone reaches for this:
 `unicode_width` double-width handling) — not on mado, which is a bin. Two
 things move underneath it and are worth knowing before building on either:
 `tear/docs/SHUKEN.md` decides `PaneGrid` becomes the sole VT authority with
-all three original blockers cleared, and
-[`theory/NATURALIZE-TERMINAL.md`](https://github.com/pleme-io/theory/blob/main/NATURALIZE-TERMINAL.md)
-proposes that its dispatch table be GENERATED from a typed catalog rather than
+all three original blockers cleared, and a design proposes that its dispatch table be GENERATED from a typed catalog rather than
 hand-written (`masume`, design-tier, M0 green over 10 of ~1000 sequences).
 Neither changes doma's seam: escriba drives panes through
 `MultiplexerControl` either way.

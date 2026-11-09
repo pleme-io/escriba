@@ -43,7 +43,7 @@ the **bin**. There is no `mado::Terminal` to link against, and widening the lib
 to create one would be taking a rule out of the way rather than solving the
 problem.
 
-This is a textbook [MIRAGEM](https://github.com/pleme-io/theory/blob/main/MIRAGEM.md)
+This is a textbook MIRAGEM
 case. "We cannot embed mado" is phrased in terms of *our own abstraction* — the
 word "mado" naming a binary we happen to have built — so it is a missing
 primitive, not a wall. Phrase it as a fact about the world instead:

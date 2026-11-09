@@ -48,7 +48,7 @@ pub struct GpuRenderer {
     /// hikari highlight registry (built once — resolves path→Highlighter).
     eco: Ecosystem,
     /// The refresh generation of the currently-cached text buffer — the seal
-    /// (`theory/ESCRIBA.md` §Refresh-Seal). When `EditorState::edit_gen()`
+    /// of the refresh tree. When `EditorState::edit_gen()`
     /// still equals this, the cached shaped buffer is reused verbatim: no
     /// re-highlight, no re-shape. Init `u64::MAX` so the first frame always
     /// paints.
@@ -71,7 +71,7 @@ pub struct GpuRenderer {
     cached_annotations: Option<Buffer>,
     /// The incremental highlighter for the active buffer's language (M2). Held
     /// across frames so a re-highlight re-lexes only the lines that changed
-    /// (hikari's `LineState` fixpoint, `theory/ESCRIBA.md` §X) instead of the
+    /// (hikari's `LineState` fixpoint) instead of the
     /// whole visible window. Keyed by path so a language switch rebuilds it;
     /// `None` before the first paint.
     highlighter: Option<(String, Box<dyn hikari_core::IncrementalHighlighter>)>,
@@ -572,7 +572,7 @@ impl RenderCallback for GpuRenderer {
 
         // ── 2. Rebuild the shaped main-text buffer ONLY on a generation
         //    change; otherwise reuse the cached one. This is the seal
-        //    (theory/ESCRIBA.md §Refresh-Seal): highlight + set_rich_text +
+        //    of the refresh tree: highlight + set_rich_text +
         //    shape — the frame's dominant cost — run once per edit, never
         //    per vsync.
         let fg = chrome_glyph(palette.text);

@@ -1,6 +1,6 @@
 # blue in escriba — two integrations, both shipped
 
-`theory/BLUE.md` §VII.5 names escriba the strongest of blue's three
+escriba is the strongest of blue's three
 candidate consumers: *"an editor needs a user-facing language, escriba
 already speaks the AST, and blue is the ergonomic surface over it. Emacs'
 lesson, without Emacs Lisp."*

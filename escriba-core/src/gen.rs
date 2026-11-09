@@ -2,7 +2,7 @@
 //!
 //! One per `EditorState`. It bumps on every state mutation (edit, motion,
 //! mode change, viewport move) and is the root of escriba's sealed refresh
-//! tree (`theory/ESCRIBA.md` §Refresh-Seal): a rendered product is *fresh* iff
+//! tree: a rendered product is *fresh* iff
 //! its stamp equals the current `EditGen`, so a stale frame — one that shows a
 //! product older than the state it claims — has no reachable code path once
 //! the renderer gates on the stamp. Same monotonic-`u64` technique as mado's

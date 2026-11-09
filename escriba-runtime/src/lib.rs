@@ -158,7 +158,7 @@ pub struct EditorState {
     /// would land at that position in THIS one, so only `a-z` are accepted.
     marks: HashMap<char, Position>,
     /// Monotonic refresh-generation stamp — the root of the sealed refresh
-    /// tree (`theory/ESCRIBA.md` §Refresh-Seal). Bumped on every applied
+    /// tree. Bumped on every applied
     /// action + resize; the renderer gates on it so an idle frame does zero
     /// re-highlight / re-shape, and a stale frame is unreachable.
     edit_gen: EditGen,
@@ -5955,7 +5955,7 @@ mod tests {
         );
     }
 
-    /// The refresh-seal driver (theory/ESCRIBA.md §Refresh-Seal): an applied
+    /// The refresh-seal driver: an applied
     /// action advances `edit_gen` (so the renderer repaints), and merely
     /// reading the generation does not. This is what lets `gpu.rs` gate the
     /// re-highlight/re-shape on a generation change — an idle frame observes an
@@ -5975,7 +5975,7 @@ mod tests {
         assert_eq!(s.edit_gen(), g1, "reading edit_gen must not advance it");
     }
 
-    /// The M1 refresh node (theory/ESCRIBA.md §X): a mutation widens the typed
+    /// The M1 refresh node: a mutation widens the typed
     /// `Damage` to cover exactly what changed — local for an in-place edit,
     /// to-end-of-document when the line count shifts — and the renderer drains
     /// it per frame. `Damage ⊇ changed` by construction; it never narrows.

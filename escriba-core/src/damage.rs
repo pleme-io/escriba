@@ -1,6 +1,6 @@
 //! [`Damage`] + [`LineDelta`] — the typed dirty-region boundary.
 //!
-//! The second node of escriba's sealed refresh tree (`theory/ESCRIBA.md` §X),
+//! The second node of escriba's sealed refresh tree,
 //! below [`EditGen`](crate::EditGen): where `EditGen` answers *did anything
 //! change?*, `Damage` answers *what region changed?* so the renderer can scope
 //! its work (re-shape / scissored present) to that region instead of the whole

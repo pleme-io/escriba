@@ -61,7 +61,6 @@ escriba-lsp-client = { path = "escriba-lsp-client", version = "0.1.96" }
 # hikari (光) — the fleet syntax-highlighting spine (crates.io, zero-dep).
 # escriba-render consumes hikari-core (spine + incremental LineCache);
 # escriba-ts re-exports hikari-token::Semantic (the deduped fleet vocabulary).
-# See theory/HIKARI.md + theory/ESCRIBA.md.
 hikari-core     = "0.1"
 hikari-token    = { version = "0.1", features = ["schema"] }
 # hikari-ts — the self-contained tree-sitter host; escriba-ts re-exports it and
