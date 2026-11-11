@@ -295,3 +295,37 @@ system it would slot into.
 4. **Plugin ABI** — tatara-lisp only (Rust+Lisp pattern) vs WASI (broader
    community). Leaning tatara-lisp with a WASI fallback for untrusted
    community plugins.
+
+## Category Comparison Matrix
+
+
+| Capability | vim / neovim | helix | kakoune | emacs | zed | vscode | sublime | cursor / windsurf | **escriba (today)** | **escriba (next)** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Text primitive | line-based | selection-first | selection-first | buffer | rope | line | rope | line | typed Position/Range | — |
+| Buffer backing | gap buffer | rope (ropey) | rope | gap buffer | rope | array | rope | array | configurable | — |
+| Modal editing | yes (vi) | yes (helix) | yes (kak) | no | no | no | no | no | yes (vi-like) | add helix noun-verb option |
+| Multi-selection | weak | primary | primary | kill-ring only | primary | primary | primary | primary | single selection | **absorb: Selections (Vec<Selection>)** |
+| Registers / kill-ring | `"a…"z` + `"0`…`"9` | `"` + `_` | `"` + `*` | kill-ring | clipboard | clipboard | clipboard | clipboard | unnamed register, typed charwise/linewise, `p`/`P` | **absorb: named registers `"ay`, `"0`…`"9`, system clipboard via `hasami`** |
+| Marks / jumplist | `m[a-z]` + jumplist | jumplist | marks | marks + registers | — | — | — | — | — | **absorb: Marks + Jumplist** |
+| Tree-sitter | yes (plugin) | yes (built-in) | no | tree-sitter.el | yes (built-in) | yes | no | yes | yes (`escriba-ts`) | expand captures + folds |
+| LSP client | yes (plugin / built-in 0.5) | yes (built-in) | lsp-kak plugin | lsp-mode / eglot | yes (built-in) | yes (built-in) | LSP plugin | yes | yes (`escriba-lsp-client`) | enrich (inlay hints, semantic tokens, workspace symbols) |
+| DAP client | nvim-dap | — | dap-kak plugin | dape.el | debug | yes (built-in) | — | yes | — | **absorb: escriba-dap-client** |
+| Scripting language | vimscript + lua | none (yet) | shell | elisp | TS extensions | TS extensions | Python | TS | tatara-lisp (via `escriba-vm`) | **absorb: escriba-lisp authoring bridge** |
+| Package / plugin manager | vim-plug, lazy | — | plug.kak | package.el, elpaca | extensions (Rust+WASM) | marketplace | Package Control | marketplace | `escriba-plugin` scaffold | plugin manifest declared in Lisp |
+| Command palette | `:` | `:` + picker | `:` | `M-x` | Cmd-Shift-P | Cmd-Shift-P | Cmd-Shift-P | Cmd-Shift-P | `escriba-command` registry | wire palette UI + `egaku::fuzzy_score` |
+| Fuzzy picker | telescope, fzf-lua | built-in | fzf plugin | helm, vertico | built-in | quick open | goto anything | built-in | — | **absorb: escriba-picker (wraps `egaku::FuzzyPicker<T>`)** |
+| Which-key prompt | which-key.nvim | built-in | — | which-key.el | partial | partial | — | — | — | **absorb: WhichKey popup** |
+| Status line | lualine / lightline | built-in | status-line | mode-line | statusbar | status bar | status bar | status bar | basic | customizable via Lisp |
+| Tab / buffer line | bufferline.nvim | — | — | tab-bar-mode | tab bar | tabs | tabs | tabs | basic | — |
+| File tree | nvim-tree | — | — | dired, treemacs | file tree | explorer | sidebar | explorer | — | **absorb: escriba-tree** |
+| Git integration | fugitive, gitsigns | built-in gutter | — | magit | built-in | GitLens | git gutter | built-in | — | **absorb: escriba-git (reuse `git2`)** |
+| Integrated terminal | `:terminal` | — | — | ansi-term, eat, vterm | built-in | built-in | — | built-in | — | **absorb: escriba-term (embed mado/frost)** |
+| AI inline assist | copilot.lua | — | — | gptel | zed-ai | copilot | LLM plugin | primary | `escriba-mcp` server | **absorb: MCP client + inline completion** |
+| Snippets | luasnip | — | — | yasnippet | snippets | snippets | snippets | snippets | — | snippet spec in Lisp |
+| Folding | `foldmethod=syntax/treesitter` | — | — | origami.el, hs-mode | built-in | built-in | — | built-in | — | tree-sitter folds |
+| Undo tree | undotree.vim | — | — | undo-tree.el | linear | linear | linear | linear | basic undo | persistent undo tree |
+| Macros | `q` / `Q` | — | — | kbd-macros | — | — | — | — | — | record keys → action seq |
+| Collaboration | — | — | — | crdt.el | primary | Live Share | — | primary | — | — |
+| Notebook cells | notebook.nvim | — | — | org-babel, jupyter | repl | Jupyter | — | — | — | — |
+| Session / layout persistence | session.vim | — | — | desktop.el | workspaces | workspaces | projects | workspaces | — | layout serializer |
+| Minimap | — | — | — | minimap.el | yes | yes | yes (iconic) | yes | — | optional |
